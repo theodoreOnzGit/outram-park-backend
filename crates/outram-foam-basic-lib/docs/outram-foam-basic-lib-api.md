@@ -1,6 +1,6 @@
 # Crate Documentation
 
-**Version:** 0.1.8
+**Version:** 0.1.9
 
 **Format Version:** 61
 
@@ -13,6 +13,21 @@ sanctioned by OpenCFD Ltd. or the ESI Group.** OpenFOAM® is a registered
 trademark of OpenCFD Limited. See `TRADEMARKS.md` (this crate's
 directory, mirrored from the workspace root) for the full attribution
 and non-affiliation notice.
+
+# `no_std` + `alloc` (gh:#1586)
+
+With its default `std` feature off the crate is `no_std` + `alloc`: the
+physics (meshes, fields, the finite-volume operators, the LDU and Krylov
+solvers, the ODE integrators, thermophysics, radiation) builds for a
+bare-metal target (`cargo check -p outram-foam-basic-lib
+--no-default-features --target x86_64-unknown-none`). `std` carries what
+needs an operating system: the case reader/writer's files (`io`),
+wall-clock timing, the thread pools (`math::parallel`, `ode::parallel`)
+and the compute-backend probe. In a `no_std` build the float methods
+`core` lacks (`sqrt`, `floor`, `mul_add`, ...) come from
+`petir::real::Real` (`libm`); with `std` they are `std`'s own, so a `std`
+build computes exactly what it did before. Unit tests always build with
+`std`.
 
 ## Modules
 
@@ -282,6 +297,7 @@ Fields:
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -295,6 +311,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -397,6 +414,7 @@ point would be mistaken for physics.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -410,6 +428,7 @@ point would be mistaken for physics.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -526,6 +545,7 @@ pub struct SplitPlan {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -539,6 +559,7 @@ pub struct SplitPlan {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -682,6 +703,7 @@ GPU compute via `wgpu` (`gpu` feature, non-Android, adapter present).
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -700,6 +722,7 @@ GPU compute via `wgpu` (`gpu` feature, non-Android, adapter present).
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -828,6 +851,7 @@ Fields:
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -841,6 +865,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -1611,6 +1636,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1624,6 +1650,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1774,6 +1801,7 @@ pub struct PatchField<T: Clone> {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -1787,6 +1815,7 @@ pub struct PatchField<T: Clone> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -1894,12 +1923,12 @@ pub struct Field<T> {
   Consume the field, returning its underlying `Vec<T>`.
 
 - ```rust
-  pub fn iter(self: &Self) -> std::slice::Iter<''_, T> { /* ... */ }
+  pub fn iter(self: &Self) -> core::slice::Iter<''_, T> { /* ... */ }
   ```
   Iterator over element references.
 
 - ```rust
-  pub fn iter_mut(self: &mut Self) -> std::slice::IterMut<''_, T> { /* ... */ }
+  pub fn iter_mut(self: &mut Self) -> core::slice::IterMut<''_, T> { /* ... */ }
   ```
   Iterator over mutable element references.
 
@@ -2060,6 +2089,7 @@ pub struct Field<T> {
     fn div(self: Self, rhs: Self) -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -2096,6 +2126,7 @@ pub struct Field<T> {
     fn into_iter(self: Self) -> <Self as >::IntoIter { /* ... */ }
     ```
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, rhs: f64) -> Self { /* ... */ }
@@ -2431,7 +2462,7 @@ Generic over the element type: works for `Field<f64>`, `Field<Vector3>`,
 stores bare numbers and cannot check that); the result carries it too.
 
 Every output element is computed by the same expression as the serial
-[`std::ops::Add`] impl on [`Field`], so the result is **bit-identical** to
+[`core::ops::Add`] impl on [`Field`], so the result is **bit-identical** to
 [`ComputeBackend::Serial`](crate::compute::ComputeBackend::Serial) on any backend and any thread count.
 
 # Panics
@@ -2460,7 +2491,7 @@ where
 Element-wise difference `c[i] = a[i] - b[i]`, returning a new field.
 
 **Units:** as for [`add`] — both operands are the same physical quantity.
-Bit-identical to the serial [`std::ops::Sub`] impl on [`Field`].
+Bit-identical to the serial [`core::ops::Sub`] impl on [`Field`].
 
 # Panics
 
@@ -2481,7 +2512,7 @@ Used for under-relaxation (`s = alpha`, dimensionless), for `1/dt` weighting
 
 **Units:** the result carries `[a] * [s]`; this layer treats `s` as a bare
 number and cannot check it. Bit-identical to the serial
-[`std::ops::Mul<f64>`] impl on [`Field`].
+[`core::ops::Mul<f64>`] impl on [`Field`].
 
 ```rust
 pub fn scale<T>(backend: crate::compute::ComputeBackend, a: &crate::fields::field::Field<T>, s: f64) -> crate::fields::field::Field<T>
@@ -2781,7 +2812,7 @@ pub fn dot(backend: crate::compute::ComputeBackend, a: &crate::fields::field::Fi
 Sum of two volume fields — internal field **and** every boundary patch.
 
 The result takes `a`'s `name`, `a`'s mesh, and `a`'s per-patch boundary
-conditions, exactly like the serial [`std::ops::Add`] impl on [`VolField`].
+conditions, exactly like the serial [`core::ops::Add`] impl on [`VolField`].
 
 **The name is copied, never composed.** See the module docs: composing names
 here produces `2^step` string growth in a solver loop.
@@ -3211,7 +3242,7 @@ the LDU matrix structure: `lower` and `upper` arrays have length
 ```rust
 pub struct SurfaceField<T: Clone> {
     pub name: String,
-    pub mesh: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub internal: super::field::Field<T>,
     pub boundary: Vec<super::boundary::bc::PatchField<T>>,
 }
@@ -3222,7 +3253,7 @@ pub struct SurfaceField<T: Clone> {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `name` | `String` | Field name (diagnostic label, e.g. `"phi"`). |
-| `mesh` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh this field is defined on. |
+| `mesh` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh this field is defined on. |
 | `internal` | `super::field::Field<T>` | Face values for all internal faces; length == `mesh.n_internal_faces`. |
 | `boundary` | `Vec<super::boundary::bc::PatchField<T>>` | One entry per boundary patch; `boundary[i].values` has length<br>`mesh.patches[i].size`. |
 
@@ -3297,6 +3328,7 @@ pub struct SurfaceField<T: Clone> {
     fn div(self: Self, s: f64) -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3310,6 +3342,7 @@ pub struct SurfaceField<T: Clone> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, s: f64) -> Self { /* ... */ }
@@ -3390,7 +3423,7 @@ The internal field has length `mesh.n_cells`.
 ```rust
 pub struct VolField<T: Clone> {
     pub name: String,
-    pub mesh: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub internal: super::field::Field<T>,
     pub boundary: Vec<super::boundary::bc::PatchField<T>>,
 }
@@ -3401,7 +3434,7 @@ pub struct VolField<T: Clone> {
 | Name | Type | Documentation |
 |------|------|---------------|
 | `name` | `String` | Field name (diagnostic label, e.g. `"p"`, `"U"`, `"T"`). |
-| `mesh` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh this field is defined on. |
+| `mesh` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh this field is defined on. |
 | `internal` | `super::field::Field<T>` | Cell-centred values; length == `mesh.n_cells`. |
 | `boundary` | `Vec<super::boundary::bc::PatchField<T>>` | One entry per boundary patch; `boundary[i].values` has length<br>`mesh.patches[i].size`. |
 
@@ -3476,6 +3509,7 @@ pub struct VolField<T: Clone> {
     fn div(self: Self, s: f64) -> <Self as >::Output { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3489,6 +3523,7 @@ pub struct VolField<T: Clone> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, s: f64) -> <Self as >::Output { /* ... */ }
@@ -3866,6 +3901,7 @@ pub struct PsiThermo<M: TransportModel> {
     fn correct_rho(self: &mut Self, delta_rho: &VolScalarField, rho_min: f64, rho_max: f64) { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -3879,6 +3915,7 @@ pub struct PsiThermo<M: TransportModel> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4016,6 +4053,7 @@ pub struct RhoThermo<M: TransportModel> {
     fn correct_rho(self: &mut Self, delta_rho: &VolScalarField, rho_min: f64, rho_max: f64) { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4029,6 +4067,7 @@ pub struct RhoThermo<M: TransportModel> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4137,6 +4176,7 @@ pub struct ConstSolidThermo {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4150,6 +4190,7 @@ pub struct ConstSolidThermo {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -4533,11 +4574,6 @@ pub fn derived_name2(op: &str, first: &str, second: &str) -> String { /* ... */ 
 
 #### Constant `ELIDED_OPERAND`
 
-The marker substituted for an operand that is itself operator-derived.
-
-Chosen as plain ASCII so field names stay safe to write into an OpenFOAM
-case file and to compare in tests.
-
 ```rust
 pub const ELIDED_OPERAND: &str = "..";
 ```
@@ -4727,6 +4763,7 @@ pub struct KnpFaceState {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4740,6 +4777,7 @@ pub struct KnpFaceState {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4827,6 +4865,7 @@ pub struct KnpFaceFlux {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4840,6 +4879,7 @@ pub struct KnpFaceFlux {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -4925,6 +4965,7 @@ pub struct KnpWaveSpeeds {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -4938,6 +4979,7 @@ pub struct KnpWaveSpeeds {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5151,6 +5193,12 @@ pub use div::div;
 pub use div::div_flux;
 ```
 
+#### Re-export `div_limited`
+
+```rust
+pub use div::div_limited;
+```
+
 #### Re-export `div_vec`
 
 ```rust
@@ -5203,6 +5251,12 @@ pub use grad_least_squares::grad_least_squares_face_centre;
 
 ```rust
 pub use grad_vec::grad_vec;
+```
+
+#### Re-export `grad_vec_corrected`
+
+```rust
+pub use grad_vec_corrected::grad_vec_corrected;
 ```
 
 #### Re-export `interpolate`
@@ -5294,7 +5348,7 @@ unknowns) whose solve advances the field, rather than returning an explicit
 field.
 
 Mirrors `Foam::fvm::` (`src/finiteVolume/finiteVolume/fvm/`). Contents:
-implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_vec`,
+implicit Euler time derivatives (`ddt`, `ddt_coeff`, `ddt_coeff_old`, `ddt_vec`,
 `ddt_coeff_vec`) and the second time derivative (`d2dt2`, `d2dt2_coeff`),
 first-order upwind convection (`div`, `div_vec`), the Gauss-orthogonal
 Laplacian (`laplacian`, `laplacian_vec`), its **non-orthogonality-corrected**
@@ -5333,6 +5387,12 @@ pub use ddt::ddt;
 
 ```rust
 pub use ddt::ddt_coeff;
+```
+
+#### Re-export `ddt_coeff_old`
+
+```rust
+pub use ddt::ddt_coeff_old;
 ```
 
 #### Re-export `ddt_coeff_vec`
@@ -5381,6 +5441,12 @@ pub use laplacian::laplacian_with_delta;
 
 ```rust
 pub use laplacian::laplacian_with_delta_and_source;
+```
+
+#### Re-export `laplacian_with_delta_diag_and_source`
+
+```rust
+pub use laplacian::laplacian_with_delta_diag_and_source;
 ```
 
 #### Re-export `DeltaCoeff`
@@ -5477,6 +5543,467 @@ pub use sup::su_sp_vec;
 
 ```rust
 pub use sup::su_vec;
+```
+
+## Module `les_filter`
+
+The `LESfilter` family: `simple`, `laplace` and `anisotropic` (gh:#1544, under #1377).
+
+Ported from OpenFOAM-v2506 (ESI), `src/TurbulenceModels/turbulenceModels/LES/LESfilters/`
+(`simpleFilter/simpleFilter.C`, `laplaceFilter/laplaceFilter.C`,
+`anisotropicFilter/anisotropicFilter.C`), with the finite-volume operators they call
+(`finiteVolume/fvc/fvcSurfaceIntegrate.C`: `surfaceSum`, `surfaceIntegrate`;
+`gaussLaplacianSchemes.C`: the scalar-gamma `fvcLaplacian`; `snGradScheme.C` with the
+default `uncorrected` scheme). Each filter is generic over scalar, vector, symmTensor and
+tensor fields through [`FilterValue`], and returns a field WITH its boundary values
+(calculated patches), because a filter's output is routinely filtered again (the dynamic
+models chain three passes) and the second pass interpolates those boundary values.
+
+* [`simple_filter`]: `surfaceSum(magSf * interpolate(f)) / surfaceSum(magSf)`; the boundary
+  of the result is the owner-cell value (upstream's `extrapolatedCalculated`).
+* [`LaplaceFilter`]: `f + laplacian(coeff, f)` with `coeff = V^(2/3)/widthCoeff`. Upstream
+  builds `coeff_` as a calculated field whose boundary is ZERO, so the interpolated `gamma`
+  is zero on every boundary face and no filter flux crosses a boundary: reproduced here
+  (gh:#1544 prediction 3), not "fixed".
+* [`AnisotropicFilter`]: `f + (coeff & surfaceIntegrate(Sf * snGrad(f)))` with the per-direction
+  `coeff_d = (1/widthCoeff) sqr(2 V / surfaceSum(|Sf_d|))`; symmTensor and tensor fields are
+  filtered component by component, as upstream does.
+
+**Status: AI draft.** Compared per cell and per boundary face against the real ESI classes in
+`outram-foam-turbulence-lib/tests/openfoam_turbulence_code_to_code.rs`
+(`upstream_turb_gh1362/README.md`, slice 7). Supported boundary conditions: those whose
+`snGrad` upstream is `deltaCoeffs*(b - P)` (fixedValue, calculated, field-valued), plus
+`ZeroGradient`/`Symmetry` (zero) and `FixedGradient` (the gradient). `Mixed` patches take the
+generic path and are NOT claimed.
+
+```rust
+pub mod les_filter { /* ... */ }
+```
+
+### Types
+
+#### Struct `LaplaceFilter`
+
+Upstream `laplaceFilter`: `f + fvc::laplacian(coeff, f)`, `coeff = V^(2/3)/widthCoeff`.
+
+```rust
+pub struct LaplaceFilter {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>, width_coeff: f64) -> Self { /* ... */ }
+  ```
+  `laplaceFilter(mesh, widthCoeff)`: `coeff = pow(V, 2.0/3.0)/widthCoeff`
+
+- ```rust
+  pub fn with_coeff(mesh: Arc<FvMesh>, width_coeff: f64, coeff: Vec<f64>) -> Self { /* ... */ }
+  ```
+  The same filter with an explicit coefficient field (to separate the libm `pow` from the
+
+- ```rust
+  pub fn coeff(self: &Self) -> &[f64] { /* ... */ }
+  ```
+  The per-cell coefficient `V^(2/3)/widthCoeff` [m^2].
+
+- ```rust
+  pub fn width_coeff(self: &Self) -> f64 { /* ... */ }
+  ```
+  The `widthCoeff`.
+
+- ```rust
+  pub fn mesh(self: &Self) -> &Arc<FvMesh> { /* ... */ }
+  ```
+  The mesh the coefficient was built on.
+
+- ```rust
+  pub fn apply<T: FilterValue>(self: &Self, vf: &VolField<T>) -> VolField<T> { /* ... */ }
+  ```
+  `f + laplacian(coeff, f)` (`laplaceFilter.C`): `fvc::div(gamma_f * snGrad(f) * magSf)`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AnisotropicFilter`
+
+Upstream `anisotropicFilter`: per-direction coefficient
+`coeff_d = (1/widthCoeff) sqr(2 V / surfaceSum(|Sf_d|))`.
+
+```rust
+pub struct AnisotropicFilter {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mesh: Arc<FvMesh>, width_coeff: f64) -> Self { /* ... */ }
+  ```
+  `anisotropicFilter(mesh, widthCoeff)` (`anisotropicFilter.C`).
+
+- ```rust
+  pub fn coeff(self: &Self) -> &[Vector3] { /* ... */ }
+  ```
+  The per-cell directional coefficients [m^2].
+
+- ```rust
+  pub fn width_coeff(self: &Self) -> f64 { /* ... */ }
+  ```
+  The `widthCoeff`.
+
+- ```rust
+  pub fn mesh(self: &Self) -> &Arc<FvMesh> { /* ... */ }
+  ```
+  The mesh the coefficients were built on.
+
+- ```rust
+  pub fn apply<T: FilterValue>(self: &Self, vf: &VolField<T>) -> VolField<T> { /* ... */ }
+  ```
+  `f + (coeff & surfaceIntegrate(Sf*snGrad(f)))`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `LesFilter`
+
+A filter chosen at run time (upstream `LESfilter::New`), by enum dispatch.
+
+```rust
+pub enum LesFilter {
+    Simple,
+    Laplace(LaplaceFilter),
+    Anisotropic(AnisotropicFilter),
+}
+```
+
+##### Variants
+
+###### `Simple`
+
+`simple`.
+
+###### `Laplace`
+
+`laplace`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `LaplaceFilter` |  |
+
+###### `Anisotropic`
+
+`anisotropic`.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `AnisotropicFilter` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn apply<T: FilterValue>(self: &Self, vf: &VolField<T>) -> VolField<T> { /* ... */ }
+  ```
+  Filter `vf`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `FilterValue`
+
+A field value a filter can act on (scalar, vector, symmTensor, tensor).
+
+```rust
+pub trait FilterValue: Clone + Default + Add<Output = Self> + Sub<Output = Self> + Mul<f64, Output = Self> + Div<f64, Output = Self> {
+    /* Associated items */
+}
+```
+
+> This trait is not object-safe and cannot be used in dynamic trait objects.
+
+##### Required Items
+
+###### Required Methods
+
+- `anisotropic`: The [`AnisotropicFilter`] applied to `vf` (scalar and vector directly, symmTensor and
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `f64`
+- `crate::primitives::Vector3`
+- `crate::primitives::SymmTensor`
+- `crate::primitives::Tensor`
+
+### Functions
+
+#### Function `surface_sum`
+
+Upstream `fvc::surfaceSum`: zero, then every internal face added to owner AND neighbour in
+face order, then every boundary face added to its owner (`fvcSurfaceIntegrate.C`).
+
+```rust
+pub fn surface_sum<T>(mesh: &crate::mesh::fv_mesh::FvMesh, internal: &[T], boundary: &[Vec<T>]) -> Vec<T>
+where
+    T: Clone + Default + Add<Output = T> { /* ... */ }
+```
+
+#### Function `surface_integrate`
+
+Upstream `fvc::surfaceIntegrate`: zero, `+=` into the owner and `-=` out of the neighbour
+per internal face, boundary faces `+=` into the owner, then a DIVISION by the cell volume.
+
+```rust
+pub fn surface_integrate<T>(mesh: &crate::mesh::fv_mesh::FvMesh, internal: &[T], boundary: &[Vec<T>]) -> Vec<T>
+where
+    T: Clone + Default + Add<Output = T> + Sub<Output = T> + Div<f64, Output = T> { /* ... */ }
+```
+
+#### Function `simple_filter`
+
+Upstream `simpleFilter::operator()`:
+`surfaceSum(magSf*interpolate(f))/surfaceSum(magSf)` (`simpleFilter.C`).
+
+```rust
+pub fn simple_filter<T: FilterValue>(vf: &crate::fields::vol_field::VolField<T>) -> crate::fields::vol_field::VolField<T> { /* ... */ }
 ```
 
 ### Re-exports
@@ -5689,6 +6216,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5702,6 +6230,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -5784,6 +6313,7 @@ pub struct EquationField<''n>(pub &'n str);
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5797,6 +6327,7 @@ pub struct EquationField<''n>(pub &'n str);
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -5933,6 +6464,7 @@ pub struct FvModels {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -5946,6 +6478,7 @@ pub struct FvModels {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6045,6 +6578,7 @@ pub struct SourceContribution {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6058,6 +6592,7 @@ pub struct SourceContribution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6168,13 +6703,6 @@ pub mod interpolate_spline_xy { /* ... */ }
 
 #### Function `interpolate_spline_xy`
 
-Catmull-Rom cubic spline interpolation over a sorted table `(xs, ys)`.
-
-At the boundary knots the missing neighbours are mirrored (ghost-point
-extension), matching OpenFOAM's `Foam::interpolateSplineXY`.
-Clamps to endpoint values outside the table range.
-Assumes `xs` is sorted in ascending order.
-
 ```rust
 pub fn interpolate_spline_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 { /* ... */ }
 ```
@@ -6188,12 +6716,6 @@ pub mod interpolate_xy { /* ... */ }
 ### Functions
 
 #### Function `interpolate_xy`
-
-Linear 1-D interpolation over a sorted table `(xs, ys)`.
-
-Clamps to the endpoint values outside the table range.
-Assumes `xs` is sorted in ascending order.
-Maps to `Foam::interpolateXY(scalar, UList<scalar>&, UList<Type>&)`.
 
 ```rust
 pub fn interpolate_xy(x: f64, xs: &[f64], ys: &[f64]) -> f64 { /* ... */ }
@@ -6265,6 +6787,11 @@ pub mod io { /* ... */ }
 
 ## Module `case`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:66:7: 66:22 (#0) }])]")`
+
+Whole case directories: `std` only (gh:#1586), it is files throughout.
 Whole-**case** reader (`system/`, `constant/polyMesh`, a time directory).
 
 [`FoamCase::read`] loads an OpenFOAM case directory into memory:
@@ -6367,6 +6894,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6380,6 +6908,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6415,7 +6944,7 @@ pub struct FoamCase {
     pub root: std::path::PathBuf,
     pub system: Vec<(String, super::dict::FoamFile)>,
     pub poly_mesh: Option<super::poly_mesh::PolyMesh>,
-    pub mesh: Option<std::sync::Arc<crate::mesh::FvMesh>>,
+    pub mesh: Option<alloc::sync::Arc<crate::mesh::FvMesh>>,
     pub time_dir: String,
     pub fields: Vec<CaseField>,
     pub skipped_fields: Vec<(String, String)>,
@@ -6429,7 +6958,7 @@ pub struct FoamCase {
 | `root` | `std::path::PathBuf` | The case root directory. |
 | `system` | `Vec<(String, super::dict::FoamFile)>` | `system/` dictionaries, keyed by file name (`controlDict`, …). |
 | `poly_mesh` | `Option<super::poly_mesh::PolyMesh>` | The connectivity-carrying mesh from `constant/polyMesh`, if present. |
-| `mesh` | `Option<std::sync::Arc<crate::mesh::FvMesh>>` | The geometry-carrying FV mesh derived from `poly_mesh`, if present. |
+| `mesh` | `Option<alloc::sync::Arc<crate::mesh::FvMesh>>` | The geometry-carrying FV mesh derived from `poly_mesh`, if present. |
 | `time_dir` | `String` | The time directory that was read (e.g. `"0"`). |
 | `fields` | `Vec<CaseField>` | Fields loaded from the time directory. |
 | `skipped_fields` | `Vec<(String, String)>` | Field files skipped because their `class` is not a scalar/vector volume<br>field (`(file_name, class)`). |
@@ -6490,6 +7019,7 @@ pub struct FoamCase {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6503,6 +7033,7 @@ pub struct FoamCase {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -6621,6 +7152,7 @@ pub struct Token {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6634,6 +7166,7 @@ pub struct Token {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6725,6 +7258,7 @@ pub struct Dimensioned {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6738,6 +7272,7 @@ pub struct Dimensioned {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -6898,6 +7433,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -6911,6 +7447,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7068,6 +7605,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7081,6 +7619,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7219,6 +7758,7 @@ pub struct FoamDict {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7232,6 +7772,7 @@ pub struct FoamDict {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7360,6 +7901,7 @@ pub struct FoamHeader {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7373,6 +7915,7 @@ pub struct FoamHeader {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7490,6 +8033,7 @@ pub struct FoamFile {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7503,6 +8047,7 @@ pub struct FoamFile {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7570,7 +8115,265 @@ turns that into a plain error naming the file.
 pub const MAX_INCLUDE_DEPTH: usize = 16;
 ```
 
+## Module `esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgAttrTrace([Not(NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/esi.rs:31:17: 31:32 (#0) }, crates/outram-foam-basic-lib/src/io/esi.rs:31:16: 31:33 (#0))])]")`
+
+ESI (OpenFOAM.com) v2506 ASCII file format, as an OPTION beside the
+crate's own writers (gh:#1363 row 7; maintainer: "ESI preferred").
+
+The default writers (`PolyMesh::write`, `write_vol_*_field`) keep their
+form: shortest-round-trip numbers, an "OUTRAM PARK" banner, no `arch` or
+`note` entries. This module adds the layout ESI v2506 itself writes, so a
+file produced here is byte-identical to the one `blockMesh`/`icoFoam`
+writes where the numbers agree:
+
+- the ESI banner (`Version:  2506`), parameterised by
+  [`EsiWriteOptions::version`];
+- `arch "LSB;label=32;scalar=64";` in the `FoamFile` header, and the
+  `note "nPoints:..  nCells:..  nFaces:..  nInternalFaces:.."` entry in
+  `owner` and `neighbour`;
+- two blank lines after the separator and (list files) before the footer;
+- scalars through C++ `ostream` default formatting (`%g`) at
+  `writePrecision` (default 6): see [`format_g`];
+- `inGroups 1(<type>);` in `boundary` for `wall` and the constraint types.
+
+Upstream: OpenFOAM-v2506 `IOobject::writeHeader`
+(`src/OpenFOAM/db/IOobject/IOobjectWriteHeader.C`), `polyMesh::writeObject`
+and `polyPatch::write`; the banner comes from `foamHeader`.
+
+The ESI banner is the format ESI writes. Using it does not make the
+producer OpenFOAM: that is why it is an option, and why the default
+banner keeps naming this project.
+
+```rust
+pub mod esi { /* ... */ }
+```
+
+### Types
+
+#### Struct `EsiWriteOptions`
+
+Options of the ESI writers.
+
+```rust
+pub struct EsiWriteOptions {
+    pub version: String,
+    pub precision: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `version` | `String` | Text after `Version:` in the banner (`"2506"` for the polyMesh files<br>and fields ESI v2506 writes; its `controlDict` template says `v2506`). |
+| `precision` | `usize` | `writePrecision` (significant digits); ESI's default is 6. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn with_precision(self: Self, precision: usize) -> Self { /* ... */ }
+  ```
+  Same options at another `writePrecision`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `format_g`
+
+C++ `ostream` default floating-point formatting (`%g`) with `precision`
+significant digits: what ESI writes for every `scalar`.
+
+Fixed notation when `-4 <= exponent < precision`, otherwise scientific
+with at least two exponent digits (`1e-05`); trailing zeros are removed.
+
+```rust
+pub fn format_g(x: f64, precision: usize) -> String { /* ... */ }
+```
+
+#### Function `esi_banner`
+
+ESI banner for `version`.
+
+```rust
+pub fn esi_banner(version: &str) -> String { /* ... */ }
+```
+
+#### Function `esi_header`
+
+Banner + `FoamFile` header + separator, ending after the separator line.
+
+`extra` is written between `arch` and `class` (the `note` entry), as a
+ready-made `("note", "\"...\"")` pair.
+
+```rust
+pub fn esi_header(opts: &EsiWriteOptions, extra: &[(&str, String)], class: &str, location: &str, object: &str) -> String { /* ... */ }
+```
+
+#### Function `write_time_file_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/esi.rs:171:7: 171:22 (#0) }])]")`
+
+Write `<time_dir>/uniform/time` as ESI's `Time::writeObject` does:
+`value` at 18 significant digits, the time `name`, step `index`, and
+`deltaT` / `deltaT0` at `opts.precision`.
+
+# Errors
+[`IoError`] if the directory or file cannot be written.
+
+```rust
+pub fn write_time_file_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(time_dir: impl AsRef<std::path::Path>, name: &str, value: f64, index: usize, delta_t: f64, delta_t0: f64, opts: &EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
+#### Function `write_label_set_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/esi.rs:245:7: 245:22 (#0) }])]")`
+
+Write a `topoSet` file (`cellSet`, `faceSet`, `pointSet`) as ESI's
+`topoSet::writeData` does (gh:#1384): the ESI header (class `class`,
+`location`, object `name`) and the labels **in the order given**, which
+must be the iteration order of upstream's `labelHashSet` (see
+`outram_foam_mesh::topo_set::LabelHashSet`). Up to 10 labels go on one line
+as `N(a b c)`, more in the long form; keys are never written as `N{v}`.
+
+# Errors
+[`IoError`] if the directory or file cannot be written.
+
+```rust
+pub fn write_label_set_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(dir: impl AsRef<std::path::Path>, class: &str, location: &str, name: &str, labels: &[usize], opts: &EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
+#### Function `write_cell_zones_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/esi.rs:272:7: 272:22 (#0) }])]")`
+
+Write `<dir>/cellZones` as ESI's `blockMesh` does (the zone names are also
+listed in a `meta` entry of the header). Nothing is written for no zones.
+
+# Errors
+[`IoError`] if the file cannot be written.
+
+```rust
+pub fn write_cell_zones_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(dir: impl AsRef<std::path::Path>, location: &str, zones: &[(String, Vec<usize>)], opts: &EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
+#### Function `write_label_list_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/esi.rs:485:7: 485:22 (#0) }])]")`
+
+Write a `labelList` file (`object`) as ESI's `IOList<label>::writeContents`
+does for the `*ProcAddressing` files of `decomposePar` (gh:#1381): header with
+no `note`, then the list in ESI's short/long layout. Values are signed
+because `faceProcAddressing` carries a turning index.
+
+# Errors
+[`IoError`] if the file cannot be written.
+
+```rust
+pub fn write_label_list_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, location: &str, object: &str, values: &[i64], opts: &EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
 ## Module `field`
+
+**Attributes:**
+
+- `Other("#[attr = CfgAttrTrace([Not(NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:52:17: 52:32 (#0) }, crates/outram-foam-basic-lib/src/io/field.rs:52:16: 52:33 (#0))])]")`
 
 Time-directory **field** file read/write (`0/p`, `0/U`, …).
 
@@ -7617,6 +8420,10 @@ pub type Dimensions = [f64; 7];
 
 #### Function `read_vol_scalar_field`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:76:7: 76:22 (#0) }])]")`
+
 Read a `volScalarField` file, returning the field and its dimensions.
 
 The `mesh` supplies the cell count and the boundary-patch order/sizes the
@@ -7624,18 +8431,26 @@ field is defined on; the file's `boundaryField` is matched to it by patch
 name.
 
 ```rust
-pub fn read_vol_scalar_field</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, mesh: std::sync::Arc<crate::mesh::FvMesh>) -> Result<(crate::fields::VolScalarField, Dimensions), super::IoError> { /* ... */ }
+pub fn read_vol_scalar_field</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, mesh: alloc::sync::Arc<crate::mesh::FvMesh>) -> Result<(crate::fields::VolScalarField, Dimensions), super::IoError> { /* ... */ }
 ```
 
 #### Function `read_vol_vector_field`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:101:7: 101:22 (#0) }])]")`
+
 Read a `volVectorField` file, returning the field and its dimensions.
 
 ```rust
-pub fn read_vol_vector_field</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, mesh: std::sync::Arc<crate::mesh::FvMesh>) -> Result<(crate::fields::VolVectorField, Dimensions), super::IoError> { /* ... */ }
+pub fn read_vol_vector_field</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, mesh: alloc::sync::Arc<crate::mesh::FvMesh>) -> Result<(crate::fields::VolVectorField, Dimensions), super::IoError> { /* ... */ }
 ```
 
 #### Function `write_vol_scalar_field`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:137:7: 137:22 (#0) }])]")`
 
 Write a `volScalarField` file to `path` with the given `dimensions`.
 
@@ -7645,13 +8460,66 @@ pub fn write_vol_scalar_field</* synthetic */ impl AsRef<Path>: AsRef<std::path:
 
 #### Function `write_vol_vector_field`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:155:7: 155:22 (#0) }])]")`
+
 Write a `volVectorField` file to `path` with the given `dimensions`.
 
 ```rust
 pub fn write_vol_vector_field</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, field: &crate::fields::VolVectorField, dimensions: Dimensions) -> Result<(), super::IoError> { /* ... */ }
 ```
 
+#### Function `write_vol_scalar_field_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:173:7: 173:22 (#0) }])]")`
+
+[`write_vol_scalar_field`] in ESI v2506's layout (gh:#1363 row 7): ESI
+banner, `arch`, `location "<location>"` (the time directory name), numbers
+as `%g` at `opts.precision`, two blank lines before the footer.
+
+```rust
+pub fn write_vol_scalar_field_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, field: &crate::fields::VolScalarField, dimensions: Dimensions, location: &str, opts: &super::esi::EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
+#### Function `write_surface_scalar_field_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:196:7: 196:22 (#0) }])]")`
+
+Write a `surfaceScalarField` (the face flux `phi`) in ESI v2506's layout
+(gh:#1363 row 7): `oriented oriented;`, the internal-face values, and per
+patch `type empty;` or `type calculated;` with a `value uniform` entry.
+
+A non-uniform boundary `value` is written in the same one-line form as
+the volume-field writers (ESI's layout for it is NOT verified; the cavity
+flux has all-zero boundary values).
+
+```rust
+pub fn write_surface_scalar_field_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, field: &crate::fields::SurfaceScalarField, dimensions: Dimensions, location: &str, opts: &super::esi::EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
+#### Function `write_vol_vector_field_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/field.rs:235:7: 235:22 (#0) }])]")`
+
+[`write_vol_vector_field`] in ESI v2506's layout; see
+[`write_vol_scalar_field_esi`].
+
+```rust
+pub fn write_vol_vector_field_esi</* synthetic */ impl AsRef<Path>: AsRef<std::path::Path>>(path: impl AsRef<std::path::Path>, field: &crate::fields::VolVectorField, dimensions: Dimensions, location: &str, opts: &super::esi::EsiWriteOptions) -> Result<(), super::IoError> { /* ... */ }
+```
+
 ## Module `poly_mesh`
+
+**Attributes:**
+
+- `Other("#[attr = CfgAttrTrace([Not(NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/poly_mesh.rs:51:17: 51:32 (#0) }, crates/outram-foam-basic-lib/src/io/poly_mesh.rs:51:16: 51:33 (#0))])]")`
 
 `constant/polyMesh` read/write.
 
@@ -7743,6 +8611,7 @@ pub struct MeshFace {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7756,6 +8625,7 @@ pub struct MeshFace {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -7819,6 +8689,16 @@ pub struct PolyMesh {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn write_esi</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, dir: impl AsRef<Path>, location: &str, opts: &EsiWriteOptions) -> Result<(), IoError> { /* ... */ }
+  ```
+  Write `points`, `faces`, `owner`, `neighbour`, `boundary` into `dir`
+
+- ```rust
+  pub fn write_esi_processor</* synthetic */ impl AsRef<Path>: AsRef<Path>>(self: &Self, dir: impl AsRef<Path>, location: &str, opts: &EsiWriteOptions, my_proc_no: usize, neighbours: &[usize]) -> Result<(), IoError> { /* ... */ }
+  ```
+  [`PolyMesh::write_esi`] for a processor mesh of `decomposePar` (gh:#1381):
 
 - ```rust
   pub fn n_points(self: &Self) -> usize { /* ... */ }
@@ -7892,6 +8772,7 @@ pub struct PolyMesh {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -7905,6 +8786,7 @@ pub struct PolyMesh {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -8000,6 +8882,7 @@ pub enum IoError {
 ###### `Io`
 
 An underlying filesystem error (file missing, permission denied, …).
+Only with the `std` feature: a `no_std` build reads no files.
 
 Fields:
 
@@ -8076,6 +8959,7 @@ Fields:
     fn source(self: &Self) -> ::core::option::Option<&dyn ::thiserror::__private21::Error + ''static> { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8089,6 +8973,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8115,8 +9000,54 @@ Fields:
 
 #### Re-export `FoamCase`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:73:7: 73:22 (#0) }])]")`
+
 ```rust
 pub use case::FoamCase;
+```
+
+#### Re-export `format_g`
+
+```rust
+pub use esi::format_g;
+```
+
+#### Re-export `EsiWriteOptions`
+
+```rust
+pub use esi::EsiWriteOptions;
+```
+
+#### Re-export `write_cell_zones_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:76:7: 76:22 (#0) }])]")`
+
+```rust
+pub use esi::write_cell_zones_esi;
+```
+
+#### Re-export `write_label_list_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:76:7: 76:22 (#0) }])]")`
+
+```rust
+pub use esi::write_label_list_esi;
+```
+
+#### Re-export `write_time_file_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:76:7: 76:22 (#0) }])]")`
+
+```rust
+pub use esi::write_time_file_esi;
 ```
 
 #### Re-export `Dimensioned`
@@ -8151,11 +9082,19 @@ pub use dict::FoamValue;
 
 #### Re-export `read_vol_scalar_field`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
+
 ```rust
 pub use field::read_vol_scalar_field;
 ```
 
 #### Re-export `read_vol_vector_field`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
 
 ```rust
 pub use field::read_vol_vector_field;
@@ -8163,14 +9102,52 @@ pub use field::read_vol_vector_field;
 
 #### Re-export `write_vol_scalar_field`
 
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
+
 ```rust
 pub use field::write_vol_scalar_field;
 ```
 
+#### Re-export `write_surface_scalar_field_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
+
+```rust
+pub use field::write_surface_scalar_field_esi;
+```
+
+#### Re-export `write_vol_scalar_field_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
+
+```rust
+pub use field::write_vol_scalar_field_esi;
+```
+
 #### Re-export `write_vol_vector_field`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
 
 ```rust
 pub use field::write_vol_vector_field;
+```
+
+#### Re-export `write_vol_vector_field_esi`
+
+**Attributes:**
+
+- `Other("#[attr = CfgTrace([NameValue { name: \"feature\", value: Some(\"std\"), span: crates/outram-foam-basic-lib/src/io/mod.rs:79:7: 79:22 (#0) }])]")`
+
+```rust
+pub use field::write_vol_vector_field_esi;
 ```
 
 #### Re-export `cell_geometry_from_faces`
@@ -8331,11 +9308,6 @@ pub mod vecops { /* ... */ }
 
 #### Function `dot`
 
-Euclidean inner product `Σ_i a_i · b_i` (dimensionless).
-
-Both slices must have the same length; a mismatch panics via
-`debug_assert`. Valid for any finite inputs; returns `0.0` for empty slices.
-
 ```rust
 pub fn dot(a: &[f64], b: &[f64]) -> f64 { /* ... */ }
 ```
@@ -8439,6 +9411,7 @@ pub struct KrylovSettings {
     ```
     Defaults: `tolerance = 1e-8`, `max_iter = 1000`, `restart = 30`.
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8452,6 +9425,7 @@ pub struct KrylovSettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8535,6 +9509,7 @@ pub struct KrylovResult {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8548,6 +9523,7 @@ pub struct KrylovResult {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -8663,6 +9639,7 @@ Fields:
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8676,6 +9653,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **OperatorPreconditioner**
   - ```rust
     fn apply(self: &Self, r: &[f64], z: &mut [f64]) { /* ... */ }
@@ -8792,7 +9770,7 @@ Assembled incrementally by `fvm::` operators in Layer 3; solved via
 
 ```rust
 pub struct FvMatrix {
-    pub mesh: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub ldu: super::ldu_matrix::LduMatrix,
     pub source: crate::fields::field::Field<f64>,
 }
@@ -8802,7 +9780,7 @@ pub struct FvMatrix {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh the equation is defined on (shares the face addressing). |
+| `mesh` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh the equation is defined on (shares the face addressing). |
 | `ldu` | `super::ldu_matrix::LduMatrix` | Sparse LDU coefficients of the operator `A`. |
 | `source` | `crate::fields::field::Field<f64>` | Right-hand-side source term, length `n_cells`. |
 
@@ -8927,6 +9905,7 @@ pub struct FvMatrix {
     fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -8940,6 +9919,7 @@ pub struct FvMatrix {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Neg**
   - ```rust
     fn neg(self: Self) -> Self { /* ... */ }
@@ -9030,6 +10010,7 @@ pub struct SolverSettings {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9043,6 +10024,7 @@ pub struct SolverSettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9124,6 +10106,7 @@ pub struct SolverPerformance {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9137,6 +10120,7 @@ pub struct SolverPerformance {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9184,7 +10168,7 @@ Gauss-Seidel solves (one per component).
 
 ```rust
 pub struct FvVectorMatrix {
-    pub mesh: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub ldu: super::ldu_matrix::LduMatrix,
     pub source: crate::fields::field::Field<crate::primitives::Vector3>,
 }
@@ -9194,7 +10178,7 @@ pub struct FvVectorMatrix {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh the equation is defined on (shares the face addressing). |
+| `mesh` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh the equation is defined on (shares the face addressing). |
 | `ldu` | `super::ldu_matrix::LduMatrix` | Scalar LDU coefficients of the operator `A` (shared by all 3 components). |
 | `source` | `crate::fields::field::Field<crate::primitives::Vector3>` | Right-hand-side vector source per cell, length `n_cells`. |
 
@@ -9299,6 +10283,7 @@ pub struct FvVectorMatrix {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9312,6 +10297,7 @@ pub struct FvVectorMatrix {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Neg**
   - ```rust
     fn neg(self: Self) -> Self { /* ... */ }
@@ -9362,19 +10348,6 @@ pub mod ldu_matrix { /* ... */ }
 ### Types
 
 #### Struct `LduMatrix`
-
-Sparse LDU (lower-diagonal-upper) matrix for FV implicit operators.
-
-Mirrors `Foam::lduMatrix` from
-`src/OpenFOAM/matrices/lduMatrix/lduMatrix/lduMatrix.H`.
-
-Storage follows OpenFOAM's face-addressing convention:
-```text
-A·x[c] = diag[c]·x[c]
-         + Σ_{f: owner[f]=c} upper[f]·x[neighbour[f]]
-         + Σ_{f: neighbour[f]=c} lower[f]·x[owner[f]]
-```
-For a symmetric matrix (e.g. Laplacian), `lower[f] == upper[f]`.
 
 ```rust
 pub struct LduMatrix {
@@ -9461,6 +10434,7 @@ pub struct LduMatrix {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9497,6 +10471,7 @@ pub struct LduMatrix {
     ```
     Delegates to [`LduMatrix::residual`], the crate's existing fused kernel.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -9834,6 +10809,7 @@ pub struct LduTopology {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -9847,6 +10823,7 @@ pub struct LduTopology {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -10048,6 +11025,7 @@ pub struct HybridLdu {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10061,6 +11039,7 @@ pub struct HybridLdu {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -10814,6 +11793,30 @@ Mirrors `Foam::GaussSeidelSmoother` in
 pub fn gauss_seidel(mat: &crate::ldu_matrix::ldu_matrix::LduMatrix, b: &[f64], x: &mut Vec<f64>, tol: f64, max_iter: usize) -> (usize, f64) { /* ... */ }
 ```
 
+#### Function `gauss_seidel_upstream`
+
+`n_sweeps` Gauss-Seidel sweeps in OpenFOAM-v2506 arithmetic.
+
+Mirrors `Foam::GaussSeidelSmoother::smooth` (`GaussSeidelSmoother.C`, ESI v2506) line
+for line: per sweep `bPrime = b`; for each cell in order `psii = bPrime[c] - sum
+upper*psi[u]` over the faces the cell owns, `psii /= diag[c]` (a DIVISION, where
+[`gauss_seidel`] multiplies by `1/diag`), then `bPrime[u] -= lower*psii` over the same
+faces. Requires faces sorted by owner (upper-triangular order, as OpenFOAM writes
+them). No convergence test: exactly `n_sweeps` sweeps, as `smoothSolver` with a fixed
+iteration count. gh:#1362 row 3: [`gauss_seidel`] agrees with upstream only to ~1e-13
+after 30 sweeps because of the `/diag` against `*inv_diag` rounding; this is
+bit-identical.
+
+# Arguments
+* `mat` - matrix (`lower` used as stored).
+* `b` - right-hand side.
+* `x` - iterate, updated in place.
+* `n_sweeps` - number of sweeps.
+
+```rust
+pub fn gauss_seidel_upstream(mat: &crate::ldu_matrix::ldu_matrix::LduMatrix, b: &[f64], x: &mut [f64], n_sweeps: usize) { /* ... */ }
+```
+
 ## Module `krylov_solve`
 
 Bridge from the finite-volume solver settings to the asymmetric Krylov
@@ -10938,6 +11941,7 @@ forward/backward sweep per iteration. **Default.**
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -10951,6 +11955,7 @@ forward/backward sweep per iteration. **Default.**
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11055,6 +12060,7 @@ Prefer it when BiCGStab stalls or breaks down.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11068,6 +12074,7 @@ Prefer it when BiCGStab stalls or breaks down.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -11179,6 +12186,7 @@ pub struct KrylovOptions {
     ```
     Defaults: ILU(0) preconditioning, GMRES restart `m = 30`, and the
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11192,6 +12200,7 @@ pub struct KrylovOptions {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -11371,6 +12380,245 @@ for i in 0..3 {
 pub fn krylov_solve_prepared(ldu: &crate::ldu_matrix::parallel::HybridLdu, b: &[f64], x0: Option<&[f64]>, method: KrylovMethod, precond: &crate::krylov::Preconditioner, options: KrylovOptions, settings: &crate::ldu_matrix::fv_matrix::SolverSettings) -> (Vec<f64>, crate::ldu_matrix::fv_matrix::SolverPerformance) { /* ... */ }
 ```
 
+## Module `pbicgstab_dilu`
+
+`PBiCGStab` with the `DILU` preconditioner, in OpenFOAM-v2506 arithmetic.
+
+C++ sources (ESI v2506): `src/OpenFOAM/matrices/lduMatrix/solvers/PBiCGStab/PBiCGStab.C`
+(`scalarSolve`) and `preconditioners/DILUPreconditioner/DILUPreconditioner.C`
+(`calcReciprocalD`, `precondition`).
+
+Why a separate function: the crate's [`crate::krylov::bicgstab`] uses an `ILU0`
+preconditioner, which also modifies the off-diagonal factors; upstream's `DILU`
+modifies only the diagonal (`rD`). The two give different iterates from the first
+iteration, so a code-to-code comparison against OpenFOAM's `PBiCGStab`/`DILU`
+(gh:#1362 row 3) needs this form. The operation order follows upstream so the
+iterates can be bit-identical.
+
+Interfaces (coupled patches) do not exist in [`LduMatrix`]. Parallel reductions
+are the serial sums.
+
+```rust
+pub mod pbicgstab_dilu { /* ... */ }
+```
+
+### Types
+
+#### Struct `PbicgstabDiluSettings`
+
+Controls of [`pbicgstab_dilu`] (upstream `tolerance`, `relTol`, `minIter`, `maxIter`).
+
+```rust
+pub struct PbicgstabDiluSettings {
+    pub tolerance: f64,
+    pub rel_tol: f64,
+    pub min_iter: usize,
+    pub max_iter: usize,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `tolerance` | `f64` | Absolute tolerance on the normalised residual (upstream default 1e-6). |
+| `rel_tol` | `f64` | Relative tolerance on the initial residual (0 disables). |
+| `min_iter` | `usize` | Minimum number of iterations. |
+| `max_iter` | `usize` | Maximum number of iterations (upstream default 1000). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PbicgstabDiluPerformance`
+
+Outcome of [`pbicgstab_dilu`].
+
+```rust
+pub struct PbicgstabDiluPerformance {
+    pub n_iterations: usize,
+    pub initial_residual: f64,
+    pub final_residual: f64,
+    pub converged: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `n_iterations` | `usize` | Iterations performed. |
+| `initial_residual` | `f64` | Upstream-normalised initial residual `sum|b - A x| / normFactor`. |
+| `final_residual` | `f64` | Upstream-normalised final residual (from the recurrence residual, as upstream). |
+| `converged` | `bool` | Whether the tolerance or relative tolerance was met. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `pbicgstab_dilu`
+
+Solve `A x = b` with upstream's `PBiCGStab` and `DILU` from the guess `x0`.
+
+# Arguments
+* `ldu` - matrix (its `lower` is used as stored, so a symmetric matrix must have
+  `lower == upper` filled in).
+* `b` - right-hand side.
+* `x0` - initial guess.
+* `settings` - tolerances and iteration limits.
+
+Returns the iterate and its performance.
+
+```rust
+pub fn pbicgstab_dilu(ldu: &crate::ldu_matrix::ldu_matrix::LduMatrix, b: &[f64], x0: &[f64], settings: &PbicgstabDiluSettings) -> (Vec<f64>, PbicgstabDiluPerformance) { /* ... */ }
+```
+
 ### Re-exports
 
 #### Re-export `conjugate_gradient`
@@ -11389,6 +12637,30 @@ pub use gamg::gamg;
 
 ```rust
 pub use gauss_seidel::gauss_seidel;
+```
+
+#### Re-export `gauss_seidel_upstream`
+
+```rust
+pub use gauss_seidel::gauss_seidel_upstream;
+```
+
+#### Re-export `pbicgstab_dilu`
+
+```rust
+pub use pbicgstab_dilu::pbicgstab_dilu;
+```
+
+#### Re-export `PbicgstabDiluPerformance`
+
+```rust
+pub use pbicgstab_dilu::PbicgstabDiluPerformance;
+```
+
+#### Re-export `PbicgstabDiluSettings`
+
+```rust
+pub use pbicgstab_dilu::PbicgstabDiluSettings;
 ```
 
 #### Re-export `krylov_solve`
@@ -11499,6 +12771,30 @@ pub use solvers::gauss_seidel;
 
 ```rust
 pub use solvers::gauss_seidel;
+```
+
+#### Re-export `gauss_seidel_upstream`
+
+```rust
+pub use solvers::gauss_seidel_upstream;
+```
+
+#### Re-export `pbicgstab_dilu`
+
+```rust
+pub use solvers::pbicgstab_dilu::pbicgstab_dilu;
+```
+
+#### Re-export `PbicgstabDiluPerformance`
+
+```rust
+pub use solvers::pbicgstab_dilu::PbicgstabDiluPerformance;
+```
+
+#### Re-export `PbicgstabDiluSettings`
+
+```rust
+pub use solvers::pbicgstab_dilu::PbicgstabDiluSettings;
 ```
 
 #### Re-export `krylov_solve`
@@ -11678,6 +12974,7 @@ pub struct IdentityPreconditioner;
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11691,6 +12988,7 @@ pub struct IdentityPreconditioner;
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **OperatorPreconditioner**
   - ```rust
     fn apply(self: &Self, r: &[f64], z: &mut [f64]) { /* ... */ }
@@ -11794,6 +13092,7 @@ pub struct JacobiOperatorPreconditioner {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -11807,6 +13106,7 @@ pub struct JacobiOperatorPreconditioner {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **OperatorPreconditioner**
   - ```rust
     fn apply(self: &Self, r: &[f64], z: &mut [f64]) { /* ... */ }
@@ -12084,11 +13384,6 @@ pub mod limiters { /* ... */ }
 
 #### Enum `FluxLimiter`
 
-A TVD flux limiter `psi(r)`, translated from OpenFOAM's r-based
-`limitedSchemes`. `psi = 0` is first-order upwind, `psi = 1` is second-order
-linear; most TVD variants clip extrema (`psi(r) = 0` for `r <= 0`); `vanAlbada` and `OSPRE` do
-not, as upstream.
-
 ```rust
 pub enum FluxLimiter {
     Upwind,
@@ -12213,6 +13508,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12226,6 +13522,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12815,6 +14112,7 @@ share no points.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12833,6 +14131,7 @@ share no points.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -12978,6 +14277,7 @@ pub struct DiffSettings {
     ```
     [`DiffScheme::Central4th`] with its optimal relative step and
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -12991,6 +14291,7 @@ pub struct DiffSettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13120,6 +14421,7 @@ restriction is documented on [`jacobian`].
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13138,6 +14440,7 @@ restriction is documented on [`jacobian`].
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13255,6 +14558,7 @@ pub struct DerivativeSolution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13268,6 +14572,7 @@ pub struct DerivativeSolution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13377,6 +14682,7 @@ pub struct DiffBatchFailure {
 
 - **Eq**
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13390,6 +14696,7 @@ pub struct DiffBatchFailure {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13535,6 +14842,7 @@ pub struct DerivativeBatch {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13548,6 +14856,7 @@ pub struct DerivativeBatch {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -13668,6 +14977,7 @@ pub struct JacobianSolution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13681,6 +14991,7 @@ pub struct JacobianSolution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13809,6 +15120,7 @@ pub struct JacobianBatch {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13822,6 +15134,7 @@ pub struct JacobianBatch {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -13979,6 +15292,7 @@ pub struct NumericalJacobian<S> {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -13992,6 +15306,7 @@ pub struct NumericalJacobian<S> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **OdeSystem**
   - ```rust
     fn n_eqns(self: &Self) -> usize { /* ... */ }
@@ -15302,6 +16617,7 @@ Locate the abscissa where the objective is largest.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15320,6 +16636,7 @@ Locate the abscissa where the objective is largest.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15462,6 +16779,7 @@ pub struct MinProblem {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15475,6 +16793,7 @@ pub struct MinProblem {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15635,6 +16954,7 @@ pub struct MinSettings {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15648,6 +16968,7 @@ pub struct MinSettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15789,6 +17110,7 @@ structure left to recover from.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15807,6 +17129,7 @@ structure left to recover from.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -15952,6 +17275,7 @@ pub struct MinSolution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -15965,6 +17289,7 @@ pub struct MinSolution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16119,6 +17444,7 @@ pub struct MinBatch {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16132,6 +17458,7 @@ pub struct MinBatch {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16243,6 +17570,7 @@ pub struct MinBatchFailure {
 
 - **Eq**
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16256,6 +17584,7 @@ pub struct MinBatchFailure {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -16957,6 +18286,7 @@ Brent, *Algorithms for Minimization without Derivatives*, Prentice-Hall
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -16975,6 +18305,7 @@ Brent, *Algorithms for Minimization without Derivatives*, Prentice-Hall
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17108,6 +18439,7 @@ pub struct RootProblem {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17121,6 +18453,7 @@ pub struct RootProblem {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17260,6 +18593,7 @@ pub struct RootSettings {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17273,6 +18607,7 @@ pub struct RootSettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17413,6 +18748,7 @@ answer.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17431,6 +18767,7 @@ answer.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17567,6 +18904,7 @@ pub struct RootSolution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17580,6 +18918,7 @@ pub struct RootSolution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17730,6 +19069,7 @@ pub struct RootBatch {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17743,6 +19083,7 @@ pub struct RootBatch {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -17853,6 +19194,7 @@ pub struct RootBatchFailure {
 
 - **Eq**
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -17866,6 +19208,7 @@ pub struct RootBatchFailure {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -18963,8 +20306,6 @@ pub mod square_matrix { /* ... */ }
 
 #### Enum `MatrixError`
 
-Error type for `SquareMatrix::solve`.
-
 ```rust
 pub enum MatrixError {
     Singular {
@@ -19022,10 +20363,11 @@ Fields:
 
 - **Display**
   - ```rust
-    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19039,6 +20381,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19186,6 +20529,7 @@ pub struct SquareMatrix {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19199,6 +20543,7 @@ pub struct SquareMatrix {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -19312,16 +20657,30 @@ pass targets.
 
 ### Deferred (documented limitations)
 
-- **General 3-D polygon clipping.** True `AMIInterpolation` clips arbitrary
+- ~~**General 3-D polygon clipping.** True `AMIInterpolation` clips arbitrary
   source polygons against each target polygon (Sutherland-Hodgman /
   greatest-area walk). That is *not* implemented here; only the 1-D interval
   overlap above is. Non-axis-aligned faces, skewed seams, and unstructured
-  transverse tilings are out of scope for this pass.
-- **Two transverse axes.** Only one transverse coordinate is overlapped; a
+  transverse tilings are out of scope for this pass.~~
+  **CORRECTED 2026-11-27 (gh:#1859):** the general 3-D weights now exist
+  beside this module, in
+  [`face_area_weight_ami`](crate::mesh::face_area_weight_ami): a port of
+  OpenFOAM ESI's `faceAreaWeightAMI` (advancing-front walk, and
+  `faceAreaIntersect`, which clips each source *triangle* by the three
+  planes through a target triangle's edges, not Sutherland-Hodgman). It
+  handles skewed, unstructured, 2-D tiled and curved seams;
+  [`FaceAreaWeightAmiResult::to_ami_couplings`](crate::mesh::face_area_weight_ami::FaceAreaWeightAmiResult::to_ami_couplings)
+  turns its weights into the [`AmiCoupling`]s below. [`overlap_weights_1d`]
+  is unchanged.
+- ~~**Two transverse axes.** Only one transverse coordinate is overlapped; a
   fully 2-D tiled seam (subdivided in both in-plane directions) is not
-  handled.
-- **Non-planar / curved seams and per-face normal rotation** (`cyclicAMI`
-  with a rotational transform) are not handled.
+  handled.~~ Still true of [`overlap_weights_1d`]; handled by
+  `face_area_weight_ami` (2026-11-27).
+- **Per-face normal rotation** (`cyclicAMI` with a rotational transform) is
+  not handled: neither function applies a transform, so the caller must
+  map one half onto the other first. ~~**Non-planar / curved seams** are not
+  handled.~~ Curved seams are handled by `face_area_weight_ami`
+  (2026-11-27).
 
 These limits are acceptable for the verification cases this module ships
 (matching-mesh limit reproduces plain cyclic; a 2:1 non-conformal case is
@@ -19393,6 +20752,7 @@ pub struct AmiOverlap {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19406,6 +20766,7 @@ pub struct AmiOverlap {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19501,6 +20862,7 @@ pub struct AmiWeight {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19514,6 +20876,7 @@ pub struct AmiWeight {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19625,6 +20988,7 @@ pub struct AmiCoupling {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19638,6 +21002,7 @@ pub struct AmiCoupling {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19722,8 +21087,6 @@ pub mod error { /* ... */ }
 ### Types
 
 #### Enum `MeshError`
-
-Errors produced by the mesh layer (mesh construction and validation).
 
 ```rust
 pub enum MeshError {
@@ -19869,10 +21232,11 @@ Fields:
 
 - **Display**
   - ```rust
-    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -19886,6 +21250,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -19923,6 +21288,1210 @@ Fields:
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `face_area_weight_ami`
+
+General 3-D AMI weights: a line-for-line port of OpenFOAM ESI's
+`faceAreaWeightAMI` (advancing-front walk + `faceAreaIntersect`
+triangle clipping), serial path only (gh:#1859).
+
+[`face_area_weight_ami`] takes two patches as plain geometry
+([`AmiPatchGeometry`]: points `[m]` and face vertex lists) and returns
+upstream's `srcAddress`, `srcWeights`, `srcWeightsSum`, `srcMagSf`,
+`tgtAddress`, `tgtWeights`, `tgtWeightsSum`, `tgtMagSf` (and the
+per-overlap centroids and the raw, un-normalised overlap areas), normalised
+exactly as `AMIInterpolation::normaliseWeights(requireMatch, true)`
+normalises them.
+
+## How upstream computes the weights (and this port with it)
+
+1. **Triangulate** every face (`advancingFrontAMI::triangulatePatch`):
+   `tmMesh` (default) splits at the most concave vertex, recursively
+   (`face::split`); `tmFan` fans from vertex 0. The face area `magSf` is the
+   sum of the triangle area vectors **projected on the face unit normal**
+   (`areaNormalisationMode::project`, default) or their magnitudes (`mag`).
+2. **Intersect** a source face with a target face
+   (`faceAreaIntersect::calc`): every source triangle is clipped by the
+   three planes that contain a target-triangle edge and the pair's "crude
+   resultant normal" `n = normalise(-n_src ± n_tgt)`. The clipped area is
+   measured **in the source triangle's plane**; a vertex within
+   `1e-6·sqrt(area_src_tri)` of a cutting plane counts as on it.
+3. **Walk** (`faceAreaWeightAMI::calcAddressing`): starting from source
+   face 0 and target face 0, each source face is intersected with a target
+   seed and its edge-neighbours (LIFO), growing through every target face
+   whose overlap fraction exceeds `1e-6`; the next source face is chosen from
+   the current one's neighbours, then from stored seeds, then by a
+   nearest-face search.
+4. **Restart** (`restartUncoveredSourceFace`, default on): every source face
+   whose covered fraction is below `0.95` is re-walked from the target face
+   nearest each of its vertices.
+5. **Normalise** (`normaliseWeights(conformal = requireMatch)`):
+   `weightsSum[f] = Σ area / magSf[f]` and the weights are divided by
+   `magSf[f]`, or (when `requireMatch`) by `Σ area` so they sum to exactly 1.
+
+## What is not ported
+
+- Everything parallel: `distributed()` patches, `createExtendedTgtPatch`,
+  `advancingFrontAMIParallelOps.C`, `mapDistribute`, `nonConformalCorrection`
+  (a no-op in serial).
+- `cacheIntersections_` / debug OBJ output, `projectPointsToSurface`
+  (`surfPtr`), the AMI cache, agglomeration.
+- `lowWeightCorrection` is **applied at interpolation time** upstream
+  (`AMIInterpolationTemplates.C` / `cyclicAMIPolyPatch`), not in the
+  weights. Here it only does what it does inside the weight computation:
+  it switches off `mustMatchFaces()` (so a stalled walk is not an error)
+  and counts the faces whose weight sum is below it
+  ([`FaceAreaWeightAmiResult::src_n_low_weight`]).
+- The `indexedOctree` seed search is replaced by a **brute-force** nearest
+  search over all target faces, with upstream's own distance
+  (`face::nearestPoint`), search radius (`0.25·|bb|²`, then `GREAT²`),
+  exclusion list and strict `<` update. It returns the same face as the
+  octree whenever the nearest face is unique; on an exact distance tie the
+  brute force keeps the **lowest index**, while the octree keeps the first
+  face it visits in tree order. Ties happen in practice when the restart
+  searches from a source vertex lying exactly on a target edge or vertex;
+  the walk from either seed reaches the same overlapping set, so only the
+  **order** of entries in an address list can differ from upstream there.
+
+## Verification
+
+- **Code-to-code:** bit-identical to the unmodified ESI `faceAreaWeightAMI`
+  (commit above, serial, g++ 13 `-O3`) on **8579 of 8579** output values in
+  17 cases (planar, unstructured with a hexagon, concave L, cylindrical,
+  identity, stalled walk with and without restart, `minCosAngle`,
+  `maxDistance2` + `lowWeightCorrection`), every address list equal in
+  order (2026-11-27). Driver, reference and per-case table:
+  `verification_and_validation/upstream_ami_gh1859/`; test
+  `tests/ami_face_area_weight_vs_openfoam.rs`.
+- **Properties:** the `vv_*` unit tests below (identity, agreement with
+  [`overlap_weights_1d`](crate::mesh::ami::overlap_weights_1d), unit weight
+  sums on covered seams, a cylindrical seam against a semi-analytic
+  facet-projection model).
+
+**Untrusted AI-assisted draft pending human V&V review** (2026-11-27).
+
+```rust
+pub mod face_area_weight_ami { /* ... */ }
+```
+
+### Types
+
+#### Enum `AmiTriangulationMode`
+
+How a face is split into triangles before clipping.
+Mirrors `faceAreaIntersect::triangulationMode`.
+
+```rust
+pub enum AmiTriangulationMode {
+    Fan,
+    Mesh,
+}
+```
+
+##### Variants
+
+###### `Fan`
+
+`tmFan`: fan from the face's first vertex.
+
+###### `Mesh`
+
+`tmMesh` (upstream default): `face::triangles`, splitting recursively
+at the most concave vertex.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AmiAreaNormalisation`
+
+How the face area `magSf` (the normaliser of the weights) is computed.
+Mirrors `advancingFrontAMI::areaNormalisationMode`.
+
+```rust
+pub enum AmiAreaNormalisation {
+    Project,
+    Mag,
+}
+```
+
+##### Variants
+
+###### `Project`
+
+`project` (upstream default): Σ triangle area vectors · face unit normal.
+
+###### `Mag`
+
+`mag`: Σ |triangle area vectors|.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AmiPatchSide`
+
+Which half of an AMI pair a face or patch belongs to.
+
+```rust
+pub enum AmiPatchSide {
+    Source,
+    Target,
+}
+```
+
+##### Variants
+
+###### `Source`
+
+The source patch (upstream `srcPatch`).
+
+###### `Target`
+
+The target patch (upstream `tgtPatch`).
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AmiPatchGeometry`
+
+One AMI patch as plain geometry: the `primitivePatch` upstream walks.
+
+Faces index into `points`; a face's vertices are listed in order around it
+and its normal follows the right-hand rule (OpenFOAM's convention: the
+outward normal of the owner cell). Points not referenced by a face are
+ignored, as upstream ignores points outside `meshPoints()`.
+
+```rust
+pub struct AmiPatchGeometry {
+    pub points: Vec<crate::primitives::Vector3>,
+    pub faces: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `Vec<crate::primitives::Vector3>` | Point coordinates `[m]`. |
+| `faces` | `Vec<Vec<usize>>` | Face vertex lists (indices into [`points`](Self::points)), at least 3 each. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FaceAreaWeightAmiOptions`
+
+Options of the `faceAreaWeightAMI` constructor and of `advancingFrontAMI`'s
+dictionary. [`Default`] gives upstream's defaults.
+
+```rust
+pub struct FaceAreaWeightAmiOptions {
+    pub require_match: bool,
+    pub reverse_target: bool,
+    pub low_weight_correction: f64,
+    pub triangulation: AmiTriangulationMode,
+    pub restart_uncovered_source_face: bool,
+    pub max_distance2: f64,
+    pub min_cos_angle: f64,
+    pub area_normalisation: AmiAreaNormalisation,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `require_match` | `bool` | `requireMatch` (default `true`): every source face is expected to find<br>a target face. Also selects **conformal** normalisation: each face's<br>weights are divided by their own sum, so they sum to exactly 1. |
+| `reverse_target` | `bool` | `reverseTarget` (default `false`): `false` expects the two patches to<br>face each other (opposite normals, as the two halves of a cyclicAMI<br>pair do once transformed onto each other); `true` expects them to point<br>the same way. |
+| `low_weight_correction` | `f64` | `lowWeightCorrection` (default `-1`, off). When `> 0` a stalled walk is<br>not an error, and faces with a weight sum below it are counted. |
+| `triangulation` | `AmiTriangulationMode` | `triMode` (default [`AmiTriangulationMode::Mesh`]). |
+| `restart_uncovered_source_face` | `bool` | `restartUncoveredSourceFace` (default `true`). |
+| `max_distance2` | `f64` | `maxDistance2` `[m²]` (default `-1`, off): reject a pair whose squared<br>face-centre distance along the source normal is at least this. |
+| `min_cos_angle` | `f64` | `minCosAngle` (default `-1`, off): reject a pair whose normals are less<br>aligned than this. |
+| `area_normalisation` | `AmiAreaNormalisation` | `areaNormalisationMode` (default [`AmiAreaNormalisation::Project`]). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AmiWarning`
+
+A condition upstream reports with `WarningInFunction` and then continues.
+
+```rust
+pub enum AmiWarning {
+    BoundingBoxesNotSimilar,
+    NoTargetFaces,
+    InvalidNormal {
+        source_face: usize,
+        target_face: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `BoundingBoxesNotSimilar`
+
+`checkPatches`: with `requireMatch`, the source bounding box is not
+inside the target bounding box inflated by `0.05·|span|`.
+
+###### `NoTargetFaces`
+
+`initialiseWalk`: source faces but no target faces; no addressing.
+
+###### `InvalidNormal`
+
+`calcInterArea` / `overlaps`: the pair's resultant normal
+`-n_src ± n_tgt` has zero length (typically: the patches face the same
+way while `reverse_target` is `false`); the pair's overlap is taken as 0.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source_face` | `usize` | Source face index. |
+| `target_face` | `usize` | Target face index. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `AmiError`
+
+A condition upstream treats as `FatalError`.
+
+```rust
+pub enum AmiError {
+    PointIndexOutOfRange {
+        side: AmiPatchSide,
+        face: usize,
+        point: usize,
+    },
+    FaceTooFewVertices {
+        side: AmiPatchSide,
+        face: usize,
+    },
+    UnableToSetTargetFace {
+        source_face: usize,
+    },
+}
+```
+
+##### Variants
+
+###### `PointIndexOutOfRange`
+
+A face refers to a point index outside its patch's `points`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `side` | `AmiPatchSide` | Which patch. |
+| `face` | `usize` | Face index. |
+| `point` | `usize` | The offending point index. |
+
+###### `FaceTooFewVertices`
+
+`face::split`: "asked to split a face with < 3 vertices"
+([`AmiTriangulationMode::Mesh`] only, as upstream).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `side` | `AmiPatchSide` | Which patch. |
+| `face` | `usize` | Face index. |
+
+###### `UnableToSetTargetFace`
+
+`faceAreaWeightAMI::setNextFaces`: "Unable to set target face for
+source face" while `mustMatchFaces()` (`requireMatch` and no
+`lowWeightCorrection`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source_face` | `usize` | The last source face tried. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
+    ```
+
+- **Eq**
+- **Error**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FaceAreaWeightAmiResult`
+
+The weights and addressing `faceAreaWeightAMI::calculate` leaves in an
+`AMIInterpolation`, serial path.
+
+Every `src_*` list has one entry per source face, every `tgt_*` list one
+per target face (except when the source patch is empty: then, as upstream,
+nothing is triangulated and `tgt_mag_sf` is empty).
+
+```rust
+pub struct FaceAreaWeightAmiResult {
+    pub src_address: Vec<Vec<usize>>,
+    pub src_weights: Vec<Vec<f64>>,
+    pub src_weights_sum: Vec<f64>,
+    pub src_centroids: Vec<Vec<crate::primitives::Vector3>>,
+    pub src_mag_sf: Vec<f64>,
+    pub src_overlap_areas: Vec<Vec<f64>>,
+    pub tgt_address: Vec<Vec<usize>>,
+    pub tgt_weights: Vec<Vec<f64>>,
+    pub tgt_weights_sum: Vec<f64>,
+    pub tgt_mag_sf: Vec<f64>,
+    pub tgt_overlap_areas: Vec<Vec<f64>>,
+    pub src_non_overlap: Vec<usize>,
+    pub src_n_low_weight: usize,
+    pub tgt_n_low_weight: usize,
+    pub warnings: Vec<AmiWarning>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `src_address` | `Vec<Vec<usize>>` | `srcAddress`: for each source face, the overlapping target faces. |
+| `src_weights` | `Vec<Vec<f64>>` | `srcWeights`: overlap area / `src_mag_sf` (or / Σ overlap area when<br>`require_match`), aligned with [`src_address`](Self::src_address). |
+| `src_weights_sum` | `Vec<f64>` | `srcWeightsSum`: Σ overlap area / `src_mag_sf` (the covered fraction,<br>**before** conformal rescaling), 0 for a face with no overlap. |
+| `src_centroids` | `Vec<Vec<crate::primitives::Vector3>>` | `srcCentroids`: area-weighted centroid of each overlap `[m]`. |
+| `src_mag_sf` | `Vec<f64>` | `srcMagSf`: source face areas `[m²]`. |
+| `src_overlap_areas` | `Vec<Vec<f64>>` | The raw overlap areas `[m²]` aligned with `src_address` (upstream's<br>`srcWeights` before `normaliseWeights`). |
+| `tgt_address` | `Vec<Vec<usize>>` | `tgtAddress`: for each target face, the overlapping source faces. |
+| `tgt_weights` | `Vec<Vec<f64>>` | `tgtWeights`, normalised as [`src_weights`](Self::src_weights). |
+| `tgt_weights_sum` | `Vec<f64>` | `tgtWeightsSum`. |
+| `tgt_mag_sf` | `Vec<f64>` | `tgtMagSf`: target face areas `[m²]`. |
+| `tgt_overlap_areas` | `Vec<Vec<f64>>` | The raw overlap areas `[m²]` aligned with `tgt_address`. |
+| `src_non_overlap` | `Vec<usize>` | `srcNonOverlap`: source faces the main walk could not process (before<br>the restart pass, as upstream). |
+| `src_n_low_weight` | `usize` | Source faces with `src_weights_sum < low_weight_correction`. |
+| `tgt_n_low_weight` | `usize` | Target faces with `tgt_weights_sum < low_weight_correction`. |
+| `warnings` | `Vec<AmiWarning>` | Upstream warnings, in the order they were raised. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn to_ami_couplings(self: &Self, side: AmiPatchSide, coupled: &AmiPatchPlacement, partner: &AmiPatchPlacement) -> Vec<AmiCoupling> { /* ... */ }
+  ```
+  Turn the weights of one side into the [`AmiCoupling`] list the
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AmiPatchPlacement`
+
+Where one AMI patch lives in an [`FvMesh`](crate::mesh::FvMesh): what
+[`FaceAreaWeightAmiResult::to_ami_couplings`] needs to turn local face
+indices into global faces and cells.
+
+```rust
+pub struct AmiPatchPlacement {
+    pub patch: usize,
+    pub start: usize,
+    pub face_cells: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `patch` | `usize` | Index of the patch in the mesh's patch list. |
+| `start` | `usize` | Global index of the patch's first face. |
+| `face_cells` | `Vec<usize>` | Owner cell of each local face of the patch. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `face_area_weight_ami`
+
+Compute AMI addressing and weights between two patches by OpenFOAM ESI's
+`faceAreaWeightAMI` (serial path): a port of
+`faceAreaWeightAMI::calculate` followed by
+`normaliseWeights(requireMatch, true)`. See the [module docs](self) for
+the method and what is not ported.
+
+The patches must coincide geometrically (the caller applies any cyclic
+transform first) and, with the default `reverse_target = false`, face each
+other: the target's face normals opposite to the source's.
+
+# Errors
+[`AmiError`] for the conditions upstream treats as fatal.
+
+# Example
+```
+use outram_foam_basic_lib::mesh::face_area_weight_ami::{
+    face_area_weight_ami, AmiPatchGeometry, FaceAreaWeightAmiOptions,
+};
+use outram_foam_basic_lib::primitives::Vector3;
+// One unit square (normal +z) against two half squares facing it (-z).
+let p = |x: f64, y: f64| Vector3::new(x, y, 0.0);
+let src = AmiPatchGeometry {
+    points: vec![p(0.0, 0.0), p(1.0, 0.0), p(1.0, 1.0), p(0.0, 1.0)],
+    faces: vec![vec![0, 1, 2, 3]],
+};
+let tgt = AmiPatchGeometry {
+    points: vec![p(0.0, 0.0), p(0.5, 0.0), p(1.0, 0.0), p(0.0, 1.0), p(0.5, 1.0), p(1.0, 1.0)],
+    faces: vec![vec![0, 3, 4, 1], vec![1, 4, 5, 2]],
+};
+let ami = face_area_weight_ami(&src, &tgt, &FaceAreaWeightAmiOptions::default()).unwrap();
+assert_eq!(ami.src_address[0].len(), 2);
+assert!((ami.src_weights[0][0] - 0.5).abs() < 1e-12);
+assert!((ami.src_weights_sum[0] - 1.0).abs() < 1e-12);
+assert!((ami.tgt_weights[1][0] - 1.0).abs() < 1e-12);
+```
+
+```rust
+pub fn face_area_weight_ami(source: &AmiPatchGeometry, target: &AmiPatchGeometry, options: &FaceAreaWeightAmiOptions) -> Result<FaceAreaWeightAmiResult, AmiError> { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `FACE_AREA_INTERSECT_TOLERANCE`
+
+`faceAreaIntersect::tol`: fraction of the local length scale used as the
+coplanarity tolerance when clipping, and the minimum overlap fraction of a
+source face for a pair to be stored (dimensionless).
+
+```rust
+pub const FACE_AREA_INTERSECT_TOLERANCE: f64 = 1e-6;
+```
+
 ## Module `fv_mesh`
 
 ```rust
@@ -20016,6 +22585,7 @@ pub struct BoundaryPatch {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20029,6 +22599,7 @@ pub struct BoundaryPatch {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20151,6 +22722,7 @@ Inter-processor decomposition seam.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20164,6 +22736,7 @@ Inter-processor decomposition seam.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20278,6 +22851,7 @@ pub struct CyclicCoupling {
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20291,6 +22865,7 @@ pub struct CyclicCoupling {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -20500,6 +23075,7 @@ pub struct FvMesh {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20513,6 +23089,7 @@ pub struct FvMesh {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -20661,6 +23238,7 @@ pub struct FvMeshBuilder {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20674,6 +23252,7 @@ pub struct FvMeshBuilder {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -20723,9 +23302,9 @@ nearest-face-centre search (see `from_face_centres`).
 
 ```rust
 pub struct RegionInterface {
-    pub mesh_a: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh_a: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub patch_a: usize,
-    pub mesh_b: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh_b: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub patch_b: usize,
     pub face_map: Vec<usize>,
 }
@@ -20735,9 +23314,9 @@ pub struct RegionInterface {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh_a` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh on side A of the interface. |
+| `mesh_a` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh on side A of the interface. |
 | `patch_a` | `usize` | Index of the coupled patch within `mesh_a.patches`. |
-| `mesh_b` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh on side B of the interface. |
+| `mesh_b` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | Mesh on side B of the interface. |
 | `patch_b` | `usize` | Index of the coupled patch within `mesh_b.patches`. |
 | `face_map` | `Vec<usize>` | `face_map[fi_a]` = `fi_b` on the B-side patch. |
 
@@ -20792,6 +23371,7 @@ pub struct RegionInterface {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -20805,6 +23385,7 @@ pub struct RegionInterface {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -20956,6 +23537,11 @@ pub struct Euler {
   ```
   Integrate from `x_start` to `x_end`.
 
+- ```rust
+  pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y, dxTry)`
+
 ###### Trait Implementations
 
 - **Any**
@@ -20988,6 +23574,7 @@ pub struct Euler {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21001,6 +23588,7 @@ pub struct Euler {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -21136,7 +23724,7 @@ A system that cannot cross a thread boundary should use
 [`OdeIntegrator::TypedState`] instead.
 
 ```rust
-pub type SharedOdeSystem = std::sync::Arc<dyn OdeSystem + Send + Sync>;
+pub type SharedOdeSystem = alloc::sync::Arc<dyn OdeSystem + Send + Sync>;
 ```
 
 #### Enum `OdeSolver`
@@ -21248,6 +23836,11 @@ Fields:
   ```
   Integrate `ode` from `x_start` to `x_end`, updating `y` in place and
 
+- ```rust
+  pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y,
+
 ###### Trait Implementations
 
 - **Any**
@@ -21280,6 +23873,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21293,6 +23887,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -21379,6 +23974,7 @@ pub struct NoTypedSystem;
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21392,6 +23988,7 @@ pub struct NoTypedSystem;
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **OdeSystem**
   - ```rust
     fn n_eqns(self: &Self) -> usize { /* ... */ }
@@ -21503,6 +24100,7 @@ pub struct TypedStateIntegrator<S: OdeSystem> {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21516,6 +24114,7 @@ pub struct TypedStateIntegrator<S: OdeSystem> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -21604,9 +24203,10 @@ pub struct DynSystemIntegrator {
 
 - **Debug**
   - ```rust
-    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21620,6 +24220,7 @@ pub struct DynSystemIntegrator {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -21776,6 +24377,7 @@ Fields:
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -21789,6 +24391,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -22188,6 +24791,7 @@ pub struct OdeLane<S: OdeSystem> {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22201,6 +24805,7 @@ pub struct OdeLane<S: OdeSystem> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -22347,6 +24952,7 @@ zero-length integration that succeeded.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22365,6 +24971,7 @@ zero-length integration that succeeded.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -22497,6 +25104,7 @@ pub struct OdeLaneSolution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22510,6 +25118,7 @@ pub struct OdeLaneSolution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -22673,6 +25282,7 @@ pub struct OdeEnsemble {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22686,6 +25296,7 @@ pub struct OdeEnsemble {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -22799,6 +25410,7 @@ pub struct OdeEnsembleFailure {
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22812,6 +25424,7 @@ pub struct OdeEnsembleFailure {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -22926,6 +25539,7 @@ pub struct QuadratureInterval {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -22939,6 +25553,7 @@ pub struct QuadratureInterval {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23082,6 +25697,7 @@ Eight-point rule, exact to degree 15.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23100,6 +25716,7 @@ Eight-point rule, exact to degree 15.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23275,6 +25892,7 @@ Fields:
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23293,6 +25911,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23400,6 +26019,7 @@ pub struct AdaptiveSettings {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23413,6 +26033,7 @@ pub struct AdaptiveSettings {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23549,6 +26170,7 @@ integrate over.
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23567,6 +26189,7 @@ integrate over.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23695,6 +26318,7 @@ pub struct QuadratureSolution {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23708,6 +26332,7 @@ pub struct QuadratureSolution {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23862,6 +26487,7 @@ pub struct QuadratureBatch {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23875,6 +26501,7 @@ pub struct QuadratureBatch {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -23984,6 +26611,7 @@ pub struct QuadratureBatchFailure {
 
 - **Eq**
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -23997,6 +26625,7 @@ pub struct QuadratureBatchFailure {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -24893,6 +27522,11 @@ pub struct Rkf45 {
   ```
   Integrate from `x_start` to `x_end`, updating `y` in place and leaving
 
+- ```rust
+  pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y, dxTry)`
+
 ###### Trait Implementations
 
 - **Any**
@@ -24925,6 +27559,7 @@ pub struct Rkf45 {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -24938,6 +27573,7 @@ pub struct Rkf45 {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -25012,6 +27648,11 @@ pub struct Rosenbrock23 {
   ```
   Integrate from `x_start` to `x_end`, updating `y` in place and leaving
 
+- ```rust
+  pub fn integrate_esi_v2506<Sys: OdeSystem + ?Sized>(self: &mut Self, ode: &Sys, x_start: f64, x_end: f64, y: &mut Vec<f64>, dx_est: &mut f64) -> Result<(), OdeError> { /* ... */ }
+  ```
+  [`Self::integrate`] with OpenFOAM-v2506's `ODESolver::solve(xStart, xEnd, y, dxTry)`
+
 ###### Trait Implementations
 
 - **Any**
@@ -25044,6 +27685,7 @@ pub struct Rosenbrock23 {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25057,6 +27699,7 @@ pub struct Rosenbrock23 {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -25155,6 +27798,7 @@ pub struct OdeSolverConfig {
     fn default() -> Self { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25168,6 +27812,7 @@ pub struct OdeSolverConfig {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -25281,10 +27926,11 @@ the wrong cause.
 
 - **Display**
   - ```rust
-    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25298,6 +27944,7 @@ the wrong cause.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -25655,6 +28302,7 @@ pub struct CubicEqn {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25668,6 +28316,7 @@ pub struct CubicEqn {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -25788,6 +28437,7 @@ pub struct LinearEqn {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25801,6 +28451,7 @@ pub struct LinearEqn {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -25944,6 +28595,7 @@ pub struct Polynomial<const N: usize> {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -25957,6 +28609,7 @@ pub struct Polynomial<const N: usize> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -26073,6 +28726,7 @@ pub struct QuadraticEqn {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -26086,6 +28740,7 @@ pub struct QuadraticEqn {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -26131,8 +28786,6 @@ pub mod roots { /* ... */ }
 **Attributes:**
 
 - `Repr(AttributeRepr { kind: Rust, align: None, packed: None, int: Some("u64") })`
-
-Root classification tag, matching `Foam::roots::type`.
 
 ```rust
 pub enum RootType {
@@ -26212,6 +28865,7 @@ Discriminant value: `4`
     ```
 
 - **Eq**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -26225,6 +28879,7 @@ Discriminant value: `4`
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -26368,6 +29023,7 @@ pub struct Roots<const N: usize> {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -26386,6 +29042,7 @@ pub struct Roots<const N: usize> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -26462,63 +29119,11 @@ pub mod prelude { /* ... */ }
 
 #### Re-export `GREAT`
 
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
-
 ```rust
 pub use crate::primitives::GREAT;
 ```
 
 #### Re-export `ROOT_GREAT`
-
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
 
 ```rust
 pub use crate::primitives::ROOT_GREAT;
@@ -26526,63 +29131,11 @@ pub use crate::primitives::ROOT_GREAT;
 
 #### Re-export `ROOT_SMALL`
 
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
-
 ```rust
 pub use crate::primitives::ROOT_SMALL;
 ```
 
 #### Re-export `ROOT_VSMALL`
-
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
 
 ```rust
 pub use crate::primitives::ROOT_VSMALL;
@@ -26590,95 +29143,17 @@ pub use crate::primitives::ROOT_VSMALL;
 
 #### Re-export `SMALL`
 
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
-
 ```rust
 pub use crate::primitives::SMALL;
 ```
 
 #### Re-export `VGREAT`
 
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
-
 ```rust
 pub use crate::primitives::VGREAT;
 ```
 
 #### Re-export `VSMALL`
-
-Convenience re-export of the most commonly used types and functions.
-
-```rust
-use outram_foam_basic_lib::prelude::*;
-```
-
-# What's included
-
-**Primitives** (Layer 1a)
-- Scalar constants: `SMALL`, `VSMALL`, `GREAT`, `VGREAT`, `ROOT_SMALL`, `ROOT_VSMALL`
-- Types: `Vector3`, `Tensor`, `SymmTensor`, `SphericalTensor`
-
-**Polynomial algebra** (Layers 1c + 1d)
-- Root types: `RootType`, `Roots`
-- Equation solvers: `LinearEqn`, `QuadraticEqn`, `CubicEqn`
-- Function evaluation: `Polynomial`
-
-**Math special functions** (Layer 1g)
-- `erf_inv`, `inc_gamma_ratio_p`, `inc_gamma_ratio_q`, `inc_gamma_p`, `inc_gamma_q`, `inv_inc_gamma`
-
-**Specie-level thermophysics** (Layer 1h)
-- Custom quantity: `Compressibility` (ψ = ∂ρ/∂p|T, s²/m²)
-- EOS traits/types: `EquationOfState`, `PerfectGas`, `RhoConst`
-- Thermo traits/types: `ThermoModel`, `HConstThermo`, `JanafThermo`
-- Transport traits/types: `TransportModel`, `ConstTransport`, `SutherlandTransport`
 
 ```rust
 pub use crate::primitives::VSMALL;
@@ -26942,6 +29417,12 @@ pub use crate::interpolation::interpolate_xy;
 pub use crate::interpolation::interpolate_xy;
 ```
 
+#### Re-export `GasConstant`
+
+```rust
+pub use crate::thermophysics::constants::GasConstant;
+```
+
 #### Re-export `ThermoError`
 
 ```rust
@@ -26952,6 +29433,18 @@ pub use crate::thermophysics::error::ThermoError;
 
 ```rust
 pub use crate::thermophysics::quantities::Compressibility;
+```
+
+#### Re-export `IntegratedNonUniformTable`
+
+```rust
+pub use crate::thermophysics::table::IntegratedNonUniformTable;
+```
+
+#### Re-export `NonUniformTable`
+
+```rust
+pub use crate::thermophysics::table::NonUniformTable;
 ```
 
 #### Re-export `BoundaryCondition`
@@ -27086,6 +29579,66 @@ pub use crate::mesh::RegionInterface;
 pub use crate::mesh::ami::overlap_weights_1d;
 ```
 
+#### Re-export `face_area_weight_ami`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::face_area_weight_ami;
+```
+
+#### Re-export `AmiAreaNormalisation`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiAreaNormalisation;
+```
+
+#### Re-export `AmiError`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiError;
+```
+
+#### Re-export `AmiPatchGeometry`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiPatchGeometry;
+```
+
+#### Re-export `AmiPatchPlacement`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiPatchPlacement;
+```
+
+#### Re-export `AmiPatchSide`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiPatchSide;
+```
+
+#### Re-export `AmiTriangulationMode`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiTriangulationMode;
+```
+
+#### Re-export `AmiWarning`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::AmiWarning;
+```
+
+#### Re-export `FaceAreaWeightAmiOptions`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::FaceAreaWeightAmiOptions;
+```
+
+#### Re-export `FaceAreaWeightAmiResult`
+
+```rust
+pub use crate::mesh::face_area_weight_ami::FaceAreaWeightAmiResult;
+```
+
 #### Re-export `FvMatrix`
 
 ```rust
@@ -27132,6 +29685,48 @@ pub use crate::fv_operators::fvc;
 
 ```rust
 pub use crate::fv_operators::fvm;
+```
+
+#### Re-export `simple_filter`
+
+```rust
+pub use crate::fv_operators::les_filter::simple_filter;
+```
+
+#### Re-export `surface_integrate`
+
+```rust
+pub use crate::fv_operators::les_filter::surface_integrate;
+```
+
+#### Re-export `surface_sum`
+
+```rust
+pub use crate::fv_operators::les_filter::surface_sum;
+```
+
+#### Re-export `AnisotropicFilter`
+
+```rust
+pub use crate::fv_operators::les_filter::AnisotropicFilter;
+```
+
+#### Re-export `FilterValue`
+
+```rust
+pub use crate::fv_operators::les_filter::FilterValue;
+```
+
+#### Re-export `LaplaceFilter`
+
+```rust
+pub use crate::fv_operators::les_filter::LaplaceFilter;
+```
+
+#### Re-export `LesFilter`
+
+```rust
+pub use crate::fv_operators::les_filter::LesFilter;
 ```
 
 #### Re-export `KnpFaceFlux`
@@ -27384,6 +29979,30 @@ pub use crate::ldu_matrix::gauss_seidel;
 
 ```rust
 pub use crate::ldu_matrix::gauss_seidel;
+```
+
+#### Re-export `gauss_seidel_upstream`
+
+```rust
+pub use crate::ldu_matrix::gauss_seidel_upstream;
+```
+
+#### Re-export `pbicgstab_dilu`
+
+```rust
+pub use crate::ldu_matrix::pbicgstab_dilu;
+```
+
+#### Re-export `PbicgstabDiluPerformance`
+
+```rust
+pub use crate::ldu_matrix::PbicgstabDiluPerformance;
+```
+
+#### Re-export `PbicgstabDiluSettings`
+
+```rust
+pub use crate::ldu_matrix::PbicgstabDiluSettings;
 ```
 
 #### Re-export `krylov_solve`
@@ -28130,10 +30749,184 @@ pub use crate::math::differentiate::JACOBIAN_BATCH_MIN_PROBLEMS;
 pub use crate::math::differentiate::JACOBIAN_COLUMN_MIN_DIMENSION;
 ```
 
+#### Re-export `parse_label_list_list`
+
+```rust
+pub use crate::view_factor_radiation::parse_label_list_list;
+```
+
+#### Re-export `parse_scalar_list_list`
+
+```rust
+pub use crate::view_factor_radiation::parse_scalar_list_list;
+```
+
+#### Re-export `GreyDiffusiveViewFactorPatch`
+
+```rust
+pub use crate::view_factor_radiation::GreyDiffusiveViewFactorPatch;
+```
+
+#### Re-export `ViewFactorError`
+
+```rust
+pub use crate::view_factor_radiation::ViewFactorError;
+```
+
+#### Re-export `ViewFactorModel`
+
+```rust
+pub use crate::view_factor_radiation::ViewFactorModel;
+```
+
+#### Re-export `ViewFactorPatch`
+
+```rust
+pub use crate::view_factor_radiation::ViewFactorPatch;
+```
+
+#### Re-export `ViewFactorSolution`
+
+```rust
+pub use crate::view_factor_radiation::ViewFactorSolution;
+```
+
+#### Re-export `format_g17`
+
+```rust
+pub use crate::view_factor_generation::format_g17;
+```
+
+#### Re-export `generate_view_factors`
+
+```rust
+pub use crate::view_factor_generation::generate_view_factors;
+```
+
+#### Re-export `trace_candidate_rays`
+
+```rust
+pub use crate::view_factor_generation::trace_candidate_rays;
+```
+
+#### Re-export `write_label_list_list_file`
+
+```rust
+pub use crate::view_factor_generation::write_label_list_list_file;
+```
+
+#### Re-export `write_map_dist_file`
+
+```rust
+pub use crate::view_factor_generation::write_map_dist_file;
+```
+
+#### Re-export `write_scalar_list_list_file`
+
+```rust
+pub use crate::view_factor_generation::write_scalar_list_list_file;
+```
+
+#### Re-export `GeneratedViewFactors`
+
+```rust
+pub use crate::view_factor_generation::GeneratedViewFactors;
+```
+
+#### Re-export `RayFirstHit`
+
+```rust
+pub use crate::view_factor_generation::RayFirstHit;
+```
+
+#### Re-export `ViewFactorGenInput`
+
+```rust
+pub use crate::view_factor_generation::ViewFactorGenInput;
+```
+
+#### Re-export `ViewFactorGenSettings`
+
+```rust
+pub use crate::view_factor_generation::ViewFactorGenSettings;
+```
+
+#### Re-export `LineHit`
+
+```rust
+pub use crate::esi_octree::LineHit;
+```
+
+#### Re-export `LineShapes`
+
+```rust
+pub use crate::esi_octree::LineShapes;
+```
+
+#### Re-export `NearestShapes`
+
+```rust
+pub use crate::esi_octree::NearestShapes;
+```
+
+#### Re-export `Octree`
+
+```rust
+pub use crate::esi_octree::Octree;
+```
+
+#### Re-export `OctreeShapes`
+
+```rust
+pub use crate::esi_octree::OctreeShapes;
+```
+
+#### Re-export `TreeBox`
+
+```rust
+pub use crate::esi_octree::TreeBox;
+```
+
+#### Re-export `stefan_boltzmann_esi_v2506`
+
+```rust
+pub use crate::radiation::stefan_boltzmann_esi_v2506;
+```
+
+#### Re-export `ConstantAbsorptionEmission`
+
+```rust
+pub use crate::radiation::ConstantAbsorptionEmission;
+```
+
+#### Re-export `P1Model`
+
+```rust
+pub use crate::radiation::P1Model;
+```
+
+#### Re-export `P1PatchModel`
+
+```rust
+pub use crate::radiation::P1PatchModel;
+```
+
+#### Re-export `P1Solution`
+
+```rust
+pub use crate::radiation::P1Solution;
+```
+
 #### Re-export `crate::thermophysics::eos::*`
 
 ```rust
 pub use crate::thermophysics::eos::*;
+```
+
+#### Re-export `crate::thermophysics::reaction_rate::*`
+
+```rust
+pub use crate::thermophysics::reaction_rate::*;
 ```
 
 #### Re-export `crate::thermophysics::thermo::*`
@@ -28146,6 +30939,2422 @@ pub use crate::thermophysics::thermo::*;
 
 ```rust
 pub use crate::thermophysics::transport::*;
+```
+
+## Module `radiation`
+
+P1 thermal radiation (ESI v2506): `G` equation, Marshak BCs, `Ru`/`Rp` (gh:#1379).
+P1 thermal-radiation model: the incident-radiation `G` equation, the Marshak
+boundary conditions, constant absorption/emission and the `Ru`/`Rp` energy
+source (gh:#1379, epic gh:#1376).
+
+# What is ported
+
+| Upstream (ESI v2506 `src/thermophysicalModels/radiation/`) | Here |
+|---|---|
+| `radiationModels/P1/P1.C` `P1::calculate`, `Ru`, `Rp` | [`P1Model::solve`], [`P1Solution::ru`], [`P1Solution::rp`] |
+| `derivedFvPatchFields/MarshakRadiation` | [`P1PatchModel::Marshak`] |
+| `derivedFvPatchFields/MarshakRadiationFixedTemperature` | [`P1PatchModel::MarshakFixedTemperature`] |
+| `submodels/absorptionEmissionModel/constantAbsorptionEmission` | [`ConstantAbsorptionEmission`] |
+| `scatterModel/noScatter` | `sigma_eff = 0` in [`P1Model`] |
+| `boundaryRadiationProperties` `lookup` (constant emissivity per patch) | the `emissivity` of the Marshak variants |
+| `radiationModel::ST(T)`, `radiationModel::Sh(thermo, he)` | [`P1Solution::st_matrix`], [`P1Solution::sh_matrix`] |
+| `physicoChemical::sigma` from the `etc/controlDict` constants | [`stefan_boltzmann_esi_v2506`] |
+
+~~`viewFactor`~~ **CORRECTED 2026-11-13 (gh:#1529): `viewFactor` is ported, see
+[`crate::view_factor_radiation`]**; `fvDOM`, `solarLoad`, `opaqueSolid`, wavelength bands, soot,
+scatter models and per-face emissivity models are NOT ported; the survey of
+what they would take is in
+`verification_and_validation/upstream_radiation_gh1379/README.md`.
+
+# Model
+
+Gray P1 (Modest, *Radiative Heat Transfer*, 3rd ed., ch. 16): with
+`gamma = 1/(3 a + sigma_eff + a0)` the incident radiation `G` [W/m2] obeys
+
+```text
+  div(gamma grad G) - a G = -4 e sigma T^4 - E
+```
+
+and the Marshak wall condition `Ep (4 sigma Tw^4 - G_w) = gamma dG/dn_out`,
+`Ep = eps / (2 (2 - eps))`, discretised as a `mixed` patch with
+`valueFraction = 1/(1 + gamma deltaCoeffs/Ep)`, `refValue = 4 sigma Tw^4`,
+`refGrad = 0`. The energy sources are `Ru = a G - E` and `Rp = 4 e sigma`
+(net absorbed power `Ru - Rp T^4`).
+
+# Sign conventions
+
+The matrices follow this crate's `fvm` convention (see
+`fv_operators::fvm::laplacian`): the diffusion operator has a
+POSITIVE diagonal. Upstream's matrices carry the opposite sign, so every
+matrix here is upstream's, negated: `diag`/`source` are upstream's `-diag`/
+`-source`, bit for bit (negation is exact).
+
+# Defaults
+
+Nothing in this module is wired into any solver by default; a solver opts
+in by calling [`P1Model::solve`] and adding [`P1Solution::st_matrix`] or
+[`P1Solution::sh_matrix`] to its energy equation.
+
+Units: SI throughout (`a`, `e` in 1/m, `E` in W/m3, `G`, `qr` in W/m2, T in K).
+
+```rust
+pub mod radiation { /* ... */ }
+```
+
+### Types
+
+#### Struct `ConstantAbsorptionEmission`
+
+`constantAbsorptionEmission`: uniform gray absorption, emission coefficient and
+emission source (ESI keywords `absorptivity`, `emissivity`, `E`).
+
+```rust
+pub struct ConstantAbsorptionEmission {
+    pub absorptivity: f64,
+    pub emissivity: f64,
+    pub emission_source: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `absorptivity` | `f64` | Absorption coefficient `a` [1/m]. |
+| `emissivity` | `f64` | Emission coefficient `e` [1/m] (the medium's, not a wall emissivity). |
+| `emission_source` | `f64` | Additional emission source `E` [W/m3]. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `P1PatchModel`
+
+What a boundary patch does for the `G` equation.
+
+```rust
+pub enum P1PatchModel {
+    Marshak {
+        emissivity: f64,
+    },
+    MarshakFixedTemperature {
+        emissivity: f64,
+        t_rad: f64,
+    },
+    ZeroGradient,
+}
+```
+
+##### Variants
+
+###### `Marshak`
+
+`MarshakRadiation`: wall at the boundary temperature of the `T` field,
+with the wall emissivity `emissivity` (boundaryRadiationProperties `lookup`).
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `emissivity` | `f64` | Wall emissivity, dimensionless, in (0, 1]. |
+
+###### `MarshakFixedTemperature`
+
+`MarshakRadiationFixedTemperature`: wall radiating at `t_rad` [K]
+regardless of the `T` field.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `emissivity` | `f64` | Wall emissivity, dimensionless, in (0, 1]. |
+| `t_rad` | `f64` | Radiation temperature `Trad` [K]. |
+
+###### `ZeroGradient`
+
+Insulating / symmetry patch for `G` (`zeroGradient`): no radiative flux.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `P1Model`
+
+The P1 model: medium properties and one [`P1PatchModel`] per mesh patch.
+
+```rust
+pub struct P1Model {
+    pub absorption_emission: ConstantAbsorptionEmission,
+    pub sigma_eff: f64,
+    pub patches: Vec<P1PatchModel>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `absorption_emission` | `ConstantAbsorptionEmission` | Absorption and emission of the medium. |
+| `sigma_eff` | `f64` | Effective scattering coefficient `sigma_eff` [1/m]; `0` is `noScatter`. |
+| `patches` | `Vec<P1PatchModel>` | One entry per patch of the mesh, in patch order. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(absorption_emission: ConstantAbsorptionEmission, patches: Vec<P1PatchModel>) -> Self { /* ... */ }
+  ```
+  A model with `noScatter` (`sigma_eff = 0`).
+
+- ```rust
+  pub fn solve(self: &Self, t: &VolScalarField, settings: SolverSettings) -> P1Solution { /* ... */ }
+  ```
+  Solve `div(gamma grad G) - a G = -4 e sigma T^4 - E` with PCG/DIC from `G = 0`
+
+- ```rust
+  pub fn solve_from(self: &Self, t: &VolScalarField, g_init: Option<&[f64]>, settings: SolverSettings) -> P1Solution { /* ... */ }
+  ```
+  [`Self::solve`] warm-started from `g_init` (one `G` per cell), as upstream's
+
+- ```rust
+  pub fn initial_solution(self: &Self, t: &VolScalarField, g: f64) -> P1Solution { /* ... */ }
+  ```
+  The state of a `P1` radiation field before its first solve: uniform incident radiation
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `P1Solution`
+
+Result of [`P1Model::solve`].
+
+```rust
+pub struct P1Solution {
+    pub g: crate::fields::vol_field::VolScalarField,
+    pub qr: Vec<crate::fields::field::Field<f64>>,
+    pub performance: crate::ldu_matrix::fv_matrix::SolverPerformance,
+    pub a: Vec<f64>,
+    pub e: Vec<f64>,
+    pub emission: Vec<f64>,
+    pub t: crate::fields::vol_field::VolScalarField,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `g` | `crate::fields::vol_field::VolScalarField` | Incident radiation `G` [W/m2]; boundary conditions are `MixedField` with the<br>Marshak coefficients, boundary values evaluated (upstream's `evaluate`). |
+| `qr` | `Vec<crate::fields::field::Field<f64>>` | Radiative heat flux on each patch face `qr = -gamma snGrad(G)` [W/m2], one<br>vector per patch (`-0.0` on a `ZeroGradient` patch, as upstream). |
+| `performance` | `crate::ldu_matrix::fv_matrix::SolverPerformance` | Linear-solver summary. |
+| `a` | `Vec<f64>` | Absorption coefficient `a` used (per cell, [1/m]). |
+| `e` | `Vec<f64>` | Emission coefficient `e` used (per cell, [1/m]). |
+| `emission` | `Vec<f64>` | Emission source `E` used (per cell, [W/m3]). |
+| `t` | `crate::fields::vol_field::VolScalarField` | The temperature field `T` the solution was computed from. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rp(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  `Rp = 4 e sigma` per cell [W/m3/K4] (`P1::Rp`).
+
+- ```rust
+  pub fn ru(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  `Ru = a G - E` per cell [W/m3] (`P1::Ru`).
+
+- ```rust
+  pub fn st_matrix(self: &Self) -> FvMatrix { /* ... */ }
+  ```
+  Upstream `radiationModel::ST(T)` = `Ru - fvm::Sp(Rp T^3, T)`, the radiative source of
+
+- ```rust
+  pub fn sh_matrix(self: &Self, cpv: &[f64], he: &[f64]) -> FvMatrix { /* ... */ }
+  ```
+  Upstream `radiationModel::Sh(thermo, he)` =
+
+- ```rust
+  pub fn net_absorbed_power(self: &Self) -> f64 { /* ... */ }
+  ```
+  Net radiative power absorbed by the medium, `sum V (Ru - Rp T^4)` [W].
+
+- ```rust
+  pub fn boundary_power(self: &Self) -> f64 { /* ... */ }
+  ```
+  Radiative power leaving through the boundary, `sum qr |Sf|` [W]. For a converged
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `stefan_boltzmann_esi_v2506`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`physicoChemical::sigma` [W/m2/K4] exactly as ESI v2506 builds it at start-up
+from the SI constants in `etc/controlDict` (`k = 1.38065e-23`,
+`h = 6.62607e-34`, `c = 2.99792e8`, all truncated to six digits):
+`sqr(pi)/60 * pow4(k) / (pow3(hr) * sqr(c))`, `hr = h/(2 pi)`, in that
+operation order. It is 5.67040855806e-8, about 1e-5 above CODATA's
+5.670374e-8; the radiation here follows upstream, not CODATA (the same
+choice as `R_UNIVERSAL_ESI_V2506` for the gas constant, gh:#1362).
+
+```rust
+pub fn stefan_boltzmann_esi_v2506() -> f64 { /* ... */ }
+```
+
+### Re-exports
+
+#### Re-export `ROOT_VSMALL`
+
+OpenFOAM's `ROOTVSMALL` (1e-150), added to the P1 diffusion denominator so `gamma`
+stays finite for a vacuum. Re-exported from `primitives::scalar` (one definition).
+
+```rust
+pub use crate::primitives::scalar::ROOT_VSMALL;
+```
+
+## Module `view_factor_radiation`
+
+`viewFactor` surface-to-surface radiation (ESI v2506), serial direct solver, reading `viewFactorsGen` output (gh:#1529).
+`viewFactor` surface-to-surface radiation (ESI v2506), serial direct-solver path
+(gh:#1529, under gh:#1379 and epic gh:#1376).
+
+# What is ported
+
+| Upstream (ESI v2506 `src/thermophysicalModels/radiation/`) | Here |
+|---|---|
+| `radiationModels/viewFactor/viewFactor.C` `initialise` (dense `Fmatrix_`, smoothing), `insertMatrixElements` | [`ViewFactorModel::new`] |
+| `viewFactor::calculate`, `useDirectSolver true`, variable and `constantEmissivity` branches | [`ViewFactorModel::solve`] |
+| coarse-face area averaging of `T^4`, emissivity, `Hoi` and the back-distribution of `qr` | [`ViewFactorModel::solve`] |
+| `viewFactor::Ru`, `viewFactor::Rp` (both identically zero) | [`ViewFactorModel::ru`], [`ViewFactorModel::rp`] |
+| `greyDiffusiveViewFactorFixedValueFvPatchScalarField` (`qro`, no solar load) | [`GreyDiffusiveViewFactorPatch`] |
+| `Foam::LUDecompose` / `LUBacksubstitute` (`LUsolve`) | `matrix::SquareMatrix::lu_decompose` / `lu_back_substitute` (existing, unchanged) |
+| the ASCII `F`, `globalFaceFaces`, `finalAgglom` files written by `viewFactorsGen` / `faceAgglomerate` | [`parse_scalar_list_list`], [`parse_label_list_list`] |
+
+NOT ported (gh:#1529 ledger): ~~the view-factor GENERATOR (`viewFactorsGen`,
+`faceAgglomerate`, `singleCellFvMesh`: ~1,555 + 600 lines on `distributedTriSurfaceMesh`;
+this module reads their output)~~ **CORRECTED 2026-11-14 (gh:#1540)**: `viewFactorsGen` (serial, 3-D, no
+agglomeration) IS ported, see [`crate::view_factor_generation`]; `faceAgglomerate`,
+`singleCellFvMesh` and `pairPatchAgglomeration` are still not (this module reads their
+output). Also not ported: the iterative `useDirectSolver false` branch
+(needs `lduPrimitiveMesh`/processor interfaces; serial runs use the direct branch by
+default), several bands (`nBands > 1`), `solarLoad`, and parallel (`mapDistribute`).
+The Rust solver takes `nBands = 1`.
+
+# Model
+
+With `F` the view-factor matrix of the coarse faces (rows of the visible faces only; a
+row sum below 1 is an open enclosure), `E` the face emissivity, `sigma` the ESI
+Stefan-Boltzmann constant and `Ho` the external flux `qro` of the
+`greyDiffusiveRadiationViewFactor` BC, upstream solves
+
+```text
+  sum_j [ delta_ij / E_j - (1/E_j - 1) F_ij ] q_j
+       = -sigma T_i^4 + Ho_i + sum_{j != i} F_ij sigma T_j^4
+```
+
+(`F_ii = 0`), for the coarse-face flux `q`; it is then copied to every fine face of the
+coarse face. `q` is the NET flux INTO the wall (negative = leaving the wall into the
+enclosure); for `Ho = 0` it is minus the Modest (Radiative Heat Transfer, 3rd ed.,
+Eq. 5.22) net outgoing flux. The radiosity is therefore
+`J_i = sigma T_i^4 + (1 - E_i)/E_i q_i` ([`ViewFactorSolution::radiosity`]).
+
+# `constantEmissivity` caches the LU factors on the FIRST call (upstream behaviour)
+
+With `constantEmissivity true` upstream builds and factorises `C` on the first
+`calculate()` and reuses it for every later call, whatever the emissivities are then.
+This port does the same (`lu` is filled once) and says so here rather than "fixing" it;
+`Ho` and `T` still enter every solve.
+
+# Defaults
+
+Opt-in: nothing in the solvers calls this by default (the model is a new capability).
+Units: SI (T in K, areas in m2, fluxes in W/m2).
+
+```rust
+pub mod view_factor_radiation { /* ... */ }
+```
+
+### Types
+
+#### Enum `ViewFactorError`
+
+Error from reading a view-factor file or assembling a model.
+
+```rust
+pub enum ViewFactorError {
+    Parse(String),
+    Shape(String),
+}
+```
+
+##### Variants
+
+###### `Parse`
+
+The text is not an OpenFOAM ASCII list-of-lists.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+###### `Shape`
+
+Inputs of inconsistent sizes.
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `String` |  |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Display**
+  - ```rust
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
+    ```
+
+- **Error**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **ToString**
+  - ```rust
+    fn to_string(self: &Self) -> String { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViewFactorPatch`
+
+One participating boundary patch (a `viewFactorWall` patch): its fine-face areas
+`|Sf|` and the fine-to-coarse agglomeration labels (`finalAgglom[patch]`, identity for
+no agglomeration).
+
+```rust
+pub struct ViewFactorPatch {
+    pub name: String,
+    pub fine_areas: Vec<f64>,
+    pub agglom: Vec<usize>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `name` | `String` | Patch name (informational). |
+| `fine_areas` | `Vec<f64>` | `|Sf|` of every fine face of the patch [m2]. |
+| `agglom` | `Vec<usize>` | Agglomeration label of every fine face (`finalAgglom[patch]`). |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GreyDiffusiveViewFactorPatch`
+
+`greyDiffusiveRadiationViewFactor` patch field: a fixed-value `qr` carrying the external
+incident flux `qro` [W/m2] (no solar load).
+
+```rust
+pub struct GreyDiffusiveViewFactorPatch {
+    pub qro: Vec<f64>,
+    pub value: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `qro` | `Vec<f64>` | External flux `qro` per fine face [W/m2] (`qro uniform ...` in `0/qr`). |
+| `value` | `Vec<f64>` | The patch value (`qr`), overwritten by [`ViewFactorModel::solve`]. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(qro: Vec<f64>) -> Self { /* ... */ }
+  ```
+  A patch with the given `qro` and `qr = 0` (upstream: `value` default Zero).
+
+- ```rust
+  pub fn qro(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  `qro(bandI)` without solar load: a copy of the stored `qro`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViewFactorModel`
+
+The `viewFactor` radiation model, direct dense solver.
+
+```rust
+pub struct ViewFactorModel {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(patches: Vec<ViewFactorPatch>, global_face_faces: &[Vec<usize>], f_rows: &[Vec<f64>], smoothing: bool, const_emissivity: bool) -> Result<Self, ViewFactorError> { /* ... */ }
+  ```
+  Assemble the dense `F` (`insertMatrixElements`, one processor) and, with
+
+- ```rust
+  pub fn n_coarse(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of coarse faces (order of the dense system).
+
+- ```rust
+  pub fn f_matrix(self: &Self) -> &SquareMatrix { /* ... */ }
+  ```
+  The (possibly smoothed) dense view-factor matrix `F`.
+
+- ```rust
+  pub fn ru(self: &Self, n_cells: usize) -> Vec<f64> { /* ... */ }
+  ```
+  `viewFactor::Ru`: identically zero (upstream returns a zero field).
+
+- ```rust
+  pub fn rp(self: &Self, n_cells: usize) -> Vec<f64> { /* ... */ }
+  ```
+  `viewFactor::Rp`: identically zero.
+
+- ```rust
+  pub fn solve(self: &mut Self, t: &[Vec<f64>], emissivity: &[Vec<f64>], bcs: &mut [GreyDiffusiveViewFactorPatch]) -> Result<ViewFactorSolution, ViewFactorError> { /* ... */ }
+  ```
+  One `viewFactor::calculate()` (direct solver, one band).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViewFactorSolution`
+
+Result of [`ViewFactorModel::solve`].
+
+```rust
+pub struct ViewFactorSolution {
+    pub q_coarse: Vec<f64>,
+    pub sigma_t4_coarse: Vec<f64>,
+    pub emissivity_coarse: Vec<f64>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `q_coarse` | `Vec<f64>` | Coarse-face net flux `q` (upstream `qNet`), in global coarse-face order [W/m2]. |
+| `sigma_t4_coarse` | `Vec<f64>` | Coarse-face `sigma T^4` as used (area-averaged `T^4` times `sigma`). |
+| `emissivity_coarse` | `Vec<f64>` | Coarse-face emissivity as used (area average). |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn radiosity(self: &Self) -> Vec<f64> { /* ... */ }
+  ```
+  Radiosity `J_i = sigma T_i^4 + (1 - E_i)/E_i q_i` per coarse face, the Modest
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `parse_scalar_list_list`
+
+Parse an ASCII `List<List<scalar>>` (`scalarListIOList`, the `F` file) exactly: every
+number goes through `str::parse::<f64>`, which is correctly rounded like glibc `strtod`,
+so a file written with `writePrecision 17` round-trips bit for bit.
+
+# Errors
+[`ViewFactorError::Parse`] when the list structure is malformed.
+
+```rust
+pub fn parse_scalar_list_list(text: &str) -> Result<Vec<Vec<f64>>, ViewFactorError> { /* ... */ }
+```
+
+#### Function `parse_label_list_list`
+
+Parse an ASCII `List<List<label>>` (`labelListIOList`: `globalFaceFaces`,
+`finalAgglom`).
+
+# Errors
+[`ViewFactorError::Parse`] when the list structure is malformed.
+
+```rust
+pub fn parse_label_list_list(text: &str) -> Result<Vec<Vec<usize>>, ViewFactorError> { /* ... */ }
+```
+
+## Module `view_factor_generation`
+
+`viewFactorsGen` view-factor generator (ESI v2506), serial, no agglomeration (gh:#1540).
+`viewFactorsGen` (ESI v2506): view-factor generator, serial, no face agglomeration
+(gh:#1540, under gh:#1529, #1336).
+
+# What is ported
+
+| Upstream (`viewFactorsGen.C` unless noted) | Here |
+|---|---|
+| coarse `Cf`/`Sf` of an un-agglomerated patch (`singleCellFvMesh` face, nearest fine centre/vertex snap) | the fine face centre and area vector, [`crate::io::poly_mesh::face_centre_and_area`] |
+| candidate rays `(d & fA) < 0 && (d & remA) > 0`, `start = fc + 0.001 d`, `end = fc + 0.999 d` (`shootRays.H`) | [`generate_view_factors`] |
+| visibility by `distributedTriSurfaceMesh::findLine` (serial: `indexedOctree::findLine`) and the self-hit continuation loop (`shootRays.H`) | ~~brute-force nearest segment/triangle hit~~ **CORRECTED 2026-11-14 (gh:#1564)** the octree itself, [`crate::esi_octree::Octree::find_line`], same loop (see "Visibility") |
+| `calculateViewFactorFij2AI`, far test, `GaussQuad`, the Gauss tables, `GaussQuadTol`/`distTol`/`alpha` | private functions, same operation order |
+| `F` (`scalarListIOList`), `globalFaceFaces` (`labelListIOList`), `mapDist` (`IOmapDistribute`, one processor) | [`write_scalar_list_list_file`], [`write_label_list_list_file`], [`write_map_dist_file`] |
+
+NOT ported (deferred, gh:#1540 ledger): `faceAgglomerate` / `finalAgglom` /
+`singleCellFvMesh` / `pairPatchAgglomeration` (coarse faces of several fine faces),
+the 2-D (`nSolutionD == 2`) branch, parallel `mapDistribute`, `dumpRays`,
+`writeViewFactorMatrix` (the `viewFactorField`), and the CGAL ray engine (this is the
+`-DNO_CGAL` octree route, which is what the ESI reference was built with).
+
+# Method
+
+For fine face `i` with centre `Ci` and area vector `Si`, and each visible face `j`:
+if ANY (fine i, fine j) pair has `|Ci - Cj| / ((a_i + a_j)/2) > distTol`
+(`a = sqrt(|S|/pi)`) the pair is "far" and `F_ij = sum_{i,j} cos_i cos_j |S_i||S_j| /
+(pi r^2) / |A_i|` (two area integrals, 2AI); otherwise it is "near" and the double
+contour integral (2LI) `F_ij = (1/(4 pi |A_i|)) sum_edges sum_edges cos(si,sj) *
+int int ln(r.r)` is evaluated with Gauss-Legendre of order 1..5 until the relative change
+is below `GaussQuadTol` (default **0.01** in the code; the header comment of upstream
+says 0.1). Edges that share a point use order 0 with `r = alpha |si| di`.
+
+# Visibility
+
+~~A candidate ray is a hit if it intersects any wall triangle (nearest hit, Moller-Trumbore,
+no tolerance) ... brute force over all triangles ... the two agree whenever no ray grazes a
+triangle edge.~~ **CORRECTED 2026-11-14 (gh:#1564)**: the brute force did NOT agree with
+upstream on rays lying in the plane of a wall triangle (coplanar faces, the non-convex L case,
+the thin graded box): `indexedOctree::findLine` does not test the ray's own (start, end) against
+each triangle. It walks the octree leaves in ray order and, in each leaf, calls the triangle
+test with the point where the ray ENTERED the leaf (pushed onto the leaf face) and the
+nearest hit so far as end point, accepting a hit only if it lies inside that leaf. For an
+in-plane ray `det`, `u`, `v`, `t` are ~1e-17 noise that depends on those arguments. The visibility
+therefore runs on a port of the octree (`crate::esi_octree`, built as `triSurfaceSearch::tree()`:
+depth 10, leaf size 10, duplicity 3, bounds inflated by `Random(65431)`), with the unchanged
+upstream triangle test (`triangle::intersection(HALF_RAY)`, `planarTol = 10*SMALL`, `|det| <
+ROOTVSMALL`, `distance() <= 1`). A hit on a triangle of the ray's own face is continued from the
+hit point (`+0.01 d`, `+1.01 d`, at most 10 passes), a hit on the target face counts as visible,
+anything else blocks the ray, as in `shootRays.H`. Triangles are `face::triangles` (a quad
+starts at its most concave angle, as upstream).
+
+# Transcendentals
+
+`ln` is [`petir::mathf::RealMath::r_ln`] (one implementation on every target, workspace
+gate `no_platform_libm`); upstream calls glibc `log`. See the V&V record for how many
+`F` entries differ in the last bit, if any.
+
+Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+```rust
+pub mod view_factor_generation { /* ... */ }
+```
+
+### Types
+
+#### Struct `ViewFactorGenSettings`
+
+`viewFactorsDict` entries read by `viewFactorsGen`, with upstream's code defaults.
+
+```rust
+pub struct ViewFactorGenSettings {
+    pub gauss_quad_tol: f64,
+    pub dist_tol: f64,
+    pub alpha: f64,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `gauss_quad_tol` | `f64` | `GaussQuadTol`, code default 0.01. |
+| `dist_tol` | `f64` | `distTol`, code default 8. |
+| `alpha` | `f64` | `alpha`, code default 0.21. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+    The defaults of `viewFactorsGen.C` (`getOrDefault`), not the header comment's.
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ViewFactorGenInput`
+
+Faces of the `viewFactorWall` patches, patch by patch in patch-index order.
+
+```rust
+pub struct ViewFactorGenInput {
+    pub points: Vec<crate::primitives::Vector3>,
+    pub patch_faces: Vec<Vec<Vec<usize>>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `points` | `Vec<crate::primitives::Vector3>` | Mesh points. |
+| `patch_faces` | `Vec<Vec<Vec<usize>>>` | `patch_faces[p][k]` is the vertex loop of face `k` of the `p`-th wall patch. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `GeneratedViewFactors`
+
+Output of [`generate_view_factors`]: the contents of the `F` and `globalFaceFaces` files.
+
+```rust
+pub struct GeneratedViewFactors {
+    pub f: Vec<Vec<f64>>,
+    pub global_face_faces: Vec<Vec<usize>>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `f` | `Vec<Vec<f64>>` | `F`: per face, the view factors to its visible faces. |
+| `global_face_faces` | `Vec<Vec<usize>>` | `globalFaceFaces`: per face, the (global) indices of its visible faces in upstream's row order: ~~ascending~~ **CORRECTED 2026-11-14 (gh:#1564)** ascending among the rays that missed on the first `findLine`, then the self-hit-continued rays by pass, each ascending. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RayFirstHit`
+
+One candidate ray of `shootRays.H` with the result of its first `findLine`.
+
+```rust
+pub struct RayFirstHit {
+    pub source: usize,
+    pub target: usize,
+    pub start: crate::primitives::Vector3,
+    pub end: crate::primitives::Vector3,
+    pub hit: Option<(usize, crate::primitives::Vector3)>,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `source` | `usize` | Source face (local index). |
+| `target` | `usize` | Target face. |
+| `start` | `crate::primitives::Vector3` | Ray start `fc + 0.001 d`. |
+| `end` | `crate::primitives::Vector3` | Ray end `fc + 0.999 d`. |
+| `hit` | `Option<(usize, crate::primitives::Vector3)>` | First hit of the segment with the wall: `(face, point)`, `None` for a miss. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Functions
+
+#### Function `trace_candidate_rays`
+
+Every candidate ray (`(d & fA) < 0 && (d & remA) > 0`), in upstream's order (source ascending,
+target ascending), with its first `findLine` result. Diagnostic for comparing with
+upstream's `findLine` ray by ray (gh:#1564).
+
+# Errors
+As [`generate_view_factors`].
+
+```rust
+pub fn trace_candidate_rays(input: &ViewFactorGenInput) -> Result<Vec<RayFirstHit>, String> { /* ... */ }
+```
+
+#### Function `generate_view_factors`
+
+Generate `F` and `globalFaceFaces` for un-agglomerated wall patches (3-D).
+
+`viewFactorsGen` with no `finalAgglom` in `constant/`, serial, `-DNO_CGAL`.
+
+# Errors
+Returns a message when a face has fewer than 3 vertices or a vertex index is out of range.
+
+```rust
+pub fn generate_view_factors(input: &ViewFactorGenInput, settings: ViewFactorGenSettings) -> Result<GeneratedViewFactors, String> { /* ... */ }
+```
+
+#### Function `format_g17`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+`%.17g` as printed by an `ostream` with `precision(17)` and default floatfield.
+
+```rust
+pub fn format_g17(x: f64) -> String { /* ... */ }
+```
+
+#### Function `write_scalar_list_list_file`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The `F` file (`scalarListIOList`, `writePrecision 17`) as upstream writes it.
+
+```rust
+pub fn write_scalar_list_list_file(rows: &[Vec<f64>]) -> String { /* ... */ }
+```
+
+#### Function `write_label_list_list_file`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The `globalFaceFaces` file (`labelListIOList`) as upstream writes it.
+
+```rust
+pub fn write_label_list_list_file(rows: &[Vec<usize>]) -> String { /* ... */ }
+```
+
+#### Function `write_map_dist_file`
+
+**Attributes:**
+
+- `MustUse { reason: None }`
+
+The `mapDist` file (`IOmapDistribute`) of a serial run: identity maps of size `n`.
+
+```rust
+pub fn write_map_dist_file(n: usize) -> String { /* ... */ }
+```
+
+## Module `esi_octree`
+
+`indexedOctree` of ESI v2506 (build, `findNearest`, `findLine`), moved here from `outram-foam-mesh` for gh:#1564.
+(Moved from `outram-foam-mesh` to this crate on 2026-11-14 for gh:#1564; `outram_foam_mesh`
+re-exports it, behaviour unchanged. `OctreeShapes` was split into `OctreeShapes` +
+`NearestShapes` so a shape type that only needs `findLine` need not provide `findNearest`.)
+
+`indexedOctree` of OpenFOAM.com ESI v2506, translated so that **nearest-shape queries visit
+the shapes in upstream's order** (gh:#1467 round 7).
+
+Why it exists: `snappyHexMesh`'s feature snapping asks `indexedOctree::findNearest` for the
+nearest feature edge / surface triangle of a sample, and upstream keeps the FIRST shape at a
+strictly smaller distance (`distSqr < nearestDistSqr`). When two shapes are at exactly the
+same distance the answer is whichever the traversal visits first, so reproducing ESI
+bit for bit needs the same tree and the same traversal. Round 6 brute-forced the shapes in
+index order; four mirror-image valence-3 corner points chose the other edge than ESI
+(README, "Round 7").
+
+Translated (upstream file : routine):
+- `indexedOctree.C` : `divide`, `splitNodes`, the constructor level loop, `findNearest`
+  (sample overload). `compactContents` only renumbers the leaf storage (the sub-node
+  references follow), so it is not needed for the traversal.
+- `treeBoundBox.C`, `treeBoundBoxI.H`, `boundBox.C`, `boundBoxI.H` : `subBbox`, `subOctant`,
+  `searchOrder`, `subOverlaps` (sphere and box), `overlaps`, `intersects` (Sutherland
+  segment clip and the separating-axis triangle test), `inflate`.
+- `Random.C` / `Rand48.H` : the `lrand48`-compatible generator and libstdc++'s
+  `uniform_real_distribution<double>` (`generate_canonical`, two 31-bit draws).
+- `treeDataEdge.C`, `treeDataPrimitivePatch.C` : `overlaps(index, box)` and `findNearest`.
+
+Not translated: `findLine`, `findInside`, volume types, the node-type bit sets, the
+`linePointRef` overload of `findNearest`.
+
+```rust
+pub mod esi_octree { /* ... */ }
+```
+
+### Types
+
+#### Type Alias `V`
+
+```rust
+pub type V = [f64; 3];
+```
+
+#### Struct `EsiRandom`
+
+`Foam::Random`: `Rand48` (`lrand48`) driving `std::uniform_real_distribution<double>` on
+[0, 1).
+
+```rust
+pub struct EsiRandom {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(seed: u32) -> Self { /* ... */ }
+  ```
+  `Random(seed)`: `Rand48::convert`, `(seed << 16) | 0x330e`.
+
+- ```rust
+  pub fn scalar01(self: &mut Self) -> f64 { /* ... */ }
+  ```
+  `scalar01()`: libstdc++ `generate_canonical<double, 53>` with a 2^31-wide generator
+
+- ```rust
+  pub fn sample01_vector(self: &mut Self) -> V { /* ... */ }
+  ```
+  `sample01<vector>()`: three draws, x then y then z.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `TreeBox`
+
+`treeBoundBox`.
+
+```rust
+pub struct TreeBox {
+    pub min: V,
+    pub max: V,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `min` | `V` | Minimum corner. |
+| `max` | `V` | Maximum corner. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn of_points(points: &[V]) -> Self { /* ... */ }
+  ```
+  `treeBoundBox(points)`: the bounds of a point list.
+
+- ```rust
+  pub fn centre(self: &Self) -> V { /* ... */ }
+  ```
+  `boundBox::centre`: `0.5*(min + max)`.
+
+- ```rust
+  pub fn inflate(self: &mut Self, rnd: &mut EsiRandom, factor: f64, delta: f64) { /* ... */ }
+  ```
+  `boundBox::inflate(rndGen, factor, delta)`.
+
+- ```rust
+  pub fn search_domain(points: &[V]) -> Self { /* ... */ }
+  ```
+  The search domain of every tree of `refinementFeatures` and `triSurfaceSearch`:
+
+- ```rust
+  pub fn sub_bbox(self: &Self, mid: V, octant: u8) -> TreeBox { /* ... */ }
+  ```
+  `subBbox(mid, octant)`.
+
+- ```rust
+  pub fn overlaps_sphere(self: &Self, centre: V, radius_sqr: f64) -> bool { /* ... */ }
+  ```
+  `boundBox::overlaps(centre, radiusSqr)`.
+
+- ```rust
+  pub fn sub_overlaps_sphere(self: &Self, octant: u8, centre: V, radius_sqr: f64) -> bool { /* ... */ }
+  ```
+  `treeBoundBox::subOverlaps(octant, centre, radiusSqr)`.
+
+- ```rust
+  pub fn overlaps_box(self: &Self, other: &TreeBox) -> bool { /* ... */ }
+  ```
+  `boundBox::overlaps(bb)`.
+
+- ```rust
+  pub fn sub_overlaps_box(self: &Self, octant: u8, bb: &TreeBox) -> bool { /* ... */ }
+  ```
+  `treeBoundBox::subOverlaps(octant, bb)`.
+
+- ```rust
+  pub fn search_order(self: &Self, pt: V) -> [u8; 8] { /* ... */ }
+  ```
+  `treeBoundBox::searchOrder(pt)`: the octant containing `pt` first, then the face,
+
+- ```rust
+  pub fn clip(self: &Self, overall_start: V, overall_vec: V, start: V, end: V) -> (bool, V, u8) { /* ... */ }
+  ```
+  `treeBoundBox::intersects(overallStart, overallVec, start, end, pt, ptOnFaces)`:
+
+- ```rust
+  pub fn intersects_segment(self: &Self, start: V, end: V) -> bool { /* ... */ }
+  ```
+  `treeBoundBox::intersects(start, end, pt)` as a yes/no.
+
+- ```rust
+  pub fn face_bits(self: &Self, pt: V) -> u8 { /* ... */ }
+  ```
+  `treeBoundBox::faceBits(pt)`: the faces the point lies exactly on.
+
+- ```rust
+  pub fn sub_octant(self: &Self, pt: V) -> u8 { /* ... */ }
+  ```
+  `treeBoundBox::subOctant(pt)`: the octant (about the centre) a point lies in.
+
+- ```rust
+  pub fn contains(self: &Self, p: V) -> bool { /* ... */ }
+  ```
+  `boundBox::contains(pt)`: inclusive.
+
+- ```rust
+  pub fn intersects_triangle(self: &Self, a: V, b: V, c: V) -> bool { /* ... */ }
+  ```
+  `boundBox::intersects(triPointRef)`: corner containment then the separating-axis
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `Octree`
+
+`indexedOctree<Type>`.
+
+```rust
+pub struct Octree<S: OctreeShapes> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(shapes: S, bb: TreeBox, max_levels: usize, max_leaf_ratio: usize, max_duplicity: f64) -> Self { /* ... */ }
+  ```
+  `indexedOctree(shapes, bb, maxLevels, maxLeafRatio, maxDuplicity)`.
+
+- ```rust
+  pub fn shapes(self: &Self) -> &S { /* ... */ }
+  ```
+  The shapes.
+
+- ```rust
+  pub fn n_nodes(self: &Self) -> usize { /* ... */ }
+  ```
+  Number of nodes (a build check).
+
+- ```rust
+  pub fn find_nearest(self: &Self, sample: V, start_dist_sqr: f64) -> Option<(usize, V)> { /* ... */ }
+  ```
+  `findNearest(sample, startDistSqr)`: the shape index and nearest point, when one is
+
+- ```rust
+  pub fn find_line(self: &Self, start: V, end: V) -> Option<LineHit> { /* ... */ }
+  ```
+  `findLine(start, end, findIntersectOp)` (nearest intersection): the first shape hit along
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LineHit`
+
+`pointIndexHit` of a `findLine`: the hit shape and point.
+
+```rust
+pub struct LineHit {
+    pub index: usize,
+    pub point: V,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `index` | `usize` | Index of the shape that was hit. |
+| `point` | `V` | Intersection point on that shape. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `OctreeShapes`
+
+The shape contract of `indexedOctree<Type>`: the two members the build and the nearest
+search use.
+
+```rust
+pub trait OctreeShapes {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `len`: Number of shapes.
+- `overlaps_box`: `overlaps(index, searchBox)`.
+
+#### Trait `NearestShapes`
+
+The extra member of the shapes a nearest-shape query (`findNearest`) needs.
+
+```rust
+pub trait NearestShapes: OctreeShapes {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `find_nearest`: `findNearest(indices, sample, nearestDistSqr, minIndex, nearestPoint)`: strictly smaller
+
+#### Trait `LineShapes`
+
+The shapes a `findLine` query needs: upstream's `findIntersectOp`.
+
+```rust
+pub trait LineShapes: OctreeShapes {
+    /* Associated items */
+}
+```
+
+##### Required Items
+
+###### Required Methods
+
+- `find_intersection`: `findIntersectOp::operator()(index, start, end, pt)`: the intersection point of the
+
+### Functions
+
+#### Function `sub`
+
+```rust
+pub fn sub(a: V, b: V) -> V { /* ... */ }
+```
+
+#### Function `dot`
+
+```rust
+pub fn dot(a: V, b: V) -> f64 { /* ... */ }
+```
+
+#### Function `cross`
+
+```rust
+pub fn cross(a: V, b: V) -> V { /* ... */ }
+```
+
+### Constants and Statics
+
+#### Constant `PERTURB_TOL`
+
+`indexedOctreeBase::perturbTol_ = 10*SMALL`, the value `triSurfaceSearch` leaves in force while
+it calls `findLine`.
+
+```rust
+pub const PERTURB_TOL: f64 = _;
 ```
 
 ## Module `primitives`
@@ -28171,10 +33380,6 @@ pub mod primitives { /* ... */ }
 
 ## Module `eigen`
 
-The scalar floating-point type and the small/large numeric constants.
-Spectral decomposition of 3x3 tensors -- eigenvalues, eigenvectors, and the
-basis every isotropic tensor function (logarithm, exponential, square root)
-is built on.
 Eigenvalues and eigenvectors of 3x3 tensors.
 
 # What this is for
@@ -28408,8 +33613,6 @@ pub mod scalar { /* ... */ }
 
 #### Type Alias `Scalar`
 
-OpenFOAM `scalar` — a dimensionless double-precision floating-point value.
-
 ```rust
 pub type Scalar = f64;
 ```
@@ -28629,6 +33832,7 @@ pub struct SphericalTensor {
     fn div(self: Self, st: SphericalTensor) -> SphericalTensor { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -28650,6 +33854,7 @@ pub struct SphericalTensor {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, s: f64) -> Self { /* ... */ }
@@ -29043,6 +34248,12 @@ pub struct SymmTensor {
     fn div(self: Self, s: f64) -> Self { /* ... */ }
     ```
 
+- **FilterValue**
+  - ```rust
+    fn anisotropic(filter: &AnisotropicFilter, vf: &VolField<Self>) -> VolField<Self> { /* ... */ }
+    ```
+
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -29064,6 +34275,7 @@ pub struct SymmTensor {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, s: f64) -> Self { /* ... */ }
@@ -29612,6 +34824,12 @@ pub struct Tensor {
     fn div(self: Self, s: f64) -> Self { /* ... */ }
     ```
 
+- **FilterValue**
+  - ```rust
+    fn anisotropic(filter: &AnisotropicFilter, vf: &VolField<Self>) -> VolField<Self> { /* ... */ }
+    ```
+
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -29633,6 +34851,7 @@ pub struct Tensor {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, s: f64) -> Self { /* ... */ }
@@ -30027,6 +35246,12 @@ pub struct Vector3 {
     fn div_assign(self: &mut Self, s: f64) { /* ... */ }
     ```
 
+- **FilterValue**
+  - ```rust
+    fn anisotropic(filter: &AnisotropicFilter, vf: &VolField<Self>) -> VolField<Self> { /* ... */ }
+    ```
+
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -30040,6 +35265,7 @@ pub struct Vector3 {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **Mul**
   - ```rust
     fn mul(self: Self, v: Vector3) -> Tensor { /* ... */ }
@@ -30450,6 +35676,7 @@ pub struct RadialLayer {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -30463,6 +35690,7 @@ pub struct RadialLayer {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -30567,6 +35795,7 @@ pub struct RadialClosedForm {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -30580,6 +35809,7 @@ pub struct RadialClosedForm {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -30638,7 +35868,7 @@ A mesh plus the zone (material region) of every cell.
 
 ```rust
 pub struct ConductionMesh {
-    pub mesh: std::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
+    pub mesh: alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>,
     pub cell_zone: Vec<usize>,
     pub n_zones: usize,
 }
@@ -30648,7 +35878,7 @@ pub struct ConductionMesh {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh` | `std::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | The finite-volume mesh, lengths in metres. |
+| `mesh` | `alloc::sync::Arc<crate::mesh::fv_mesh::FvMesh>` | The finite-volume mesh, lengths in metres. |
 | `cell_zone` | `Vec<usize>` | Zone index of each cell; zones carry the heat source and conductivity. |
 | `n_zones` | `usize` | Number of zones (`max(cell_zone) + 1`, or more if a zone has no cell). |
 
@@ -30686,6 +35916,7 @@ pub struct ConductionMesh {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -30699,6 +35930,7 @@ pub struct ConductionMesh {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -30810,6 +36042,7 @@ A sphere.
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -30823,6 +36056,7 @@ A sphere.
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -30908,6 +36142,7 @@ pub struct RadialShell {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -30921,6 +36156,7 @@ pub struct RadialShell {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -31025,6 +36261,7 @@ pub struct VoxelGrid {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -31038,6 +36275,7 @@ pub struct VoxelGrid {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -31143,6 +36381,7 @@ pub struct VoxelMesh {
     fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -31156,6 +36395,7 @@ pub struct VoxelMesh {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -31379,6 +36619,7 @@ Fields:
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -31392,6 +36633,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -31553,15 +36795,153 @@ pub mod thermophysics { /* ... */ }
 pub mod constants { /* ... */ }
 ```
 
+### Types
+
+#### Enum `GasConstant`
+
+Which universal gas constant an equation of state uses.
+
+`Codata2019` (the default, `R_UNIVERSAL`) is the physically current value.
+`EsiV2506` reproduces OpenFOAM-v2506 bit for bit, including its
+`RR/W` kmol arithmetic (gh:#1362 row 4: upstream's constant differs by
+9.0e-7 relative, which is the whole of the rho, psi and `CpMCv` mismatch
+of the default). Select it with the equation of state's `with_gas_constant`.
+
+```rust
+pub enum GasConstant {
+    Codata2019,
+    EsiV2506,
+}
+```
+
+##### Variants
+
+###### `Codata2019`
+
+CODATA 2019, `R_UNIVERSAL / W` with `W` in kg/mol.
+
+###### `EsiV2506`
+
+OpenFOAM-v2506 (ESI): `(1e3 * R_UNIVERSAL_ESI_V2506) / (W * 1e3)`.
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn universal_j_per_kmol_k(self: Self) -> f64 { /* ... */ }
+  ```
+  `RR = 1e3 * R` in J/(kmol K) as OpenFOAM forms it.
+
+- ```rust
+  pub fn specific(self: Self, w_kg_per_mol: f64) -> f64 { /* ... */ }
+  ```
+  Specific gas constant `R / W` in J/(kg K) for a molar mass in kg/mol.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Constants and Statics
 
 #### Constant `R_UNIVERSAL`
 
-Universal gas constant in J/(mol·K).
-Using this value with `MolarMass` in kg/mol gives `r = R_UNIVERSAL / W` in J/(kg·K).
-
 ```rust
 pub const R_UNIVERSAL: f64 = 8.314_462_618_153_24;
+```
+
+#### Constant `R_UNIVERSAL_ESI_V2506`
+
+The gas constant OpenFOAM-v2506 (ESI) actually uses, in J/(mol K):
+`NA * k` from the case-independent `etc/controlDict` values
+`NA = 6.0221417930e23`, `k = 1.38065e-23` (`DimensionedConstants`). It is
+**9.0e-7 relative above** [`R_UNIVERSAL`] (CODATA 2019). Upstream then forms
+`RR = 1e3 * R` in J/(kmol K) and `R_specific = RR / W` with `W` in kg/kmol.
+
+```rust
+pub const R_UNIVERSAL_ESI_V2506: f64 = _;
 ```
 
 #### Constant `T_STD`
@@ -31592,8 +36972,14 @@ pub const T_MAX: f64 = 6000.0;
 
 Standard-state reference pressure for entropy calculations.
 
+~~`101_325.0` Pa~~ **CORRECTED 2026-11-13 (gh:#1362 row 4):** `1e5` Pa. Both
+OpenFOAM lines define `Pstd = 1e5` Pa (v2506 `etc/controlDict`,
+`DimensionedConstants/SICoeffs/standard`), and `perfectGas::S` is
+`-R log(p/Pstd)`. The old value shifted every perfect-gas and
+Peng-Robinson absolute entropy by `R ln(1.01325)` (3.8 J/(kg K) for air).
+
 ```rust
-pub const P_REF: f64 = 101_325.0;
+pub const P_REF: f64 = 1.0e5;
 ```
 
 ## Module `eos`
@@ -31612,36 +36998,32 @@ pub mod eos { /* ... */ }
 
 ### Modules
 
-## Module `ico_polynomial`
+## Module `esi_simple_eos`
+
+Six more specie equations of state of OpenFOAM-v2506 (ESI), gh:#1378:
+`incompressiblePerfectGas`, `Boussinesq`, `adiabaticPerfectFluid`,
+`perfectFluid`, `rPolynomial` and `linear`.
+
+Each is a line-for-line translation of the `*I.H` of
+`src/thermophysicalModels/specie/equationOfState/<name>/` in ESI v2506
+(read, not recalled). Every departure (`Cp`, `H`, `E`, `Cv`) is `0`; the
+members that differ are `rho`, `psi`, `Z`, `CpMCv` and `S`, listed on each
+type. `Pstd` is `1e5` Pa (`P_REF`). Differential against the real classes:
+`verification_and_validation/upstream_thermo_gh1362/README.md` (gh:#1378
+section).
 
 ```rust
-pub mod ico_polynomial { /* ... */ }
+pub mod esi_simple_eos { /* ... */ }
 ```
 
 ### Types
 
-#### Struct `IcoPolynomial`
+#### Struct `IncompressiblePerfectGas`
 
-Incompressible polynomial EOS: `rho(T) = poly(T)`.
-
-Port of `Foam::icoPolynomial<Specie, PolySize>`, OpenFOAM v2506 (ESI)
-`src/thermophysicalModels/specie/equationOfState/icoPolynomial/icoPolynomialI.H`:
-`rho` returns `rhoCoeffs_.value(T)` (line 83), and `H`, `Cp`, `E`, `Cv`,
-`S`, `psi`, `Z` and `CpMCv` all return `0` (lines 94-171).
-
-~~The polynomial gives specific volume as a function of T, `ρ = 1/poly(T)`;
-ψ = 0; h_eos = p·v = p/ρ.~~ **CORRECTED 2026-11-04 (gh:#1218):** that was
-not what upstream does. The dictionary keyword is `rhoCoeffs<N>` and
-upstream evaluates it as the **density**, not the specific volume, and its
-enthalpy, entropy and compressibility-factor departures are all zero. Found
-while porting GeN-Foam's two-phase solver, whose sodium and water tutorials
-select `icoPolynomial` (1D_boiling: `rhoCoeffs<8> (1006.81 -0.217 ...)`,
-i.e. ~865 kg/m^3 at 650 K, which the old reading turned into 1/865).
-Checked against the v2506 source fetched from the OpenCFD mirror
-`github.com/ZhangYanTJU/OpenFOAM-ESI` at tag `OpenFOAM-v2506`.
+`incompressiblePerfectGas`: `rho = pRef/(R T)`; `psi = Z = CpMCv = S = 0`.
 
 ```rust
-pub struct IcoPolynomial<const N: usize> {
+pub struct IncompressiblePerfectGas {
     // Some fields omitted
 }
 ```
@@ -31657,9 +37039,14 @@ pub struct IcoPolynomial<const N: usize> {
 ###### Methods
 
 - ```rust
-  pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self { /* ... */ }
+  pub fn new(mol_weight: MolarMass, p_ref: Pressure) -> Self { /* ... */ }
   ```
-  `poly` coefficients give the density `[kg/m³]` as a polynomial in T `[K]`
+  `p_ref` is the fixed reference pressure `[Pa]` of the dictionary entry `pRef`.
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default CODATA 2019).
 
 ###### Trait Implementations
 
@@ -31720,6 +37107,10 @@ pub struct IcoPolynomial<const N: usize> {
     ```
 
   - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
     fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
@@ -31735,6 +37126,7 @@ pub struct IcoPolynomial<const N: usize> {
     fn s_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -31748,6 +37140,926 @@ pub struct IcoPolynomial<const N: usize> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `BoussinesqEos`
+
+`Boussinesq`: `rho = rho0 (1 - beta (T - T0))`; `psi = Z = CpMCv = S = 0`.
+
+```rust
+pub struct BoussinesqEos {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mol_weight: MolarMass, rho0: MassDensity, t0: ThermodynamicTemperature, beta: f64) -> Self { /* ... */ }
+  ```
+  `rho0` `[kg/m^3]`, `t0` `[K]`, `beta` `[1/K]` (dictionary `rho0`, `T0`, `beta`).
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default CODATA 2019).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `AdiabaticPerfectFluid`
+
+`adiabaticPerfectFluid`: `rho = rho0 ((p + B)/(p0 + B))^(1/gamma)`,
+`Z = 1`, `CpMCv = 0`, with upstream's `psi` and `S`.
+
+```rust
+pub struct AdiabaticPerfectFluid {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mol_weight: MolarMass, p0: Pressure, rho0: MassDensity, gamma: f64, b: Pressure) -> Self { /* ... */ }
+  ```
+  Dictionary `p0` `[Pa]`, `rho0` `[kg/m^3]`, `gamma` `[-]`, `B` `[Pa]`.
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default CODATA 2019).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, _t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, _t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PerfectFluid`
+
+`perfectFluid`: `rho = rho0 + p/(R T)` with the dictionary's own `R`
+(upstream overrides `R()`), `psi = 1/(R T)`, `Z = 1`,
+`CpMCv = R (p/(rho R T))^2`, `S = -R ln(p/Pstd)`.
+
+```rust
+pub struct PerfectFluid {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mol_weight: MolarMass, r: SpecificHeatCapacity, rho0: MassDensity) -> Self { /* ... */ }
+  ```
+  `r` is the dictionary entry `R` `[J/(kg K)]`, used instead of `RR/W`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `RPolynomialEos`
+
+`rPolynomial`: `1/rho = C0 + C1 T + C2 T^2 - C3 p - C4 p T`,
+`psi = rho^2 (C3 + C4 T)`, `Z = 1`, `CpMCv = S = 0`.
+
+```rust
+pub struct RPolynomialEos {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mol_weight: MolarMass, c: [f64; 5]) -> Self { /* ... */ }
+  ```
+  `c` is the dictionary list `C` (five coefficients, SI).
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default CODATA 2019).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LinearEos`
+
+`linear`: `rho = rho0 + psi p`, `psi` constant, `Z = 1`, `CpMCv = 0`,
+`S = -ln((rho0 + psi p)/(rho0 + psi Pstd))/(T psi)`.
+
+```rust
+pub struct LinearEos {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mol_weight: MolarMass, psi: Compressibility, rho0: MassDensity) -> Self { /* ... */ }
+  ```
+  `psi` `[s^2/m^2]` and `rho0` `[kg/m^3]` of the dictionary.
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default CODATA 2019).
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, _t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `ico_polynomial`
+
+```rust
+pub mod ico_polynomial { /* ... */ }
+```
+
+### Types
+
+#### Struct `IcoPolynomial`
+
+Incompressible polynomial EOS: `rho(T) = poly(T)`.
+
+Port of `Foam::icoPolynomial<Specie, PolySize>`, OpenFOAM v2506 (ESI)
+`src/thermophysicalModels/specie/equationOfState/icoPolynomial/icoPolynomialI.H`:
+`rho` returns `rhoCoeffs_.value(T)` (line 83), and `H`, `Cp`, `E`, `Cv`,
+`S`, `psi`, `Z` and `CpMCv` all return `0` (lines 94-171).
+
+~~The polynomial gives specific volume as a function of T, `ρ = 1/poly(T)`;
+ψ = 0; h_eos = p·v = p/ρ.~~ **CORRECTED 2026-11-04 (gh:#1218):** that was
+not what upstream does. The dictionary keyword is `rhoCoeffs<N>` and
+upstream evaluates it as the **density**, not the specific volume, and its
+enthalpy, entropy and compressibility-factor departures are all zero. Found
+while porting GeN-Foam's two-phase solver, whose sodium and water tutorials
+select `icoPolynomial` (1D_boiling: `rhoCoeffs<8> (1006.81 -0.217 ...)`,
+i.e. ~865 kg/m^3 at 650 K, which the old reading turned into 1/865).
+Checked against the v2506 source fetched from the OpenCFD mirror
+`github.com/ZhangYanTJU/OpenFOAM-ESI` at tag `OpenFOAM-v2506`.
+
+```rust
+pub struct IcoPolynomial<const N: usize> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(mol_weight: MolarMass, poly: Polynomial<N>) -> Self { /* ... */ }
+  ```
+  `poly` coefficients give the density `[kg/m³]` as a polynomial in T `[K]`
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default [`GasConstant::Codata2019`];
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+    Upstream `Cv` departure is `0` (the liquid-like EOS has no `R` in `CpMCv`).
+
+  - ```rust
+    fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -31782,6 +38094,127 @@ pub mod peng_robinson { /* ... */ }
 
 ### Types
 
+#### Enum `PengRobinsonForm`
+
+Which arithmetic a [`PengRobinsonGas`] uses (gh:#1362 row 4).
+
+* `Port` (default): the Foundation-style reading the port was written from:
+  the compressibility factor from [`CubicEqn`] roots, and the exact
+  `1 +- sqrt(2)` in the logarithm of the enthalpy, internal-energy and
+  entropy departures. More accurate as a Peng-Robinson EOS (the departure
+  integrals have exactly `sqrt(2)`).
+* `EsiV2506`: OpenFOAM-v2506 (ESI) bit for bit. `Z` by the closed-form
+  trigonometric / cube-root solution, the **rounded** `2.414` and `0.414`
+  in `H`, `E`, `S` (while its `Cp` and `Cv` use exact `sqrt(2)`), and
+  upstream's operation order. Upstream is the specification for
+  reproducing ESI results; the departure from the exact integral is
+  `~1.2e-3` in `H` and `~4e-5` in `S` on the test grid.
+
+```rust
+pub enum PengRobinsonForm {
+    Port,
+    EsiV2506,
+}
+```
+
+##### Variants
+
+###### `Port`
+
+The port's original arithmetic.
+
+###### `EsiV2506`
+
+OpenFOAM-v2506 (ESI) arithmetic.
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Eq**
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 #### Struct `PengRobinsonGas`
 
 Peng-Robinson (1976) equation of state.
@@ -31824,6 +38257,16 @@ pub struct PengRobinsonGas {
   pub fn new(mol_weight: MolarMass, tc: ThermodynamicTemperature, pc: Pressure, omega: f64) -> Self { /* ... */ }
   ```
   Construct a Peng-Robinson EOS from molar mass W `[kg/mol]`, critical
+
+- ```rust
+  pub fn with_form(self: Self, form: PengRobinsonForm) -> Self { /* ... */ }
+  ```
+  Select the arithmetic form (default [`PengRobinsonForm::Port`];
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default [`GasConstant::Codata2019`];
 
 ###### Trait Implementations
 
@@ -31905,6 +38348,7 @@ pub struct PengRobinsonGas {
     ```
     Entropy departure (includes ideal-gas pressure term `−R·ln(p/p_ref)`).
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -31918,6 +38362,7 @@ pub struct PengRobinsonGas {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -31980,6 +38425,11 @@ pub struct PerfectGas {
   ```
   Construct an ideal perfect-gas EOS from the species molar mass W `[kg/mol]`.
 
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default [`GasConstant::Codata2019`];
+
 ###### Trait Implementations
 
 - **Any**
@@ -32027,7 +38477,7 @@ pub struct PerfectGas {
     ```
 
   - ```rust
-    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    fn psi(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
     ```
 
   - ```rust
@@ -32054,6 +38504,7 @@ pub struct PerfectGas {
     fn s_eos(self: &Self, p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -32067,6 +38518,16 @@ pub struct PerfectGas {
     ```
     Calls `U::from(self)`.
 
+- **Mixable**
+  - ```rust
+    fn set_mol_weight(self: &mut Self, w: MolarMass) { /* ... */ }
+    ```
+
+  - ```rust
+    fn mix_params(self: &mut Self, _y1: f64, _y2: f64, _other: &Self) { /* ... */ }
+    ```
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -32129,6 +38590,11 @@ pub struct RhoConst {
   ```
   Construct a constant-density EOS from molar mass W `[kg/mol]` and the fixed
 
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: GasConstant) -> Self { /* ... */ }
+  ```
+  Select the universal gas constant (default [`GasConstant::Codata2019`];
+
 ###### Trait Implementations
 
 - **Any**
@@ -32180,12 +38646,18 @@ pub struct RhoConst {
     ```
 
   - ```rust
-    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    fn z(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> Ratio { /* ... */ }
     ```
+    Upstream `rhoConst::Z` returns `0` (a placeholder, as `icoPolynomial`'s
 
   - ```rust
     fn cp_m_cv(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
+
+  - ```rust
+    fn cv_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+    Upstream `Cv` departure is `0` (the liquid-like EOS has no `R` in `CpMCv`).
 
   - ```rust
     fn cp_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
@@ -32203,6 +38675,7 @@ pub struct RhoConst {
     fn s_eos(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -32216,6 +38689,16 @@ pub struct RhoConst {
     ```
     Calls `U::from(self)`.
 
+- **Mixable**
+  - ```rust
+    fn set_mol_weight(self: &mut Self, w: MolarMass) { /* ... */ }
+    ```
+
+  - ```rust
+    fn mix_params(self: &mut Self, y1: f64, y2: f64, other: &Self) { /* ... */ }
+    ```
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -32243,6 +38726,12 @@ pub struct RhoConst {
 - **UnsafeUnpin**
 - **UnwindSafe**
 ### Re-exports
+
+#### Re-export `esi_simple_eos::*`
+
+```rust
+pub use esi_simple_eos::*;
+```
 
 #### Re-export `ico_polynomial::*`
 
@@ -32283,8 +38772,6 @@ pub mod error { /* ... */ }
 ### Types
 
 #### Enum `ThermoError`
-
-Errors produced by the specie-level thermophysics layer.
 
 ```rust
 pub enum ThermoError {
@@ -32345,10 +38832,11 @@ Fields:
 
 - **Display**
   - ```rust
-    fn fmt(self: &Self, f: &mut std::fmt::Formatter<''_>) -> std::fmt::Result { /* ... */ }
+    fn fmt(self: &Self, f: &mut core::fmt::Formatter<''_>) -> core::fmt::Result { /* ... */ }
     ```
 
 - **Error**
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -32362,6 +38850,7 @@ Fields:
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **PartialEq**
   - ```rust
     fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
@@ -32409,37 +38898,11 @@ pub mod imports { /* ... */ }
 
 #### Re-export `AvailableEnergy`
 
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
-
 ```rust
 pub use uom::si::f64::AvailableEnergy;
 ```
 
 #### Re-export `DynamicViscosity`
-
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
 
 ```rust
 pub use uom::si::f64::DynamicViscosity;
@@ -32447,37 +38910,11 @@ pub use uom::si::f64::DynamicViscosity;
 
 #### Re-export `MassDensity`
 
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
-
 ```rust
 pub use uom::si::f64::MassDensity;
 ```
 
 #### Re-export `MolarMass`
-
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
 
 ```rust
 pub use uom::si::f64::MolarMass;
@@ -32485,37 +38922,11 @@ pub use uom::si::f64::MolarMass;
 
 #### Re-export `Pressure`
 
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
-
 ```rust
 pub use uom::si::f64::Pressure;
 ```
 
 #### Re-export `Ratio`
-
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
 
 ```rust
 pub use uom::si::f64::Ratio;
@@ -32523,56 +38934,17 @@ pub use uom::si::f64::Ratio;
 
 #### Re-export `SpecificHeatCapacity`
 
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
-
 ```rust
 pub use uom::si::f64::SpecificHeatCapacity;
 ```
 
 #### Re-export `ThermalConductivity`
 
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
-
 ```rust
 pub use uom::si::f64::ThermalConductivity;
 ```
 
 #### Re-export `ThermodynamicTemperature`
-
-Common uom re-exports for thermophysics implementation files.
-
-Every EOS / thermo / transport source file starts with
-`use crate::thermophysics::imports::*;` instead of repeating the full
-type/unit import block.  From outside the crate the same symbols are
-reachable as:
-
-```rust
-use outram_foam_basic_lib::thermophysics::imports::*;
-let p = Pressure::new::<pascal>(101325.0);
-assert!(p.get::<pascal>() > 0.0);
-```
 
 ```rust
 pub use uom::si::f64::ThermodynamicTemperature;
@@ -32644,6 +39016,339 @@ pub use uom::si::thermodynamic_temperature::kelvin;
 pub use crate::thermophysics::quantities::Compressibility;
 ```
 
+## Module `mixture`
+
+Multicomponent mixture rules of OpenFOAM-v2506 (ESI), gh:#1378 family 3:
+`specie::operator*`/`+=` (mass-fraction `Y` and molecular weight `W`
+bookkeeping), each model's `operator+=` (mass-fraction-weighted parameters),
+and the two mixing loops of `multiComponentMixture`: `cellMixture`
+(mass-fraction weights), `cellVolMixture` (volume-fraction weights), plus
+`correctMassFractions`.
+
+# Upstream structure reproduced
+In v2506 a species model is a stack `transport<thermo<eos<specie>>>`; the
+mixture is `mixture = Y0 * s0; mixture += Y1 * s1; ...`. Every layer's
+`operator+=` saves `Y1 = Y()` BEFORE calling the layer below, the bottom
+`specie::operator+=` updates `Y` and `W`, and every layer then mixes its own
+parameters with `Y1/Y_new` and `Y_other/Y_new`. All layers therefore use the
+same two weights, which is why the port can keep `Y` and `W` in one
+[`MixtureComponent`] wrapper and give each model only [`Mixable`]'s two
+parameter-level methods.
+
+# Scope
+[`Mixable`] is implemented for `PerfectGas`, `RhoConst`, `HConstThermo`,
+`ConstTransport` and `SutherlandTransport` (each next to its type). The other
+models are deferred (gh:#1378 children): their `operator+=` bodies are
+in the same `*I.H` files and follow the same pattern; `janafThermo` also
+intersects the temperature ranges and checks `Tcommon`.
+
+The `ReactionTable`, the `Y` fields and the mesh are not ported here.
+
+```rust
+pub mod mixture { /* ... */ }
+```
+
+### Types
+
+#### Struct `MixtureComponent`
+
+A species model with its mass fraction `Y` and molecular weight `W`
+(kg/kmol): upstream's `specie` base carrying `Y_` and `molWeight_`.
+
+```rust
+pub struct MixtureComponent<M: Mixable> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(model: M, w_kg_per_kmol: f64) -> Self { /* ... */ }
+  ```
+  A pure species: `Y = 1`. `w_kg_per_kmol` must be the molecular weight
+
+- ```rust
+  pub fn scaled(self: &Self, s: f64) -> Self { /* ... */ }
+  ```
+  Upstream `operator*(s, st)`: `Y = s * Y`, `W` unchanged.
+
+- ```rust
+  pub fn add_assign(self: &mut Self, other: &Self) { /* ... */ }
+  ```
+  Upstream `operator+=`: `W = sumY/(Y/W + Y2/W2)`, `Y = sumY`, then every
+
+- ```rust
+  pub fn model(self: &Self) -> &M { /* ... */ }
+  ```
+  The mixed model.
+
+- ```rust
+  pub fn y(self: &Self) -> f64 { /* ... */ }
+  ```
+  The accumulated mass fraction `Y`.
+
+- ```rust
+  pub fn w_kg_per_kmol(self: &Self) -> f64 { /* ... */ }
+  ```
+  The molecular weight `W` in kg/kmol.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `MassFractionCheck`
+
+Outcome of [`correct_mass_fractions`].
+
+```rust
+pub struct MassFractionCheck {
+    pub sum: f64,
+    pub excess: f64,
+    pub warns: bool,
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `sum` | `f64` | The sum `Yt` of the input fractions, summed in order from `1.0*Y0`. |
+| `excess` | `f64` | `|Yt| - 1`; upstream warns when it exceeds `ROOTVSMALL`. |
+| `warns` | `bool` | Whether upstream would print its "different from one" warning. |
+
+##### Implementations
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+### Traits
+
+#### Trait `Mixable`
+
+Parameter-level mixing of one model layer, the part of upstream's
+`operator+=` that follows the `Y`/`W` update.
+
+```rust
+pub trait Mixable: Clone {
+    /* Associated items */
+}
+```
+
+> This trait is not object-safe and cannot be used in dynamic trait objects.
+
+##### Required Items
+
+###### Required Methods
+
+- `set_mol_weight`: Set the molecular weight of the innermost equation of state
+- `mix_params`: `self = y1 * self + y2 * other` on this model's own parameters, with the
+
+##### Implementations
+
+This trait is implemented for the following types:
+
+- `PerfectGas`
+- `RhoConst`
+- `HConstThermo<E>` with <E: EquationOfState + crate::thermophysics::mixture::Mixable>
+- `ConstTransport<T>` with <T: ThermoModel + crate::thermophysics::mixture::Mixable>
+- `SutherlandTransport<T>` with <T: ThermoModel + crate::thermophysics::mixture::Mixable>
+
+### Functions
+
+#### Function `molar_mass_from_kg_per_kmol`
+
+`kg/mol` that, multiplied by `1e3`, gives exactly `w_kg_per_kmol`
+(OpenFOAM's `W` is in kg/kmol; the port stores kg/mol and forms
+`R = RR/(W*1e3)`, so the unit round trip must be exact for bit-identity,
+as in gh:#1362). Falls back to `w * 1e-3` if no neighbour round-trips.
+
+```rust
+pub fn molar_mass_from_kg_per_kmol(w_kg_per_kmol: f64) -> MolarMass { /* ... */ }
+```
+
+#### Function `cell_mixture`
+
+`multiComponentMixture::cellMixture`: `mixture = Y0*s0; mixture += Yn*sn`.
+`species[i]` carries the species model and `y[i]` its mass fraction in the cell.
+
+```rust
+pub fn cell_mixture<M: Mixable>(species: &[MixtureComponent<M>], y: &[f64]) -> MixtureComponent<M> { /* ... */ }
+```
+
+#### Function `cell_vol_mixture`
+
+`multiComponentMixture::cellVolMixture`: weights are the volume fractions
+`Y_i/rho_i/rhoInv`, with `rho_i = rho_i(p, T)` of the pure species and
+`rhoInv = sum_i Y_i/rho_i` summed in order.
+
+```rust
+pub fn cell_vol_mixture<M: Mixable>(species: &[MixtureComponent<M>], y: &[f64], rho: &[f64]) -> MixtureComponent<M> { /* ... */ }
+```
+
+#### Function `correct_mass_fractions`
+
+`multiComponentMixture::correctMassFractions` for one cell: `Y_n /= Yt`.
+Returns an error string where upstream is fatal (`|Yt| < ROOTVSMALL`).
+
+```rust
+pub fn correct_mass_fractions(y: &mut [f64]) -> Result<MassFractionCheck, String> { /* ... */ }
+```
+
 ## Module `quantities`
 
 ```rust
@@ -32663,6 +39368,1746 @@ alias names the resulting quantity so trait signatures are readable.
 pub type Compressibility = uom::si::Quantity<uom::si::ISQ<uom::typenum::N2, uom::typenum::Z0, uom::typenum::P2, uom::typenum::Z0, uom::typenum::Z0, uom::typenum::Z0, uom::typenum::Z0>, uom::si::SI<f64>, f64>;
 ```
 
+## Module `reaction_rate`
+
+Specie reaction-rate classes of OpenFOAM-v2506 (ESI), gh:#1378 family 2:
+`ArrheniusReactionRate`, `thirdBodyArrheniusReactionRate`,
+`LandauTellerReactionRate`, `powerSeriesReactionRate`, `JanevReactionRate`,
+`LangmuirHinshelwoodReactionRate`, `infiniteReactionRate`,
+`thirdBodyEfficiencies`, the three fall-off functions (`Lindemann`, `Troe`,
+`SRI`), `FallOffReactionRate` and `ChemicallyActivatedReactionRate`.
+
+Translated from `specie/reaction/reactionRate/**/*I.H` of ESI v2506 (read,
+not recalled), keeping the operation order and the `mag(x) > VSMALL` guards
+(a missing guard is the usual port defect). Concentrations `c` are in the
+unit upstream uses (kmol/m^3) and rates in the reaction-order-dependent unit
+of the pre-exponential factor `A`; neither is a fixed `uom` dimension, so
+they stay `f64`, as upstream's `scalar`. Temperature and pressure are `uom`.
+
+No chemistry, species table or reaction-network layer is ported here (the
+rate classes are self-contained, as upstream): `chemistryModel` and ODE
+chemistry remain gh:#1378 deferred items.
+
+Differential against the real classes:
+`verification_and_validation/upstream_thermo_gh1362/README.md`.
+
+```rust
+pub mod reaction_rate { /* ... */ }
+```
+
+### Types
+
+#### Struct `ThirdBodyEfficiencies`
+
+`thirdBodyEfficiencies`: one efficiency per species, `M(c) = sum_i eff_i c_i`.
+
+```rust
+pub struct ThirdBodyEfficiencies {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(efficiencies: Vec<f64>) -> Self { /* ... */ }
+  ```
+  One efficiency per species, in species-table order (upstream `scalarList`).
+
+- ```rust
+  pub fn uniform(n_species: usize, efficiency: f64) -> Self { /* ... */ }
+  ```
+  The `defaultEfficiency` form: the same efficiency for `n_species` species.
+
+- ```rust
+  pub fn m(self: &Self, c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Third-body concentration `M = sum_i eff_i c_i`, summed in species order.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ArrheniusReactionRate`
+
+`ArrheniusReactionRate`: `k = A T^beta exp(-Ta/T)`.
+
+```rust
+pub struct ArrheniusReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: f64, beta: f64, ta: f64) -> Self { /* ... */ }
+  ```
+  `a` pre-exponential factor, `beta` temperature exponent `[-]`, `ta` activation temperature `[K]`.
+
+- ```rust
+  pub fn rate(self: &Self, _p: Pressure, t: ThermodynamicTemperature, _c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(p, T, c)`; `p` and `c` are unused by this class, as upstream.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ThirdBodyArrheniusReactionRate`
+
+`thirdBodyArrheniusReactionRate`: `M(c) * k_Arrhenius`.
+
+```rust
+pub struct ThirdBodyArrheniusReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: f64, beta: f64, ta: f64, efficiencies: ThirdBodyEfficiencies) -> Self { /* ... */ }
+  ```
+  Arrhenius parameters and the third-body efficiencies.
+
+- ```rust
+  pub fn rate(self: &Self, p: Pressure, t: ThermodynamicTemperature, c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `M(c) * k(T)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LandauTellerReactionRate`
+
+`LandauTellerReactionRate`: `k = A T^beta exp(-Ta/T + B/T^(1/3) + C/T^(2/3))`.
+
+```rust
+pub struct LandauTellerReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: f64, beta: f64, ta: f64, b: f64, c: f64) -> Self { /* ... */ }
+  ```
+  `a`, `beta`, `ta` as Arrhenius; `b` and `c` the cube-root and `T^(-2/3)` coefficients `[K^(1/3)]`, `[K^(2/3)]`.
+
+- ```rust
+  pub fn rate(self: &Self, _p: Pressure, t: ThermodynamicTemperature, _c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(T)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `PowerSeriesReactionRate`
+
+`powerSeriesReactionRate`: `k = A T^beta exp(sum_n coeffs[n] / T^(n+1))`
+(`Ta` is read and stored upstream but not used by `operator()`).
+
+```rust
+pub struct PowerSeriesReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: f64, beta: f64, ta: f64, coeffs: [f64; 4]) -> Self { /* ... */ }
+  ```
+  `a`, `beta`, `ta` (stored, unused by the rate, as upstream) and the four `coeffs`.
+
+- ```rust
+  pub fn ta(self: &Self) -> f64 { /* ... */ }
+  ```
+  The stored `Ta`, which upstream's rate does not use.
+
+- ```rust
+  pub fn rate(self: &Self, _p: Pressure, t: ThermodynamicTemperature, _c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(T)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `JanevReactionRate`
+
+`JanevReactionRate`: `k = A T^beta exp(-Ta/T + sum_{n<9} b[n] (ln T)^n)`.
+
+```rust
+pub struct JanevReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: f64, beta: f64, ta: f64, b: [f64; 9]) -> Self { /* ... */ }
+  ```
+  `a`, `beta`, `ta` as Arrhenius and the nine `b` coefficients of the `ln T` series.
+
+- ```rust
+  pub fn rate(self: &Self, _p: Pressure, t: ThermodynamicTemperature, _c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(T)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `LangmuirHinshelwoodReactionRate`
+
+`LangmuirHinshelwoodReactionRate` with the three species indices upstream
+looks up by name (`CO`, `C3H6`, `NO`) given directly.
+
+```rust
+pub struct LangmuirHinshelwoodReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(a: [f64; 5], ta: [f64; 5], co: usize, c3h6: usize, no: usize) -> Self { /* ... */ }
+  ```
+  `a[i]`, `ta[i]` are the five `(A, Ta)` pairs of the `coeffs` entry; `co`, `c3h6`, `no`
+
+- ```rust
+  pub fn rate(self: &Self, _p: Pressure, t: ThermodynamicTemperature, c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(T, c)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `InfiniteReactionRate`
+
+`infiniteReactionRate`: `k = 1`.
+
+```rust
+pub struct InfiniteReactionRate;
+```
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rate(self: &Self, _p: Pressure, _t: ThermodynamicTemperature, _c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate, always `1`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Default**
+  - ```rust
+    fn default() -> Self { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `FallOffFunction`
+
+Fall-off blending functions `F(T, Pr)`: `Lindemann`, `Troe`, `SRI`.
+
+```rust
+pub enum FallOffFunction {
+    Lindemann,
+    Troe {
+        alpha: f64,
+        tsss: f64,
+        ts: f64,
+        tss: f64,
+    },
+    Sri {
+        a: f64,
+        b: f64,
+        c: f64,
+        d: f64,
+        e: f64,
+    },
+}
+```
+
+##### Variants
+
+###### `Lindemann`
+
+`F = 1`.
+
+###### `Troe`
+
+Troe form with `alpha`, `Tsss`, `Ts`, `Tss`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `alpha` | `f64` | `alpha`. |
+| `tsss` | `f64` | `Tsss` `[K]`. |
+| `ts` | `f64` | `Ts` `[K]`. |
+| `tss` | `f64` | `Tss` `[K]`. |
+
+###### `Sri`
+
+SRI form with `a`, `b`, `c`, `d`, `e`.
+
+Fields:
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| `a` | `f64` | `a`. |
+| `b` | `f64` | `b` `[K]`. |
+| `c` | `f64` | `c` `[K]`. |
+| `d` | `f64` | `d`. |
+| `e` | `f64` | `e`. |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn value(self: &Self, t: ThermodynamicTemperature, pr: f64) -> f64 { /* ... */ }
+  ```
+  `F(T, Pr)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Copy**
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `FallOffReactionRate`
+
+`FallOffReactionRate<ArrheniusReactionRate, F>`:
+`k = kInf (Pr/(1+Pr)) F(T, Pr)`, `Pr = k0 M(c) / kInf`.
+
+```rust
+pub struct FallOffReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(k0: ArrheniusReactionRate, k_inf: ArrheniusReactionRate, f: FallOffFunction, efficiencies: ThirdBodyEfficiencies) -> Self { /* ... */ }
+  ```
+  Low- and high-pressure limit rates, blending function and third-body efficiencies.
+
+- ```rust
+  pub fn rate(self: &Self, p: Pressure, t: ThermodynamicTemperature, c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(p, T, c)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `ChemicallyActivatedReactionRate`
+
+`ChemicallyActivatedReactionRate<ArrheniusReactionRate, F>`:
+`k = k0 (1/(1+Pr)) F(T, Pr)`, `Pr = k0 M(c) / kInf`.
+
+```rust
+pub struct ChemicallyActivatedReactionRate {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(k0: ArrheniusReactionRate, k_inf: ArrheniusReactionRate, f: FallOffFunction, efficiencies: ThirdBodyEfficiencies) -> Self { /* ... */ }
+  ```
+  Low- and high-pressure limit rates, activation function and third-body efficiencies.
+
+- ```rust
+  pub fn rate(self: &Self, p: Pressure, t: ThermodynamicTemperature, c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(p, T, c)`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Enum `ReactionRate`
+
+Closed set of reaction-rate models (enum dispatch, no trait objects).
+
+```rust
+pub enum ReactionRate {
+    Arrhenius(ArrheniusReactionRate),
+    ThirdBodyArrhenius(ThirdBodyArrheniusReactionRate),
+    LandauTeller(LandauTellerReactionRate),
+    PowerSeries(PowerSeriesReactionRate),
+    Janev(JanevReactionRate),
+    LangmuirHinshelwood(LangmuirHinshelwoodReactionRate),
+    Infinite(InfiniteReactionRate),
+    FallOff(FallOffReactionRate),
+    ChemicallyActivated(ChemicallyActivatedReactionRate),
+}
+```
+
+##### Variants
+
+###### `Arrhenius`
+
+[`ArrheniusReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ArrheniusReactionRate` |  |
+
+###### `ThirdBodyArrhenius`
+
+[`ThirdBodyArrheniusReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ThirdBodyArrheniusReactionRate` |  |
+
+###### `LandauTeller`
+
+[`LandauTellerReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `LandauTellerReactionRate` |  |
+
+###### `PowerSeries`
+
+[`PowerSeriesReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `PowerSeriesReactionRate` |  |
+
+###### `Janev`
+
+[`JanevReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `JanevReactionRate` |  |
+
+###### `LangmuirHinshelwood`
+
+[`LangmuirHinshelwoodReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `LangmuirHinshelwoodReactionRate` |  |
+
+###### `Infinite`
+
+[`InfiniteReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `InfiniteReactionRate` |  |
+
+###### `FallOff`
+
+[`FallOffReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `FallOffReactionRate` |  |
+
+###### `ChemicallyActivated`
+
+[`ChemicallyActivatedReactionRate`].
+
+Fields:
+
+| Index | Type | Documentation |
+|-------|------|---------------|
+| 0 | `ChemicallyActivatedReactionRate` |  |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn rate(self: &Self, p: Pressure, t: ThermodynamicTemperature, c: &[f64]) -> f64 { /* ... */ }
+  ```
+  Rate `k(p, T, c)` of the wrapped model.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **PartialEq**
+  - ```rust
+    fn eq(self: &Self, other: &Self) -> bool { /* ... */ }
+    ```
+
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **StructuralPartialEq**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `table`
+
+`(T, value)` tables as OpenFOAM-v2506 (ESI) evaluates them
+(gh:#1362 row 4).
+
+Ports `thermophysicalFunctions::nonUniformTable` and
+`thermophysicalFunctions::integratedNonUniformTable` from
+`src/thermophysicalModels/thermophysicalProperties/thermophysicalFunctions/`,
+v2506, **including their quirks**, because the point is bit identity with
+upstream:
+
+* a temperature outside the table is **extrapolated linearly** from the
+  first or last interval (above the last knot upstream reads one element past
+  the end of its list, undefined behaviour; the port stops at the last interval) (the port's older [`crate::interpolation::interpolate_xy`]
+  clamps to the end value);
+* the interval is found through a jump table of spacing `0.9 min(dT)`;
+* for a temperature exactly equal to the last knot, upstream's `index()`
+  takes the `nd = 0` branch and returns interval 1 (not the last), so the
+  integrals stored at the last knot are extrapolated from interval 1. With a
+  two-entry table that is the right interval; with more entries it is not.
+  Reproduced as upstream has it and measured in the test (see the V&V
+  README).
+
+```rust
+pub mod table { /* ... */ }
+```
+
+### Types
+
+#### Struct `NonUniformTable`
+
+`thermophysicalFunctions::nonUniformTable`: a piecewise-linear `f(T)`.
+
+```rust
+pub struct NonUniformTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(values: Vec<(f64, f64)>) -> Self { /* ... */ }
+  ```
+  Build from `(T, f)` pairs in ascending `T`. Panics on fewer than two
+
+- ```rust
+  pub fn values(self: &Self) -> &[(f64, f64)] { /* ... */ }
+  ```
+  The `(T, f)` pairs.
+
+- ```rust
+  pub fn index(self: &Self, t: f64) -> usize { /* ... */ }
+  ```
+  Upstream `index(p, T)`: the interval `[i, i + 1]` used for `T`.
+
+- ```rust
+  pub fn f(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  `f(T)`, linearly extrapolated outside the table.
+
+- ```rust
+  pub fn dfdt(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  `df/dT` of the interval containing `T`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+#### Struct `IntegratedNonUniformTable`
+
+`thermophysicalFunctions::integratedNonUniformTable`: a [`NonUniformTable`]
+with the running integrals of `f` and `f/T`, both zero at `Tstd`.
+
+```rust
+pub struct IntegratedNonUniformTable {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(values: Vec<(f64, f64)>) -> Self { /* ... */ }
+  ```
+  Upstream constructor: integrals at each knot, then offset so that both
+
+- ```rust
+  pub fn table(self: &Self) -> &NonUniformTable { /* ... */ }
+  ```
+  The underlying table.
+
+- ```rust
+  pub fn f(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  `f(T)`.
+
+- ```rust
+  pub fn intfdt(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  `int f dT`, zero at `Tstd`.
+
+- ```rust
+  pub fn intf_by_tdt(self: &Self, t: f64) -> f64 { /* ... */ }
+  ```
+  `int f/T dT`, zero at `Tstd`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ## Module `thermo`
 
 Per-species thermodynamic models — specific heat Cp `[J/(kg·K)]`,
@@ -32718,6 +41163,11 @@ pub struct HConstThermo<E: EquationOfState> {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: crate::thermophysics::constants::GasConstant) -> Self { /* ... */ }
+  ```
+  The same model with the perfect gas's universal gas constant set to `gas_constant` (gh:#1361 round 13:
 
 - ```rust
   pub fn new(eos: E, cp: SpecificHeatCapacity, hf: AvailableEnergy, tref: ThermodynamicTemperature, hsref: AvailableEnergy) -> Self { /* ... */ }
@@ -32797,6 +41247,7 @@ pub struct HConstThermo<E: EquationOfState> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -32810,6 +41261,16 @@ pub struct HConstThermo<E: EquationOfState> {
     ```
     Calls `U::from(self)`.
 
+- **Mixable**
+  - ```rust
+    fn set_mol_weight(self: &mut Self, w: MolarMass) { /* ... */ }
+    ```
+
+  - ```rust
+    fn mix_params(self: &mut Self, y1: f64, y2: f64, other: &Self) { /* ... */ }
+    ```
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -32834,6 +41295,209 @@ pub struct HConstThermo<E: EquationOfState> {
   - ```rust
     fn s(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `e_const`
+
+`eConstThermo` of OpenFOAM-v2506 (ESI), gh:#1378: constant `Cv`.
+
+**What v2506 can instantiate.** `eConstThermoI.H` defines only `limit`, `Cv`,
+`Es`, `Ea`, `Hc`, `Gstd` and `dCpdT`; `S` calls an undefined `Cp`, so
+`eConstThermo::S`, `Cp`, `Hs`, `Ha` do not exist upstream (same class of
+defect as `hTabulatedThermo::S`, gh:#1362). Those four, required by the
+port's [`ThermoModel`], are given here in the Foundation reading
+(`Cp = Cv + CpMCv`, `Hs = Es + p/rho`, `S = Cp ln(T/Tstd) + S_eos`) and are
+NOT compared with ESI. The comparable members are the inherent
+[`EConstThermo::cv`], [`EConstThermo::es`], [`EConstThermo::ea`] and
+[`ThermoModel::hc`].
+
+```rust
+pub mod e_const { /* ... */ }
+```
+
+### Types
+
+#### Struct `EConstThermo`
+
+Constant-`Cv` thermo over an equation of state.
+
+```rust
+pub struct EConstThermo<E: EquationOfState> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(eos: E, cv: SpecificHeatCapacity, hf: AvailableEnergy, tref: ThermodynamicTemperature, esref: AvailableEnergy) -> Self { /* ... */ }
+  ```
+  `cv` `[J/(kg K)]`, `hf` `[J/kg]`, `tref` `[K]` (upstream default `Tstd`),
+
+- ```rust
+  pub fn cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+  ```
+  Upstream `Cv(p, T) = Cv_ + EquationOfState::Cv(p, T)`.
+
+- ```rust
+  pub fn es(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+  ```
+  Upstream `Es(p, T) = Cv_ (T - Tref_) + Esref_ + EquationOfState::E(p, T)`.
+
+- ```rust
+  pub fn ea(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+  ```
+  Upstream `Ea(p, T) = Es(p, T) + Hc()`.
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ThermoModel**
+  - ```rust
+    fn cp(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+    Foundation reading (`Cp = Cv + CpMCv`); not in ESI v2506.
+
+  - ```rust
+    fn ha(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+    Foundation reading (`Ha = Es + p/rho + Hc`); not in ESI v2506.
+
+  - ```rust
+    fn hs(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+    Foundation reading (`Hs = Es + p/rho`); not in ESI v2506.
+
+  - ```rust
+    fn hc(self: &Self) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+    Foundation reading (`S = Cp ln(T/Tstd) + S_eos`); not in ESI v2506.
 
 - **ToOwned**
   - ```rust
@@ -32885,6 +41549,15 @@ S(p,T)  = sf + cps.integral_minus1(0).value(T)
 where `T_std = 298.15 K` and `cps.integral_minus1(0)` is the antiderivative
 of `Cp/T` (activating the `log_coeff·ln(T)` term).
 
+# Two conventions, both kept (gh:#1362 row 4)
+[`HPolynomialThermo::new`] is the **Foundation** form (`Ha(Tstd) = hf`,
+`S(Tstd) = sf`). [`HPolynomialThermo::new_esi_v2506`] is the **ESI v2506**
+form, a translation of `hPolynomialThermo.C`: the enthalpy and entropy
+polynomials are offset to `Href` and `Sref` at `Tref`, `Ha = hCoeffs(T)`
+with **no** `Hf` added, `Hs = Ha - Hf`, and `Sf` is read but unused. In the
+ESI form `Hs(Tref) = Href - Hf`, not `Href`. Measured on the 10 x 4 grid,
+the two forms differ by `Hf` in `Ha` (`1e5 J/kg` on the test inputs).
+
 ```rust
 pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
     // Some fields omitted
@@ -32905,6 +41578,11 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
   pub fn new(eos: E, cps: Polynomial<N>, hf: AvailableEnergy, sf: SpecificHeatCapacity) -> Self { /* ... */ }
   ```
   Construct a polynomial-Cp thermo model wrapping `eos`, with the Cp(T)
+
+- ```rust
+  pub fn new_esi_v2506(eos: E, cps: Polynomial<N>, hf: AvailableEnergy, tref: ThermodynamicTemperature, href: AvailableEnergy, sref: SpecificHeatCapacity) -> Self { /* ... */ }
+  ```
+  ESI v2506 convention (`hPolynomialThermo.C`, dictionary constructor):
 
 ###### Trait Implementations
 
@@ -32979,6 +41657,7 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -32992,6 +41671,186 @@ pub struct HPolynomialThermo<E: EquationOfState, const N: usize> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ThermoModel**
+  - ```rust
+    fn cp(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn ha(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hs(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hc(self: &Self) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `h_power`
+
+`hPowerThermo` of OpenFOAM-v2506 (ESI), gh:#1378: `Cp = c0 (T/Tref)^n0`.
+
+Translated from `specie/thermo/hPower/hPowerThermoI.H` (v2506), read not
+recalled: `Hs` and `S` are the closed integrals of the power law from
+`Tstd`, with no `Hsref`, and `S` has no `ln` term. Differential:
+`verification_and_validation/upstream_thermo_gh1362/README.md`.
+
+```rust
+pub mod h_power { /* ... */ }
+```
+
+### Types
+
+#### Struct `HPowerThermo`
+
+Power-law heat capacity `Cp = c0 (T/Tref)^n0` over an equation of state.
+
+```rust
+pub struct HPowerThermo<E: EquationOfState> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(eos: E, c0: SpecificHeatCapacity, n0: f64, tref: ThermodynamicTemperature, hf: AvailableEnergy) -> Self { /* ... */ }
+  ```
+  `c0` `[J/(kg K)]`, exponent `n0` `[-]`, `tref` `[K]`, `hf` `[J/kg]`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -33154,6 +42013,7 @@ pub struct HTabulatedThermo<E: EquationOfState> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -33167,6 +42027,194 @@ pub struct HTabulatedThermo<E: EquationOfState> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ThermoModel**
+  - ```rust
+    fn cp(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn ha(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hs(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hc(self: &Self) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `h_tabulated_esi`
+
+```rust
+pub mod h_tabulated_esi { /* ... */ }
+```
+
+### Types
+
+#### Struct `HTabulatedEsiThermo`
+
+Tabulated-Cp thermodynamic model as OpenFOAM-v2506 (ESI) defines it
+(gh:#1362 row 4). Ports `Foam::hTabulatedThermo<EOS>` of
+`src/thermophysicalModels/specie/thermo/hTabulated/`.
+
+One `Cp(T)` table, linearly extrapolated outside its range, from which
+upstream integrates everything:
+```text
+Cp(p,T) = Cp_table.f(T) + EOS::Cp(p,T)
+Hs(p,T) = Cp_table.intfdT(T) + EOS::H(p,T)          (zero Cp-part at Tstd)
+Ha(p,T) = Hs(p,T) + Hf
+S(p,T)  = Cp_table.intfByTdT(T) + EOS::S(p,T) + Sf
+```
+**Upstream cannot compile `S`** in v2506: it calls `EquationOfState::Sp`,
+which no equation of state defines (`hTabulatedThermoI.H:106`). `S` here is
+the evident intent with `EOS::S` for `Sp`; it is **not** verified against
+upstream. Cp, Hs and Ha are.
+
+This is a separate type from [`HTabulatedThermo`](crate::thermophysics::thermo::HTabulatedThermo),
+which takes three independent tables (Cp, Ha, S) and clamps outside them;
+both are kept.
+
+```rust
+pub struct HTabulatedEsiThermo<E: EquationOfState> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(eos: E, cp_table: Vec<(f64, f64)>, hf: AvailableEnergy, sf: SpecificHeatCapacity) -> Self { /* ... */ }
+  ```
+  `cp_table` is `(T [K], Cp [J/(kg K)])` ascending in `T`; `hf` the heat of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -33265,6 +42313,11 @@ pub struct JanafThermo<E: EquationOfState> {
   ```
   Construct a NASA-7 (JANAF) thermo model wrapping `eos`, valid over
 
+- ```rust
+  pub fn with_temperature_clamp(self: Self, clamp: bool) -> Self { /* ... */ }
+  ```
+  Whether `cp`, `ha` and `s` clamp `T` into `[tlow, thigh]` before
+
 ###### Trait Implementations
 
 - **Any**
@@ -33338,6 +42391,7 @@ pub struct JanafThermo<E: EquationOfState> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -33351,6 +42405,7 @@ pub struct JanafThermo<E: EquationOfState> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -33406,16 +42461,34 @@ pub struct JanafThermo<E: EquationOfState> {
 pub use h_const::*;
 ```
 
+#### Re-export `e_const::*`
+
+```rust
+pub use e_const::*;
+```
+
 #### Re-export `h_polynomial::*`
 
 ```rust
 pub use h_polynomial::*;
 ```
 
+#### Re-export `h_power::*`
+
+```rust
+pub use h_power::*;
+```
+
 #### Re-export `h_tabulated::*`
 
 ```rust
 pub use h_tabulated::*;
+```
+
+#### Re-export `h_tabulated_esi::*`
+
+```rust
+pub use h_tabulated_esi::*;
 ```
 
 #### Re-export `janaf::*`
@@ -33484,6 +42557,11 @@ pub struct ConstTransport<T: ThermoModel> {
 ##### Implementations
 
 ###### Methods
+
+- ```rust
+  pub fn with_gas_constant(self: Self, gas_constant: crate::thermophysics::constants::GasConstant) -> Self { /* ... */ }
+  ```
+  The same model with the perfect gas's universal gas constant set to `gas_constant` (gh:#1361 round 13).
 
 - ```rust
   pub fn new(thermo: T, mu: DynamicViscosity, pr: Ratio) -> Self { /* ... */ }
@@ -33563,6 +42641,7 @@ pub struct ConstTransport<T: ThermoModel> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -33576,6 +42655,16 @@ pub struct ConstTransport<T: ThermoModel> {
     ```
     Calls `U::from(self)`.
 
+- **Mixable**
+  - ```rust
+    fn set_mol_weight(self: &mut Self, w: MolarMass) { /* ... */ }
+    ```
+
+  - ```rust
+    fn mix_params(self: &mut Self, y1: f64, y2: f64, other: &Self) { /* ... */ }
+    ```
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -33617,6 +42706,197 @@ pub struct ConstTransport<T: ThermoModel> {
 
   - ```rust
     fn kappa(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> ThermalConductivity { /* ... */ }
+    ```
+
+  - ```rust
+    fn alpha_h(self: &Self, _p: Pressure, _t: ThermodynamicTemperature) -> DynamicViscosity { /* ... */ }
+    ```
+    `alphah = mu / Pr` directly, as upstream's `constTransport::alphah`
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
+## Module `log_polynomial`
+
+`logPolynomialTransport` of OpenFOAM-v2506 (ESI), gh:#1378:
+`mu = exp(P_mu(ln T))`, `kappa = exp(P_kappa(ln T))`, `alphah = kappa/Cp`.
+Translated from `specie/transport/logPolynomial/logPolynomialTransportI.H`
+(v2506). Upstream's dictionary keys are `muLogCoeffs<N>` / `kappaLogCoeffs<N>`.
+
+```rust
+pub mod log_polynomial { /* ... */ }
+```
+
+### Types
+
+#### Struct `LogPolynomialTransport`
+
+Log-polynomial transport: polynomials in `ln T`, exponentiated.
+
+```rust
+pub struct LogPolynomialTransport<T: ThermoModel, const N: usize> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(thermo: T, mu_poly: Polynomial<N>, kappa_poly: Polynomial<N>) -> Self { /* ... */ }
+  ```
+  `mu_poly` and `kappa_poly` are polynomials of `ln(T/K)` whose value is `ln` of
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ThermoModel**
+  - ```rust
+    fn cp(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn ha(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hs(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hc(self: &Self) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TransportModel**
+  - ```rust
+    fn mu(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity { /* ... */ }
+    ```
+
+  - ```rust
+    fn kappa(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> ThermalConductivity { /* ... */ }
     ```
 
 - **TryFrom**
@@ -33744,6 +43024,7 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -33757,6 +43038,7 @@ pub struct PolynomialTransport<T: ThermoModel, const N: usize> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -33935,6 +43217,7 @@ pub struct SutherlandTransport<T: ThermoModel> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -33948,6 +43231,16 @@ pub struct SutherlandTransport<T: ThermoModel> {
     ```
     Calls `U::from(self)`.
 
+- **Mixable**
+  - ```rust
+    fn set_mol_weight(self: &mut Self, w: MolarMass) { /* ... */ }
+    ```
+
+  - ```rust
+    fn mix_params(self: &mut Self, y1: f64, y2: f64, other: &Self) { /* ... */ }
+    ```
+
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -34043,6 +43336,11 @@ pub struct TabulatedTransport<T: ThermoModel> {
   ```
   `mu_table` = `(temperatures_K, viscosities_Pa_s)`.
 
+- ```rust
+  pub fn new_esi_v2506(thermo: T, mu_table: Vec<(f64, f64)>, kappa_table: Vec<(f64, f64)>) -> Self { /* ... */ }
+  ```
+  ESI v2506 form (gh:#1362 row 4): `(T, value)` pairs evaluated by upstream's
+
 ###### Trait Implementations
 
 - **Any**
@@ -34116,6 +43414,7 @@ pub struct TabulatedTransport<T: ThermoModel> {
     fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
     ```
 
+- **Forget**
 - **Freeze**
 - **From**
   - ```rust
@@ -34129,6 +43428,7 @@ pub struct TabulatedTransport<T: ThermoModel> {
     ```
     Calls `U::from(self)`.
 
+- **Move**
 - **RefUnwindSafe**
 - **Same**
 - **Send**
@@ -34185,12 +43485,208 @@ pub struct TabulatedTransport<T: ThermoModel> {
 - **Unpin**
 - **UnsafeUnpin**
 - **UnwindSafe**
+## Module `wlf`
+
+`WLFTransport` of OpenFOAM-v2506 (ESI), gh:#1378: Williams-Landel-Ferry
+viscosity `mu = mu0 exp(-C1 (T - Tr)/(C2 + T - Tr))`, `kappa = Cp mu / Pr`,
+`alphah = mu / Pr`. Translated from `specie/transport/WLF/WLFTransportI.H`
+(v2506), including `kappa = Cp * mu * rPr` in that operation order.
+
+```rust
+pub mod wlf { /* ... */ }
+```
+
+### Types
+
+#### Struct `WlfTransport`
+
+WLF viscosity with a constant Prandtl number.
+
+```rust
+pub struct WlfTransport<T: ThermoModel> {
+    // Some fields omitted
+}
+```
+
+##### Fields
+
+| Name | Type | Documentation |
+|------|------|---------------|
+| *private fields* | ... | *Some fields have been omitted* |
+
+##### Implementations
+
+###### Methods
+
+- ```rust
+  pub fn new(thermo: T, mu0: DynamicViscosity, tr: ThermodynamicTemperature, c1: f64, c2: f64, pr: Ratio) -> Self { /* ... */ }
+  ```
+  `mu0` `[Pa s]`, `tr` `[K]`, `c1` `[-]`, `c2` `[K]`, `pr` `[-]`
+
+###### Trait Implementations
+
+- **Any**
+  - ```rust
+    fn type_id(self: &Self) -> TypeId { /* ... */ }
+    ```
+
+- **Borrow**
+  - ```rust
+    fn borrow(self: &Self) -> &T { /* ... */ }
+    ```
+
+- **BorrowMut**
+  - ```rust
+    fn borrow_mut(self: &mut Self) -> &mut T { /* ... */ }
+    ```
+
+- **Clone**
+  - ```rust
+    fn clone(self: &Self) -> Self { /* ... */ }
+    ```
+
+- **CloneToUninit**
+  - ```rust
+    unsafe fn clone_to_uninit(self: &Self, dest: *mut u8) { /* ... */ }
+    ```
+
+- **Debug**
+  - ```rust
+    fn fmt(self: &Self, f: &mut $crate::fmt::Formatter<''_>) -> $crate::fmt::Result { /* ... */ }
+    ```
+
+- **EquationOfState**
+  - ```rust
+    fn mol_weight(self: &Self) -> MolarMass { /* ... */ }
+    ```
+
+  - ```rust
+    fn r(self: &Self) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn rho(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> MassDensity { /* ... */ }
+    ```
+
+  - ```rust
+    fn psi(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Compressibility { /* ... */ }
+    ```
+
+  - ```rust
+    fn z(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> Ratio { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_m_cv(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cv_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn cp_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn h_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn e_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s_eos(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **Forget**
+- **Freeze**
+- **From**
+  - ```rust
+    fn from(t: T) -> T { /* ... */ }
+    ```
+    Returns the argument unchanged.
+
+- **Into**
+  - ```rust
+    fn into(self: Self) -> U { /* ... */ }
+    ```
+    Calls `U::from(self)`.
+
+- **Move**
+- **RefUnwindSafe**
+- **Same**
+- **Send**
+- **Sync**
+- **ThermoModel**
+  - ```rust
+    fn cp(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+  - ```rust
+    fn ha(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hs(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn hc(self: &Self) -> AvailableEnergy { /* ... */ }
+    ```
+
+  - ```rust
+    fn s(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> SpecificHeatCapacity { /* ... */ }
+    ```
+
+- **ToOwned**
+  - ```rust
+    fn to_owned(self: &Self) -> T { /* ... */ }
+    ```
+
+  - ```rust
+    fn clone_into(self: &Self, target: &mut T) { /* ... */ }
+    ```
+
+- **TransportModel**
+  - ```rust
+    fn mu(self: &Self, _p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity { /* ... */ }
+    ```
+
+  - ```rust
+    fn kappa(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> ThermalConductivity { /* ... */ }
+    ```
+
+  - ```rust
+    fn alpha_h(self: &Self, p: Pressure, t: ThermodynamicTemperature) -> DynamicViscosity { /* ... */ }
+    ```
+
+- **TryFrom**
+  - ```rust
+    fn try_from(value: U) -> Result<T, never> { /* ... */ }
+    ```
+
+- **TryInto**
+  - ```rust
+    fn try_into(self: Self) -> Result<U, <U as TryFrom<T>>::Error> { /* ... */ }
+    ```
+
+- **Unpin**
+- **UnsafeUnpin**
+- **UnwindSafe**
 ### Re-exports
 
 #### Re-export `const_transport::*`
 
 ```rust
 pub use const_transport::*;
+```
+
+#### Re-export `log_polynomial::*`
+
+```rust
+pub use log_polynomial::*;
 ```
 
 #### Re-export `polynomial::*`
@@ -34209,6 +43705,12 @@ pub use sutherland::*;
 
 ```rust
 pub use tabulated::*;
+```
+
+#### Re-export `wlf::*`
+
+```rust
+pub use wlf::*;
 ```
 
 #### Re-export `traits::*`
@@ -34241,12 +43743,6 @@ pub mod interface { /* ... */ }
 ### Modules
 
 ## Module `one_dimensional_meshing`
-
-now, for the TAMPINES steam tables Marviken test,
-and other pipe simulations, I will often need to make
-one dimensional meshes straight off the bat,
-
-
 
 ```rust
 pub mod one_dimensional_meshing { /* ... */ }
