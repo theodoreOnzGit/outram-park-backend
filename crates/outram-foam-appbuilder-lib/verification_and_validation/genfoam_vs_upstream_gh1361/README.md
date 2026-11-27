@@ -4371,7 +4371,7 @@ Two defects of the existing reader, found because this case's `nuclearData` coul
 
 ### Not ported (refused by name)
 
-* `externalSourceModulationTimeProfile` from a `constant/<region>/externalSource` dictionary (the `Function1` dictionary reader): the reader refuses the case; the modulation itself works (`ExternalSource::with_modulation`, unit-tested with a constant profile, not compared with upstream).
+* ~~`externalSourceModulationTimeProfile` from a `constant/<region>/externalSource` dictionary (the `Function1` dictionary reader): the reader refuses the case; the modulation itself works (`ExternalSource::with_modulation`, unit-tested with a constant profile, not compared with upstream).~~ **CORRECTED 2026-11-27 (round 32b below):** read for `type table` and compared with the real binary; only `fmi` and the other `Function1` types stay refused.
 * `externalSourceNeutronics true` with `liquidFuel true` (`upstream_transient_step` refuses it), with `eigenvalueNeutronics true` (the reader refuses), and with SP3/SN (upstream ignores the flag; the port refuses).
 * `limited corrected`, `orthogonal` and other `laplacianSchemes`, `ddtSchemes` other than `steadyState`/`Euler`, `integralPredictor`, `implicitPredictor`, `aitkenAcceleration` true: refused by the reader.
 * The point-kinetics half of the source (`externalSourceMode`, `nuSource`, `beamEnergy`): gh:#1864.
@@ -4414,6 +4414,48 @@ Two defects of the existing reader, found because this case's `nuclearData` coul
 | R9 | control I (`startTime` ignored) | first step with relative power difference > 1e-6 is the first with `Time` > 15, before the true ramp (20); the final power agrees to < 1e-2 (both hold 0.5 long enough), the trajectory does not. Fails the gate: yes |
 | R10 | refusals | `type fmi`, `type sine`, `outOfBounds repeat`, `interpolationScheme` other than `linear`, `file`, an unknown key, a missing `type`, and a malformed table are each refused by name |
 | R11 | wall time | port < 60 s for F and G together |
+
+### Upstream facts measured (real binary, tight protocol, serial; scratch deleted after extraction)
+
+| variant | steps | wall | final power | max power |
+|---|---|---|---|---|
+| F (closed, Euler, inline table, `startTime 5`) | 795 | 12 s | 27103.09 W (0.50932 x B steady 53214.29) | 158925.1 W |
+| G (shipped walls, Euler, `values`, no `startTime`) | 678 | 4 s | 9368.708 W (0.50075 x A steady 18709.24) | |
+
+### What was ported (new code; no function with a kovan review stamp was touched: no `kind = "review"` block exists in the folders involved)
+
+| upstream | port |
+|---|---|
+| `timeProfile.C:100-137`, `Function1Types::Table` (`Table.C:34-76`) | `external_source_case::parse_external_source_time_profile` (`type table`; `table table (...)`, `table (...)` or `values (...)`; `startTime`; written defaults `outOfBounds clamp` / `interpolationScheme linear` accepted) onto the existing `TimeProfile` |
+| `neutronics.C:265-281` (`externalSource` READ_IF_PRESENT) | `ExternalSourceCase::read`: file present and key present gives `ExternalSource::with_modulation`; the round 32 refusal is removed |
+| `createFluxMatrices.H:3-10` | unchanged since round 32 (`modulation_at(time after increment)`), now compared |
+
+### Round 32b results (measured 2026-11-27, release, PRIVATE cargo target dir; `tests/genfoam_external_source_vs_upstream.rs`, 11 tests, 12 s)
+
+| comparison | steps (port/upstream) | power, worst relative over all steps | iterations equal | `deltaT` | flux at t = 100, worst / field max | `pTarget` |
+|---|---|---|---|---|---|---|
+| F, port against upstream | 795 / 795 | 2.35e-13 | 795 / 795 | exact | 3.6e-14 | 2.2e-15 |
+| G | 678 / 678 | 2.07e-14 | 678 / 678 | exact | 1.5e-15 | 1.9e-16 |
+
+* Not bit-identical (basic-lib's CG against `PCG`/`DIC`), four orders under the 1e-9 allowance; no step diverges first; the rounds 1-32 gates (A, B, C, D, E, SP3/SN) pass unchanged in the same run (A 4.8e-14, B 1.5e-13, C 2.4e-13).
+* G's final `neutroResidual` agrees to 1.3e-8 relative at the steps above 1e-8 (non-uniform flux, the residual is a number); F's is noise as in round 32's B and C (uniform solution), reported, not gated.
+* R4, upstream against upstream (no port involved): F and round 32's C agree BIT FOR BIT (0 relative) on `power` at every step whose `Time` is below 20, and F first leaves C by more than 1e-6 at the first step beyond 20 (step 470, `Time = 21`), which is both the `startTime` shift (5 + 15) and the evaluation at the time after the increment.
+* **Controls (the comparison can fail).** H, port with the file ignored against upstream F: 549 against 795 steps, first power difference over 1e-6 at step 470 (`Time = 21`, the first step beyond 20), final power differs by 0.962 relative. I, port with `startTime 0` against upstream F: 795 / 795 steps but the first power difference over 1e-6 at step 465 (`Time = 16`, the first step beyond 15), worst 0.134 relative, final power differs by only 3.1e-3 (both hold 0.5 by then).
+* Refusals by name, tested through `ExternalSourceCase::read`: `type fmi`, `type sine`, `outOfBounds repeat`; and in unit tests `interpolationScheme splineLinear`, `file`, a missing `type`, a table without `table`/`values`, a malformed row, non-ascending times, a single row, a non-dictionary key.
+
+### Predictions: held and missed (R1-R11)
+
+* R1 held (2.35e-13, 2.07e-14; not bit-identical). R2 held (795/795, 678/678). R3 held (`deltaT` exact; 795 and 678 steps, inside 200-5000). R4 held in its strong form (0, bit for bit, not the 1e-15 fallback). R5 held (0.50932 in [0.49, 0.52]; max 1.589e5 in [1.45e5, 1.65e5]). R6 held (0.50075). R7 held (3.6e-14, 1.5e-15). R9 held (first difference at the first step beyond 15; final 3.1e-3 < 1e-2). R10 held. R11 held (3 s for F, the whole file 12 s).
+* R8 held, with one imprecision of mine: the first-difference step is the first with `Time` beyond 20 (`Time = 21`), as predicted; my first version of the test bounded it to (20, 21) by value, which failed on the equality at 21, so the test now asserts the index of the first step beyond 20 exactly (`first_step_after`), a sharper statement rather than a looser one.
+* Process note: the first run (shared cargo target dir, taken before the coordinator's instruction to use a private one) gave the same F, G and control numbers, and a later build from that dir failed with `unresolved import` because sibling worktrees overwrite each other's `outram-foam-appbuilder-lib` rlib. Every result in this section was re-run and read from a private target dir.
+
+### Still not ported (refused by name)
+
+`type fmi` (live co-simulation coupling, out of scope), every `Function1` other than `table` (`constant`, `sine`, `linearRamp`, ...), a table `file`, `outOfBounds` other than `clamp`, `interpolationScheme` other than `linear`, a table with fewer than two rows (OpenFOAM allows one). Only `table`, the form the shipped point-kinetics tutorials use, was compared; the other `Function1` types were not run against upstream.
+
+### Reproduction
+
+`GENFOAM_UPSTREAM=/home/user/upstream-build/GeN-Foam-src /home/user/upstream-build/scripts/with-of.sh bash scripts/run_external_source_profile.sh F` (and `G`), then `scripts/extract_external_source_profile.sh`; port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_external_source_vs_upstream -- --nocapture`.
 
 ## Round 33 (gh:#1866): onePhase `nNonOrthogonalCorrectors`, the pressure reference cell and Boussinesq, in the cell-centred and the face-centred region
 

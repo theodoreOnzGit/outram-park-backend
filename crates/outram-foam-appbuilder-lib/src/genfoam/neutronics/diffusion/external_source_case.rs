@@ -43,9 +43,9 @@
 //!
 //! * `neutronicsProperties`: `externalSourceNeutronics` (default `false`); `eigenvalueNeutronics true` is
 //!   refused (the eigenvalue step is `pseudo_time.rs`);
-//! * `constant/<region>/externalSource`: when the file exists and names `externalSourceModulationTimeProfile`
-//!   the case is REFUSED by name (the dictionary reader of a `Function1` profile is not ported; build the
-//!   profile in Rust with [`ExternalSource::with_modulation`](super::external_source::ExternalSource::with_modulation));
+//! * `constant/<region>/externalSource` (READ_IF_PRESENT): its `externalSourceModulationTimeProfile` is read by
+//!   [`parse_external_source_time_profile`] (upstream's `timeProfile` of `type table`, gh:#1863 round 32b); no
+//!   file, or no such key, is modulation 1. `type fmi` and every other `Function1` are refused by name;
 //! * `fvSchemes`: `ddtSchemes default` (`steadyState` | `Euler`) and `laplacianSchemes default`
 //!   (`Gauss linear uncorrected` | `Gauss linear corrected`), anything else refused;
 //! * `fvSolution`: `neutronTransport` `neutronIterationResidual` (default `1e-5`), `maxNeutronIterations`
@@ -58,7 +58,11 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use outram_foam_basic_lib::io::dict::FoamFile;
+use outram_foam_basic_lib::io::{FoamEntry, FoamValue};
 use outram_foam_basic_lib::mesh::FvMesh;
+use uom::si::f64::Time;
+use uom::si::time::second;
 use outram_foam_basic_lib::prelude::BoundaryCondition;
 
 use super::external_source::{
@@ -67,6 +71,7 @@ use super::external_source::{
 };
 use super::{DiffusionNeutronics, DiffusionSettings};
 use crate::error::AppBuilderError;
+use crate::genfoam::common::TimeProfile;
 use crate::genfoam::neutronics::pseudo_time::{PseudoTimeControls, GREAT, VSMALL};
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::workflow::reactor_state::ReactorState;
@@ -175,6 +180,98 @@ pub fn parse_laplacian_scheme(fv_schemes: &str) -> Result<NeutronicsLaplacianSch
     }
 }
 
+/// `externalSourceModulationTimeProfile` of the text of `constant/<region>/externalSource`: GeN-Foam's
+/// `timeProfile(IOdictionary, name, Time)` constructor (`common/timeProfile/timeProfile.C:100-137`, 652b3da) of
+/// `type table`, as OpenFOAM-ESI v2506's `Function1Types::Table` reads it (`Table.C:34-76`):
+///
+/// * no such key (the file has none): `Ok(None)`, an invalid profile, modulation 1 (`valid()` false);
+/// * `type` is mandatory (`get<word>("type")`), `startTime` defaults to 0 and the profile is evaluated at
+///   `t - startTime`;
+/// * the rows come from the entry `table` read as a stream, `table table ((t v) ...)` (the leading word is
+///   discarded; the form of GeN-Foam's shipped point-kinetics tutorials) or `table ((t v) ...)`; otherwise
+///   from `values ((t v) ...)` (a `file` is refused);
+/// * `outOfBounds clamp` and `interpolationScheme linear` are the defaults and are accepted when written.
+///
+/// Refused by name (not ported): `type fmi` (a live co-simulation coupling, out of scope by
+/// `RESPONSIBLE_USE.md`), every other `type`, `file`, any other `outOfBounds` or `interpolationScheme`, a
+/// table with fewer than two rows (the port's [`TimeProfile::table`]) and non-ascending times.
+///
+/// # Errors
+///
+/// A message naming the offending entry.
+pub fn parse_external_source_time_profile(text: &str) -> Result<Option<TimeProfile>, String> {
+    let file = FoamFile::parse_named(text, "externalSource").map_err(|e| format!("externalSource: {e}"))?;
+    let key = "externalSourceModulationTimeProfile";
+    let Some(entry) = file.dict.get(key) else {
+        return Ok(None);
+    };
+    let FoamEntry::SubDict(d) = entry else {
+        return Err(format!("{key} is not a sub-dictionary (upstream: subDict, fatal)"));
+    };
+    let ty = d.get_word("type").ok_or_else(|| format!("{key}.type is missing (upstream: get<word>(\"type\"), fatal)"))?;
+    if ty == "fmi" {
+        return Err(format!("{key}.type fmi: the FMI co-simulation profile is not ported (live coupling is out of scope)"));
+    }
+    if ty != "table" {
+        return Err(format!("{key}.type {ty}: only `table` is ported"));
+    }
+    let start = match d.get("startTime") {
+        None => 0.0,
+        Some(FoamEntry::Scalar(x)) => *x,
+        Some(_) => return Err(format!("{key}.startTime is not a number")),
+    };
+    if let Some(w) = d.get_word("outOfBounds") {
+        if w != "clamp" {
+            return Err(format!("{key}.outOfBounds {w}: only the default `clamp` is ported"));
+        }
+    }
+    if let Some(w) = d.get_word("interpolationScheme") {
+        if w != "linear" {
+            return Err(format!("{key}.interpolationScheme {w}: only the default `linear` is ported"));
+        }
+    }
+    let rows_of = |e: Option<&FoamEntry>| -> Option<Vec<FoamValue>> {
+        match e {
+            Some(FoamEntry::List(l)) => Some(l.clone()),
+            Some(FoamEntry::Tokens(t)) => {
+                // `table table ((t v) ...)`: the leading word `table` is discarded
+                let rest: &[FoamValue] = match t.first() {
+                    Some(FoamValue::Word(w)) if w == "table" => &t[1..],
+                    _ => t.as_slice(),
+                };
+                match rest {
+                    [FoamValue::List(l)] => Some(l.clone()),
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    };
+    let rows = if matches!(d.get("table"), Some(e) if !matches!(e, FoamEntry::SubDict(_))) {
+        rows_of(d.get("table")).ok_or_else(|| format!("{key}.table holds no list of (time value) rows"))?
+    } else if d.get("file").is_some() {
+        return Err(format!("{key}.file: reading the table from a file is not ported"));
+    } else {
+        rows_of(d.get("values")).ok_or_else(|| format!("{key}: neither `table` nor `values` holds a list of rows"))?
+    };
+    let mut times = Vec::with_capacity(rows.len());
+    let mut values = Vec::with_capacity(rows.len());
+    for r in &rows {
+        match r {
+            FoamValue::List(p) if p.len() == 2 => match (p[0].as_scalar(), p[1].as_scalar()) {
+                (Some(t), Some(v)) => {
+                    times.push(Time::new::<second>(t));
+                    values.push(v);
+                }
+                _ => return Err(format!("{key}: a table row is not (time value)")),
+            },
+            _ => return Err(format!("{key}: a table row is not (time value)")),
+        }
+    }
+    let profile = TimeProfile::table(times, values).map_err(|e| format!("{key}: {e}"))?;
+    Ok(Some(profile.with_start_time(Time::new::<second>(start))))
+}
+
 /// A single-region stationary-fuel diffusion case with its external source, ready to run.
 #[derive(Debug)]
 pub struct ExternalSourceCase {
@@ -248,14 +345,14 @@ impl ExternalSourceCase {
             .is_some_and(|w| w.first().is_some_and(|x| x == "adjustableRunTime"));
         let write_interval = if write_adjustable { Some(scalar("writeInterval", None)?) } else { None };
 
-        // the `externalSource` dictionary: only its time profile is read upstream by the diffusion solver
+        // neutronics.C:265-281: `externalSource` is READ_IF_PRESENT; only its time profile is read by the
+        // diffusion solver (createFluxMatrices.H:3-10)
         let ext_dict = constant.join("externalSource");
-        if ext_dict.exists() && read_text(&ext_dict)?.contains("externalSourceModulationTimeProfile") {
-            return Err(parse_error(
-                &ext_dict,
-                "externalSourceModulationTimeProfile: the Function1 dictionary reader is not ported; build the profile with ExternalSource::with_modulation".into(),
-            ));
-        }
+        let modulation = if ext_dict.exists() {
+            parse_external_source_time_profile(&read_text(&ext_dict)?).map_err(|m| parse_error(&ext_dict, m))?
+        } else {
+            None
+        };
 
         let schemes_path = system.join(region).join("fvSchemes");
         let schemes = read_text(&schemes_path)?;
@@ -319,7 +416,10 @@ impl ExternalSourceCase {
             let p = zero.join(format!("externalSourceFlux{g}"));
             ext_flux.push(if p.exists() { read_vol_scalar_field(&p, n)? } else { default_ext_values.clone() });
         }
-        let source = if enabled { ExternalSource::new(ext_flux) } else { ExternalSource::switched_off(ext_flux) };
+        let mut source = if enabled { ExternalSource::new(ext_flux) } else { ExternalSource::switched_off(ext_flux) };
+        if let Some(profile) = modulation {
+            source = source.with_modulation(profile);
+        }
         model.set_external_source(source).map_err(|e| parse_error(&zero, e.to_string()))?;
 
         let clock = PseudoTimeControls {
@@ -346,6 +446,64 @@ mod tests {
         assert_eq!(parse_external_source_neutronics("eigenvalueNeutronics false;"), Ok(false));
         assert_eq!(parse_external_source_neutronics("externalSourceNeutronics    true;   "), Ok(true));
         assert!(parse_external_source_neutronics("externalSourceNeutronics maybe;").is_err());
+    }
+
+    fn s(x: f64) -> Time {
+        Time::new::<second>(x)
+    }
+
+    fn profile(body: &str) -> Result<Option<TimeProfile>, String> {
+        parse_external_source_time_profile(&format!(
+            "FoamFile {{ version 2.0; format ascii; class dictionary; object externalSource; }}\n\
+             externalSourceMode transient; // read by point kinetics only\n{body}"
+        ))
+    }
+
+    #[test]
+    fn the_time_profile_is_read_in_the_inline_and_the_values_forms_and_shifted_by_start_time() {
+        // the form of GeN-Foam's shipped point-kinetics tutorial (`table table (...)`), with comments
+        let inline = profile(
+            "externalSourceModulationTimeProfile // c\n{ type table; startTime 5; /* c */ table table ((0 1) (15 1) (35 3)); }",
+        )
+        .expect("parses")
+        .expect("present");
+        assert_eq!(inline.value(s(0.0)), 1.0); // before start: clamp
+        assert_eq!(inline.value(s(20.0)), 1.0); // shifted 15
+        assert_eq!(inline.value(s(30.0)), 2.0); // shifted 25, half way up
+        assert_eq!(inline.value(s(99.0)), 3.0); // after the table: clamp
+        // `table ((t v) ...)` without the leading word, and the `values` form with no startTime
+        let bare = profile("externalSourceModulationTimeProfile { type table; table ((0 1) (10 3)); }").unwrap().unwrap();
+        let values = profile("externalSourceModulationTimeProfile { type table; values ((0 1) (10 3)); }").unwrap().unwrap();
+        assert_eq!(bare, values);
+        assert_eq!(values.value(s(5.0)), 2.0);
+        assert_eq!(values.start_time(), s(0.0));
+        // the written defaults are accepted
+        assert!(profile(
+            "externalSourceModulationTimeProfile { type table; outOfBounds clamp; interpolationScheme linear; values ((0 1) (1 2)); }"
+        )
+        .unwrap()
+        .is_some());
+    }
+
+    #[test]
+    fn no_profile_key_is_modulation_one_and_the_unported_forms_are_refused_by_name() {
+        assert_eq!(profile("somethingElse 1;"), Ok(None));
+        let refused = |body: &str, word: &str| {
+            let e = profile(body).expect_err(body);
+            assert!(e.contains(word), "{e}");
+        };
+        refused("externalSourceModulationTimeProfile { type fmi; nameFromFMU gf; initialValue 1; }", "fmi");
+        refused("externalSourceModulationTimeProfile { type sine; }", "sine");
+        refused("externalSourceModulationTimeProfile { startTime 1; values ((0 1) (1 2)); }", "type");
+        refused("externalSourceModulationTimeProfile { type table; outOfBounds repeat; values ((0 1) (1 2)); }", "repeat");
+        refused("externalSourceModulationTimeProfile { type table; interpolationScheme splineLinear; values ((0 1) (1 2)); }", "splineLinear");
+        refused("externalSourceModulationTimeProfile { type table; file \"tbl\"; }", "file");
+        refused("externalSourceModulationTimeProfile { type table; }", "values");
+        refused("externalSourceModulationTimeProfile { type table; startTime later; values ((0 1) (1 2)); }", "startTime");
+        refused("externalSourceModulationTimeProfile { type table; values ((0 1 2) (1 2)); }", "row");
+        refused("externalSourceModulationTimeProfile { type table; values ((0 1) (0 2)); }", "ascending");
+        refused("externalSourceModulationTimeProfile { type table; values ((0 1)); }", "2 points");
+        refused("externalSourceModulationTimeProfile 3;", "sub-dictionary");
     }
 
     #[test]

@@ -67,8 +67,11 @@
 //! * `liquidFuel true` is refused here ([`DiffusionNeutronics::upstream_transient_step`] is that form, and has
 //!   no external source: it is refused there too if a source is set).
 //! * The linear solver is basic-lib's CG, not `PCG`/`DIC`.
-//! * A time profile is supplied by the caller ([`ExternalSource::with_modulation`]); the reader of the
-//!   `externalSource` dictionary refuses a case that has one (see `external_source_case.rs`).
+//! * ~~A time profile is supplied by the caller ([`ExternalSource::with_modulation`]); the reader of the
+//!   `externalSource` dictionary refuses a case that has one.~~ **CORRECTED 2026-11-27 (round 32b):** the
+//!   reader of `constant/<region>/externalSource` reads `externalSourceModulationTimeProfile` of `type table`
+//!   (`external_source_case::parse_external_source_time_profile`, compared with the real binary); `type fmi`
+//!   and every other `Function1` are refused by name.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

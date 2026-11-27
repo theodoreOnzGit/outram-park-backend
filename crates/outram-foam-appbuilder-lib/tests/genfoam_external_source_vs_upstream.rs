@@ -142,7 +142,11 @@ struct Ref {
 }
 
 fn reference(case: &str) -> Ref {
-    let text = String::from_utf8(gunzip(&vv_dir().join("refs/external_source.ref.txt.gz"))).expect("utf8");
+    reference_in("refs/external_source.ref.txt.gz", case)
+}
+
+fn reference_in(file: &str, case: &str) -> Ref {
+    let text = String::from_utf8(gunzip(&vv_dir().join(file))).expect("utf8");
     let mut cur = String::new();
     let mut r = Ref::default();
     for line in text.lines() {
@@ -410,4 +414,138 @@ fn the_source_is_refused_for_sp3_and_sn_and_with_circulating_fuel_by_name() {
     replace_in(&dir.join("system/controlDict"), "neutroRegion     diffusionNeutronics;", "neutroRegion     SP3Neutronics;");
     let err = ExternalSourceCase::read(&dir, SolverSettings { tolerance: 1e-14, max_iter: 1000 }).expect_err("refused");
     assert!(err.to_string().contains("SP3Neutronics"), "{err}");
+}
+
+// ---------------------------------------------------------------------------------------------------------
+// Round 32b (gh:#1863): `externalSourceModulationTimeProfile` of `constant/<region>/externalSource`.
+//
+// Methodology: variants F and G of `README.md` "Round 32b" (`cases/external_source_profile/`, upstream run by
+// `scripts/run_external_source_profile.sh`, reference `refs/external_source_profile.ref.txt.gz`), both with
+// `ddtSchemes Euler`. F: closed medium (round 32's B), inline `table table (...)` with `startTime 5`, so the
+// modulation is 1 until t = 20, 3 on [40, 60], 0.5 from t = 80. G: shipped walls (round 32's A, non-uniform
+// flux, `corrected` laplacian), the `values (...)` form, no `startTime`. The port reads the same bytes through
+// `ExternalSourceCase::read`. Gate: the round 32 gate (`gate`): step counts, `deltaT`, iteration counts, power
+// <= 1e-9 relative at every step, flux at t = 100, `pTarget`. Controls: H, the file ignored; I, `startTime`
+// ignored. Results: README "Round 32b".
+
+/// Index of the first step whose `Time` (printed to 8 digits) is above `t` by more than the print.
+fn first_step_after(r: &Ref, t: f64) -> usize {
+    r.time.iter().position(|x| *x > t + 1e-6).expect("a later step")
+}
+
+fn reference_profile(case: &str) -> Ref {
+    reference_in("refs/external_source_profile.ref.txt.gz", case)
+}
+
+/// Variant F (`g = false`) or G (`g = true`) of round 32b staged in a scratch directory.
+fn stage_profile(name: &str, g: bool) -> PathBuf {
+    let dir = stage(name, !g, true, false, false);
+    let file = if g { "externalSource_G" } else { "externalSource_F" };
+    std::fs::copy(
+        vv_dir().join("cases/external_source_profile").join(file),
+        dir.join("constant/neutroRegion/externalSource"),
+    )
+    .expect("copy externalSource");
+    dir
+}
+
+#[test]
+fn f_inline_table_profile_with_start_time_matches_upstream() {
+    let t0 = std::time::Instant::now();
+    let run = run_port(&stage_profile("f", false));
+    let r = reference_profile("F");
+    gate("F (profile)", &run, &r, false);
+    let wall = t0.elapsed().as_secs_f64();
+    let steady_b = 53214.292175917675;
+    let last = run.history.last().expect("history").step.power;
+    let max = run.history.iter().map(|h| h.step.power).fold(0.0, f64::max);
+    println!("F: final power {last:.6e} = {:.5} x B steady; max power {max:.6e}; wall {wall:.1} s", last / steady_b);
+    assert!(last / steady_b > 0.49 && last / steady_b < 0.52, "R5 final ratio");
+    assert!(max > 1.45e5 && max < 1.65e5, "R5 max power");
+
+    // R4, upstream against upstream: F and round 32's C (the same case without the profile) are the same run
+    // while the modulation is 1, i.e. up to t = 20, and differ after it
+    let c = reference("C");
+    let mut first_diff = None;
+    let mut worst_before = 0.0_f64;
+    for i in 0..c.power.len().min(r.power.len()) {
+        let d = rel(r.power[i], c.power[i]);
+        if r.time[i] < 19.999 {
+            worst_before = worst_before.max(d);
+        } else if d > 1e-6 && first_diff.is_none() {
+            first_diff = Some(i);
+        }
+    }
+    let at = first_diff.expect("F must leave C");
+    println!(
+        "R4: upstream F vs upstream C, worst relative power difference before t = 20: {worst_before:.2e}; \
+         first step over 1e-6 at Time = {} (step {})",
+        r.time[at],
+        at + 1
+    );
+    assert!(worst_before < 1e-12);
+    assert_eq!(at, first_step_after(&r, 20.0), "the first step with Time > 20");
+}
+
+#[test]
+fn g_values_form_profile_with_non_uniform_flux_matches_upstream() {
+    let run = run_port(&stage_profile("g", true));
+    let r = reference_profile("G");
+    gate("G (profile)", &run, &r, true);
+    let a_final = 18709.241363204968;
+    let last = run.history.last().expect("history").step.power;
+    println!("G: final power {last:.6e} = {:.5} x A steady", last / a_final);
+    assert!(last / a_final > 0.49 && last / a_final < 0.52, "R6 final ratio");
+}
+
+#[test]
+fn control_h_profile_ignored_differs_from_upstream() {
+    let dir = stage_profile("h", false);
+    std::fs::remove_file(dir.join("constant/neutroRegion/externalSource")).expect("rm");
+    let run = run_port(&dir);
+    let r = reference_profile("F");
+    let t = compare(&run, &r, 1e-6, 0.0);
+    print("H (port profile ignored vs upstream F)", &t);
+    let first = t.first_power_over.expect("must differ");
+    println!("H: first step over 1e-6 at Time = {}", r.time[first - 1]);
+    let end = rel(run.history.last().expect("history").step.power, *r.power.last().expect("power"));
+    println!("H: final power relative difference {end:.3e}");
+    assert_eq!(first - 1, first_step_after(&r, 20.0), "the first step with Time > 20");
+    assert!(end > 0.5);
+}
+
+#[test]
+fn control_i_start_time_ignored_differs_from_upstream() {
+    let dir = stage_profile("i", false);
+    replace_in(&dir.join("constant/neutroRegion/externalSource"), "startTime   5;", "startTime   0;");
+    let run = run_port(&dir);
+    let r = reference_profile("F");
+    let t = compare(&run, &r, 1e-6, 0.0);
+    print("I (port startTime 0 vs upstream F)", &t);
+    let first = t.first_power_over.expect("must differ");
+    println!("I: first step over 1e-6 at Time = {}", r.time[first - 1]);
+    let end = rel(run.history.last().expect("history").step.power, *r.power.last().expect("power"));
+    println!("I: final power relative difference {end:.3e}");
+    assert_eq!(first - 1, first_step_after(&r, 15.0), "the first step with Time > 15");
+    assert!(end < 1e-2);
+}
+
+#[test]
+fn the_unported_profile_forms_are_refused_by_name_when_the_case_is_read() {
+    let lin = SolverSettings { tolerance: 1e-14, max_iter: 1000 };
+    for (edit_from, edit_to, word) in [
+        ("type        table;", "type        fmi;", "fmi"),
+        ("type        table;", "type        sine;", "sine"),
+        ("startTime   5;", "startTime   5; outOfBounds repeat;", "repeat"),
+    ] {
+        let dir = stage_profile("refused", false);
+        replace_in(&dir.join("constant/neutroRegion/externalSource"), edit_from, edit_to);
+        let err = ExternalSourceCase::read(&dir, lin).expect_err("refused");
+        assert!(err.to_string().contains(word), "{err}");
+    }
+    // and the same case without the file reads, with modulation 1
+    let dir = stage_profile("no_file", false);
+    std::fs::remove_file(dir.join("constant/neutroRegion/externalSource")).expect("rm");
+    let case = ExternalSourceCase::read(&dir, lin).expect("reads");
+    assert!(case.model.external_source().expect("source").modulation.is_none());
 }
