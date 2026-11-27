@@ -70,7 +70,11 @@ fn region_sources(region: &str) -> (PathBuf, PathBuf) {
 /// Stage the polyMesh gunzipped and read it.
 fn read_region(region: &str, order: PointCellsOrder) -> (DeformableMesh, Vec<outram_foam_appbuilder_lib::genfoam::multi_region::mesh_deformation::DispPatchCondition>) {
     let (poly, disp) = region_sources(region);
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1784_{region}"));
+    // One staging directory per call: the tests run in parallel and several read the same
+    // region, so a shared directory let one test's `remove_dir_all` race another's read.
+    static STAGE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let k = STAGE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1784_{region}_{}_{k}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     std::fs::create_dir_all(&root).unwrap();
     for f in ["points", "faces", "owner", "neighbour"] {
@@ -78,6 +82,7 @@ fn read_region(region: &str, order: PointCellsOrder) -> (DeformableMesh, Vec<out
     }
     std::fs::copy(poly.join("boundary"), root.join("boundary")).unwrap();
     let m = DeformableMesh::read(&root, order).unwrap_or_else(|e| panic!("{region}: {e}"));
+    let _ = std::fs::remove_dir_all(&root);
     let dict = FoamFile::parse(&std::fs::read_to_string(&disp).unwrap()).unwrap().dict;
     let patches = m.mesh().patches.clone();
     let cond = parse_disp_patch_conditions(&dict, &patches).unwrap_or_else(|e| panic!("{region}: {e}"));
