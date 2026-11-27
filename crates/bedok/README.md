@@ -13,11 +13,48 @@ band **above 1-D neutronics and below CFD**.
 A Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation, ported from
 the `main_exec_diff3d_standalone` snapshot with the author's permission.
 
+**The one question it answers:** what are the power distribution and
+eigenvalue of a light-water core, steady and in a transient, when 3-D nodal
+diffusion neutronics is coupled to channel thermal hydraulics and fuel-rod
+conduction through cross-section feedback?
+
+BEDOK makes a **published reactor simulator studyable and challengeable**:
+one Rust module per MATLAB `.m` file, named after it, so a student can read
+the semi-analytic nodal method (SANM), the W-3 CHF correlation and the
+drift-flux channel beside the original line by line. Every defect found in
+the reference was translated as it is, pinned by a test and recorded in a
+register before any correction was allowed, so each later correction is a
+visible change with before-and-after numbers.
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Research, education and V&V only. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+(Banner added 2026-11-27; this README had none.)
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Than & Xiao (2026), *Energy Engineering* 123(9), doi:10.32604/ee.2026.082487 (the published BEDOK; see "Citing BEDOK"); NEACRP-L-335 Rev. 1 (1991), the NEACRP A1/A2/D1 specification, catalogued 2026-08-22 at the proprietary tier as `1991finnemann-neacrp-l-335` (`crates/kovan-literature/CATALOGUE.md`); IAEA 3-D PWR benchmark, reference `k_eff` from PARCS and ADPRES as quoted in `iaea3ds.m` (`src/data/PROVENANCE.md`); IAPWS-IF97. Upstream code: Than Yan Ren's MATLAB `main_exec_diff3d_standalone` snapshot (translated with permission, see "Provenance"); Mark Mikofski's [IAPWS_IF97](https://github.com/mikofski/IAPWS_IF97) MATLAB (BSD-2-Clause, terms in `NOTICE`). |
+| Mathematical equations | Module docs of each `.m` translation: SANM nodal diffusion and transverse leakage (`src/calc_sanodalxyz.rs`, `src/calc_transleakagexyz.rs`, `src/calc_a1234_expansionxyz.rs`), the diffusion gradient operator (`src/makegrad_dxyz.rs`), fuel-rod conduction (`src/fuelrodheat_1dcylnd.rs`), channel flow and drift flux (`src/singleflow1devap.rs`, `src/driftflux6_solverstatic1d.rs`), W-3 CHF (`src/w3chf.rs`), cross-section feedback (`src/sigmavalupd3d.rs`). The diffusion coefficient and the indexing map are written below. |
+| Source code | `src/`: one module per MATLAB file (about 50; listed under "Porting status"), plus `matlab`, `types`, `error` and `iapws_if97`. Benchmark cases `iaea3ds`, `neacrpa1t`, `neacrpa2`, `neacrpa2t`, `neacrpd1`, `neacrpd1t`, with input CSVs in `src/data/`. |
+| Interactive simulations | None yet. CLI examples: `examples/main_exec_diff3d.rs`, `examples/run_neacrpd1t.rs`. |
+| Visualisations | None yet. `plotreactor3dcolour` keeps only the data half; figure output is deliberately not reproduced. |
+| Verification and validation evidence | Recorded below and in [`docs/bedok-reference-defects.md`](../../docs/bedok-reference-defects.md): IAEA-3D `k_eff` 1.029084, -1.1 pcm from PARCS and +0.2 pcm from ADPRES (2026-08-18); NEACRP A2 and D1 steady `k_eff` identical to the running MATLAB R2026a to every printed digit; the A1 transient agreeing with the MATLAB to 2.1e-7 through a 67-fold excursion; IF97 regions 1, 2 and 4 within 2.810e-9 of the published tables (2026-08-12). No transient is compared with a published curve. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. The defect register (`docs/bedok-reference-defects.md`) records the maintainer decisions taken, the withdrawal of K9 and the downgrade of K8 on 2026-08-22 after reading NEACRP-L-335, and the corrections behind `Params` switches. No entry in `docs/human-corrections-to-ai-work.md` names this crate. |
+
+**Status:** the translation is complete and has code-to-code parity with the
+running MATLAB plus one published eigenvalue benchmark (IAEA-3D); the
+thermal-hydraulic, coupled and transient paths have no published-benchmark
+comparison, and nothing here has a human V&V sign-off.
+
 ## `no_std` + `alloc` (gh:#1588)
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p bedok --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p bedok --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). `std` carries the faer sparse-LU backend (`petir`'s `faer` + `std`, the default backend with `std`) and the `eprintln!` diagnostics. Without `std` the sparse solves use PETIR's own deterministic port of the same LU (`SparseBackend::Ported`), which `set_sparse_backend` also selects with `std`. With `std` on (the default)
 nothing changes.
 
@@ -64,9 +101,13 @@ not checked and is not recorded.
 > the critical-boron search **fails where the reference fails** — both abort at
 > the same boron concentration on a destabilised eigensolve.
 >
-> No transient has been compared to a *published* curve; the NEACRP
-> specification is not in the literature archive. See
-> `docs/bedok-reference-defects.md`, "Verified against the running MATLAB", for
+> No transient has been compared to a *published* curve; ~~the NEACRP
+> specification is not in the literature archive~~ **CORRECTED 2026-11-27** —
+> the specification, NEACRP-L-335 Rev. 1, has been in the archive since
+> 2026-08-22 at the proprietary tier (`crates/kovan-literature/CATALOGUE.md`,
+> `1991finnemann-neacrp-l-335`); published reference *results* for the
+> transients are not. See
+> [`docs/bedok-reference-defects.md`](../../docs/bedok-reference-defects.md), "Verified against the running MATLAB", for
 > the full table and for what remains uncompared.
 >
 > The two top-level
@@ -384,8 +425,12 @@ third-party MATLAB implementation the snapshot vendored in:
 The vendored copy misspells the author as "Mifofski"; the upstream repository
 and its `license.txt` both give **Mikofski**, used here as correct.
 
-Region 1 is translated. Regions 2-4, the backward equations, the region
-boundaries, viscosity/conductivity and the basic property functions are not.
+~~Region 1 is translated. Regions 2-4, the backward equations, the region
+boundaries, viscosity/conductivity and the basic property functions are not.~~
+**CORRECTED 2026-11-27** — regions 1, 2 and 4 are translated, with the
+backward `T(p,h)` and the transport entry points; region 3 is not (checked
+against the "Porting status" table and "Verified against the IAPWS-IF97
+standard" above, and `src/iapws_if97/`).
 The BEDOK thermal hydraulics reaches this almost entirely through the `_ph`
 entry points — `T_ph`, `v_ph`, `cp_ph`, `x_ph` — so those and their dependency
 chains are the critical path.
@@ -398,8 +443,10 @@ Per the workspace rule, release mode:
 cargo test --release -p bedok --lib
 ```
 
-**Status: builds clean under clippy and rustdoc; 247 unit tests pass, 4
-ignored** — release profile, measured 2026-08-18. The ignored tests are
+**Status: builds clean under clippy and rustdoc; ~~247 unit tests pass, 4
+ignored~~ — release profile, measured 2026-08-18.** **CORRECTED 2026-11-27** —
+the latest recorded whole-lib run is 2026-10-20 (gh #994, `AGENTS.md`):
+265 passed, 27 ignored. Not re-run for this edit. The ignored tests are
 `thdiffusion_solverxyz`'s three, which depend on a synthetic fixture that is not
 a well-posed coupled problem (see that module's "Verification status"), and
 `criticalboron_xyz`'s case-A1 search, which is a ten-minute diagnostic for the
@@ -436,8 +483,12 @@ slower: bedok subset, one thread, i9-13900K, 2026-10-20 — `matlab_parity_iaea3
 
 **What passing tests do and do not mean.** They cover the translated utility
 layer and pin the known reference defects; the IAPWS region-1 functions agree
-with the published verification values to ~3e-9 relative. Nothing has been run
-against a reactor benchmark, because the solvers are not translated yet. Per
+with the published verification values to ~3e-9 relative. ~~Nothing has been run
+against a reactor benchmark, because the solvers are not translated yet.~~
+**CORRECTED 2026-11-27** — the solvers are translated and the IAEA-3D
+benchmark is run (-1.1 pcm from PARCS, 2026-08-18, "What was measured —
+validation, IAEA-3D" above), and the NEACRP cases are compared with the
+running MATLAB. Per
 `RESPONSIBLE_USE.md` this is AI-assisted draft material pending human review.
 
 ## Provenance

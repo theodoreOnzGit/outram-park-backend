@@ -6,11 +6,41 @@ atmospheric **I**mpacts.
 Atmospheric consequences for the OUTRAM PARK suite — *"what happens after
 release?"*
 
+CHANGI makes **atmospheric dispersion studyable and challengeable** at two
+scales: FLEXPART's Lagrangian particle physics (Monin–Obukhov similarity,
+Hanna turbulence, the skewed convective boundary layer, dry and wet
+deposition) translated routine by routine from the Fortran and checked
+against the compiled upstream, and the R `puff` Gaussian puff model, small
+enough to read top to bottom, checked against the R it came from. A reader
+can see exactly where the port departs from upstream (the puff mass-doubling
+default) and how large that departure is, measured rather than asserted.
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Liu & Cao (2002), the HTR-10 source term, whose tables are embedded in `src/activity/` (catalogue entry in `crates/kovan-literature/CATALOGUE.md`; provenance of every table in `docs/References.md`); Singapore climatology for `puff::climatology` (`docs/References.md`). Upstream code: FLEXPART v10.4, commit `3d7eebf` (GPL-3.0-or-later; `LICENSE.flexpart`, `NOTICE.flexpart`); R [`puff`](https://github.com/Hammerling-Research-Group/puff) `0.1.1`, commit `5213d58` (MIT; `LICENSE.puff`, `NOTICE.puff`). |
+| Mathematical equations | Module docs of each translated routine under `src/flexpart/` (named after its `.f90`, tabulated below), the Pasquill–Gifford puff kernel (`src/puff/`), and the dilution factor, time-integrated air concentration and dry deposition (`src/activity/chi_over_q.rs`, `src/activity/deposition.rs`). |
+| Source code | `src/flexpart/` (surface layer, turbulence, CBL, deposition, particle advance, met interpolation, convection, concentration gridding and output), `src/puff/` (stability, coefficients, kernel, sensor and grid modes), `src/activity/` (not a port: inventory, airborne and accident release, primary helium, fuel release, source, survey, deposition). |
+| Interactive simulations | None in this crate. CLI examples: `examples/puff_site_survey.rs` (start here), `examples/chi_over_q_survey.rs`, `examples/site_activity_survey.rs`, `examples/field_timing.rs`. `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1` drives `changi::puff` and `changi::activity`. |
+| Visualisations | None yet; upstream `puff`'s `R/plots.R` is deliberately not ported. A lesson book sits in `docs/lessons/`. |
+| Verification and validation evidence | `docs/flexpart-code-to-code.md`: all 14 function groups bit-exact against a `-fdefault-real-8` build of FLEXPART (corrected 2026-10-02), 5e-8 to 3.4e-6 against single-precision FLEXPART as shipped. `docs/puff-code-to-code.md`: 10 182 reference cases from the executed R, bit-exact to 2.7e-15 relative, 19 of 19 mutations killed. `docs/activity-consistency-checks.md` for the activity layer, which has no upstream. Fixture builders in `dev/`. Verification only; no comparison with measured dispersion. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. No entry in `docs/human-corrections-to-ai-work.md` names this crate. An earlier naming draft claiming emergency-response capability was corrected to match `RESPONSIBLE_USE.md` (below); the dose tables were moved to `buangkok` at the maintainer's direction (2026-09-28). |
+
+**Status:** the FLEXPART kernels and the puff model are verified code to code
+against their executed upstreams; the `activity` layer has only consistency
+checks, and nothing here is validated against measured dispersion.
+
 ## `no_std` + `alloc` (gh:#1587)
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p changi --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p changi --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). `std` carries the Gaussian puff field's `rayon` thread pool (`puff::wgsl::field_pooled`); without it `field_pooled` is the serial `field_serial`, bit for bit the same field (pinned by `the_pooled_field_is_bit_identical_to_the_serial_one`). `gpu` implies `std`. With `std` on (the default)
 nothing changes.
 
@@ -50,8 +80,7 @@ sets the intended-use limits, so moving any of them from this list to the one
 above is a maintainer decision made deliberately there, never a side effect of
 adding a feature.
 
-<!-- vv-unverified-banner -->
-> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+(The unverified banner moved to the top of this README on 2026-11-27.)
 
 Named for Changi, following the workspace's Singapore-place-name convention.
 
@@ -93,7 +122,10 @@ published HTR-10 end-of-life primary-helium activity in
 ~~the published HTR-10 normal-operation and accident dose-versus-distance
 tables (Tables 7 and 9)~~ (**MOVED 2026-09-28** to the dose crate,
 `buangkok::published`; changi holds no dose data).
-Nothing consumes ~~either~~ any of these tables yet). It has no upstream and no
+~~Nothing consumes ~~either~~ any of these tables yet~~ **CORRECTED
+2026-11-27**: the inventory table is consumed by `sembawang::htr10`
+(`crates/sembawang/src/htr10.rs`, `htr10_equilibrium_core`) and by
+`htgr_sim_v1`, below). It has no upstream and no
 code-to-code verification (see its module doc). `htgr_sim_v1` uses it
 (`changi::activity::{chi_over_q, inventory, source, survey, deposition}`) together
 with `changi::puff`, in
@@ -280,13 +312,25 @@ Per the workspace "reuse before porting, port before writing" rule:
   (`reference/htr10_primary_helium_activity_end_of_life.csv`, compiled in by
   `src/activity/primary_helium.rs`). ~~Provenance for both~~ Provenance for all
   three (**CORRECTED 2026-09-28**) is in `docs/References.md`.
+  **CORRECTED 2026-11-27** — there are now **five** embedded tables:
+  `reference/` also holds `htr10_accident_airborne_release.csv` (compiled in
+  by `src/activity/accident_airborne_release.rs`) and
+  `htr10_fuel_element_release_rate.csv` (`src/activity/fuel_release.rs`),
+  checked by their `include_str!` lines; `docs/References.md` has a
+  provenance section for each (checked by grep).
 - **`outram-mc-libs`**' LCG will supply the pseudo-random numbers the Langevin
-  turbulence scheme needs. Not yet wired in — no stochastic code has landed.
+  turbulence scheme needs. Not yet wired in ~~— no stochastic code has
+  landed~~. **CORRECTED 2026-11-27** — the stochastic particle step has landed
+  (`src/flexpart/advance.rs`, 2026-10-02, table above); it takes its random
+  deviates as input, after FLEXPART's `random_mod.f90`, and `outram-mc-libs`
+  is still not a dependency (checked in `Cargo.toml`: only `uom` and `petir`).
 - **`outram-foam-basic-lib`** will supply the gridded field and interpolation
   layer when the concentration-grid phase arrives. Deliberately **not** yet a
   dependency: the scalar kernels need nothing from it, and taking a
   finite-volume CFD dependency before there is a field to put on a mesh would be
-  premature.
+  premature. **CORRECTED 2026-11-27** — the concentration gridding and met
+  interpolation have since been ported (`conccalc.f90`, `interpol_*.f90`,
+  2026-10-02) without it; it is still not a dependency.
 
 ## Licence
 

@@ -6,8 +6,42 @@ Peterson 2025, doi:10.1016/j.jandt.2025.03.006, cited below), repeated in this
 crate's `CLAUDE.md`. The name is also that of the Tuas industrial region in
 Singapore.
 
+**Scope, and the one question it answers:** how does a single-phase,
+nearly incompressible salt or oil flow (Boussinesq approximation) carry heat
+around a loop of pipes, heaters and heat exchangers, in forced and natural
+circulation?
+
+TUAS makes a **hand-written, peer-reviewed thermal-hydraulics system code
+studyable and challengeable**. It is the code behind Ong, Xiao & Peterson
+(2025): a reader can follow each CIET component (heater, DRACS, CTAH,
+shell-and-tube heat exchanger) from the UC Berkeley facility data through the
+friction and Nusselt correlations it uses (Churchill, Gnielinski, Wakao) to
+the test that compares it with the experiment and with SAM. The pipe-38 form
+loss recalibration below is kept as a worked example of a calibration
+decision a human made, with the cases it made worse reported beside the ones
+it improved.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ong, Xiao & Peterson (2025), doi:10.1016/j.jandt.2025.03.006 (the TUAS paper, cited below); the Zweibaum thesis (CIET heater Fig. 2.21); Zou, Hu, O'Grady & Hu (2021), *Nucl. Eng. Des.* 377, 111144 (NED-2021 Table 4, CIET natural circulation and SAM); Kim (1975), ANL-75-55, SS304L high-temperature properties (`kim1975thermophysical` in `crates/kovan-literature/CATALOGUE.md`, used by `SolidMaterial::SteelSS304LHighTemp`). Upstream code: GeN-Foam and OpenFOAM (GPL-3.0) for parts of the solver and the LU matrix (`src/lib/matrix.rs`). |
+| Mathematical equations | One-dimensional Boussinesq mass, momentum and energy balances on control volumes (`src/lib/single_control_vol`, `src/lib/array_fluid_collections`); friction-factor and form-loss correlations (`src/lib/fluid_mechanics_correlations`); Nusselt correlations including Gnielinski and Wakao (`src/lib/heat_transfer_correlations`); written in the module docs. "Theory Manual is work in progress" (below). |
+| Source code | `src/lib/`: `boussinesq_thermophysical_properties`, `single_control_vol`, `array_fluid_collections`, `boundary_conditions`, `fluid_mechanics_correlations`, `heat_transfer_correlations`, `pre_built_components` (CIET heater, isothermal components, natural-circulation tests, three-branch plus DRACS, shell-and-tube heat exchanger, porous media, UW-Madison FLiBe loop, gFHR pipe tests), `matrix.rs`, `numerical_methods.rs`, `prelude`. |
+| Interactive simulations | `examples/ciet_educational_simulator` (egui, run command below). |
+| Visualisations | The CIET simulator's live plots. No committed images. |
+| Verification and validation evidence | `verification_and_validation/` (two records) and the in-source CIET tests. As recorded: coupled DRACS (2026-07-15) mean absolute DRACS mass-flow error vs experiment 3.83 % (K = 0.8) to 2.76 % (K = 17.8), with B1 and C1 worse; maturity bar (2026-09-05, `AGENTS.md`) CIET heater v1 steady outlet within 0.2 °C of experiment, Gnielinski within relative 0.02, 363 tests pass, 0 fail, 46 ignored. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. The maintainer cleared the V&V axis on 2026-07-21 (table below). The pipe-38 calibration and its per-point tolerance widenings were a human decision ("Human-in-the-loop calibration" below). No entry in `docs/human-corrections-to-ai-work.md` names this crate. |
+
+**Status:** the CIET validation is peer-reviewed and maintainer-cleared; the
+AI-assisted additions since (the coupled-DRACS SAM summary, the `no_std`
+port, the PETIR swap of gh:#989) and the user interface are not yet human
+reviewed.
 
 ## Bookkeeping status
 
@@ -192,8 +226,12 @@ cd outram-park-backend
 ```
 Once inside the simulator folder, run:
 ```bash 
-cargo run --example ciet_educational_simulator --release
+cargo run --release -p tuas_boussinesq_solver --example ciet_educational_simulator
 ```
+
+(Fixed 2026-11-27: from the workspace root the command needs
+`-p tuas_boussinesq_solver`; the example is declared in this crate's
+`Cargo.toml`.)
 
 Also please go to the examples folder to find source code and more README.md 
 for the CIET Educational Simulator.
@@ -203,7 +241,7 @@ to use Rust, just download the simulator and run it.
 
 If you want to run it continuously using cargo-watch:
 ```bash 
-cargo watch -x "run --example ciet_educational_simulator --release"
+cargo watch -x "run --release -p tuas_boussinesq_solver --example ciet_educational_simulator"
 ```
 Note that you must install cargo watch first.
 
@@ -259,10 +297,11 @@ and `new_du_et_al_sthe` in
 
 ## Cargo update dependencies 
 
-```bash
-cargo install cargo-edit
-cargo upgrade -i allow && cargo update
-```
+~~`cargo install cargo-edit` then `cargo upgrade -i allow && cargo update`~~
+**CORRECTED 2026-11-27** — this crate inherits every dependency version from
+the root `[workspace.dependencies]` (`AGENTS.md`, "Workspace & migration
+notes"), so the per-crate upgrade flow no longer applies; versions change in
+the root `Cargo.toml`.
 
 # Tests and Examples
 If you want to use cargo watch for testing, 
@@ -271,14 +310,13 @@ produces csv files, cargo watch catches those new csv files and thinks
 you've produced new code. Therefore, cargo watch will re run the tests,
 resulting in an infinite loop.
 
-```bash 
-cargo watch -x test --ignore '*.csv'
-```
+~~`cargo watch -x test --ignore '*.csv'`, or, to test in release mode
+(for faster performance):~~ **CORRECTED 2026-11-27** — the workspace builds
+and tests in release mode only (root `CLAUDE.md`, "EVERYTHING is release"),
+so the debug form is dropped:
 
-To test in release mode (for faster performance):
-
 ```bash 
-cargo watch -x "test --release" --ignore '*.csv'
+cargo watch -x "test --release -p tuas_boussinesq_solver" --ignore '*.csv'
 ```
 
 This will ensure that csv files generated to not mess up with cargo 
@@ -360,8 +398,11 @@ many free and open source libraries such as:
 2. Peroxide
 3. Roots
 4. GeN-Foam and OpenFOAM
-5. ndarray-linalg (which depends on intel-mkl for Windows/MacOS or OpenBLAS 
-for Linux machines)
+5. ~~ndarray-linalg (which depends on intel-mkl for Windows/MacOS or OpenBLAS 
+for Linux machines)~~ **CORRECTED 2026-11-27** — no longer a dependency
+since v0.1.2 (checked: `Cargo.toml` has no `ndarray-linalg`); the LU solve is
+the in-crate `src/lib/matrix.rs`, as the "Licensing" section above says.
+Peroxide and Roots were also removed on 2026-10-20 (gh:#989).
 
 They are released under Apache 2.0 and MIT (uom and peroxide)
 and roots is released under BSD 2 clause. The licensing notices
