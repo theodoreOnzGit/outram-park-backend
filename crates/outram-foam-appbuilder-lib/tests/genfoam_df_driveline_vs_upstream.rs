@@ -68,7 +68,11 @@ fn load(variant: &str) -> Case {
         None => (variant, None),
     };
     let vv = vv_dir();
-    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1785_{variant}"));
+    // One scratch directory per call: tests run in parallel and several load the same variant,
+    // so a shared directory let one test's `remove_dir_all` race another's read.
+    static STAGE: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let k = STAGE.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1785_{variant}_{}_{k}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dst);
     std::fs::create_dir_all(dst.join("polyMesh")).expect("scratch dir");
     for f in ["points", "faces", "owner", "neighbour", "boundary"] {
