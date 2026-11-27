@@ -445,6 +445,11 @@ pub struct LegacyFvmThermoMechanics {
     disp_old_old: Vec<Vector3>,
     old_times_exist: bool,
     gamg_substituted: bool,
+    /// `TStruct` boundary conditions, one per patch (`zeroGradient` unless the case says `fixedValue`).
+    t_patches: Vec<ScalarPatch>,
+    /// `polyMesh::solutionD()`: `false` for the direction normal to the `empty` patches (2-D case): that displacement component is
+    /// not solved (`fvMatrix::solveSegregated` skips it) and not logged.
+    solution_d: [bool; 3],
     // per-cell material fields (`zeroGradient` volScalarFields)
     rho: Vec<f64>,
     rho_e: Vec<f64>,
@@ -624,6 +629,8 @@ impl LegacyFvmThermoMechanics {
             disp_old_old: Vec::new(),
             old_times_exist: false,
             gamg_substituted,
+            solution_d: [true; 3],
+            t_patches: vec![ScalarPatch::ZeroGradient; np],
             rho,
             rho_e,
             nu,
@@ -665,6 +672,47 @@ impl LegacyFvmThermoMechanics {
     }
 
     /// Whether the `TStruct` equation runs the named `GAMG` substitute (`PBiCG`/`DILU`).
+    pub fn solution_directions(&self) -> [bool; 3] {
+        self.solution_d
+    }
+
+    /// The `TStruct` patch conditions (README round 57): `fixedValue` patches enter the temperature equation's boundary
+    /// coefficients, the face values of every gradient of `TStruct`, and the boundary `sigma`.
+    ///
+    /// # Panics
+    /// If the list is not one entry per patch.
+    #[must_use]
+    pub fn with_t_struct_patches(mut self, patches: Vec<ScalarPatch>) -> Self {
+        assert_eq!(patches.len(), self.mesh.patches.len(), "one TStruct patch condition per patch");
+        self.t_patches = patches;
+        self
+    }
+
+    /// `TStruct` on the boundary faces: the fixed value, or the owner-cell value (`zeroGradient`).
+    fn t_struct_boundary(&self) -> Vec<Vec<f64>> {
+        let mesh = &self.mesh;
+        mesh.patches
+            .iter()
+            .enumerate()
+            .map(|(pi, p)| {
+                (0..p.size)
+                    .map(|fi| match self.t_patches[pi] {
+                        ScalarPatch::FixedValue(v) => v,
+                        ScalarPatch::ZeroGradient => self.t_struct[mesh.owner[p.start + fi]],
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// `polyMesh::solutionD()`: the directions that are solved (README round 57). The default is all three.
+    #[must_use]
+    pub fn with_solution_directions(mut self, solution_d: [bool; 3]) -> Self {
+        self.solution_d = solution_d;
+        self
+    }
+
+    /// Whether `TStruct`'s linear solve is the named `GAMG` substitute.
     pub fn t_struct_gamg_substituted(&self) -> bool {
         self.gamg_substituted
     }
@@ -1170,7 +1218,7 @@ impl LegacyFvmThermoMechanics {
         let src_a: Vec<f64> = (0..n).map(|c| r_delta_t * rho_c[c] * t_old[c] * mesh.cell_volumes[c]).collect();
         // B = fvm::laplacian(rhoK, TStruct)
         let lap = self.laplacian_parts(&self.rho_k);
-        let t_field = calculated_scalar(&mesh, "TStruct", t_old.clone(), owner_boundary(&mesh, &t_old));
+        let t_field = calculated_scalar(&mesh, "TStruct", t_old.clone(), self.t_struct_boundary());
         let mut b_source = vec![0.0; n];
         if let Some(corr) = self.scalar_correction(&t_field) {
             let flux: Vec<f64> = (0..n_if).map(|f| lap.gamma_mag_sf_internal[f] * corr[f]).collect();
@@ -1208,6 +1256,20 @@ impl LegacyFvmThermoMechanics {
             diag[c] -= b_diag;
             source[c] -= b_src;
         }
+        // `fixedValue` patches: `C = A - B` has `internalCoeffs = 0 - (-gammaMagSf*deltaCoeffs)` and `boundaryCoeffs = 0 - (-gammaMagSf*(deltaCoeffs*value))`
+        // (`gaussLaplacianScheme::fvmLaplacianUncorrected`), scaled by `(1 - isPorous)` of the owner (`fvMatrix::operator*=`), and added to the
+        // diagonal and the source when the system is solved (`addBoundaryDiag`, `addBoundarySource`)
+        for (pi, p) in mesh.patches.iter().enumerate() {
+            if let ScalarPatch::FixedValue(v) = self.t_patches[pi] {
+                for fi in 0..p.size {
+                    let o = mesh.owner[p.start + fi];
+                    let g_mag_sf = lap.gamma_mag_sf_boundary[pi][fi];
+                    let dc = self.geo.dc_boundary[pi][fi];
+                    diag[o] += scale[o] * (g_mag_sf * dc);
+                    source[o] += scale[o] * (g_mag_sf * (dc * v));
+                }
+            }
+        }
         let mut a = LduMatrix::new(n, mesh.owner[..n_if].to_vec(), mesh.neighbour[..n_if].to_vec());
         a.diag = diag;
         a.upper = upper;
@@ -1232,7 +1294,22 @@ impl LegacyFvmThermoMechanics {
     fn grad_thermal_load(&self) -> Vec<Vector3> {
         let n = self.mesh.n_cells;
         let cells: Vec<f64> = (0..n).map(|c| self.three_k_alpha[c] * (self.t_struct[c] - self.t_struct_ref[c])).collect();
-        let f = calculated_scalar(&self.mesh, "threeKalpha*(TStruct-TStructRef)", cells.clone(), owner_boundary(&self.mesh, &cells));
+        let tb = self.t_struct_boundary();
+        let bnd: Vec<Vec<f64>> = self
+            .mesh
+            .patches
+            .iter()
+            .enumerate()
+            .map(|(pi, p)| {
+                (0..p.size)
+                    .map(|fi| {
+                        let o = self.mesh.owner[p.start + fi];
+                        self.three_k_alpha[o] * (tb[pi][fi] - self.t_struct_ref[o])
+                    })
+                    .collect()
+            })
+            .collect();
+        let f = calculated_scalar(&self.mesh, "threeKalpha*(TStruct-TStructRef)", cells, bnd);
         self.grad_scalar(&f)
     }
 
@@ -1328,6 +1405,10 @@ impl LegacyFvmThermoMechanics {
         let mut max_initial = 0.0_f64;
         let mut comps: Vec<Vec<f64>> = (0..3).map(|k| self.disp.iter().map(|v| cmpt(*v, k)).collect()).collect();
         for k in 0..3 {
+            if !self.solution_d[k] {
+                // `fvMatrix<vector>::solveSegregated`: a component with `solutionD < 0` (the `empty` direction) is not solved
+                continue;
+            }
             let source: Vec<f64> = bnd_src.iter().map(|v| cmpt(*v, k)).collect();
             let perf = pcg_dic(&a, &source, &mut comps[k], s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
             if perf.initial_residual > max_initial {
@@ -1428,9 +1509,9 @@ impl LegacyFvmThermoMechanics {
     /// `sigma = rho*sigmaD - I*(rho*threeKalpha*(TStruct - TStructRef))`.
     fn max_sigma_eq(&self) -> f64 {
         let mesh = &self.mesh;
-        let eq = |s: &SymmTensor, o: usize| -> f64 {
+        let eq = |s: &SymmTensor, o: usize, t: f64| -> f64 {
             let rho = self.rho[o];
-            let ii = rho * self.three_k_alpha[o] * (self.t_struct[o] - self.t_struct_ref[o]);
+            let ii = rho * self.three_k_alpha[o] * (t - self.t_struct_ref[o]);
             let sg = SymmTensor {
                 xx: rho * s.xx - ii,
                 xy: rho * s.xy,
@@ -1445,16 +1526,17 @@ impl LegacyFvmThermoMechanics {
                 d.xx * d.xx + 2.0 * (d.xy * d.xy) + 2.0 * (d.xz * d.xz) + d.yy * d.yy + 2.0 * (d.yz * d.yz) + d.zz * d.zz;
             ((3.0 / 2.0) * mag_sqr).sqrt()
         };
+        let tb = self.t_struct_boundary();
         let mut m = f64::MIN;
         for c in 0..mesh.n_cells {
-            let v = eq(&self.sigma_d[c], c);
+            let v = eq(&self.sigma_d[c], c, self.t_struct[c]);
             if v > m {
                 m = v;
             }
         }
         for (pi, p) in mesh.patches.iter().enumerate() {
             for fi in 0..p.size {
-                let v = eq(&self.sigma_d_b[pi][fi], mesh.owner[p.start + fi]);
+                let v = eq(&self.sigma_d_b[pi][fi], mesh.owner[p.start + fi], tb[pi][fi]);
                 if v > m {
                     m = v;
                 }

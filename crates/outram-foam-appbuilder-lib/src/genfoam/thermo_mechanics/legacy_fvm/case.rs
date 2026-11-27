@@ -57,6 +57,46 @@ pub struct LegacyFvmCase {
     pub delta_t: f64,
     /// `fvSchemes.d2dt2Schemes.default` (`steadyState` or `Euler`; gh:#1845).
     pub d2dt2: D2dt2Scheme,
+    /// `polyMesh::solutionD()` (`false` normal to the `empty` patches; README round 57).
+    pub solution_d: [bool; 3],
+    /// `TStruct` patch conditions (README round 57: `fixedValue` on `right_alone`).
+    pub t_patches: Vec<ScalarPatch>,
+}
+
+/// The finite-volume view of a 2-D mesh: `emptyFvPatch` has size 0, so the `empty` patches (which must be the LAST patches) and their faces
+/// are dropped, and `polyMesh::calcDirections` gives the solution directions (`emptyDirVec = sum |faceAreas|` over the empty faces,
+/// normalised; a component above `1e-6` is not solved). The cell volumes and centres were computed with every face and are kept.
+///
+/// # Errors
+/// A message if an `empty` patch is not last.
+pub fn drop_empty_patches(mesh: &Arc<FvMesh>) -> Result<(Arc<FvMesh>, [bool; 3]), String> {
+    use outram_foam_basic_lib::mesh::fv_mesh::PatchKind;
+    let first_empty = mesh.patches.iter().position(|p| p.kind == PatchKind::Empty);
+    let Some(fe) = first_empty else { return Ok((mesh.clone(), [true; 3])) };
+    if mesh.patches[fe..].iter().any(|p| p.kind != PatchKind::Empty) {
+        return Err("an `empty` patch is followed by a non-empty one: not ported".to_string());
+    }
+    let start = mesh.patches[fe].start;
+    let (mut ex, mut ey, mut ez) = (0.0_f64, 0.0_f64, 0.0_f64);
+    for p in &mesh.patches[fe..] {
+        for f in p.start..p.start + p.size {
+            let a = mesh.face_area_vectors[f];
+            ex += a.x.abs();
+            ey += a.y.abs();
+            ez += a.z.abs();
+        }
+    }
+    // `component / mag > 1e-6`, written without the square root: `component^2 > 1e-12 mag^2`
+    let mag2 = ex * ex + ey * ey + ez * ez;
+    let solution_d = [!(ex * ex > 1e-12 * mag2), !(ey * ey > 1e-12 * mag2), !(ez * ez > 1e-12 * mag2)];
+    let mut m = (**mesh).clone();
+    m.patches.truncate(fe);
+    m.owner.truncate(start);
+    m.face_area_vectors.truncate(start);
+    m.face_areas.truncate(start);
+    m.face_centres.truncate(start);
+    m.n_faces = start;
+    Ok((Arc::new(m), solution_d))
 }
 
 fn err(root: &Path, msg: impl Into<String>) -> AppBuilderError {
@@ -209,7 +249,7 @@ impl LegacyFvmCase {
     #[allow(clippy::too_many_lines)]
     pub fn read(root: &Path, region: &str, gamg: TStructGamgPolicy) -> Result<Self, AppBuilderError> {
         let poly = root.join(format!("constant/{region}/polyMesh"));
-        let mesh = read_poly_mesh(&poly)?;
+        let (mesh, solution_d) = drop_empty_patches(&read_poly_mesh(&poly)?).map_err(|m| err(root, m))?;
         let zones: Vec<(String, Vec<usize>)> = read_cell_zones(&poly)?.into_iter().map(|z| (z.name, z.cells)).collect();
 
         // thermoMechanicalProperties
@@ -425,15 +465,22 @@ impl LegacyFvmCase {
         };
         let fuel_patches = scalar_patches("fuelDisp")?;
         let cr_patches = scalar_patches("CRDisp")?;
+        let mut t_patches: Vec<ScalarPatch> = vec![ScalarPatch::ZeroGradient; mesh.patches.len()];
         let t_struct0 = match read_dict(root, &format!("{zero}/TStruct")) {
             Ok(f) => {
                 let v = uniform_numbers(root, &f, "internalField", "TStruct")?;
                 if let Some(bf) = f.get_dict("boundaryField") {
-                    for (_, ty) in patch_entries(root, bf, &mesh, "TStruct")? {
-                        if ty != "zeroGradient" {
-                            return Err(unsupported("boundaryField", format!("TStruct: {ty}"), "only zeroGradient"));
-                        }
-                    }
+                    t_patches = patch_entries(root, bf, &mesh, "TStruct")?
+                        .into_iter()
+                        .map(|(d, ty)| match ty.as_str() {
+                            "zeroGradient" => Ok(ScalarPatch::ZeroGradient),
+                            "fixedValue" => {
+                                let v = uniform_numbers(root, d, "value", "TStruct")?;
+                                Ok(ScalarPatch::FixedValue(*v.first().ok_or_else(|| err(root, "TStruct: fixedValue without a value"))?))
+                            }
+                            other => Err(unsupported("boundaryField", format!("TStruct: {other}"), "only zeroGradient and fixedValue")),
+                        })
+                        .collect::<Result<Vec<_>, _>>()?;
                 }
                 vec![v.first().copied().unwrap_or(0.0); mesh.n_cells]
             }
@@ -456,7 +503,7 @@ impl LegacyFvmCase {
             t_solver_kind,
             traction_bc_honours_plane_stress: false,
         };
-        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2 })
+        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2, solution_d, t_patches })
     }
 
     /// Build the solver from the case.
@@ -475,6 +522,6 @@ impl LegacyFvmCase {
             self.t_struct0.clone(),
             self.delta_t,
         )
-        .map(|s| s.with_d2dt2(self.d2dt2))
+        .map(|s| s.with_d2dt2(self.d2dt2).with_solution_directions(self.solution_d).with_t_struct_patches(self.t_patches.clone()))
     }
 }
