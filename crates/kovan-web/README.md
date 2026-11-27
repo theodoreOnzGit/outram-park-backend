@@ -15,6 +15,32 @@ with the place it runs.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+**Knowledge it makes studyable.** This is the window through which the
+workspace's code can be studied and challenged from a browser, including a
+phone: every crate, module and function on one map, each function's source
+at the commit the site was built from, the functions that call it and the
+tests that reach it, and whether a human has reviewed it. "Blocked by N
+functions underneath" makes visible which reviewed code still rests on
+unreviewed code. It holds no physics of its own; it presents the review
+record that the other crates accumulate.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | None. `src/ui/camera.rs` ports small pieces of `dhoby_ghaut::web_demo` within this workspace, with the citation (`AGENTS.md`). |
+| Mathematical equations | None. |
+| Source code | `src/model.rs` (the pure view model), `src/data.rs` (`data::Store`, background loading), `src/search.rs`, `src/syntax.rs` (syntax colours without a language server, #857), `src/platform.rs`, `src/ui/` (`canvas`, `camera`, `bar`, `ivv`, `source`, `syntax_ui`). |
+| Interactive simulations | The Code Review UI itself, published at `code-review/` on the workspace's GitHub Pages site (<https://theodoreonzgit.github.io/outram-park-backend/>), and native through `examples/web.rs`. Not a physics simulation. |
+| Visualisations | The code map, crate tree and module call-ring views, drawn live from the data folder; no committed images. |
+| Verification and validation evidence | Unit tests on the pure model, data, search, syntax and UI helpers (`#[test]`s in `src/`); checked by screenshots in headless Chromium at desktop and phone width (Status, below). No V&V document. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections in this README record `Mode::Desktop` and the stamp dialog becoming real (2026-10-10, #820, #770). |
+
+Everything here is an unreviewed AI draft; the only evidence is unit tests
+and screenshot checks.
+
 ## Scope
 
 The **read-only Code Review UI** (GitHub #735, #736, #738), written once in
@@ -71,7 +97,8 @@ review walk with `CodeReview::open_function_later`.
 **AI draft (maturity 1), 2026-10-06.** Builds for wasm32 and natively; the
 pure model has unit tests; checked by screenshots in headless Chromium at
 desktop and phone width. Not reviewed by a human. Known gaps are in
-`CLAUDE.md`.
+~~`CLAUDE.md`~~ [`AGENTS.md`](AGENTS.md), "Known gaps" (the crate's rules
+moved there; `CLAUDE.md` is now a pointer).
 
 ## Running it
 

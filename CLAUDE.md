@@ -837,10 +837,16 @@ all three.
   workspace wide"):** every hand-written `macro_rules!` was replaced with
   plain code that day (#1253), behaviour unchanged, including inside the
   reviewed `outram_mc_libs::physics::transport_csg::transport_history_vr`
-  (confirmed by the maintainer for that refactor). One is left:
+  (confirmed by the maintainer for that refactor). ~~One is left:
   `raffles`' exported `quantities!`, used by
   `outram-park-digital-twin-engine`; its removal is a public API change
-  awaiting the maintainer (#1253). Text inside string literals and doc
+  awaiting the maintainer (#1253).~~ **CORRECTED 2026-11-27:** two are left:
+  `raffles`' exported `quantities!`, used by
+  `outram-park-digital-twin-engine`, and `kovan-codegen`'s exported
+  `kovan_fixed_point!` (`src/macros_support.rs:160`, the crate's
+  declarative-macro example; the copy at `:63` is template text inside a
+  string). Removing either is a public API change awaiting the maintainer
+  (#1253). Verified by `grep -rn "macro_rules!" crates`. Text inside string literals and doc
   comments (`kovan-codegen`'s generated output) is not a macro here.
 - **If a macro seems unavoidable**, ask the maintainer first and say why
   plain code does not work.
