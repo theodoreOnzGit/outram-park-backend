@@ -7806,3 +7806,68 @@ Variant `w6_aniso` (`scripts/make_fftf_piece_variants.py`): `zone0` drag per axi
 * `Allrun_parallel` (decomposition changes iteration counts: not a tight-protocol reference) and `Allrun_powerFromDiffusion` not run.
 * The generated `docs/outram-foam-appbuilder-lib-api.md` mirror was not regenerated (`kovan-cli api-docs`).
 * `Rehme`'s numbers are differenced only through `w6_aniso` (one pin geometry). Other `FSDragCoefficientModels` (Colebrook, Engel, ...) are refused by name in the solved flow.
+
+# Round 63 (gh:#1927; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream"): the point-kinetics options in the COUPLED three-region loop
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Round 62 (2D_FFTF) is written by another agent: keep both on merge. **Predictions and every criterion below are committed BEFORE the first real run and the first port run of any variant of this round.**
+
+## What is lifted (the reader's by-name refusals of round 61)
+
+Round 61's `read_pk_config` / `restart_transient_point_kinetics` refused: `*FeedbackZones`, `externalSourceNeutronics`, `decayPowerTimeProfile`, `GEMReactivityMap`, `liquidFuel true`, and any profile `type` other than `constant`/`table`. The ported class (round 36) already supports all of them but GEM; this round wires them to the case files in the coupled loop:
+
+| option | upstream (652b3da) | read from |
+|---|---|---|
+| `fuel/cool/struct/structMech/drivelineFeedbackZones` | `pointKineticNeutronics.C:834-854, 957-985` (`setFeedbackCellField`: `nuclearData_.lookupOrDefault(keyword, wordList())`, `mesh_.cellZones()[zoneName]`) | `nuclearData` + `constant/<region>/polyMesh/cellZones`. **Upstream reads `coolFeedbackZones`, not `coolantFeedbackZones`** (round 36 finding 1): the port follows upstream, i.e. `coolantFeedbackZones` is ignored |
+| external source | `neutronics.C:256-283` (`externalSourceNeutronics`, the `externalSource` dictionary, `externalSourceModulationTimeProfile`), `pointKineticNeutronics.C:689-815`, `solvePointKinetics.H` | `neutronicsProperties`, `constant/<region>/externalSource` (`externalSourceMode` `transient`/`powerMonitoring`, `nuSource`, `beamEnergy`, `modulationFactor`, `powerModulationDelay`), `nuclearData` (`nuFission`, `energyPerFission`), `reactorState` (`subcriticalIndex`, `ksrc`) |
+| `decayPowerTimeProfile`, `precursorPowers`, `pTarget`, `TFuelRef`, `TladRef`, `TCoolRef`, `rhoCoolRef`, `TStructRef`, `TStructMechRef`, `TDriveLineRef` | `pointKineticNeutronics.C:386-394`, `solvePointKinetics.H:12-55` | `<start>/uniform/reactorState` (key spellings as upstream reads them: `TladRef`, `TDriveLineRef`) |
+| time-profile `type`s other than `table`: `constant`, `uniform`, `zero`, `one`, `linearRamp`, `quadraticRamp`, `halfCosineRamp`, `quarterCosineRamp`, `quarterSineRamp`, `sine`, `cosine`, `square`, `polynomial` (plain-scalar entries) | `common/timeProfile/timeProfile.C:60-100` (`Function1<scalar>::New(type, dict, type)`, `value(t - startTime)`); OpenFOAM-ESI v2506 `src/OpenFOAM/primitives/functions/Function1/{ramp,linearRamp,quadraticRamp,halfCosineRamp,quarterCosineRamp,quarterSineRamp,Sine,Cosine,Square,Polynomial,Constant}` | the profile dictionary |
+| `GEMReactivityMap`, `GEMSodiumLevelRef`, `GEMFlowFaceZone`, `fluidRegionName` | `pointKineticNeutronics.C:372-379, 861-882, 1064-1156` (`calcGEMLevelAndReactivity`; upstream's own comment: "For now GEM REACTIVTY does NOT work in GeN-Foam 2.0", with `Bla bla` debug prints; ported as it is) | `nuclearData`, `neutronicsProperties` (`fluidRegionName`), the FLUID region's `phi` and `constant/<fluid>/polyMesh/faceZones` |
+
+**Still refused by name:** `liquidFuel true` in the coupled loop (maintainer: gh:#1905, cyclic `onePhase`), `type fmi`, `tableFile`/`csvFile`/`coded`/`expression`/`scale`/`step`/`FunctionObject*` profiles, nested non-scalar `amplitude`/`frequency`/`scale`/`level` entries, and the read-from-files restart (gh:#1926, not touched).
+
+## Method (binding)
+
+Real run: the `2D_fullCoupling` stages of rounds 60/61 (`scripts/make_fullcoupling_coupled_case.sh` with `ADJ=1` + `run_fullcoupling_coupled.sh`, then `make_fullcoupling_transient_case.sh` WITHOUT `SHIPPED`), then `scripts/make_pk_variant_r63.sh` edits the transient stage's files ONLY as listed below and sets `endTime 130` (about 215 steps from t = 100; round 61 ran to 200). Real binary 652b3da on ESI v2506 with `libThermoMechanicsSolvers.so` through `libs`, tight protocol (solvers 1e-14, relTol 0, writePrecision 17). Reference: `extract_fullcoupling_transient.py pkv` (round 61's `pk` mode plus the external-source and GEM lines of the `pointKinetics:` block; full fields at steps 1-3, every 50th and the last). Port: `RegionSolvers::restart_transient` of the same staged case, restarted from the written fluid state (`adopt_written_fluid_state`, round 61 part 1) so that criterion 4 is the one as written.
+
+| variant | edits to the PK transient stage (everything else as round 61) |
+|---|---|
+| `zones` | neutroRegion `cellZones` gets `zoneA` (cells 0-215), `zoneB` (216-431), `zoneC` (cells whose index is divisible by 3) besides `zone0`; `nuclearData`: `fuelFeedbackZones (zoneA)`, `coolFeedbackZones (zoneB)`, `structFeedbackZones (zoneA zoneC)`, `structMechFeedbackZones (zoneC)`, `drivelineFeedbackZones (zoneB zoneC)`; coefficients made non-zero so every average acts: Doppler 3e-5, TClad -5e-7, TCool 3e-7, RhoCool 1e-6, TStruct 3e-7, TStructMech -3e-7, `absoluteDrivelineExpansionCoeff 8e-5` (the shipped value; the stage script sets 0) |
+| `zones_coolant_key` | the same cell zones and coefficients; the coolant list under `coolantFeedbackZones (zoneA)` (the key the shipped FFTF/MSR cases use and upstream ignores); no other zone key |
+| `ext_transient` | `neutronicsProperties`: `externalSourceNeutronics true`; `constant/neutroRegion/externalSource`: `externalSourceMode transient`, `externalSourceModulationTimeProfile` table (100 1) (105 2) (110 0.5) (120 1.5), `nuSource 20`, `beamEnergy 6e8`; `nuclearData`: `nuFission 2.43`, `energyPerFission 2e8`; `reactorState`: `subcriticalIndex 1e-4` |
+| `ext_monitor` | `externalSourceMode powerMonitoring`, `modulationFactor 0.5`, `powerModulationDelay 0.01`; `reactorState`: `ksrc 0.9999` (the other branch of the subcriticality factors); no beam keys |
+| `decay` | `reactorState`: `decayPowerTimeProfile { type table; table table ((0 6e5) (100 6e5) (110 5.5e5) (130 4e5)); }` |
+| `profiles` | `nuclearData`: `externalReactivityTimeProfile { type sine; frequency 0.05; scale 1e-4; level 5.7671e-4; }` (a sine of period 20 s about the shipped 57.67 pcm), `boronReactivityTimeProfile { type table; table table ((100 0) (110 2e-5) (130 4e-5)); }`; `reactorState`: `decayPowerTimeProfile { type quadraticRamp; start 105; duration 20; }` (a ramp 0 -> 1 W on 1e7 W: it changes the bits, not the physics) |
+| `restart` | `reactorState`: `precursorPowers` = 1.05 x the equilibrium values (17 digits, from the real steady state's `Beta`, `lambda`, `pTarget`), `TFuelRef 700; TladRef 480; TCoolRef 470; rhoCoolRef 690; TStructRef 0; TStructMechRef 460; TDriveLineRef 0;` (the keys upstream reads: `TladRef`, `TDriveLineRef`) |
+| `gem` | `neutronicsProperties`: `fluidRegionName fluidRegion;`; `nuclearData`: `GEMSodiumLevelRef 2.2; GEMFlowFaceZone "gemCut"; GEMReactivityMap ((0.5 1e-4) (0 0) (-0.5 -1e-4));` (a constructed map: no shipped case or upstream test supplies one for `2D_fullCoupling`; FFTF's own is a sodium-level map for FFTF's `coreMiddleCut`); `constant/fluidRegion/polyMesh/faceZones` made by `topoSet`/`setsToZones` (a plane of faces) in the transient stage only |
+
+Time-profile types that no variant runs (`linearRamp`, `halfCosineRamp`, `quarterCosineRamp`, `quarterSineRamp`, `cosine`, `square`, `polynomial`, `constant`, `uniform`, `zero`, `one`) are checked against the CLOSED forms in unit tests and reported as "translated from the cited file, not differentially verified" unless a variant covers them.
+
+## Criteria (fixed here; none is changed after a result)
+
+1. Each real run exits 0 (a real run that does not is a recorded finding and the variant is dropped, not repaired); the port runs the staged case without refusal; steps equal; `dt` sequence <= 1e-9 relative; final time <= 1e-12 relative.
+2. Every `pointKinetics:` value of the real run (power, fission, decay, `totalReactivity`, every term, every average, `subcriticalIdx`, `extSrcPower`, `extSrcBeamPower`, `extSrcBeamIntensity`, `extSrcModulation`, `GEM`, `GEMSodiumLevel`) <= 1e-9 relative at every step (terms below 1e-12 of `|totalReactivity|`: absolute 1e-15 scaled as round 61); the `TFuel` reactivity term is gated ABSOLUTELY at 1e-11 pcm (round 61's known cancellation, declared here).
+3. Fingerprints of every written field of the three regions <= 1e-9 at every step; kept-step full fields <= 1e-9 of max|.|; velocity on max|U|.
+4. Fluid and TM solves: counts equal; for solves whose upstream initial residual is above 1e-10: absolute difference of initial residual <= 1e-11 and iterations within 3; solves at the noise floor are REPORTED, NOT GATED (maintainer standard).
+5. One control per variant, each must differ from the real run by > 1e-6 relative at step 100 (or the last step): `zones` all-cells averaging (zones ignored); `zones_coolant_key` honouring `coolantFeedbackZones` (the port NOT following upstream); `ext_transient`/`ext_monitor` external source off; `decay` decay profile ignored; `profiles` sine replaced by its level; `restart` `precursorPowers` ignored (and separately the `T*Ref` keys ignored); `gem` GEM off.
+6. Earlier numbers (rounds 3-62) do not move (1e-9 direct, 1e-4 propagated); every changed value recorded old/new. The round 61 551-step PK baseline is re-run.
+7. Unit tests reach every new function; time-profile types are tested against their closed forms; `bash scripts/check-nostd.sh`.
+
+## Predictions (probabilities written before any run)
+
+| id | prediction | probability |
+|---|---|---|
+| H1 | every real run of `zones`, `zones_coolant_key`, `ext_transient`, `ext_monitor`, `decay`, `profiles`, `restart` exits 0 | 85 % each |
+| H2 | the `gem` real run exits 0 (upstream's GEM branch dereferences the fluid mesh's `phi` and a face zone; "does NOT work in GeN-Foam 2.0") | 50 % |
+| Z1 | `zones`: every `pointKinetics:` value <= 1e-9 at every step | 80 % |
+| Z2 | `zones_coolant_key`: the averages equal the baseline's all-cells averages (upstream ignores the key); port following upstream <= 1e-9 | 90 % |
+| Z3 | the zone averages differ from the all-cells averages by > 1e-6 at step 1 (the controls are real controls) | 95 % |
+| E1 | `ext_transient`: all values incl. `extSrc*` <= 1e-9 | 75 % |
+| E2 | `ext_monitor` (`powerMonitoring`: the power record and `interpolationTable::interpolateValue`) <= 1e-9 | 65 % |
+| E3 | `extSrcBeamPower`, `extSrcBeamIntensity` equal at 1e-9 | 80 % |
+| D1 | `decay`: <= 1e-9 (power = fission + decay; `powerDensity` rescaled by total power) | 80 % |
+| P1 | `profiles` (sine, quadraticRamp, table): <= 1e-9; `sin` through `RealMath` bit-equal to glibc's | 65 % |
+| R1 | `restart` (`precursorPowers` and `T*Ref`): <= 1e-9, the `prec0..5` fields rescaled by `precursorPowers_/precursorPowersOld_` | 70 % |
+| G1 | `gem` (if the real run exits 0): level and reactivity <= 1e-9, `intPhiRef_` taken at the first call | 55 % |
+| X1 | fingerprints of the three regions <= 1e-9 at every step for every variant that runs | 80 % |
+| X2 | no earlier number moves | 90 % |
+| X3 | the `profiles` variant's power differs from the baseline by > 1e-3 at step 100 | 85 % |
