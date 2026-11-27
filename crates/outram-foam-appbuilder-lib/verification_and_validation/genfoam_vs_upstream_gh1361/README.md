@@ -1683,7 +1683,7 @@ the same order but `0.5 * max(...)` differs in the last bit.
 * `".*"` (`PBiCGStab`) beats `"h.*"` (`smoothSolver`) in `fvSolution` because OpenFOAM takes the LAST matching pattern; the port's older
   `lookup_regex` takes the first. `one_phase_cc.rs` has its own last-match lookup; the older helper is left as it was (it is used by cases whose
   patterns do not overlap).
-* The neutronics residual used for the loop test is `max(first-iteration group residuals, neutroResidual history)`, a lower bound of upstream's
+* The neutronics residual used for the loop test is `max(first-iteration group residuals, neutroResidual history)`, ~~a lower bound~~ **CORRECTED 2026-11-26 (gh:#1813, round 22): an upper bound when the neutron loop iterates more than once (equal at one iteration)** of upstream's
   `residual_` (which also takes the initial residuals of every later flux solve); both are far below 5e-5 (<= 2e-6 in all 50 steps of the log).
   The decision "converged after 1 iteration" is therefore the same, but the VALUE of `residual_` is not reproduced.
 
@@ -1692,9 +1692,9 @@ the same order but `0.5 * max(...)` differs in the last bit.
 * `solveFluidMechanics true` (UEqn/pEqn with `momentumMode cellCentered`, `porousKEpsilon` solving: `k`, `epsilon`, `nut`, `alphat` are only READ):
   the `steadyStateTH` stage (issue 1775, filed as a child). `ReynoldsPower` is parsed and ignored (`Kd` does not enter the energy equation).
 * The general `cellVolumeWeight` supermesh (two different meshes; issue 651): `IdenticalMeshMap::new` refuses them by name.
-* More than one coupling iteration per step was exercised only by unit tests (upstream never needed it in the 50 steps), and `correctTightlyCoupledPhysics`
-  only against `correctPhysics` with one outer iteration, not against upstream.
-* Steps beyond 50 (upstream's run goes on to 142 steps at the same protocol); the energy equation's `fixedTemperature` time profile; heat exchangers.
+* ~~More than one coupling iteration per step was exercised only by unit tests (upstream never needed it in the 50 steps), and `correctTightlyCoupledPhysics`
+  only against `correctPhysics` with one outer iteration, not against upstream.~~ **CORRECTED 2026-11-26 (round 15 for 3 unconverged iterations, round 22 for 6 iterations with threshold crossings): compared against the real binary.**
+* ~~Steps beyond 50 (upstream run goes on to 142 steps at the same protocol); the energy equation `fixedTemperature` time profile~~ **CORRECTED 2026-11-26 (round 22): all 1347 steps to 175 s and the `fixedTemperature` time profile (452 steps) are compared; the upstream run is 1347 steps, not 142.** Still not ported: heat exchangers.
 
 ### Gates
 
@@ -2412,7 +2412,7 @@ The ablation pin of `msfr_transient_with_data_driven_chi_misses_by_the_pinned_am
 
 Inputs are the committed ones of the long chain (`restart_15`, `msfr_neutro`, `defaultFlux`, `reactorState`); references `refs/msfr_en20.ref.txt.gz` (upstream tight `steadyStateEN` 15 -> 20 s, written at 20 s: `EN_END=20 EN_WRITE=5`; its `KEFF`/`POWER` of the 20 steps are identical to the first 20 of `msfr_en`) and `refs/msfr_chain20_transient.ref.txt.gz` (upstream tight `transient` from that 20 s directory, first 10 steps). It gates: 20 EN steps (`keff_` 2.2e-13, `power:` 2.2e-13, first `h` residual 2.6e-9, `T` statistics 3.6e-14, time exact), the fields at 20 s (`powerDensity` 1.0e-10, `T` 3.6e-14, and `keff_` at 20 s, flux and `precStar` at <= 1e-9), then the typed hand-over `NormalisedState::start_transient` and 10 transient steps of the port's OWN 20 s state (`dt` 1.1e-11, `T` 3.7e-14, `power:` 3.9e-13, first `h` residual 1.1e-11), `keff_` frozen. Gates: as the long chain, except `dt` 2e-10 (measured 1.1e-11; the long chain keeps 1e-11, measured 6.0e-14 in round 11).
 
-**What the 20 s state is, and why the light transient is run with `maxIterations 1`.** The 20 s state is far from critical (`keff_` is still climbing), so the transient is a prompt-supercritical excursion: `power:` rises from 2.0e7 to 3.0e7 in 10 steps of 20-350 microseconds, the neutron iteration hits its cap of 50 at every step with a residual of 1e-4 (not 1e-6), and, with the tutorial's `maxIterations 3`, upstream's coupling loop does all 3 iterations at every step without converging. **The port does NOT match that: with `maxIterations 3` the first run of the light chain gave step-1 `power:` 2.5132e7 against upstream's 2.4851e7 (1.1e-2), `dt` 10 %, `T` 3.6e-7, growing to 8 % in power by step 10** (not gated, not fixed; filed as #1832). The first coupling iteration agrees (it is the only one in the next run); what differs is a later iteration of an unconverged coupling loop, a regime that round 9 never reached (its loop converged after 1 iteration at every step). So the light chain runs both codes with `maxIterations 1` (`COUPLING_ITERS=1` in the script, the same text replacement in the test); in that regime the port agrees as above. The long chain, which starts from the converged 165 s state, keeps the tutorial's dictionary.
+**What the 20 s state is, and why the light transient is run with `maxIterations 1`.** The 20 s state is far from critical (`keff_` is still climbing), so the transient is a prompt-supercritical excursion: `power:` rises from 2.0e7 to 3.0e7 in 10 steps of 20-350 microseconds, the neutron iteration hits its cap of 50 at every step with a residual of 1e-4 (not 1e-6), and, with the tutorial's `maxIterations 3`, upstream's coupling loop does all 3 iterations at every step without converging. ~~**The port does NOT match that: with `maxIterations 3` the first run of the light chain gave step-1 `power:` 2.5132e7 against upstream's 2.4851e7 (1.1e-2), `dt` 10 %, `T` 3.6e-7, growing to 8 % in power by step 10** (not gated, not fixed; filed as #1832).~~ **CORRECTED 2026-11-26 (round 15, gh:#1832): fixed; the cause was the port's old-time snapshot, see Round 15.** The light chain now runs the tutorial's `maxIterations 3`. The first coupling iteration agrees (it is the only one in the next run); what differs is a later iteration of an unconverged coupling loop, a regime that round 9 never reached (its loop converged after 1 iteration at every step). ~~So the light chain runs both codes with `maxIterations 1` (`COUPLING_ITERS=1` in the script, the same text replacement in the test); in that regime the port agrees as above.~~ (superseded by round 15; `COUPLING_ITERS=1` remains an option of the script.) The long chain, which starts from the converged 165 s state, keeps the tutorial's dictionary.
 
 ### Predictions: held and missed
 
@@ -2440,3 +2440,1211 @@ Round 6: power change at step 50 (+1.3566e4 -> +13.8988 W), iteration counts (50
 ### Gates run (2026-11-26, release, targeted per the parallel-streams rule; the full integration run is the parent's)
 
 `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream --test genfoam_msfr_transient_vs_upstream --test genfoam_msfr_coupled_vs_upstream`: chain 5 passed (including the 235 s long chain and the new light chain), coupled 3 passed, transient 2 passed + 7 ignored diagnostics/extractor.
+
+
+# Round 15 (gh:#1832, child of #1361): iterations 2+ of an unconverged coupling loop
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+**The question.** On the `2D_MSFR` transient started from the port's own 20 s eigenvalue state, upstream's `multiPhysicsSolver` loop runs all `maxIterations 3` at every step (the neutron loop hits its cap of 50). With `maxIterations 1` the port agrees to 1e-13; with 3 it is 1.1e-2 off in step-1 power and 10 % in `dt`. Iteration 1 is right, iterations 2+ differ.
+
+## What was read BEFORE any run (2026-11-26; upstream = GeN-Foam 652b3da)
+
+- `multiPhysicsSolver::correctPhysics`: `mapTheseFields` at the top of EVERY iteration; `iterN > 0 && correctOnlyEnergy_[i]` selects `correctTightlyCoupledPhysics`; `residual` is NOT reset between iterations (a running max over the whole loop); `while(residual > minResidual_ && iterN < maxIterations_)`. The port's `correct_physics_loop` is the same text (checked line by line): same order, same running max, same exit test.
+- `diffusionNeutronics::correctPhysics` = `pTotOld_ = power(); residual_ = 0; #include "solveNeutronics.H"`, and `correctTightlyCoupledPhysics() { correctPhysics(); }`. So **`pTotOld_` is re-taken at the start of every coupling iteration** (iteration 2's `pTotOld_` is the power after iteration 1, with `xs_` already corrected), and the whole step is re-solved by every iteration, starting from the flux / `precStar` that the previous iteration left. The port does the same for `pTotOld_` (`power_old = self.upstream_power()` at the top of `upstream_transient_step`, and the workflow takes `rep.power_old` after the first call).
+- `solveNeutronics.H` / `createFluxMatrices.H` / `precEq.H`: the time derivatives are `fvm::ddt(IV/discFactor, fluxStar_[g])` and `fvm::ddt(alpha, precStar_[k])`. `fvm::ddt` of a field reads `vf.oldTime()`; OpenFOAM stores the old time ONCE per time step (the first access with a new `timeIndex`: `storeOldTimes()`), so iterations 2 and 3 of the same step still use the values of the END OF THE PREVIOUS TIME STEP as old-time values, while the field itself carries the iterate. `keff_` is not touched in a transient (`calcKeff.H` is inside `if (eigenvalueNeutronics_)`).
+- `onePhase::correctTightlyCoupledPhysics` = `correctModels(true,true)` + `correctEnergy()` (no PIMPLE loop, no fluid mechanics); `EEqn_1p.H` builds `fvm::ddt(alpha, rho, he)` from `he.oldTime()`, again stored once per step. The port's fluid keeps `he_old` from `begin_time_step` (`self.he_old = self.he.clone()` once per step) and re-solves from the iterate, so it already has the upstream structure.
+- **In the port, `upstream_transient_step` takes `flux_old` and `prec_star_old` from the CURRENT state at every call** (the "Old-time values of this step" snapshot at the top of the function). On a step's first call that is the previous step's end state (right); on a second or third call it is the previous ITERATE (wrong: the time derivative then integrates from the iterate, not from `t_n`).
+
+## Hypotheses (written BEFORE any measurement)
+
+| id | hypothesis | predicted sign and size |
+|---|---|---|
+| H1 | the port re-snapshots the neutron flux and `precStar` old-time values from the last iterate at each coupling iteration, instead of holding the values of the previous time step | **sign: the port's power is HIGHER than upstream's** (each extra iteration advances the excursion by one more `dt` of growth: the old-time source is the already-grown flux), which is the observed sign (2.5132e7 vs 2.4851e7). Size: the port's step-1 growth relative to the start is roughly `n_iter` times upstream's, so the miss is of the order of 1-2 x the true step-1 growth; with the miss at 1.1e-2 of the power, the true step-1 growth is ~0.5-1 %. The `dt` error (10 %) follows from a different iterate-2 -> iterate-3 power change feeding `maxPowerVariation`. Fix the old-time snapshot and step-1 power matches to <= 1e-11. |
+| H2 | `pTotOld_` handling differs (upstream re-takes it per iteration) | NOT a cause: read above, the port does the same. Predicted: no change. If H1's fix leaves a residual in `dt` only, this is the next suspect. |
+| H3 | the fluid's old-time enthalpy or the fluid's re-solve differs between iterations | NOT a cause: read above, same structure. Predicted: no change. |
+| H4 | a field the mapping writes at the top of iteration 2 (`TFuel`, `rhoCool`, `alphat`, `mu`, `powerDensityNeutronicsToLiquid`) is stale in the port | possible but not seen in the reading: `map_all_fields` is called at the top of every iteration by `correct_physics_loop` and `neutro_power_density` is refreshed after each neutron step. Predicted: not a cause. |
+
+Probe plan: fix H1 (store the old times once per step and use them when stored; the old per-call snapshot stays the default for callers that never store, which is the form rounds 6 and 9's direct tests use), regenerate upstream's reference at the tutorial's `maxIterations 3` (the real unmodified binary, `COUPLING_ITERS` unset), and compare all 10 steps. If a residual remains, build the instrumented upstream of round 13's pattern and dump per-iteration power. Rounds 9 and 11 converge after 1 iteration: predicted to move by exactly 0 (bit for bit), because a single call per step snapshots the same values the stored form does.
+
+
+## Round 15 results (measured 2026-11-26, release; upstream = the real unmodified binary, serial, tutorial `maxIterations 3`)
+
+**Cause (H1, confirmed).** `DiffusionNeutronics::upstream_transient_step` took its old-time flux and `precStar` from the current state at EVERY call. OpenFOAM stores the old time once per time step (`storeOldTimes()` at the first access of a new time index), so iterations 2 and 3 of upstream's coupling loop still integrate `fvm::ddt` from the previous STEP; the port integrated them from the previous ITERATE, i.e. it advanced the excursion by one extra `dt` per extra iteration. H2 (`pTotOld_` re-taken per iteration), H3 (fluid old-time `h`) and H4 (stale mapped fields) were read as already identical and are confirmed by the result: with only H1 changed every compared quantity agrees at the round 14 level, so no instrumented upstream (round 13 pattern) was needed.
+
+**Fix.** `DiffusionNeutronics::store_old_times()` (called by `EnergyNeutroTransient::step` right after `begin_time_step`, i.e. at `runTime++`) holds the flux and `precStar` of the previous step; `upstream_transient_step` reads them when stored. Callers that never store (the direct round 6 / coupled tests, which call it once per step) keep the per-call snapshot, bit for bit. The pre-fix form stays as the named ablation `EnergyNeutroTransient::with_per_call_old_time_snapshot()` (and `clear_old_times()`), asserted to still miss in the light chain test.
+
+**Upstream reference.** `steadyStateTH` re-run (606 s; the scratch dir had been deleted), tight `steadyStateEN` 15 -> 20 s: byte-identical to the committed `msfr_en20` (`cmp`); tight `transient` with the tutorial's `maxIterations 3` (no `COUPLING_ITERS`), first 10 steps extracted into `refs/msfr_chain20_transient.ref.txt.gz` (REPLACED; the `maxIterations 1` reference is gone). Upstream's log: 3 iterations at every step, never converged; step-1 `power:` after iterations 1, 2, 3 = 2.1584e7, 2.3239e7, 2.4851e7 (the iterates differ by 8 %, which is why the old-time handling matters). Run dir deleted afterwards.
+
+| light chain, 10 steps from the port's own 20 s state, `maxIterations 3` | before (round 14 first run) | after |
+|---|---|---|
+| step-1 `power:` rel. to upstream | 1.1e-2 (2.5132e7 vs 2.4851e7) | **1.07e-13** (2.4850785967e7) |
+| worst `power:` over 10 steps | 8e-2 | 9.9e-12 (grows monotonically with the excursion: 1e-13 at step 1, 1e-12 at step 2, 1e-11 at step 10) |
+| worst `dt` | 10 % | 4.4e-11 (gate 2e-10 unchanged) |
+| worst `T` | 3.6e-7 | 3.9e-14 |
+| worst first `h` residual | not recorded | 2.9e-11 |
+| coupling loop | (not converged, 3) | (not converged, 3) in both codes at 10/10 steps |
+| ablation (pre-fix form, step 1) | | 1.131e-2: reproduces the issue's 1.1e-2 |
+
+No tolerance was moved: the `power:` gate 1e-11 holds but at step 10 with only a 1 % margin (9.94e-12); the growth is the amplification of last-bit differences by the prompt-supercritical excursion, not a model difference (step 1 is at 1e-13). A longer light chain would need a looser gate or a different horizon: not done here, flagged.
+
+**Rounds 6, 9, 11 (single call per step or loop converged after 1 iteration): unchanged.** Round 6 `power:` 5.625e-14, totals 1.296e-11, flux integrals 6.364e-14, counts equal 50/50, ablation 7.947e-6 / 49 of 50 / -145.04 vs +13.899 W; round 9 `dt` 9.348e-14, `T` 7.905e-15, `power:` 5.737e-14, `T` stats 2.105e-15, Courant 9.362e-14, `h` 1.178e-5; round 11 long chain `dt` 6.002e-14, `T` 4.470e-14, `power:` 1.054e-13, `h1` 2.240e-9. All equal the round 14 / round 11 values to the printed digits, as predicted (exactly 0 moved).
+
+### Predictions: held and missed
+
+| id | held? | measured |
+|---|---|---|
+| H1 sign (port power higher) and fix removes the miss to <= 1e-11 | **held** | step 1 at 1.07e-13; the ablation misses by +1.131e-2 (port higher) |
+| H1 size (true step-1 growth ~0.5-1 %) | **held, loosely** | upstream step-1 growth 2.0e7 -> 2.4851e7 is far larger (the 20 s state is violently supercritical): my size estimate of the true growth was wrong, but the claim that the miss is of the order of the growth of one iteration was not tested separately |
+| H2, H3, H4 not causes | **held** | nothing but H1 was changed |
+| rounds 9 / 11 move by exactly 0 | **held** | see above |
+| (implicit) light chain gates unchanged | **held, one at 1 % margin** | `power:` 9.94e-12 vs 1e-11 |
+
+Wall of the light chain test: 125-133 s (round 14: 41 s): three coupling iterations per step with up to 50 neutron iterations each, plus the ablation step.
+
+### Gates run (2026-11-26, release, targeted)
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream --test genfoam_msfr_coupled_vs_upstream --test genfoam_msfr_transient_vs_upstream`: chain 5 passed, coupled 3 passed, transient 2 passed (7 ignored extractors). `cargo test --release -p petir --test no_platform_libm` 4 passed. `bash scripts/check-nostd.sh` exit 0.
+
+---
+
+# Round 16 (gh:#1802; child of #1216, #1222): `porousKEpsilon2PhaseCorrected` two-phase turbulence, the three `1D_PSBT_SC/PhaseII_*` cases AS SHIPPED
+
+## What was read BEFORE any port code or port run (2026-11-26; upstream = GeN-Foam 652b3da on ESI v2506)
+
+- **The model is NOT a derivation of `porousKEpsilon`.** `porousKEpsilon2PhaseCorrected.H` derives from `eddyViscosity<RASModel<BasicTurbulenceModel>>` and re-implements the kEpsilon equations itself;
+  `porousKEpsilon` (the single-phase model of gh:#1775/#1812) is a separate class. So no single-phase base is ported here, and #1812 is NOT reduced by this round (to be recorded there).
+  The instantiated type is `RASModel<EddyDiffusivity<ThermalDiffusivity<PhaseCompressibleTurbulenceModel<rhoThermo>>>>` (`multiphaseCompressibleTurbulenceModels.C` +
+  ESI `compressible/turbulentFluidThermoModels/makeTurbulenceModel.H`): `EddyDiffusivity` owns `alphat` (`MUST_READ`) and `Prt`; `eddyViscosity` owns `nut` (`MUST_READ`).
+- **What the model feeds** (grep of `turbulence()` over `src/`): ONLY `UEqns_2p.H` (`nuEff = nut + mu/rho` in `alpha rho nuEff` of the laplacian AND of the `dev2(T(grad U))` term) and
+  `EEqns_2p.H` (`thermo.alphaEff(alphat) = CpByCpv (alpha_ + alphat)`). No closure (htc, drag, Re) reads `nut`, `k` or `epsilon`.
+- **Call site.** `correctFluidMechanics` = `alphaEqns_2p.H`, then `UEqns_2p.H`, whose first act is `fluid1_.turbulence().correct(); fluid2_.turbulence().correct();` with BOTH phase fractions
+  temporarily `max(alpha, residualAlpha)` (cells AND boundary values) and restored afterwards, so the momentum and energy equations see the UNLIMITED alpha but the turbulence equations the limited one.
+  `correctTightlyCoupledPhysics` does not call it.
+- **Equations** (`porousKEpsilon2PhaseCorrected.C`, `correct()`): epsilon then k; `ddt(alpha, rho, .)` with the limited current alpha and the UNLIMITED `alpha.oldTime()`; `div(alphaRhoPhi, .)` (scheme `upwind`
+  in all three cases); `laplacian(alpha rho D*Eff, .)`, `D*Eff = nut/sigma + nu` with `nu = thermo.mu()/rho`; sources multiplied by `noStructure = neg0(alpha.structure)` (1 where the structure fraction is
+  <= 0); a relaxation toward an equilibrium `k_eq = 1.5 (|U| (A Re^B + D (1 - alpha_f/(1 - alpha_s))))^2`, `eps_eq = Cmu^0.75 k_eq^1.5 / max(C Dh, SMALL)` at rate `alpha rho |U| / convergenceLength`
+  (`yesStructure = pos(structure)`, which is 1 for structure >= 0, i.e. also where there is none); `relax()`, `solve`, `bound` (ESI `bound.C`: the `fvc::average` branch).
+  `correctNut`: `nut = Cmu k^2/eps`; `alphat = rho nut/Prt` (Prt default 1); the `nutStabilization` branch only with a `DhStruct` key (none of the cases has one: refused by name).
+  `G` (production) is multiplied by `noStructure`, which is 0 in every cell of the PSBT cases (structure > 0 everywhere), so the production path is reached only by a unit test with a structure-free cell.
+- **`fvSolution`**: `k.liquid` and `epsilon.liquid` resolve to the LAST matching pattern, `"(k|epsilon|Theta).*"` (smoothSolver, symGaussSeidel, tolerance 1e-7, relTol 0, minIter 1), not to the earlier
+  `"e.*"` / `".*"` (round 13's last-match rule). `relaxationFactors.equations ".*" 1` matches them, so `fvMatrix::relax(1)` runs: it is NOT the identity (diagonal dominance is enforced,
+  `fvMatrix.C:1101`). Field relaxation (`fields`) has no `k`/`epsilon` entry.
+- **Boundary conditions of the three cases**: `k`, `epsilon`: `fixedValue` inlet, `zeroGradient` outlet and walls, `symmetry` on the `top`/`frontAndright` patch; `nut`, `alphat`: `zeroGradient` and `symmetry` only (no wall
+  function). The mesh patch `top` (390 faces) is a `symmetry` patch for EVERY field including `U`, `p`, `p_rgh`, `alpha.vapour`, `T.*`: the port has no `symmetry` entry in `scalar_bcs`/`vector_bcs`
+  (a refusal by name, found by reading, not yet by running).
+- **Searched first (CLAUDE.md "search before building")**: `outram-foam-turbulence-lib` is a Foundation-line single-phase kEpsilon over its own field types (no phase-weighted `ddt(alpha, rho, .)`,
+  no structure terms): not reusable by the two-phase driver's light `Scalar`/`Eqn`. `closures/turbulence/{porous_k_epsilon,lahey_k_epsilon,mixture_k_epsilon}.rs` are closures (coefficient formulas), not wired and
+  not the equations. The two-phase driver's `Eqn` (`fv.rs`: `ddt`, `div_upwind`, `neg_laplacian`, `sp`, `su_sp`, `su`) and `smooth_solve_sym_gauss_seidel` (the enthalpy solver) cover every operator the model needs.
+  No kovan-reviewed function is touched (no `kind = "review"` block in `solver/` or `solver/two_phase/`).
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+Upstream reference: `PhaseII_Ex1_01_5215` (the simplest: `multiRegimeBoiling`, empty `regimeMapModels`), the real unmodified binary, `scripts/psbt_shipped_protocol.sh` (`writePrecision 17`, every step written,
+every `solvers` tolerance 1e-14, `relTol 0`), first steps. Fields compared per step: `dt`, `p`, `U.*`, `T.*`, `alpha.vapour`, `k.*`, `epsilon.*`, `nut.*`, `alphat.*`, `htc.liquid.structure`.
+
+| id | quantity | prediction | cause if missed |
+|---|---|---|---|
+| X1 | the three shipped directories read | succeed with empty `deviations` once `symmetry` is ported; `DhStruct`, `LaheyKEpsilon`/`kEpsilon`/`porousKEpsilon`/`mixtureKEpsilon`, wall-function BCs refused by name | a key or BC type not read |
+| X2 | steps 1-8, single phase: `k`, `epsilon` | <= 1e-9 of the field maximum (same algorithm, same matrix, solves to 1e-14); NOT bit-identical (a different association of the source terms) | an association of the sources, or `relax` |
+| X3 | same steps: `nut`, `alphat` | <= 1e-8 (`nut = Cmu k^2/eps` doubles the relative error of `k`); `alphat/nut` = `rho` exactly (`Prt` 1) | `Prt` or `rho` boundary |
+| X4 | same steps: `p`, `T.*`, `U.*`, `dt` | at round 12's through-flow level (`p` <= 1.4e-11, `T` <= 2e-11, `U` <= 4e-10, `dt` equal), i.e. the turbulence adds nothing measurable | `nuEff` arithmetic (`alpha rho (nut + mu/rho)` vs `alpha mu`), the `symmetry` patch of `U`/`p_rgh` |
+| X5 | `bound()` | never triggers in steps 1-8 (`k`, `epsilon` stay above 1e-15) | n/a |
+| X6 | first step above the 1e-9 round-off allowance | the first nucleate-boiling evaluation of the wall (gh:#1803/#1816, `htc.liquid.structure` ~4e-9), NOT a turbulence quantity | a turbulence field first |
+| X7 | ablation: `relax(1)` omitted | `k`, `epsilon` move by <= 1e-12 where the matrix is already diagonally dominant; larger where `div(alphaRhoPhi) < -ddt` (net convergence) | n/a |
+| X8 | ablation: laminar `nuEff` (turbulence off) | `U.liquid` changes at the 1e-2 level or more within 10 steps (initial `nut = 0.09 m^2/s` from `k = 0.1`, `epsilon = 0.01`, five orders above `nu`) | n/a |
+| X9 | `regressionResults` (Ex1 at t = 5 s: `alpha.vapour` 0.123835, `T.fixedPower` 620.178) | the port reaches 5 s and lands within 5 % of both (a quasi-steady state is less sensitive than round 12's step-51 separation) OR does not reach 5 s in the allowed wall time (reported as such, not as a miss) | the Phase_Ex1_12223 separation mechanism (#1820) |
+
+## Round 16 results (measured 2026-11-26, release; upstream = the real unmodified binary, serial; `tests/genfoam_psbt2_turbulence_vs_upstream.rs`, 9 tests, 206 s)
+
+### What was ported (new code; every earlier form is unchanged for a case that does not select it)
+
+| piece | upstream | port |
+|---|---|---|
+| the model | `porousKEpsilon2PhaseCorrected.{C,H}` (`correct`, `correctNut`), `UEqns_2p.H` call site (limited alpha) | `solver/two_phase/turbulence.rs`: `PorousKEpsilon2PhaseCorrected`, `TwoPhaseSolver::correct_turbulence`; `Phase::turbulence` (None = laminar) |
+| `nuEff` / `alphaEff` | `UEqns_2p.H` `alpha rho (nut + mu/rho)`, `EEqns_2p.H` `CpByCpv (alpha_ + alphat)` | `correct_u_eqn`, `correct_energy` (laminar arithmetic untouched) |
+| `bound`, `fvMatrix::relax(alpha)` | ESI `bound.C`, `fvMatrix.C:1101` | `bound`, `relax_equation` (the diagonal-dominance form with the boundary-inflow term) |
+| `solvers` pattern lookup | OpenFOAM regex, LAST matching pattern (`"(k|epsilon|Theta).*"`) | `regex_full_match` (the old `key_matches` knew only `.*`) |
+| reading | `turbulenceProperties.<fluid>`, `0/*/{k,epsilon,nut,alphat}.<fluid>` | `read_porous_k_epsilon_2phase`; refused by name: other `RASModel`s, `simulationType` other than laminar/RAS, `DhStruct`, wall-function patches, `calculated` k/epsilon, a `relTol != 0` or non-`symGaussSeidel` solver for k/epsilon |
+| **found necessary by running the shipped cases (not in the issue)** | | |
+| `symmetry` patches | `symmetryFvPatchField` (scalar: zeroGradient coefficients; vector: `basicSymmetry`, as `slip`) | `scalar_bcs` (`p` stays `calculated`, the others `ZeroGradient`), `vector_bcs` (`Slip`); only on a mesh patch of kind `symmetry` |
+| `zeroGradient` with leftover `phi`/`inletValue` on `alpha.*` | `zeroGradient` reads no keyword but `value` | accepted on phase fractions only |
+| plain `multiRegimeBoiling` (`heatFluxSuperposition true`) | `multiRegimeBoilingFSHeatTransferCoefficient.C` (`value`, `qNB`, `setDmdtW`): the TRACE map with `qNB = (qFC^n + (S qPB)^n)^(1/n)` when a suppression factor exists | `FsHtcModel::MultiRegimeBoiling`, `multi_regime_boiling_value`; `heatFluxSuperposition false` and `filmCondensationModel` refused by name |
+| `powerDensity` absent from the `fixedPower` dictionary | `fixedPower::powerDensity_` READ_IF_PRESENT from `0/fluidRegion/powerDensity.fixedPower` (nonuniform) | read with `read_vol_scalar_field` (Ex2, Ex3) |
+
+### The finding that shaped the round: the REFERENCE protocol had to change, and a flow baseline remains
+
+1. **GAMG cannot reach 1e-14 on this mesh.** On the 1170-cell PhaseII mesh the shipped `GAMG` `p_rgh` solve stops at its 1000-iteration cap at a residual of 2e-10
+   (initial 4e-4), taking 16 s per step. The first reference run used it. The protocol now replaces `solver GAMG; smoother DIC;` by `solver PCG; preconditioner DIC;`
+   (`scripts/psbt2_pcg_protocol.sh`; a solver setting, same matrix): PCG reaches 7e-15 in ~200 iterations, 40 steps in 35 s. The two references differ by nothing the port
+   resolves (the control run below gave identical numbers with both), so the difference to upstream is NOT the unconverged GAMG. The GAMG reference is retired.
+2. **Iteration counts equal upstream's for all 25 steps** (10, 9, 10, 9, ... 9; `PIMPLE: converged in N iterations`), and the step size equals upstream's to 1e-12.
+3. **The turbulence solves match upstream's.** Step 1, outer iteration 1: the smoothSolver initial residuals and sweep counts of epsilon.liquid, k.liquid, epsilon.vapour, k.vapour are
+   upstream's (1, 0.99999999999998268, 0.99999999999999845, 0.99999999999999978; 2 sweeps each; `bound` acts on epsilon.vapour and k.vapour in the same solve as upstream's log
+   "bounding epsilon.vapour, min: 5.8e-22"). From outer iteration 2 on the liquid residuals differ by 2e-4 (0.0040593 against 0.0040584), because the flow of iteration 1 differs.
+   **`PhaseII_Ex3` step 1 runs ONE outer iteration: there `k`, `epsilon`, `nut`, `alphat` of both fluids agree with upstream to <= 6e-16 while `p` (1.9e-5) and `U.liquid` (7.8e-5) do not.**
+   That isolates the difference to the flow solution, not the model.
+4. **A control with `turbulence off` in both codes** (`scripts/psbt2_pcg_protocol.sh` with `TURB_OFF=1`, `nut = alphat = 0`, `nuEff = nu`; `refs/psbt2_ex1_off.ref.txt.gz`) shows the same baseline:
+   `p` 7.4e-7 at step 1 (with turbulence 8.0e-7), 3.8e-6 at step 8, `U.liquid` 1.8e-6 and 3.8e-5. **The baseline is therefore not the turbulence model's.** It builds in the first 0.3 m of the unheated inlet zone
+   (`U` difference 6e-7 at x = 0.06 m, -7.1e-6 at 0.3 m, then constant), at the outlet cells `dgdt` differs most (2.6e-5 of the maximum); `psi`/`icoPolynomial`, `Kd`, `Re`
+   (equal at step 1 in Ex3), the `p` patch (`without_p_patch_from_file`: identical numbers) and the first-step lazy old-time handling (`without_first_step_lazy_old_time`: 1e-3, much worse)
+   were each checked and are not it. ~~Not located. Filed as a child issue; the three PhaseII cases are the first ones with a non-hydrostatic initial `p` (uniform 14.74 MPa) AND a 3-D mesh.~~ **CORRECTED 2026-11-26 (round 17, gh:#1833):** located and fixed. It was neither the non-hydrostatic start nor the 3-D mesh as such: it was the port's `UEqn.H()` field having `zeroGradient` on the `symmetry` mesh patches (OpenFOAM gives a constraint patch its constraint patch field), which leaves a flux `Sf . H` through a symmetry plane once the velocity has a cross-flow component, and that cross-flow exists only where the zones' `Dh` differ across the section. See Round 17.
+
+### Per-step comparison, `PhaseII_Ex1_01_5215` (25 steps, tight, PCG reference; worst relative difference over the 1170 cells, relative to the field's own maximum)
+
+| step | p | T.liquid | T.vapour | U.liquid | dgdt.liquid | htc.liquid.structure | k.liquid | epsilon.liquid | nut.liquid | alphat.liquid | k.vapour | nut.vapour |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 8.0e-7 | 1.3e-10 | 1.2e-7 | 1.9e-6 | 2.9e-5 | 1.5e-6 | 3.8e-6 | 6.7e-6 | 6.6e-7 | 6.6e-7 | 1.1e-3 | 1.3e-3 |
+| 3 | 2.1e-6 | 1.1e-10 | 2.9e-7 | 7.8e-6 | 5.9e-6 | 6.3e-6 | 1.2e-5 | 1.7e-5 | 6.2e-6 | 6.2e-6 | 1.7e-3 | 2.1e-3 |
+| 8 | 5.1e-6 | 4.3e-9 | 7.0e-7 | 4.6e-5 | 3.6e-5 | 3.7e-5 | 5.6e-5 | 7.7e-5 | 3.4e-5 | 3.4e-5 | 3.8e-3 | 4.7e-3 |
+| 12 | 8.5e-6 | 3.2e-8 | 1.2e-6 | 1.3e-4 | 9.4e-5 | 1.0e-4 | 1.4e-4 | 1.9e-4 | 8.7e-5 | 8.7e-5 | 7.1e-3 | 8.6e-3 |
+| 19 | 1.6e-5 | 4.9e-7 | 6.8e-6 | 4.9e-4 | 3.4e-4 | 4.0e-4 | 5.6e-4 | 7.7e-4 | 3.2e-4 | 3.2e-4 | 1.9e-2 | 2.2e-2 |
+| 25 | 2.2e-5 | 2.6e-6 | 3.0e-6 | 1.1e-3 | 6.0e-4 | 9.5e-4 | 1.5e-3 | 2.1e-3 | 8.1e-4 | 8.0e-4 | 3.8e-2 | 4.7e-2 |
+
+`dt` equal (0) at every step; `alpha.vapour` 0 in both codes through step 25 (no vapour yet: **the boiling onset, the earlier rounds' first divergence, is not reached**). The vapour turbulence fields
+(an absent phase: `alpha` limited to 1e-6) are the worst because their equations are scaled by 1e-6 and `bound` acts on them. Ablations over the same 25 steps (`ABLATE`):
+
+| ablation | `U.liquid` at step 25 | `k.liquid` | `T.liquid` | reading |
+|---|---|---|---|---|
+| none (the default, as upstream) | 1.1e-3 | 1.5e-3 | 2.6e-6 | the baseline above |
+| `turbulence off` (`nut = alphat = 0`) | **4.6e-2** | **0.99** | 1.7e-3 | 40x worse in `U`; the model carries the physics. Note `nut` starts at 0.09 m^2/s (`k = 0.1`, `epsilon = 0.01`) |
+| `without_equation_relaxation` (`fvMatrix::relax(1)` omitted) | identical to the printed digits (gate: <= 1e-12 over 4 steps) | same | same | `relax(1)` is a no-op here: the matrices are diagonally dominant (upwind + `ddt`) |
+
+`Ex2` (TRACECHF + lookUpTableCHF + VapourTRACE; first step 5e-3 s) and `Ex3` run and read: 5 steps against the real binary, `dt` equal, `p` 2.7e-5 .. 3.8e-5 (Ex2), 1.2e-5 .. 1.9e-5 (Ex3),
+`U.liquid` 1.4e-4 .. 7.9e-4 (Ex2), 7.8e-5 .. 3.4e-4 (Ex3), `T.liquid` <= 3e-7; Ex3 step 1 turbulence 6e-16 (above). The two cases did not reach the CHF (5 steps).
+
+### The tutorial's own `regressionResults` check (a separate check, not a step comparison)
+
+`PhaseII_Ex1` AS SHIPPED (no protocol edit; the port's own solvers; adjustable run time, `maxCo 1`, `maxCoTwoPhase 0.3`) to t = 5 s: **1065 steps, 216 s wall.**
+
+| quantity (cell 394 = line 418 of the t = 5 s file, the tutorial's `Alltest`) | port | `regressionResults` | relative |
+|---|---|---|---|
+| `alpha.vapour` | 0.124575 | 0.123835 | +0.60 % |
+| `T.fixedPower` | 620.1682 K | 620.178 K | -0.0016 % |
+
+Both are inside the tutorial's own 1 % criterion (gate `psbt2_regression_results_at_5_s`). Honest reading: a quasi-steady state at t = 5 s (the vapour fraction maximum is 0.124575 at every logged step from 800 to 1065, t = 3.9 to 5 s)
+is insensitive to the transient baseline above; it is NOT evidence that the transient agrees. The 0.6 % residual in the vapour fraction is the same size as the model's own uncertainty and is not attributed.
+
+### Predictions: held and missed
+
+| id | result |
+|---|---|
+| X1 held, with more work than predicted | the three directories read with empty `deviations`; for it the port also needed `symmetry`, plain `multiRegimeBoiling`, `powerDensity.fixedPower` and the `zeroGradient` leftovers (none was in the issue). Refusals by name pinned (`RASModel kEpsilon`, `DhStruct`, `nutkWallFunction`, `simulationType LES`) |
+| X2 **missed** | `k`, `epsilon` <= 1e-9 predicted; measured 3.8e-6 / 6.7e-6 at step 1, 1.5e-3 / 2.1e-3 at step 25: inherited from the flow baseline (the first outer iteration's solves are upstream's; Ex3 step 1 is at 6e-16) |
+| X3 **missed in size, held in kind** | `nut`, `alphat` <= 1e-8 predicted; 6.6e-7 at step 1. `alphat/nut = rho` exactly (`Prt` 1) holds by construction |
+| X4 **missed** | the turbulence was predicted to add nothing to `p`, `U`, `T` at round 12's level (`p` 1.4e-11); the shipped PhaseII case differs from upstream by 8e-7 at step 1 with or without turbulence (control): ~~a pre-existing, unlocated flow difference of the 3-D, non-hydrostatic-start case~~ **CORRECTED 2026-11-26:** the `symmetry` constraint on `UEqn.H()` (Round 17); with it fixed `p` is 3.9e-12 at step 1 |
+| X5 **missed** | `bound` DOES act in step 1: on `epsilon.vapour` and `k.vapour` (an absent phase, min 5.8e-22), as in upstream's log; not on the liquid fields |
+| X6 **missed** | the first step above 1e-9 is step 1 and the quantity is `p`, not the boiling htc: there is no vapour through step 25 in either code |
+| X7 held | `relax(1)` omitted: identical to 1e-12 |
+| X8 held | `turbulence off`: `U.liquid` misses by 4.6e-2 against 1.1e-3 (predicted >= 1e-2 within 10 steps; held by step 25, 4.6e-2) |
+| X9 held | 0.60 % and -0.0016 % at t = 5 s, inside the 1 % criterion |
+
+### What is deliberately not the same as upstream, and what remains
+
+- `Prt` etc. come from the `RAS` dictionary when there is no `porousKEpsilon2PhaseCorrectedCoeffs` sub-dictionary (`optionalSubDict`), as upstream.
+- The `relaxationFactors.equations` lookup uses the non-`Final` name (`k.liquid`); every shipped case has `".*" 1`.
+- `heatFluxSuperposition false`, `filmCondensationModel`, `DhStruct`, wall functions, `LaheyKEpsilon`, `mixtureKEpsilon`, `kEpsilon`, single-phase `porousKEpsilon` (gh:#1775/#1812: NOT reduced by this round, the model is not its derivation): refused by name.
+- ~~The flow baseline of the PhaseII cases (above) is open: it caps what any PhaseII comparison can show.~~ **CORRECTED 2026-11-26:** closed by round 17; the PhaseII gates are tightened to the new measured agreement.
+- Ex2/Ex3 beyond 5 steps (the CHF and the TRACECHF/VapourTRACE branches against upstream) were not compared; `docs/<crate>-api.md` mirror not regenerated (`kovan-cli` is not built here).
+
+### Moved numbers
+
+None (round 16; round 17 then moved every PhaseII pin, see there). The laminar arithmetic is untouched (`Phase::turbulence` is `None` for them); `genfoam_psbt_shipped_vs_upstream` (4 passed, 3 ignored), the 30 `two_phase` unit tests (26 old + 4 new) pass unchanged.
+
+### Gates run (2026-11-26, release, targeted)
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_psbt2_turbulence_vs_upstream`: 9 passed, 2 ignored diagnostics (206 s, of which the 5 s regression run 200 s);
+`--lib two_phase`: 30 passed; `--test genfoam_psbt_shipped_vs_upstream`: 4 passed, 3 ignored; `cargo test --release -p petir --test no_platform_libm`: 4 passed; `bash scripts/check-nostd.sh`: exit 0.
+The parent runs the full suite.
+
+# Round 17 (gh:#1833; child of #1361, #1802): the PhaseII flow baseline located and fixed: the `symmetry` constraint on `UEqn.H()`, and `PCG`/`DIC` for `p_rgh`
+
+## What was read BEFORE any measurement of this round (2026-11-26; upstream = GeN-Foam 652b3da on ESI v2506)
+
+- `diff -r` of `Phase_Ex1_12223` (round 12, agrees to 1e-10) and `PhaseII_Ex3_11-0312_power_increase`: gravity `(-9.81 0 0)` against `(0 0 0)`; nine parallel sub-channels (a 3x3 section, one `blocks` entry per zone, 5 inlet + 48 heated cells each) with
+  per-zone `volumeFraction` AND `Dh` (corner/side/center) against ONE zone; a `symmetry` patch `frontAndright` (318 faces) and a `wall` patch `fixedWalls` against a 1-cell-wide column; the 3-D `powerDensity.fixedPower` field; `minNOuterCorrectors 3`;
+  `p_rgh` GAMG against PCG. The cause had to be in what only PhaseII selects: gravity, lateral zone differences, the `symmetry` patch.
+- `pEqnf_2p.H` (the `faceCentered` + `implicit` branch the case runs), `calcPhiS_2p.H`, `setSnGradP_rgh_2p.H`, `solveP_rgh_2p.H`, `updatePP_rghRho_2p.H`, `UEqns_2p.H`, `FSDragFactor.C`, `FSPair.C`, `twoPhaseDragFactor.C`:
+  `phiHbyA1 = rAUf1 (fvc::flux(UEqn1.H()) + phiS1)`, with `phiS` = gravity terms + `alphaRhof10byDt phi1.oldTime()`. Gravity enters only through `phiS` and `p_rgh = p - rho gh`, both already in the port.
+- `Kd` is isotropic here (`ReynoldsPower` at the top level of the dictionary): `Kdi[0] = Kdi[4] = Kdi[8]`, so `dev(Kd) = 0`; `Dh` enters `Kd` and `Re` only (the fluid's `Dh_` is the structure `Dh` when not dispersed).
+- NOT read before measuring, found by measurement: how OpenFOAM types the boundary of the temporary `UEqn.H()` on a constraint patch (`fvPatchField::New`: a constraint mesh patch type wins over the requested patch field type unless `actualPatchType` is given). This is the finding.
+
+## Hypotheses (written AFTER the first bisect measurements, NOT before: recorded for what they are worth)
+
+The task asked for hypotheses with sign and size to be committed before measuring. That was not done: the first thing run was a case-variant bisect (below), which was cheap and decisive, and the hypotheses were formed from its output. They are listed so the next reader
+can see what was believed at each point; they are not pre-registered and are not predictions that could have failed.
+
+| id | hypothesis | outcome |
+|---|---|---|
+| H1 | gravity along the flow (`g = (-9.81 0 0)`, absent in round 12's case) is the cause | **missed**: `g = 0` in both codes gives the identical `p` 5.08e-6, `U` 2.34e-5 |
+| H2 | lateral variation of the structure properties (the only other thing PhaseII adds) is the cause | held: uniform `volumeFraction` AND `Dh` across the nine channels agree to `p` 3.4e-12 |
+| H3 | within H2, `volumeFraction` (porosity jump between channels) rather than `Dh` | **missed**: `volumeFraction` alone non-uniform agrees to 2.5e-11; `Dh` alone non-uniform leaves 5.05e-6 |
+| H4 | `Kd`/`Re` (functions of `Dh`) differ at the first outer iteration | **missed**: equal at step 1 (as the issue said), and every input of the `p_rgh` equation (`A`, `H`, `Kdf12`, `alphaRhof`, `rAUf`, `alpharAUf*Star`, `phiS`, `phiH`, `phiHbyA`, the matrix) agrees to <= 6e-16 at the first corrector |
+| H5 | the difference is the linear solve of `p_rgh` (an ill-conditioned equation: `p` 1.5e7 Pa, variation 3e4 Pa) | partly held: the exact 40-digit solution of the port's own matrix is 1.3e-5 Pa from upstream's `DICPCG` and 2.7e-3 Pa from the port's ILU-BiCGStab iterate; fixing it moves `p` from 5.1e-6 to 1.5e-9, not to round-off |
+| H6 | what remains after H5 is a difference in the SOURCE of the second corrector | held: `fvc::div(phiHbyA)` differs by O(1e-3) per volume in the inlet-zone cells while the internal-face `phiHbyA` agrees to 1.7e-12; the difference is on the patch faces: `phiH1` on a `symmetry` patch face is 0 upstream and 2.3e-3 in the port |
+
+## The bisect (cheap, and what found it): case variants run through BOTH codes, `PCG`/`DIC`, `turbulence off`, one or two steps of `PhaseII_Ex3`
+
+| variant | `p` step 1 | `U.liquid` step 1 | reading |
+|---|---|---|---|
+| shipped Ex3 | 5.08e-6 | 2.34e-5 | the baseline |
+| `g = 0` | 5.08e-6 | 2.34e-5 | not gravity |
+| `volumeFraction` AND `Dh` uniform | 3.4e-12 | 3.6e-11 | the lateral zone differences |
+| `volumeFraction` uniform, `Dh` as shipped | 5.04e-6 | 2.33e-5 | it is `Dh` |
+| `Dh` uniform, `volumeFraction` as shipped | 2.5e-11 | 1.8e-10 | not porosity |
+| shipped, one `Dh` moved by 1e-14 relative (port only) | 5.05e-6 | | NOT round-off noise: a deterministic offset |
+
+## The instrumented upstream (`upstream_driver/probe_pressure/`)
+
+Round 13's pattern, but only `libFFSSolvers2` (27 s to build): `probe_pressure.patch` (against `src/classes/thermalHydraulics/solvers` at 652b3da; the sources were NOT edited, the patch was applied to a scratch copy, built with a separate `FOAM_USER_LIBBIN` into which `libCommon`
+and `libFFSSrc2` were symlinked, and the copy deleted afterwards) dumps at 17 digits, per corrector of step 1: `alpha`, `rho`, `UEqn.A()`, `UEqn.H()`, `U`, `Kd12`, the face fields `alphaf`, `Af`, `Kdf12`, `alphaRhof..byDt`, `rAUf*`, `alpharAUf*Star`, `phiS`, `phiH`, `phiHbyA*`, `phiHbyA`, `rAUf`, `phi.oldTime()`, `p_rgh`, `gh`, `ghf`, the boundary values of the same, the `pEqn` `diag`/`upper`/`source`/`internalCoeffs`/`boundaryCoeffs`, and the solution. The port
+writes the same names (`port_probe_mod_rs.patch`, a temporary edit of `correct_pressure`, not kept in the source). `cmp.py` aligns them, `dense.py` solves either matrix in 40-digit arithmetic. Scripts carry the author's scratch paths.
+
+## What the probe found, in the order it was found
+
+1. **Corrector 1: every input to the pressure equation agrees to <= 6.3e-16**, the merged matrix (`diag + internalCoeffs`, `source + boundaryCoeffs`) to 3.3e-16 / 1.2e-16 of its maximum, and yet `p_rgh` after the solve differs by 1.75e-10 and `pEqnFlux` by 1.25e-7.
+2. **The port's linear solve is the inexact one.** Both residuals are tiny (port 8e-14, upstream 1.9e-14, against `max|diag x|` = 30), but the 40-digit solution of the port's own matrix is 1.3e-5 Pa from upstream's iterate and 2.7e-3 Pa from the port's: the equation is nearly singular in the mode that matters, and `solve_krylov` stops at `||r||/||b|| < 1e-13` with `b` dominated by the `fixedValue` outlet term (0.22, against 1e-14 in the interior). Tightening that tolerance changes nothing (the iteration stalls at its own roundoff); the fix is the OpenFOAM algorithm with OpenFOAM's normalised-residual rule: `PCG::scalarSolve` + `DICPreconditioner` (`pcg.rs`, selected when the case says `solver PCG; preconditioner DIC;`).
+   With it corrector 1 agrees: `p_rgh` 9.3e-13, `pEqnFlux` 2.5e-9. Upstream's own solve was checked the other way: tolerance 1e-22 instead of 1e-14 gives identical numbers, so the reference is converged.
+3. **Corrector 2 still differs, by a factor 5e6 in `p`.** The sources of the corrector-2 pressure equation differ by 1.3e-8 absolute (`fvc::div(phiHbyA)` at 36 cells, the inlet zone and the cells at the inlet-to-heated junction), while the internal-face `phiHbyA` agrees to 1.7e-12. The boundary-face dump shows it: on the `frontAndright` `symmetry` patch `phiH1` is
+   **0 upstream and up to 2.3e-3 in the port**. At corrector 1 the cross-flow velocity is exactly 0, so `Sf . H` is 0 either way; after corrector 1 the unequal `Dh` of the channels has produced a cross-flow component, and the port's `zeroGradient` extrapolation of `H` leaves `Sf . H_c` through the plane.
+4. **Cause.** `UEqn.H()` is a temporary `volVectorField` with `extrapolatedCalculated` patches. `fvPatchField::New` returns the CONSTRAINT patch field of a mesh patch whose type is a constraint (`symmetry`, `empty`, `cyclic`, `wedge`, ...) whatever patch field type was asked for, so `H` on a `symmetry` patch is `basicSymmetry`: `(H_c + (I - 2nn) H_c)/2`, which has no normal component, and `fvc::flux(H)` through it is 0. The case's `U` already had it (round 16 ported `symmetry` for the case fields); the temporary did not. The port built `H` with `Vector::uniform` (`zeroGradient` everywhere).
+
+## The fix (translate upstream exactly; each earlier form kept as a named deprecated option)
+
+| change | where | earlier form |
+|---|---|---|
+| `Vector::uniform_with_constraint_patches`: a `symmetry` mesh patch gets `basicSymmetry` (`VectorBc::Slip`), used for `H` in `correct_pressure`; `TwoPhaseControls::h_symmetry_constraint` (default `true`) | `fv.rs`, `mod.rs` | `with_zero_gradient_h_on_symmetry_patches()` |
+| `PCG`/`DIC` for `p_rgh` when the case selects it: `pcg::pcg_dic` = `PCG::scalarSolve` + `DICPreconditioner` + `normFactor` + `checkConvergence`/`checkSingularity`; `TwoPhaseControls::p_rgh_pcg` | `pcg.rs`, `case.rs`, `mod.rs` | `with_krylov_for_p_rgh()`; any other `p_rgh` solver (`GAMG` has no port) still runs ILU-BiCGStab at 1e-13 |
+
+The test protocol (`protocol_copy_of`) now mirrors `scripts/psbt2_pcg_protocol.sh` (`GAMG`/`DIC` -> `PCG`/`DIC`): the references are run that way and the port now honours the solver selection.
+
+## Results (measured 2026-11-26, release; upstream = the real unmodified binary, serial, `PCG`/`DIC`, tight)
+
+Worst relative difference over the cells, relative to the field maximum.
+
+| case, steps | `p` | `U.liquid` | `T.liquid` | round 16 (pin, measured) `p` / `U.liquid` |
+|---|---|---|---|---|
+| Ex3 step 1 (1 outer iteration), turbulence on / off | 1.4e-12 / 6.1e-13 | 1.1e-11 / 5.0e-12 | 4e-16 | 1.9e-5 / 7.8e-5 |
+| Ex1 turbulence off, steps 1-8 | 5.1e-12 | 9.0e-12 | 3.3e-15 | 3.8e-6 / 3.8e-5 |
+| Ex1 turbulence on, step 1 | 3.9e-12 | 6.5e-11 | 3.3e-15 | 8.0e-7 / 1.9e-6 |
+| Ex1 turbulence on, step 25 | 1.5e-9 | 6.7e-7 | 5.9e-9 | 2.2e-5 / 1.1e-3 |
+| Ex2, steps 1-5 | 2.6e-10 | 1.4e-7 | 1.2e-11 | 3.8e-5 / 7.9e-4 |
+| Ex3, steps 1-5 | 1.9e-10 | 1.5e-7 | 1.6e-12 | 1.9e-5 / 3.4e-4 |
+
+Outer-iteration counts: the port equals a fresh run of the real binary at all 25 steps. Round 16's list had a 10 at step 19 where the binary does 9 (re-read from the log); the port now reproduces the 9 and the test list is corrected.
+
+### Ablation (Ex3 step 1, turbulence off): what each translation carries (gated by `symmetry_constraint_on_h_and_pcg_for_p_rgh_each_carry_their_share_of_the_baseline`)
+
+| | `p` | `U.liquid` |
+|---|---|---|
+| both (default) | 6.1e-13 | 5.0e-12 |
+| `with_zero_gradient_h_on_symmetry_patches` alone | 5.08e-6 | 2.34e-5 (the round 16 baseline) |
+| `with_krylov_for_p_rgh` alone | 1.5e-9 | 1.3e-8 |
+
+The symmetry constraint is the cause of the baseline; the PCG rule carries a smaller, real share (1e-9) that was hidden under it.
+
+## Hypotheses: outcome
+H1, H3, H4 missed; H2, H6 held; H5 partly (table above). The issue's own suspects were not the cause (gravity, `Kd`, `Re`, `psi`, the `p` patch, lazy old time, unconverged GAMG); its "the `symmetry` patch treatment" was the right suspect in the wrong place (the case field `U` was right, the temporary `H` was not).
+
+## What is deliberately not the same as upstream, and what remains
+
+- **The vapour turbulence of the absent phase.** With turbulence ON, the ABSENT vapour phase's `k`, `epsilon`, `nut`, `alphat` differ from upstream by 1e-3 at Ex1 step 1 (from the second outer iteration; Ex3 step 1 has one outer iteration and agrees to 6e-16), growing to 5e-2 of their own tiny maximum, and the liquid fields grow with it from 1e-10 (step 1) to 1e-6 (step 25). With turbulence off the same comparison agrees to 1e-11 (8 steps measured), so the remainder is in the two-phase turbulence solve, not the flow. NOT investigated here; open.
+- `dgdt.liquid` differs by 9e-6 of its maximum at step 2 of `PhaseII_Ex3` (also with uniform zones and with turbulence off, where `p` and `U` agree to 1e-12): not investigated; open. The flow does not read it back at that size.
+- `GAMG` for `p_rgh` has no port: a case that selects it still gets ILU-BiCGStab at 1e-13, with the weakness found here on an ill-conditioned equation.
+- The temporary vector fields of `one_phase_fc` (`Vector::uniform` for `H`) are NOT changed: no one-phase case in the suite has a `symmetry` patch.
+
+## Moved numbers (old -> new, cause)
+
+Every PhaseII pin of `tests/genfoam_psbt2_turbulence_vs_upstream.rs` (cause: the two translations above; the old values were pins of a documented disagreement, gh:#1833): Ex1 gate `p` 4e-5 -> 2.5e-9, `U` 2e-3 -> 1e-6, `T.liquid` 5e-6 -> 9e-9, `k.liquid` 3e-3 -> 1.1e-6, the vapour turbulence bounds 8e-2/6e-2/9e-2 (k/epsilon/nut) -> 6e-2/4.5e-2/7e-2; Ex2/Ex3 `p` 6e-5/2.5e-5 -> 4e-10/3e-10, `U` 1.2e-3/6e-4 -> 2.2e-7/2.3e-7, `T` 2.5e-6 -> 5e-11; the control test became an agreement gate (`p` <= 1e-11, `U` <= 2e-11) from a window `1e-6 <= p <= 6e-6`; the outer-iteration list at step 19 (10 -> 9).
+Round 12's gates (`genfoam_psbt_shipped_vs_upstream`, `genfoam_chf_shipped_vs_upstream`, the trace gates, `genfoam_two_phase_vs_upstream`) did not move: none of their cases has a `symmetry` patch or selects `PCG`.
+The 5 s `regressionResults` check (`psbt2_regression_results_at_5_s`, 200 s) was not re-run in this round (a 1 % band on a quasi-steady state); the parent's full run covers it.
+
+## Gates run (2026-11-26, release, targeted)
+
+`--test genfoam_psbt2_turbulence_vs_upstream -- --skip regression`: 8 passed, 2 ignored (diagnostics); `--lib two_phase`: 33 passed (30 + the 3 `pcg` tests); `--test genfoam_psbt_shipped_vs_upstream` 4 passed + 3 ignored; `--test genfoam_chf_shipped_vs_upstream` 2 + 2 ignored; `--test genfoam_psbt_trace_vs_upstream` 7 + 7 ignored; `--test genfoam_chf_trace_vs_upstream` 5 + 6 ignored;
+`--test genfoam_two_phase_vs_upstream` 12 + 3 ignored; `cargo test --release -p petir --test no_platform_libm` 4 passed; `bash scripts/check-nostd.sh` exit 0. The parent runs the full suite.
+
+
+---
+
+# Round 18 (2026-11-26): the cell-centred `onePhase` fluid-mechanics solve and single-phase `porousKEpsilon` (gh:#1812, children of gh:#1775 / gh:#1475)
+
+Goal: the `steadyStateTH` stage of `Tutorials/reactorCases/2D_MSFR` (`solveFluidMechanics true`, `momentumMode cellCentered`,
+`partialEliminationMode implicit`, `porousKEpsilon` SOLVING), so that `EigenvalueStage::SteadyStateTh` (gh:#1814) can be un-refused.
+
+## What was read BEFORE any port code or port run (GeN-Foam 652b3da on ESI v2506)
+
+* `onePhase.C::correctPhysics`: per PIMPLE outer iteration `correctModels(true, true)` (`FSPair::correct`), then, if
+  `solveFluidMechanics`, `UEqn_1p.H` + `pEqn_1p.H` (`momentumMode != faceCentered`), `correctContErr`, and then `correctEnergy`.
+* `UEqn_1p.H`: `fluid_.turbulence().correct()` FIRST (so `k`, `epsilon`, `nut`, `alphat` are solved inside the momentum assembly,
+  once per outer iteration); `UEqn = div(alphaRhoPhi,U) + SuSp(-contErr,U) - laplacian(alpha rho nuEff, U) - div(alpha rho nuEff
+  dev2(T(grad U)), "div(alphaRhoPhiNu,U)") + Sp(tr(Kd)/3, U) + (dev(Kd) & U) == fvOptions`; `+ ddt(alpha, rho, U)` for cell-centred;
+  `UEqn.relax()` (0.9, `relaxationFactors.equations ".*"`). There is NO velocity predictor.
+* `pEqn_1p.H`: `rAU = 1/UEqn.A()`; per PISO corrector `p_rgh = p - rho gh`, `correctBoundaryFlux_1p.H`, `HbyA = rAU UEqn.H()`,
+  `phiSbyA = -alpharAUf ghf snGrad(rho(true)) magSf (+ alpharAUf flux(momentumSource))` (the PUMP is `momentumSource (0 0 -300000)`),
+  `phiHbyA = alphaf (flux(HbyA) + phiSbyA)`, `rAUf = |alphaf alpharAUf|`, `fixedFluxPressure` gradient from `(phiHbyA - alphaf phi)/(magSf rAUf)`,
+  `pEqn = pEqnComp + div(phiHbyA) - laplacian(rAUf, p_rgh)`, `setReference(pRefCell 0, pRefValue 1e5)` (Boussinesq: `psi = 0`, so
+  NOT compressible and the reference VALUE is imposed), `U = HbyA + reconstruct(alpharAUf flux/rAUf + phiSbyA)`, `updatePP_rghRho_1p.H`
+  (`p = max(p_rgh + rho gh, pMin)`; closed-volume mass correction is skipped for Boussinesq).
+* `porousKEpsilon::correct()` (one-phase) is NOT the 2-phase class: `epsilon` equation first, `epsilon_.boundaryFieldRef().updateCoeffs()`
+  (wall-function `G` and cell-value weights), `boundaryManipulate`, solved by the catch-all `PBiCGStab`/`diagonal`; then `k`; `nut = Cmu k^2/epsilon`
+  then `alphat = rho nut/Prt`. The structure zone `hx` (volumeFraction 0.6) switches production/dissipation OFF (`noStructure`) and relaxes to
+  `equilibriumK`/`equilibriumEpsilon` with `alphaRhoConv = alpha rho |U|/convergenceLength`.
+* Case: `2D_MSFR/rootCase` wedge mesh (8595 cells per the patch table, `front`/`back` wedge, 4 wall patches `topwall`, `bottomwall`, `reflector`, `hx` with
+  `kqRWallFunction`, `epsilonWallFunction`, `nutkWallFunction`, `fixedFluxPressure`); `ReynoldsPower` drag `coeff 0.5 exp -0.25` on `hx`;
+  `Boussinesq` `rho0 4125 T0 900 beta 2e-4`, `mu 0.01`; `nCorrectors 6`, `nOuterCorrectors 5`, `correctUntilConvergence true`.
+
+## What the workspace already had (searched before writing; reuse)
+
+`one_phase_cc.rs` (round 9: energy only, `FSPair` Re/htc, `Boussinesq hConst`, last-match solver lookup); `two_phase::fv` (`Eqn`, `VecEqn`, `Scalar`, `Vector`
+and their boundary coefficients, `interp_*`, `reconstruct`); `two_phase::pcg` (PCG/DIC), `pbicgstab`; `two_phase::turbulence` (`bound`, `relax_equation`,
+`convective_inflow2`, `velocity_gradient`, `regex_full_match`); `closures::fs_drag` (`ReynoldsPower`); `closures::turbulence::porous_k_epsilon`
+(equilibrium k, epsilon). **NOT in the workspace**: any wall function that acts on a field (`outram-foam-turbulence-lib::wall_functions` is a set of
+standalone helpers, "untested"; `kqRWallFunction`/`epsilonWallFunction`/`nutkWallFunction` patches are refused by name by the two-phase reader), and a
+`wedge` VECTOR patch field (the energy-only region only needs the scalar one, a zero-gradient).
+
+## Reference protocol (`scripts/run_msfr_th_tight.sh`; the upstream binary is unmodified)
+
+`steadyStateTH` replayed from `Allrun` (`foamDictionary` is not built here); the ONLY changes are: every linear-solver `tolerance 1e-14`, `relTol 0`;
+`p_rgh` `GAMG`/`DIC` -> `PCG`/`DIC` (GAMG does not reach 1e-14: a solver-only change, justified exactly as in round 16, and the same solver the port
+already has in `two_phase/pcg.rs`); write every step at `writePrecision 17`; `endTime 0.06` (14 adaptive steps, `dt` growing 1.2x from 1e-3; 15-19 s
+wall each). Two variants: `TURB=off` (`turbulence false`: isolates `UEqn`/`pEqn` from the turbulence model, the round-17 bisect) and `TURB=on`.
+The upstream run directories are deleted after the references are extracted.
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+P1. The flow starts from rest and is driven ONLY by the pump `momentumSource` and the Boussinesq buoyancy; step 1 of `th_off` will show `p_rgh` and `U`
+    far from the restart values, and the first PISO residual of the first outer iteration will be ~1 (upstream log: 0.984).
+P2. With `turbulence false`, a faithful `UEqn`/`pEqn` translation reproduces `U`, `p_rgh`, `p`, `phi` per cell to <= 1e-9 relative in step 1 (PCG/DIC on
+    both sides, same iteration count to within one); the wedge `U` patch (`faceT`/`cellT` transform) is the most likely first divergence if it is wrong.
+P3. With `turbulence true` the first diverging quantity is `epsilon` in the wall-adjacent cells (the `epsilonWallFunction` cell-weight / `G` modification,
+    which exists nowhere in the workspace), then `k`, `nut`, `alphat`, then everything downstream; predicted size at step 1: 1e-3 to 1e-1 relative in the
+    wall cells, <= 1e-8 elsewhere until the coupling spreads it.
+P4. Everything the energy equation sees (`T`) stays within 1e-9 of upstream for the first ~3 steps even when `epsilon` is off, because `T` is
+    900 K everywhere (`T0`, uniform) and the `hx` zone is at `T = 900`: the stage is flow-only at first (upstream log: T min/max 899.9996/900.0005).
+P5. A wall-function-free translation that the maintainer's "stay close to upstream" rule forbids as a default would still be informative as an ablation:
+    predicted `nut` change at the wall cells of > 10 % when the wall function is dropped.
+
+## Round 18 results (2026-11-26): what was done, and what was NOT (the stage does not run in the port yet)
+
+**Honest status (round 18):** ~~`EigenvalueStage::SteadyStateTh` is STILL refused by name; no step of `steadyStateTH` was run in the port.~~ **CORRECTED 2026-11-26 (round 19): `OnePhaseCcSolver` now runs the turbulence-off flow and matches the real binary for 3 steps (README "Round 19 results"); `EigenvalueStage::SteadyStateTh` is still refused.** The round
+produced the reference, the decomposition, and one building block. Nothing below is a port-vs-upstream comparison, so the
+predictions P1-P5 are neither held nor missed: they stand, unmeasured, for the round that ports `UEqn_1p`/`pEqn_1p`.
+
+### Upstream reference (the real unmodified binary, serial, tight; measured 2026-11-26)
+
+`scripts/run_msfr_th_tight.sh` (README protocol above), 14 adaptive steps to `t = 0.0592` (`dt` 1.0e-3 growing x1.2 per step to 1.28e-2), 15 s
+wall with `turbulence false`, 19 s with `true`. Extracted to `refs/msfr_th_off_head.ref.txt.gz` and `refs/msfr_th_on_head.ref.txt.gz` (first 3 steps; U, p,
+p_rgh, T, k, epsilon, nut, alphat, alphaPhi per cell; `p_rgh` solved by `DICPCG`, 237-261 iterations per solve, 6 solves per outer iteration, 5 outer).
+Observed in the log (these CONFIRM the reading above, they are not port results): step 1 first-corrector `p_rgh` initial residual 0.984; `k`
+initial residual 1.0 and `epsilon` 1.5e-5 in the first outer iteration (the restart `k = 0.1`, `epsilon = 0.01` is uniform, so `epsilon` is already at its
+equilibrium and `k` is not); `T` min/max 899.9996/900.0005 K after step 1 (P4's premise); step-1 `U` ~1e-4 m/s (driven by the pump source and
+buoyancy only); Courant (max) 1.5e-3 at step 1, 0.17 at step 10.
+The rootCase starts with `p_rgh = 1e5` at the reference cell and `p` from `p_rgh + rho0 gh` (66 kPa to 140 kPa across the vessel).
+
+### What was ported (new code; every earlier form is unchanged)
+
+* `fv::VectorBc::Wedge`, `fv::wedge_velocity_bc`, `fv::rotation_tensor`: ESI `wedgePolyPatch::calcGeometry` (`n = gAverage(faceNormals)`, `centreNormal` from the
+  coordinate-plane rule, `faceT = rotationTensor(centreNormal, n)`, `cellT = faceT & faceT`) and `wedgeFvPatchField` (value `faceT & U_c`; `snGrad = 0.5 deltaCoeffs (cellT.U_c - U_c)`;
+  `snGradTransformDiag = 0.5 diag(I - cellT)`; boundary coefficients through the existing `transformFvPatchField` form). The 2D_MSFR mesh has
+  two 8595-face wedge patches, so every vector equation of the stage needs this.
+* Not yet wired: `Vector::uniform_with_constraint_patches` does not yet turn a wedge patch into a constraint patch of a temporary field (#1836), and
+  `dev2_div` still takes `(U_b - U_c) deltaCoeffs` as the boundary `snGrad`, which is wrong for a wedge (right for `slip`). Both are listed in the child issue.
+
+### Tests (targeted, release)
+
+`cargo test --release -p outram-foam-appbuilder-lib --lib wedge_`: 3 passed (`wedge_rotation_tensor_is_the_rotation_of_the_centre_normal_onto_the_patch_normal`:
+the 3-4-5 rotation maps `n1` onto `n2`, is orthogonal, and `cellT` rotates by `2a` (0.96, 0.28), to 1e-15; `wedge_patch_on_a_coordinate_axis_is_the_identity_transform`;
+and the pre-existing `surface_field_text_with_wedge_values_parses`). The wedge value/coefficient code is gated ANALYTICALLY only: there is no wedge differential
+against the real binary until `UEqn_1p` runs on the 2D_MSFR mesh.
+
+### Why the round stops here, and the decomposition (children of #1812)
+
+The cell-centred momentum/pressure solve, single-phase `porousKEpsilon` and the wall-function patches are three independent pieces, none of which has a
+usable predecessor in the workspace (`one_phase_cc.rs` is a frozen-flux energy region; `one_phase_fc.rs` is face-centred on a 1D channel with only `zeroGradient` U; `two_phase`'s
+`porousKEpsilon2PhaseCorrected` is a different class and refuses wall functions). Each is filed as a child issue with the exact upstream order of operations
+(gh:#1837 `UEqn_1p`/`pEqn_1p`, gh:#1838 wall-function patch fields, gh:#1839 single-phase `porousKEpsilon::correct`). The turbulence-off flow is the first thing to port, because it can be differenced against `th_off` with no wall function.
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed.
+
+# Round 19 (2026-11-26): the cell-centred `onePhase` fluid-mechanics solve, turbulence OFF (gh:#1837, child of gh:#1812 / gh:#1475)
+
+Goal: port `UEqn_1p.H` + `pEqn_1p.H` (`momentumMode cellCentered`, `partialEliminationMode implicit`, `solveFluidMechanics true`, `nCorrectors 6`,
+`nOuterCorrectors 5`, `correctUntilConvergence true`) with `turbulence false`, and difference it against `refs/msfr_th_off_head.ref.txt.gz`
+(steps 1-3, tight protocol of `scripts/run_msfr_th_tight.sh`, `TURB=off`). Round 18's P1-P5 are carried below as "applies / does not apply".
+
+## Read before any port code (GeN-Foam 652b3da on ESI v2506)
+
+* `onePhase.C`: constructor (`initAlphaPhis`, `correctContErr`, `phi_ = alphaPhi`), `correctPhysics` (`correctModels(true,true)`, `correctFluidMechanics`,
+  `correctEnergy` per outer iteration), `correctCourant` (`phi_`), `maxDeltaT`.
+* `UEqn_1p.H`, `pEqn_1p.H` and every `pEqnRoutines/*_1p.H`; `thermalHydraulicsModel.C` (`gh`, `ghf`, `setRefCell`), `fluid.C` (`U_` read with the `slip`
+  default only when absent, `phi` from `fvc::flux(U)`, `initAlphaPhis`, `rho(bool)`: `rho()` is the constant `rho0` under Boussinesq, `rho(true)` the thermo's),
+  `FSPair::correct` + `FSDragFactor::correctField` + `ReynoldsPower`, `structure::momentumSource` + `pump::correct`, `fixedTemperature` (`T.fixedTemperature` is
+  `T` of the power-model dictionary in its zone, 0 elsewhere), `customPimpleControl::correct(bool)`, ESI `fvMatrix::relax`, `fvMatrix::H`, `wedgeFvPatchField`,
+  `transformFvPatchField` (scalar wedge = zeroGradient coefficients), `gaussGrad::correctBoundaryConditions`, `fvc::reconstruct`.
+* Two facts that decide the numbers: (1) with `turbulence false` `porousKEpsilon::correct` returns at once, so the `nut` WALL patches stay at their read
+  `value uniform 0.1` (no wall function ever runs): `nuEff` on a wall face is `0.1 + mu/rho`, five orders above the cell value, and the wall shear dominates the
+  near-wall momentum balance; (2) `fvc::ddt(p_)` in `EEqn_1p.H` is the first request for `p.oldTime()` (the round-3 lazy-old-time quirk of the two-phase port): in
+  step 1 the old-time pressure is the pressure after the first `p_rgh` solve, so `dpdt = 0` in outer iteration 1.
+
+## Searched before writing (reuse)
+
+`OnePhaseCcSolver` (energy, round 9), `OnePhaseFcSolver` (face-centred 1-D), `two_phase::fv` (`Eqn`, `Vector`, `VectorBc::Wedge`, `interp_*`, `flux`, `div`,
+`reconstruct`, `sn_grad`), `two_phase::VecEqn` (`boundary_convection`, `boundary_laplacian`, `h`, `su_sp`), `dev2_div`, `pcg::pcg_dic` (round 17),
+`coupled_loop::adjust_delta_t`. Not found, so written here: the single-phase `pEqn_1p` assembly, the per-component vector `fvMatrix::relax`, the pump source,
+`Kd` for `ReynoldsPower`, the rootCase restart-file defaults (`initAlphaPhis`, `T.fixedTemperature`, zero `htc`/`powerDensityNeutronicsToLiquid`).
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+Q1. The first PISO initial residual of step 1 is 0.99908808 (upstream log this protocol: 0.9990880833090563; round 18's 0.984 was read from the other
+    run) and the port reproduces it to 1e-6 relative. Round 18 P1 (flow starts from rest, driven by the pump source and buoyancy only; residual ~1): applies.
+Q2. The PCG/DIC iteration counts of the 6 solves of outer iteration 1 of step 1 are upstream's 264, 225, 191, 143, 69, 128, each within +-1 (same stopping
+    rule, same matrix up to round-off).
+Q3. Steps 1, 2 and 3: `U`, `p_rgh`, `p` agree with the real binary to <= 1e-9 relative (field max-norm scale) on the first try ONLY if the wedge
+    constraint patches (value `faceT.U_c`, gradient transform, `snGradTransformDiag`) and the constraint patch on the temporary `H`/`HbyA` are all right;
+    if they are not, the first diverging step is step 1 and the first diverging quantity `U` (not `p_rgh`), because the wedge enters the momentum matrix
+    before the pressure equation. Round 18 P2 (<= 1e-9 in step 1, PCG counts within one): applies, same gate.
+Q4. Omitting the wedge transform of the gradient tensor on the wedge patch in `dev2_div` (the round-17 form) and omitting the wedge `snGrad` there changes
+    `U` by <= 1e-7 relative: the explicit `dev2` term is ~1e-3 of the diffusion term and the wedge faces are 2 of 6 patches; the ablation is run to
+    measure it, not to tune it.
+Q5. `T`: the stage is flow-only, `T - 900` is 3e-8 K at step 1; `T` agrees with the real binary to <= 1e-5 relative of max|T - 900| (that is the
+    meaningful scale; against 900 the 1e-9 gate is 9e-7 K and says nothing). Round 18 P4 (T stays within 1e-9 of upstream for 3 steps): applies, with that scale note.
+Q6. The lazy old-time pressure is what makes `T` small: ablating it (old pressure = the initial uniform 1e5 Pa) puts `T - 900` at ~6e-3 K
+    (`Delta p / (rho0 Cp) = 4e4 / 6.6e6`) in step 1, 5 orders above upstream; with it `T` matches. `ddt(alpha, rho, K)` stays exactly 0 (a fresh local `K` has
+    `K.oldTime() = K`, `rho = rho0`), which CONTRADICTS round 18's finding that `K.oldTime() = K` becomes false once the flow is solved: the port keeps the
+    zero and `T` is predicted to match without any `K` old-time store.
+Q7. `alphaPhi` as written upstream is the value set at the START of the last `pEqn` (from the previous outer iteration's `phi`), not the final `phi`: the port
+    reproduces that lag; written at the end of the step it agrees to <= 1e-9 relative.
+Q8. Round 18 P3 and P5 (turbulence ON, wall-function ablation) do not apply to this round: no turbulence is run.
+
+## Round 19 results (2026-11-26; measured by `tests/genfoam_msfr_th_vs_upstream.rs`, release, 4 tests, ~3 s)
+
+**The turbulence-off `steadyStateTH` flow agrees with the real binary at round-off from the FIRST run, steps 1-3.** Reference: the real unmodified
+binary at the tight protocol (`TURB=off`, 15 s wall; `refs/msfr_th_off_head.ref.txt.gz` for the fields, new `refs/msfr_th_off_log.ref.txt.gz` for every
+`DICPCG` residual/iteration count, `h` residual, Courant number and `T (avg min max)` line of all 14 steps). The port starts from the ROOT case
+(`cases/msfr_th`, uniform `T = 900`, `U = 0`, `p = 1e5`), takes its own time steps (`onePhase::maxDeltaT`, `adjust_delta_t`; the sequence 1e-3, 1.2e-3, 1.44e-3
+equals upstream's to 1e-15) and uses nothing of upstream's results as input.
+
+| step (t) | `U` | `p` | `p_rgh` | `T` (rel. 900 K) | `alphaPhi` |
+|---|---|---|---|---|---|
+| 1 (0.001) | 1.4e-11 | 3.7e-13 | 3.9e-13 | 6.3e-16 | 3.3e-11 |
+| 2 (0.0022) | 7.2e-12 | 1.3e-13 | 1.4e-13 | 1.0e-15 | 1.3e-11 |
+| 3 (0.00364) | 9.2e-13 | 2.6e-13 | 2.8e-13 | 1.4e-15 | 2.2e-12 |
+
+(`max|port - upstream| / max|upstream|` per field; gate 1e-9.) `T (avg min max)` of all 15 outer iterations: worst difference 7.6e-16 relative to 900 K.
+The `U` x-component (the wedge-normal direction) is round-off noise of ~1e-22 against components of 1e-4; the max-norm scale hides it, and it is not compared separately.
+First-corrector `DICPCG` initial residual of step 1: port 0.9990880833090533, upstream 0.9990880833090563 (3e-15). Gated correctors (the first of every outer iteration,
+and correctors 1-3 of outer iteration 1): initial residual to 5.8e-8 relative (the correctors above 1e-10 sit within 1e-12 of the round-off floor), iteration counts
+within 1 (264/225/191 equal, 221 vs 222 once). **First diverging step: none above round-off; no cause to find.**
+
+### Predictions Q1-Q8 and round 18's P1-P5
+
+* **Q1 held** (residual 3e-15 relative, tolerance was 1e-6). Round 18 **P1 held** (residual 0.999, flow driven by pump + buoyancy only).
+* **Q2 PARTLY MISSED.** Correctors 1-3 of outer iteration 1 and the first corrector of every outer iteration: counts equal or within one (1 of 15 differs, by 1).
+  Correctors 4-6 (initial residual 3-6e-12) do NOT: port 150/137/114 vs upstream 143/69/128. Those solves start at the round-off floor of the previous
+  solve's tail, where 1e-14 is reached after a number of iterations that depends on the last bits of the matrix; the count carries no information, and
+  the state they converge to agrees to 1e-12. The prediction was wrong to ask for it; it is gated only as "both below 1e-10". Round 18 **P2 held** for the fields,
+  the counts caveat as above.
+* **Q3 held** (first try, 1.4e-11 in step 1). The wedge constraint on `UEqn.H()`/`HbyA`, the wedge gradient in `dev2_div` and the per-component `relax` are all
+  in the result; no divergence to bisect.
+* **Q4 MISSED (size).** Ablating the wedge treatment in `dev2_div` (cell gradient and `(U_b - U_c) deltaCoeffs` on the wedge patch, the round-17 form), measured with a
+  temporary switch that was reverted (not kept as an option: `dev2_div` is shared with the two-phase driver): `U` 4.8e-7 / 6.0e-7 / 7.4e-7 in steps 1-3, `p` 1.5e-9 / 4.4e-9 / 9.0e-9,
+  `alphaPhi` 1.9e-8 / 3.5e-8 / 5.4e-8. Predicted <= 1e-7; it is 5x larger and grows with time (the term is not negligible and not self-healing). Both parts are needed to reach 1e-11.
+* **Q5 held.** At the end of step 1 `max|T - T_up|` is 5.7e-13 K against `max|T - 900|` of 3.7e-7 K, i.e. 1.5e-6 relative (1e-5 predicted); steps 2-3 are smaller still relative to their larger `T - 900`. Per-outer-iteration lines: 7.6e-16 of 900 K.
+  Round 18 **P4 held**: `T` stays within 1e-9 of upstream; the meaningful scale is `T - 900`, per the note.
+* **Q6 held, both halves.** Ablating the lazy old-time pressure (`without_first_step_lazy_old_pressure`) gives `T` = 900.0080 K average, 899.9941 to 900.0172 K after outer iteration 1 of step 1
+  (upstream: 899.99999997 to 900.00000004); the lazy form matches. And `ddt(alpha, rho0, K)` stays exactly 0: no `K` old-time store was needed for `T` to match to 1e-15, so round 18's note that
+  `K.oldTime() = K` becomes false once the flow is solved is **wrong** (`K` is a fresh local, `rho` is the constant `rho0`).
+* **Q7 held** (`alphaPhi` 3.3e-11 in step 1, with the lag: written at the start of the last `pEqn`).
+* **Q8 / round 18 P3, P5:** not run (turbulence stays off).
+
+### What was ported (new code; the frozen-flux region is unchanged and re-checked)
+
+`one_phase_cc/flow.rs` (child of `one_phase_cc.rs`): `UEqn_1p.H` (per-component `fvMatrix::relax` with `internalCoeffs`/`boundaryCoeffs` kept per boundary face, `A()`/`H()` exactly as `fvMatrix`),
+`pEqn_1p.H` with `updateAlphaPhiAndInitControls`, `correctBoundaryFlux`, `calcPhiSbyA` (buoyancy from the thermo `rho(T)`, pump source), `fixedFluxPressure`, `setReference`, PCG/DIC (`two_phase/pcg.rs`), `reconstruct`,
+`updatePP_rghRho`; `FSPair` Kd with `ReynoldsPower`; the PISO `correctUntilConvergence` rule; root-case construction (`initAlphaPhis`, `T.fixedTemperature`, zero `htc` and power density).
+`fv::Vector::uniform_with_constraint_patches` now gives a wedge patch (the round-17 rule, #1836); `dev2_div` gets the wedge gradient transform and wedge `snGrad`; the energy equation gets
+`alpha ddt(p)` (lazy old-time pressure) and the true `U` boundary values in `K`; the case reader accepts `solveFluidMechanics true` with `turbulence false` and refuses `turbulence true` by name.
+Also fixed in passing: `alpha` on boundary faces was 0 in the energy region's `alpha_f` (invisible there: `zeroGradient` `h`); it is the owner value, as upstream.
+
+### Regression of the frozen-flux region (the findings of round 18 said these could move)
+
+`genfoam_msfr_coupled_vs_upstream` (3 tests; the refusal test now expects the `turbulence true` refusal), `genfoam_msfr_chain_vs_upstream` (2), `genfoam_msfr_transient_vs_upstream` (1 file),
+`genfoam_psbt2_turbulence_vs_upstream` (9, 2 ignored), `--lib two_phase` (36): all pass with every gate and pin unchanged; no number moved.
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed.
+
+### Remaining (child issues of #1837)
+
+Steps beyond 3 (reference has 14; the zero-iteration `convergedPISO` branch is first reached late in a steady state) ~~, un-refusing `EigenvalueStage::SteadyStateTh` (#1814)~~ **(both done in round 21: 1965 steps, SteadyStateTh runs)**, turbulence ON
+(#1838 wall functions, #1839 `porousKEpsilon::correct`; with it the `nut` wall patches stop being the read `0.1`), anisotropic `Kd` / local frames, tortuosity.
+
+# Round 20 (2026-11-26): `turbulence true` for the cell-centred `onePhase` region: wall functions (gh:#1838) and `porousKEpsilon::correct()` (gh:#1839), child of gh:#1812 / gh:#1837
+
+Goal: port `porousKEpsilon::correct()` (single phase, called from `UEqn_1p.H`) with the three 2D_MSFR wall functions (`kqRWallFunction`,
+`epsilonWallFunction`, `nutkWallFunction`) and difference it against `refs/msfr_th_on_head.ref.txt.gz` (U, p, p_rgh, T, k, epsilon, nut, alphat,
+alphaPhi, steps 1-3) and the new `refs/msfr_th_on_log.ref.txt.gz` (every linear solve's initial residual and iteration count of all 14 steps,
+extracted by `scripts/extract_msfr_th_log.sh` from a fresh `TURB=on` run of `scripts/run_msfr_th_tight.sh`, 19 s). Round 19's turbulence-off test must not move.
+
+## Read before any port code (GeN-Foam 652b3da on ESI v2506)
+
+* `porousKEpsilon.C` (`correct`, `correctNut`, constructor), `porousKEpsilon.H` (`DkEff`/`DepsilonEff` = `nut/sigma + nu()`), `fluid.C` (the model is built with
+  `this->rho()` = the constant `rho0` field under Boussinesq, so `nu() = mu/rho0` and `alphat = rho0 nut/Prt`), `scalarImpl.H` (`pos(s) = s > 0`, `neg0(s) = s <= 0`).
+* ESI `epsilonWallFunctionFvPatchScalarField.C` (cell weights over ALL wall faces of a cell, `G` and `epsilon` overwritten in every wall-adjacent cell by
+  `updateCoeffs`, patch value = `epsilon0` of the cell, `manipulateMatrix` = `setValues(faceCells, patchInternalField)`; constructor from a dictionary
+  calls `extrapolateInternal`), `nutkWallFunctionFvPatchScalarField.C` (`nutw = nutLog - nu` above `yPlusLam`, `nutw = nutVis - nu = 0` below; STEPWISE blender,
+  `log(max(E yPlus, 1 + 1e-4))`), `wallFunctionCoefficients.C` (`Cmu 0.09, kappa 0.41, E 9.8, yPlusLam` by 10 fixed-point iterations from 11),
+  `nearWallDist.C` + `cellDistFuncs` (`useCombinedWallPatch true`: y = smallest distance from the wall-cell centre to the faces sharing a point with the wall face),
+  `fvMatrix::{relax, setValuesFromList}`, `bound`.
+* The `solvers` patterns of the stage: for `k` and `epsilon` the LAST match is `".*"` (`PBiCGStab`/`diagonal`; `"e.*"` also matches `epsilon` but comes earlier).
+  `relaxationFactors.equations ".*" 0.9` relaxes both equations. The mesh `fluidRegion/polyMesh/boundary` has `type wall` on the four wall patches (the neutro
+  mesh the earlier tests stage has `patch`; every other mesh file is identical, checked with `cmp`): a wall function needs `wall`, so the staged mesh now carries
+  the fluid boundary file.
+* No `turbulence->validate()` anywhere in GeN-Foam: `nut` starts at its FILE value (cells 0, wall patches 0.1), so step 1's first `G` is 0 in the cells and the
+  wall `G0` uses `nutw = 0.1`.
+
+## Searched before writing (reuse)
+
+`two_phase::turbulence` (`bound`, `relax_equation`, `convective_inflow2`, `velocity_gradient`, `production_invariant`, last-match lookup), `pbicgstab_diagonal`,
+`closures::turbulence::porous_k_epsilon` (the equilibrium formulas are re-written per cell inline, as round 16 did), `fv::{Eqn, Scalar}`. NOT found: any wall
+function acting on a field (`outram-foam-turbulence-lib::wall_functions` is untested standalone helpers with hard-coded kappa/E), `nearWallDist`, `fvMatrix::setValues`.
+
+## Predictions (written BEFORE any port run of this round; committed first)
+
+S1. Step 1, outer iteration 1: the `epsilon` solve's initial residual is 1.4680897e-5 (upstream log) and `k`'s 0.99999999972; both reproduced to 1e-6 relative,
+    iteration counts equal within 1. (The `epsilon` residual is small because the uniform restart `epsilon` is already at equilibrium: everything it measures is the
+    wall cells.)
+S2. Steps 1-3: all nine fields agree with the real binary to <= 1e-9 of the field max-norm on the first run ONLY if `y`, the cell weights, `G0`, `nutw` and the
+    `setValues` row are all right. If not, the first diverging step is step 1 and the first diverging field `epsilon` in the wall cells (round 18 P3), then `k`, `nut`,
+    `alphat`, `U`.
+S3. `T` agrees to <= 1e-9 relative to 900 K (round 18 P4 / round 19 Q5 hold: the stage is flow-only; `alphat` enters only through the `h` laplacian of a ~1e-7 K field).
+S4. Round 18 P5 (dropping the wall function moves `nut` in the wall cells by > 10 %): measured with a named ablation (`without_wall_functions`: wall patches `zeroGradient`
+    for `k`/`epsilon`, `nut` wall values as read), not tuned.
+S5. Changing the viscosity in `UEqn` from `mu/rho(T)` (round 19) to upstream's `mu/rho0` moves the round-19 numbers by < 1e-10 (relative change of `rho(T)` is `beta |T - T0|` ~ 7e-11).
+S6. PBiCGStab iteration counts of `k`/`epsilon`: equal within +-2 for the first solves of each step (initial residual > 1e-6); the late ones, which start near the
+    round-off floor, are not gated (the round 19 Q2 lesson).
+
+## Round 20 results (2026-11-26; measured by `tests/genfoam_msfr_th_vs_upstream.rs`, release, 8 tests, ~16 s)
+
+**`turbulence true` agrees with the real binary from the FIRST run, to round-off, in all nine fields, at every step checked (1-3, 6, 9, 14) and in every
+`k`/`epsilon` solve of all 14 steps.** Reference: the real unmodified binary at the tight protocol (`TURB=on`, 19 s; fields `refs/msfr_th_on_head.ref.txt.gz` steps 1-3,
+new `refs/msfr_th_on_later.ref.txt.gz` U, p_rgh, k, epsilon, nut at steps 6, 9, 14, new `refs/msfr_th_on_log.ref.txt.gz` every solve of all 14 steps). The port
+starts from the root case, takes its own time steps and uses nothing of upstream's results as input.
+
+| step (t) | `U` | `p` | `p_rgh` | `T` (rel. 900 K) | `k` | `epsilon` | `nut` | `alphat` | `alphaPhi` |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 (0.001) | 4.9e-12 | 6.1e-13 | 6.5e-13 | 7.6e-16 | 3.1e-14 | 3.3e-13 | 3.1e-14 | 3.1e-14 | 1.0e-11 |
+| 2 (0.0022) | 1.0e-12 | 4.5e-13 | 4.8e-13 | 8.8e-16 | 5.4e-14 | 3.0e-13 | 2.3e-14 | 2.3e-14 | 2.9e-12 |
+| 3 (0.00364) | 9.2e-13 | 3.3e-13 | 3.5e-13 | 1.1e-15 | 8.3e-14 | 2.5e-13 | 1.7e-14 | 1.7e-14 | 3.6e-12 |
+| 6 (0.00993) | 8.9e-13 | | 4.3e-13 | | 1.3e-13 | 1.5e-13 | 6.7e-15 | | |
+| 9 (0.0208) | 1.2e-12 | | 8.7e-13 | | 1.4e-13 | 4.4e-13 | 6.5e-15 | | |
+| 14 (0.0592) | 6.0e-13 | | 4.2e-13 | | 3.4e-13 | 5.8e-13 | 4.0e-14 | | |
+
+(`max|port - upstream| / max|upstream|` per field; gate 1e-9; `alphat` equals `nut` to the digit because `alphat = rho0 nut/Prt`, `Prt = 1`.) All 70 `epsilon` and 70 `k` solves of
+the 14 steps (initial residual > 1e-9): residual to 1.1e-11 / 5.9e-12 relative, iteration counts equal in all but one `k` solve (differs by 2, step 13); `T (avg min max)` of
+all 70 outer iterations to 1.0e-15 of 900 K. The first solve of step 1: `epsilon` 1.4680897178119755e-5 (upstream 1.4680897178119777e-5), `k` 0.9999999997221586
+(upstream 0.99999999972215847), 2 and 2 iterations. **First diverging step: none above round-off; no cause to find.**
+
+### Predictions S1-S7
+
+* **S1 held** (residuals to 1.5e-15 relative, iteration counts equal). **S2 held** on the first run for all nine fields (the wall `y`, the cell weights, `G0`, `nutw` and the
+  `setValues` row are all right; nothing to bisect). **S3 held** (`T` 7.6e-16 to 1.1e-15 of 900 K). **S6 held**: counts equal or within 2, for ALL 140 solves (the late solves
+  start at 1e-4 to 1e-6 here, not at the round-off floor of round 19's pressure correctors, so the count does carry information).
+* **S4 held** (the ablation `without_wall_functions`, kept as a named deprecated option, measured, not tuned): after step 1, `max |nut_abl - nut|/|nut|` over the cells is 1.0e3, far
+  above the predicted 10 %. It is a statement that the wall cells carry the wall function, not a quality measure of either run.
+* **S5 MISSED, in its premise.** I predicted `UEqn`'s viscosity to move by < 1e-10 if changed from `mu/rho(T)` to `mu/rho0` (the model's own `rho_` IS the `rho0` field).
+  Measured: the turbulence-off `U` got better (1.4e-11 to 2.5e-12) and the turbulence-on `U` got worse (1e-11 to 5e-11 and 1e-10 at step 3); the opposite signs said the premise
+  was wrong, not which way to tune, so the source was read again: `TurbulenceModel::nu() = transport_.nu()` and `PhaseCompressibleTurbulenceModel` does NOT override it (only
+  `CompressibleTurbulenceModel` defines `mu/rho_`), so `nu` is the thermo's `mu/rho(T)` (cells; faces: the thermo's patch value, the owner's for `zeroGradient` `T`), while `alphat = rho_ nut/Prt` uses `rho0`.
+  With that reading both runs are at round-off and round 19's numbers did not move (the `rho0` experiment was reverted, not kept).
+* **S7 (added during the round): the lazy first-step `epsilon.oldTime()` is IMMATERIAL.** `oldTime()` is first requested by `fvm::ddt` AFTER `updateCoeffs` overwrote the wall cells, so
+  step 1's old `epsilon` differs from the initial uniform field exactly in the wall cells; but `boundaryManipulate` replaces those cells' rows, so the old value never enters (the step-1
+  `epsilon` was identical to the last bit with either old time; the option written to ablate it was removed because an option that changes nothing documents nothing).
+
+### What was ported (new code; the turbulence-off region is unchanged and re-checked)
+
+`one_phase_cc/turbulence.rs`: `porousKEpsilon::correct()` (`G`, the `epsilon` and `k` equations with `noStructure`/`yesStructure`/`alphaRhoConv`/equilibrium terms, `relax(0.9)`, `bound`,
+`correctNut`, `alphat`), `epsilonWallFunction` (weights `1/nWallFaces(cell)`, `G` and `epsilon` overwritten in every wall cell, patch value = `epsilon0`, STEPWISE blender, `lowReCorrection false`),
+`nutkWallFunction::calcNut` (`yPlusLam` by the upstream fixed-point iteration), `kqRWallFunction` (zero gradient), `nearWallDist` (`useCombinedWallPatch`: point-neighbour wall faces, face-fan
+distance), `fvMatrix::setValues` (`boundaryManipulate`), and the reading of `turbulenceProperties`/`porousKEpsilonProperties`/`k`/`epsilon`/`nut`/`alphat` with the last-match solver lookup (`".*"`
+wins over `"e.*"` for `epsilon`). Called at the top of `correct_fluid_mechanics` (`UEqn_1p.H`); `UEqn`'s `nuEff` and the energy equation's `alphaEff` read the live `nut`/`alphat`. The staged mesh
+now carries the fluid region's own `boundary` (`cases/msfr_th/polyMesh/boundary`, `type wall` on the four wall patches, the only difference from the neutro mesh, `cmp`-checked).
+Refused by name: `DhStruct`, wall-function entries beyond `type`/`value`, `k`/`epsilon`/`nut` patch types other than the three wall functions and `wedge`, a `Final` solver or relaxation entry that differs,
+`RASModel` other than `porousKEpsilon`.
+
+### Regression and tests
+
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_th_vs_upstream`: 8 passed (turbulence off 3 steps and its log: **numbers identical to round 19's table**, U 1.4e-11 / 7.2e-12 / 9.2e-13;
+turbulence on steps 1-3; 14 steps vs the log and fields at 6, 9, 14; the wall-function ablation; two refusals; the lazy old pressure ablation). Unit tests of the new module (`yPlusLam`,
+point-triangle and quad distance). The other `genfoam_msfr_*` files: see "Gates run" below.
+
+### Moved numbers
+
+None. The turbulence-off numbers are identical (the staged mesh now says `wall` instead of `patch`; nothing in the turbulence-off path reads it).
+
+### Remaining
+
+~~`EigenvalueStage::SteadyStateTh` (gh:#1841: the stage driver, the `multiRegionCouplingDict_steadyStateTH` mapping, a run to the stage end)~~ **DONE 2026-11-26 (round 21)**, `DhStruct` nut stabilisation, `lowReCorrection` and the other
+wall-function blenders, wall-function dictionary entries (`Cmu`, `kappa`, `E`), anisotropic `Kd`/tortuosity, steps beyond 14 (the reference ends at `endTime 0.06`).
+
+### Gates run (2026-11-26, release, targeted)
+
+`--test genfoam_msfr_th_vs_upstream` 8 passed; `--test genfoam_msfr_coupled_vs_upstream` 3 passed (the refusal test now expects the next refusal, the shipped `p_rgh` `GAMG`:
+`turbulence true` no longer refuses); `--test genfoam_msfr_chain_vs_upstream` 5 passed (237 s); `--test genfoam_msfr_transient_vs_upstream` 2 passed, 7 ignored diagnostics;
+`--lib turbulence::` 19 passed (3 new); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` `outram-foam-appbuilder-lib` section compiles for `x86_64-unknown-none`
+(the script was stopped after that crate). The full crate and workspace suites were NOT run (parent's integration run).
+
+# Round 21 (2026-11-26): `steadyStateTH -> steadyStateEN -> transient` from the ROOT case in the port, no upstream restart file (gh:#1841, child of gh:#1837 / gh:#1814)
+
+Goal: un-refuse `EigenvalueStage::SteadyStateTh`; run the whole `Tutorials/reactorCases/2D_MSFR/Allrun` chain (`endTimeTH 15`, `endTimeEN 165`, `endTimeTransient 175`) in the port
+starting from `rootCase` (`0/fluidRegion` uniform `T = 900`, `U = 0`, `p_rgh = 1e5`; `0/neutroRegion` `defaultFlux = 1`; `0/uniform/reactorState`), with the 15 s thermal-hydraulic state
+handed over IN MEMORY to the `steadyStateEN` stage that round 11 started from the stored upstream `cases/msfr_fluid/restart_15`. The Allrun edits (`endTime`, `deltaT 1e-3`,
+`adjustTimeStep true`, `writeInterval 1`, `regionSolvers` per stage, `solveFluidMechanics false` for EN and transient, the `multiRegionCouplingDict_<stage>` copy) are typed
+settings of the stage drivers, not file edits.
+
+## Read before any port code (GeN-Foam 652b3da on ESI v2506)
+
+* `GeN-Foam/GeN-Foam.C` (loop: `runTime++`, `mapAllFields`, `correctPhysics` of every region, `adjustDeltaT`, `write`), `include/setDeltaT.C` (the first `setDeltaT(min(deltaT, controlDict deltaT))` with `adjust = true`;
+  `adjustDeltaT` = `min(1.2 deltaT, min maxDeltaT)` with `setDeltaT(.., adjust = true)`), ESI `Time::adjustDeltaT` (`wcAdjustableRunTime`: `nSteps = timeToNextWrite/deltaT`, `max(1, round(nSteps))`, growth capped at x2, shrink at x0.2),
+  `Time::operator++` (`writeTimeIndex`), `Time::run` (`value < endTime - 0.5 deltaT`). The rootCase's `writeControl` is `adjustableRunTime`; the Allrun sets `writeInterval 1`, so every second of the 15 s is a write time and the
+  step that reaches each integer second is shortened to land on it.
+* `Allrun`: `setSteadyStateTH` removes `0/neutroRegion`, `constant/neutroRegion`, `system/neutroRegion`, `0/uniform` and the fine meshes, sets `regionSolvers { fluidRegion onePhase; }`, copies `multiRegionCouplingDict_steadyStateTH`
+  (`mappings { fluidRegion { } }`: no mapping at all). `setSteadyStateEN` clones `rootCase`, copies `steadyStateTH/15` in, adds `0/neutroRegion` and `0/uniform`, sets `solveFluidMechanics false`.
+* The shipped `p_rgh` solver is `GAMG`/`DIC` at `tolerance 1e-7`; the shipped `h`, `k`, `epsilon` solvers are the ported `PBiCGStab`/`diagonal` entries (the last match is `".*"`).
+
+## The `p_rgh` linear-solver decision (GAMG): found, then decided
+
+`outram_foam_basic_lib::ldu_matrix::solvers::gamg` (used by `FvMatrix::solve_gamg_with_guess`) is **not a translation of OpenFOAM's `GAMGSolver`**. Its own doc comment says "algebraic" pair agglomeration with face weights `|upper|`
+(OpenFOAM's `faceAreaPair` weights by the face-area magnitude), a symmetric V-cycle with 2 Gauss-Seidel pre- AND 2 post-sweeps (OpenFOAM: `nPreSweeps 0`, `nPostSweeps 2`, `nFinestSweeps 2`, the `DIC` smoother of this case,
+with `scaleCorrection`), a dense-LU coarsest solve (OpenFOAM: `directSolveCoarsest false`, a PCG/DIC coarsest-level correction), and the plain `||r||_2/||b||_2` stopping rule (OpenFOAM: the `xRef`-shifted `normFactor` of `lduMatrix::solver`).
+It converges to a tolerance but through different iterates, so even at the shipped tolerance it would not reproduce upstream's iterates; the faithful port (agglomeration addressing, interfaces, the `DIC` smoother, `scaleCorrection`, `coarsestLevelCorr`) is a module of its own.
+**Decision:** the stage runs `p_rgh` with the already-gated `PCG`/`DIC` (`pcg_dic`, round 17) as an EXPLICIT, NAMED deviation: `GamgPolicy::SubstitutePcgDic` (the default of the stage drivers; `GamgPolicy::Refuse` refuses `GAMG` by name as before).
+The substitution keeps `tolerance` and `relTol` of the case entry and is reported by the stage result (`deviations`). A GAMG-port issue is filed.
+
+## Searched before writing (reuse)
+
+`OnePhaseCcSolver`/`OnePhaseCcCase::read` (it already builds the root-case fields: `initAlphaPhis`, `T.fixedTemperature`, zero `htc`/power density), `neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, adjust_delta_t}` (the `Time` clock with
+`adjustableRunTime` alignment and `setDeltaT.C`), `multi_region::coupled_loop::{adjust_delta_t, CouplingDict}`, `workflow::{EnergyNeutroDiffusion, EnergyNeutroTransient, ReactorState}`, `tests/genfoam_msfr_th_vs_upstream.rs` (staging helpers),
+`tests/genfoam_msfr_chain_vs_upstream.rs`. Not found, so written here: the TH stage driver, the in-memory fluid hand-over, the `multiRegionCouplingDict_steadyStateTH` check, the rootCase chain object.
+
+## Reference protocol
+
+Upstream = the real unmodified binary, serial. `scripts/run_msfr_th_tight.sh` with `END_TIME=15 TURB=on WRITE=adjustable PSOLVER=pcg` (new knobs `WRITE`, `TOLERANCE`): the whole of `steadyStateTH` at every linear-solver tolerance 1e-14 / `relTol 0`,
+`p_rgh` `GAMG -> PCG/DIC` (round 16: GAMG does not reach 1e-14), the rootCase's `adjustableRunTime`/`writeInterval 1`. Then `scripts/run_msfr_chain.sh steadyStateEN` and `transient` with `PROTOCOL=tight` from THAT stage's own `15` output
+(the round-11 chain started the EN stage from the SHIPPED-tolerance GAMG 15 s state). Seen in the upstream log before these predictions were written, and nothing else: the time step is Courant-limited at `dt` ~8.3e-3 around t = 1 s (maxCo 5), so ~1800 steps to 15 s.
+
+## Predictions (written BEFORE the first port run of this round; committed first)
+
+T1. **Un-refusal.** `EigenvalueStage::SteadyStateTh` runs from the root case and returns a typed state; no file of the reference is read by the port.
+T2. **Time steps.** The step count of the port's `steadyStateTH` (tight, PCG) equals upstream's exactly, and every `dt` agrees to <= 1e-9 relative, INCLUDING the write-time alignment (`adjustableRunTime`: the last step lands on 15 and every integer second is a step end).
+    Risk named: `round(nSteps)` is a discrete branch; a flip needs a `dt` within ~1e-10 of a half-integer ratio, so I expect none in ~1800 steps.
+T3. **Fields over ~1800 steps, tight protocol.** `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi` at every integer second 1..15 agree to <= 1e-9 relative to the field max-norm (measured at 14 steps: 1e-12 to 6e-13). The flow is damped
+    toward its 15 s state (viscous and drag), so last-bit differences should not grow; the worst field is `epsilon` or `U` at ~1e-10 by t = 15 s. The first thing to break, if anything, is the STEPWISE wall-function blender (`yPlus` against `yPlusLam`)
+    flipping in one wall cell, which would show as a jump in `nut` in that cell.
+T4. **`T`** stays within 1e-9 of 900 K relative (the stage has no heat source), and the meaningful scale `max|T - 900|` agrees to <= 1e-5 relative.
+T5. **Run time.** The port needs more than 5 minutes for the 15 s stage at 4 shared cores (so the long comparison is `long-tests`): ~1 s per step in upstream, the port is of the same order (0.5 to 2 s per step), 15 to 60 min.
+T6. **Shipped protocol (the deviation, measured).** The port with `SubstitutePcgDic` at the SHIPPED tolerances (all `1e-7`) against the real binary with its real `GAMG`: the 15 s fields do NOT agree to round-off. Expected at 15 s:
+    `p`, `p_rgh` <= 1e-6 relative to the max-norm (the 1e5 Pa offset dominates that scale), `U` between 1e-5 and 1e-2 (the `p_rgh` gradient carries the solver-tolerance error amplified by the conditioning of the pressure equation, ~1e3), `T` <= 1e-9 of 900 K.
+    The two codes' step counts may differ by a few (the Courant-limited `dt` follows `U`). This is the agreement to expect from the substitution, and the number to quote for "the port's chain from rootCase at shipped settings"; the tight comparison is the verification.
+T7. **`steadyStateEN` from the port's own 15 s state, tight.** Per-step `keff_` agrees with upstream's EN stage started from upstream's own tight 15 s state to <= 1e-9 relative at all 600 steps (round 11, IDENTICAL start state: 2.2e-13; a TH state
+    off by 1e-10 enters through `T`, `rho(T)` and the frozen-`U` precursor drift, linearly), `power:` <= 1e-9, final `keff_` <= 1e-9. Final `keff_` within 1 pcm of round 11's 0.96031514 (the shipped GAMG 15 s state and the tight 15 s state differ by flow differences only), i.e. still +3.3 pcm from the Allrun's 0.960282.
+T8. **`transient` (50 steps) from the port's own 165 s state** agrees with upstream's transient on its own 165 s state: `T` <= 1e-11, `power:` <= 1e-9, `dt` <= 1e-9 (round 11 gates 1e-12/1e-11/1e-11 on an identical start; the 1e-10 start-state difference propagates at O(1)).
+T9. **Hand-over.** The fields handed to the EN stage (`T`, `U`, `p`, `alphat`, `alphaPhi`, `alphaRhoPhi`, `htc`, `T.fixedTemperature`) equal the TH solver's state bitwise, and equal upstream's written `15` files (17 digits, round-trip exact) to the T3 gate; `powerDensityNeutronicsToLiquid` is zero.
+T10. **Failure modes I expect to find, in order of likelihood:** (a) the TH `alphaPhi` written lag (round 19 Q7) is wrong at the LAST step, which would show first in EN step 1's `h` residual; (b) `phi_` of the frozen-flux EN region (`phi_ = alphaPhi`) is taken from the wrong state;
+    (c) `Re`/`htc` of the hand-over differ, which cannot matter since both are recomputed in `correctModels`.
+
+## Round 21 results (2026-11-26, release, 4 shared cores; `tests/genfoam_msfr_allrun_vs_upstream.rs`)
+
+**The whole `Allrun` chain runs in the port from `rootCase` with no upstream restart file, and agrees with the real binary at round-off at every stage, from the FIRST run.**
+Reference: the real unmodified binary at the tight protocol (every linear solver 1e-14 / `relTol 0`, `p_rgh` `GAMG -> PCG/DIC`, `adjustableRunTime` `writeInterval 1`): `steadyStateTH` to 15 s (1965 steps, 2025 s wall), then
+`steadyStateEN` (600 steps, 175 s) and `transient` (50 steps, 25 s) from THAT run's own `15` and `165` outputs. New references: `refs/msfr_th15_log` (step count, every `deltaT`), `refs/msfr_th15_fields`
+(nine fields + `alphaRhoPhi`, `htc`, `T.fixedTemperature` at 5 and 15 s; `U`, `p_rgh`, `epsilon`, `T` at 1 and 10 s), `refs/msfr_en_root`, `refs/msfr_root_transient`. The port: `RootCase::steady_state_th` -> `run()` ->
+`steady_state_en(th)` -> `run()` -> `start_transient(TransientStart::EnergyNeutro(root.transient_settings()))`, 2175 s in all (TH 1931 s, EN 237 s, transient 7 s). The test is `#[ignore]` (hour-scale): `cargo test --release -p outram-foam-appbuilder-lib
+--test genfoam_msfr_allrun_vs_upstream -- --ignored`.
+
+| stage | quantity | worst relative difference |
+|---|---|---|
+| `steadyStateTH`, 1965 steps | step count; every `deltaT` (incl. the write-time alignment, last step lands on 15.00000000000000000) | equal (1965); **0 (bit-identical)** |
+| t = 1 s | `U`, `p_rgh`, `T`, `epsilon` | 3.3e-14, 1.8e-13, 1.5e-15, 1.3e-13 |
+| t = 5 s | `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi`, `alphaRhoPhi` | 4.0e-14, 1.0e-13, 9.7e-14, 2.7e-15, 7.3e-14, 1.2e-13, 4.4e-14, 4.4e-14, 5.0e-14, 5.0e-14 |
+| t = 10 s | `U`, `p_rgh`, `T`, `epsilon` | 4.1e-14, 5.7e-14, 3.9e-15, 1.2e-13 |
+| t = 15 s | the same ten | 2.8e-14, 2.7e-13, 2.5e-13, 6.3e-15, 8.2e-14, 9.5e-14, 5.9e-14, 5.9e-14, 4.8e-14, 4.8e-14; `htc` and `T.fixedTemperature`: 0 (bitwise) |
+| `steadyStateEN`, 600 steps | `keff_` per step, `power:`, first `h` residual, `T (avg min max)`, `Time` | 2.2e-13, 2.2e-13, 2.4e-9, 3.8e-14, 0 |
+| at 165 s | final `keff_` 0.96031516102217651 (upstream 0.96031516102221959); `powerDensity`; `T` | 4.5e-14; 1.1e-10; 4.0e-14 |
+| `transient`, 50 steps | `deltaT`, `T`, `power:`, first `h` residual | 6.5e-14, 4.1e-14, 7.1e-14, 4.2e-9 |
+
+(`max|port - upstream| / max|upstream|` per field; `keff_`/`power:`/`dt` scalar relative.) The `h`-residual numbers are initial residuals near 1e-9..1e-12 whose relative value is noise. **First diverging step: none above round-off; no cause to find.**
+The final `keff_` is 0.960315161, **+3.3 pcm** from the Allrun's 0.960282 (as round 11/14: 0.960315139 from the shipped-GAMG 15 s state; the two 15 s states differ by 2.3e-8 in `keff_`, 0.002 pcm).
+
+### Shipped protocol: what the GAMG substitution costs (prediction T6, `shipped_protocol_gamg_substitution_agreement_at_fifteen_seconds`, 533 s)
+
+Upstream with its real `GAMG`/`DIC` at the shipped `tolerance 1e-7` (every solver at its shipped tolerance, `scripts/run_msfr_th_tight.sh` with `PSOLVER=gamg TOLERANCE=shipped`, 551 s, 1965 steps) against the port with
+`GamgPolicy::SubstitutePcgDic` at the same tolerance: **step count equal (1965)**; worst over t = 1, 5, 10, 15 s: `p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10 (of 900 K), `U` 4.1e-6, `k` 1.0e-5, `epsilon` 5.2e-6, `nut` and
+`alphat` 1.2e-5, `alphaPhi`/`alphaRhoPhi` 3.6e-6; `htc`, `T.fixedTemperature` 0. **This is the agreement to expect from the substitution at shipped settings: 1e-7 to 1e-5, and it does not grow with t (t = 15 s: `U` 1.3e-6).**
+The Allrun's own TH stage is that case; the tight comparison above is the verification and this table is the disclosure of the deviation.
+
+### Predictions T1-T10: held and missed
+
+* **T1 held.** **T2 held** (1965 = 1965 steps; `deltaT` bit-identical, including the `adjustableRunTime` alignment: no `round(nSteps)` flip in 1965 steps). **T3 held** (worst 2.7e-13 against the predicted 1e-9; the STEPWISE wall-function blender never flipped).
+* **T4 held** for `T` to 900 K (6.3e-15); the second half (`max|T - 900|` scale to 1e-5) was NOT measured: `T - 900` at 15 s was not extracted separately. Not re-checked.
+* **T5 held** (> 5 min: 1931 s; the predicted 15 to 60 min): the port is 5 % FASTER than the real binary on the tight stage (1931 s vs 2025 s, both serial, the machine shared).
+* **T6 PARTLY MISSED, in the favourable direction.** Held: `p`, `p_rgh` <= 1e-6 (5.1e-7), `T` <= 1e-9. Missed: `U` was predicted between 1e-5 and 1e-2 and is 4.1e-6 at worst (1.3e-6 at 15 s): the solver-tolerance error is not amplified by the pressure
+  conditioning as much as I assumed (I guessed ~1e3; the residual `1e-7` is relative to the `xRef`-shifted norm, which is large here). The step counts did not differ (predicted: maybe by a few).
+* **T7 held** (EN `keff_` 2.2e-13 against 1e-9; final 4.5e-14; within 0.002 pcm of round 11's, predicted 1 pcm). **T8 held** (`T` 4.1e-14 against 1e-11, `power:` 7.1e-14 against 1e-9, `dt` 6.5e-14).
+* **T9 held**: `alphaRhoPhi` 4.8e-14 against upstream's written file, `htc` and `T.fixedTemperature` bitwise; the in-memory hand-over is bitwise the TH solver's state and `powerDensity` is zero (`the_fluid_fields_of_the_th_stage_start_the_en_stage_bitwise`).
+* **T10**: none of (a), (b), (c) occurred.
+
+### What was done, and what is deliberately not the same as upstream
+
+* `EigenvalueStage::SteadyStateTh { stage, controls }` (was a refusal), `NormalisedState::SteadyStateTh { stage, history, deviations }`, `workflow::steady_state_th::{SteadyStateTh, ThRunControls, ThRecord, Deviation}`
+  (the `GeN-Foam.C` loop on the `Time` clock `PseudoTimeClock`: `Time::adjustDeltaT` write alignment, `setDeltaT.C`), `workflow::allrun::{RootCase, AllrunEdits}`
+  (`steady_state_th`, `steady_state_en(th)`, `transient_settings`; `check_steady_state_th_mapping`: `multiRegionCouplingDict_steadyStateTH` must map nothing), `OnePhaseCcCase::read_with_options`
+  (`CaseReadOptions`: `GamgPolicy`, `solve_fluid_mechanics`, `ControlOverrides`, `check_region_solvers`, in-memory start `FluidFields`), `OnePhaseCcSolver::fluid_fields`. The existing readers and every earlier path are unchanged
+  (`read` = `read_with_options(default)`). The case `cases/msfr_root` is `rootCase` without its meshes (192 KB).
+* **Named deviation:** `p_rgh` `GAMG` -> `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (`GamgPolicy::SubstitutePcgDic`, the default of `AllrunEdits`; `GamgPolicy::Refuse` refuses by name). Reported by `NormalisedState::SteadyStateTh.deviations`
+  and `OnePhaseFlowCase::p_rgh_gamg_substituted`. A faithful `GAMGSolver` is gh:#1843.
+* `NormalisedState::reactor_state()` of a TH state is `keff = pTarget = 1` (`setSteadyStateTH` removes `0/uniform`; upstream's `lookupOrDefault`).
+* The EN neutron linear solver is the tight 1e-14 of rounds 11/14 (`AllrunEdits::neutron_linear`), not the shipped `neutroRegion/fvSolution` tolerance; the neutron iteration controls (1e-6, 50, `ScNo 1`) are typed in `AllrunEdits`, not read from `neutronicsProperties`.
+* `AllrunEdits` does not read `endTimeTH`, `endTimeEN`, `endTimeTransient` from the Allrun script: they are its defaults (15, 165, 175).
+* The extension of gh:#1840 (steps 4-14 of the TH stage): already gated by round 20 at steps 6, 9, 14 and, through the stage driver, again here; it is superseded by the 1965-step comparison.
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed; the one existing test edited (`stages_without_a_port_are_refused_by_name`) lost its `steadyStateTH` entry because that stage is no longer refused. New gates are at the measured values with a margin of >= 20x.
+
+### Remaining
+
+GAMG port (gh:#1843); `AllrunEdits` from the Allrun/`neutronicsProperties` files; the shipped-tolerance EN and transient stages (only the shipped TH stage was run against upstream); `max|T - 900|` of the TH stage; general `cellVolumeWeight` (gh:#651).
+
+### Gates run (2026-11-26, release, targeted)
+
+`--test genfoam_msfr_allrun_vs_upstream` 4 passed (16 s) + 2 `--ignored` passed (the chain 2175 s, the shipped comparison 533 s); `--test genfoam_msfr_th_vs_upstream` 8 passed; `--test genfoam_msfr_coupled_vs_upstream` 3 passed;
+`--test genfoam_msfr_chain_vs_upstream stages_without_a_port` 1 passed; `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` `outram-foam-appbuilder-lib` compiles for `x86_64-unknown-none`.
+The rest of `genfoam_msfr_chain_vs_upstream` and the other suites were NOT re-run (they do not touch the changed paths beyond `read` delegating to `read_with_options`; the parent's integration run covers them).
+
+
+---
+
+# Round 22 (gh:#1813, child of #1774; gh1361 round 9 remainder): the full 2D_MSFR transient, a multi-iteration coupling loop, the neutronics `residual_` value, a fixedTemperature time profile
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`).
+
+## What was read BEFORE any run (2026-11-26; upstream = GeN-Foam 652b3da on ESI v2506)
+
+- `multiPhysicsSolver::correctPhysics` (read again, as round 15 did): `residual` is a running max that is never reset inside the loop, so the exit test `residual > minResidual_ && iterN < maxIterations_` can only turn the loop ON after iteration 1 (if iteration 1's residual is above `minResidual_` the loop runs to `maxIterations_`; it can never exit early at iteration 2+). Consequence for the design of part 2: the residual RULE is exercised by a `minResidual_` that lies INSIDE the range of the per-step first-iteration residual, so that some steps stop at 1 iteration and others run to the cap; the step where this flips is fixed by the residual VALUE.
+- `fluxEq.H`: line 1 `neutroResidual = 0.0` (reset at the top of EVERY neutron iteration), line 25 `initRes = neutroEq.solve()...initialResidual()` feeds `neutroResidual`, line 29 `residual_ = max(neutroEq.solve().max().initialResidual(), residual_)` is a SECOND solve of the same matrix, whose initial residual is that of an already solved system (the log shows 6e-15 to 1e-14 at the tight protocol, "No Iterations 0"). `solveNeutronics.H:138` `residual_ = max(residual_, neutroResidual)` takes only the FINAL neutron iteration's `neutroResidual`. `diffusionNeutronics::correctPhysics` resets `residual_ = 0` at each call. So upstream's value is `residual_ = max(second-solve initial residuals of every group of every neutron iteration, final-iteration neutroResidual)`.
+- **What the harness used instead** (round 9): `max(first-iteration group residuals, whole neutroResidual history)`. ~~"a lower bound of upstream's `residual_`"~~ **CORRECTED 2026-11-26 (read from fluxEq.H, before any run): it is an UPPER bound whenever the neutron loop iterates more than once** (the history includes the early, larger residuals; upstream keeps only the last); it is equal when the loop takes one neutron iteration (every step of the 165 s start, `NRES` 1e-8 < 1e-6).
+- `structure::correct(HT, H)` runs at the END of `EEqn_1p.H` (after `he` is solved); it calls `fixedTemperature::correctT(Tact_)`, which calls `temperatureUpdate()`: `T_[cell] = f(t) * T_old[cell] / f(t - deltaT)` with `f` = `temperatureTimeProfile` (a table of SCALING FACTORS, `t = timeOutputValue()`), and `T_.oldTime()` is stored once per time step, so the update is idempotent over coupling iterations. The new `Tact_` first enters the energy equation at the NEXT `correctEnergy`.
+- Heat exchangers (`structureProperties.<zone>.heatExchangers`): `heatExchanger::correct` needs a primary and a secondary cell zone (possibly in another region), a `meshToMesh` mapping between the zones and the secondary region's `htc`/`T`; `2D_MSFR` has none (`phaseProperties` has `hx` with a constant-T `fixedTemperature` only). Not ported (`OnePhaseCcCase::read` refuses by name).
+
+## What the workspace already had (searched before writing; reuse)
+
+`correct_physics_loop`, `CouplingDict` (`minResidual`, `maxIterations` read from the case), `IdenticalMeshMap`, `EnergyNeutroTransient` (round 15: old-time storage), `solve_twice` (returns only the first solve's residual), `genfoam::common::TimeProfile` (ESI `Table` value, verified by round 12 B), `read_table_time_profile` (two-phase `case.rs`), the 50-step test `genfoam_msfr_coupled_vs_upstream.rs` and the references of rounds 9/11/14. **New:** a second-solve residual in `solve_twice`'s companion, `residual` on `UpstreamTransientStep`, the `temperatureTimeProfile` path in `OnePhaseCcCase`/`OnePhaseCcSolver`, the references and tests of this round.
+
+## Reference protocol (upstream: the real unmodified binary, serial, tight; scratch under `/home/user/upstream-build/gh1813/`, deleted after extraction)
+
+Same chain as round 14 (`steadyStateTH` shipped tolerances, tight `steadyStateEN` to 165 s, tight `transient`), the transient run to the tutorial's `endTime 175` (write every step; `scripts/reap_fluid_T.sh` saves `T` and deletes each step directory to keep the disk, 10 MB per step, small; `scripts/extract_msfr_full_reference.sh` writes the references). Three transients from the SAME 165 s state: **A** the tutorial's coupling dictionary (`minResidual 5e-5`, `maxIterations 3`); **B** `minResidual 1e-7`, `maxIterations 6` (`maxIterations 6` is the value of upstream's own `3D_SmallESFR_old/multiRegionCouplingDict_tightly`; `1e-7` is chosen from UPSTREAM's logged first `h` residuals of the 50-step run, 2.6e-8 at step 1 rising to 1.8e-7, so that the loop stops at 1 iteration for the first steps and runs to the cap afterwards; it is an input chosen from upstream data, not from any port result); **C** as A plus `temperatureTimeProfile` on the `hx` `fixedTemperature` model (table of factors `(0 1)(165 1)(175 0.95)`: `T` 900 K falls linearly to 855 K between 165 s and 175 s; a plausible loss-of-heat-sink ramp of modest size, chosen before any run).
+
+## Predictions (written BEFORE any run of this round, upstream or port; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| V1 | A: number of steps | about 142 (the issue), within +-3; the step size reaches the cap `maxDeltaT` (7.4725e-3 from step 15 on, as in the 50-step reference) so the count is (175-165-sum of the first 14 steps)/7.4725e-3 + 14 |
+| V2 | A: upstream loop converges after 1 iteration at every step | held at 142/142 (first `h` residual plateau 1.8e-7 vs 5e-5; 95 %) |
+| V3 | A: port vs upstream over all steps: `dt` <= 1e-11, `T` statistics <= 1e-12, `T` field at the kept steps <= 1e-12, `power:` <= 1e-11, Courant <= 1e-11, first `h` residual <= 1e-8, neutron iteration counts equal at 142/142 | held; the 50-step levels were 9e-14 / 2e-15 / 8e-15 / 6e-14 / 9e-14 / 1e-9 / 50-of-50; I expect a drift of at most one order of magnitude over 92 more steps (the system is a damped relaxation, not an excursion). Risk 25 %: a neutron-iteration count flips at a step whose residual sits near 1e-6 |
+| R1 | A: port's new `residual` (upstream form) equals the log-derived `RESID_n` (max of second-solve and final `neutroResidual`) | <= 1e-4 relative at every step, expected 1e-6..1e-5: it is dominated by the final `neutroResidual` (1e-8 scale), a first-solve initial residual of a cancellation-dominated quantity (condition ~1e8 x 1e-16). The second-solve term (6e-15..1e-14 in upstream's log) is far below it at the tight protocol and is NOT reproduced to better than an order of magnitude (round-off of two different linear solvers); that term is reported, not gated |
+| R2 | the harness' earlier value (history max) equals the new `residual` at every step of A | equal to the printed digits (one neutron iteration per step) |
+| R3 | on the 20 s light chain (up to 50 neutron iterations, residual 1e-4 not converging) the earlier value is LARGER than upstream's `residual_` at some steps, and the coupling decision (3 iterations at every step) is unchanged | held (both far above 5e-5 or at least above... the decision is the same: 3/3) |
+| M1 | B: upstream iterates once at steps 1-10 and runs all 6 iterations at steps 11 onwards (first `h` residual 8.89e-8 at step 10 and 1.058e-7 at step 11 against 1e-7; the margins are 11 % and 5.8 %) | held; the port reproduces the step at which the loop switches (step 11) and every iteration count |
+| M2 | B: port vs upstream: `dt`, `T`, `power:`, Courant at the A levels (<= 1e-11, 1e-12, 1e-11, 1e-11) at all steps, `correctTightlyCoupledPhysics` iterations 2-6 included | held, with a looser first `h` residual of later iterations (<= 1e-6; the near-converged 1-solve residual is a cancellation-dominated number) |
+| M3 | B: B differs from A (the extra iterations change the answer) | `power:` at the last step differs between A and B by 1e-9..1e-6 relative; if it is below 1e-9 the extra iterations tested nothing and the case is a weak test |
+| F1 | C: port ports `temperatureTimeProfile` so that the energy-only region reproduces upstream | `T` <= 1e-12, `dt` <= 1e-11, `power:` <= 1e-11 at all steps. 70 %: the profile changes `Tact_` after the solve, so a one-step delay error would show at 1e-3 relative immediately; I expect the first run to show it if the order is wrong |
+| F2 | C: the profile matters | the `hx` zone fluid `T` at the end differs from A by more than 1 K and `power:` by more than 1e-4 relative; otherwise the case is weak |
+| H1 | heat exchangers | not exercised: no heat-exchanger case runs in both codes this round; recorded as missing and filed |
+| W1 | wall time, port | A: < 40 s, B: < 150 s, C: < 40 s in release (6 s per 50 steps in round 14; 6 iterations of the neutron solve dominate B) |
+
+## Round 23 (gh:#1781): `legacyThermoMechanics`, finite-volume form, against GeN-Foam's own class
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26, **predictions committed BEFORE the first port run**.
+
+### What was searched before writing anything (CLAUDE.md "search before building")
+
+* `genfoam::thermo_mechanics::MechanicsMeshSolver` (older port): checked and **rejected as the base**: scalar `laplacian_vec` without non-orthogonal correction, a single material, per-cell-change convergence, zero-gradient boundary of `grad(D)` (gh:#1383 measured 9.6 % off the real `solidDisplacementFoam`), no `TStructFromTH`/`isPorous` switch, no `fuelDisp`/`CRDisp`. Kept untouched (it is a possibly reviewed solver).
+* `solvers::solid_displacement_foam::SolidDisplacementFoamEsi` (bit-identical to ESI `solidDisplacementFoam`): its private assembly (uniform `mu`/`lambda`, `uncorrected`, Gauss gradient) is the pattern; the matrix algebra (`0 - B`, internal/boundary coefficients, `solveSegregated` order) is re-used in form, not code (the functions are private and the solver is for uniform properties).
+* Re-used as they are: `fvc::grad_least_squares` (scalar; bit-identical to ESI, gh:#1362), `fvc::sn_grad_correction_with_grad` (`correctedSnGrad::fullGradCorrection`), `fvc::grad_vec_corrected`, `fvc::interpolate`, `fvc::linear_weight`, `les_filter::surface_integrate`, `fvm::DeltaCoeff`, `LduMatrix`, `two_phase::pcg::pcg_dic` (made `pub(crate)`; one `mod` line, no function touched), `io::poly_mesh::{read_poly_mesh, read_cell_zones}`, `io::dict::FoamFile`.
+* New: `genfoam::thermo_mechanics::legacy_fvm::{LegacyFvmThermoMechanics, pbicg::pbicg_dilu, case::LegacyFvmCase}`. `PBiCG` + `DILU` had no faithful port (`pbicgstab.rs` is `PBiCGStab`/diagonal).
+* No kovan-reviewed function was edited (`review.md` of `thermo_mechanics/`, `solvers/`, `fv_operators/fvc/` hold no `kind = "review"` block).
+
+### What the audit said, and what upstream's class is (read before any code)
+
+`docs/genfoam-port-gap-audit.md` row `thermoMechanics.{C,H} + legacyThermoMechanics/`: "isotropic stiffness, no traction BC, no non-orthogonal correction". Reading `legacyThermoMechanics.C`: **upstream's legacy class is itself isotropic** (`mu_`, `lambda_`, `threeK_` are scalar volFields; there is no stiffness tensor), so "anisotropic stiffness" in the issue text is not a feature of `legacyThermoMechanics`; non-orthogonal correction is not a model feature either but the `Gauss linear corrected` Laplacian scheme the case selects (explicit correction from the gradient of each component). What the legacy class does that the old port lacked: per-zone field-valued properties from `cellZones`, `TStructFromTH`/`isPorous` forcing and the `(1-isPorous)`-scaled asymmetric `TEqn` with `ddt`, the per-corrector `compactNormalStress` algebra with `leastSquares` gradients and the boundary-corrected `grad(disp)`, `fuelDispEqn`/`CRDispEqn` (upwind transport along `pinDirection`) and `meshDisp`.
+
+### The case (edits to upstream's tutorial, all stated)
+
+`3D_SmallESFR_NewSolverVerification/legacySolver`, `thermoMechanicalRegion`, 23340 cells, 8 zones, cell centres z in [-0.2, 2.31] m. (1) `GFTractionDisplacement` patches (gh:#1235, not ported) -> `fixedValue 0` on `zeroDispl`, `bottom`, `bottomCR`; `zeroGradient` on `top`, `topCR`, `defaultFaces`. (2) the eight zone cards are identical in the tutorial, so a field-valued `mu`/`lambda` would be uniform: here they differ (E 0.5-2e9, nu 0.25-0.40, alpha 1.5-2.1e-5, rho, Cp, k). (3) tight protocol: every solver `tolerance 1e-14`, `relTol 0`; `TStruct` `GAMG` -> `PBiCG`/`DILU` (the row-scaled matrix is asymmetric, OpenFOAM refuses `PCG`; named deviation); `writePrecision 17`; `TStruct` initial 668 K. (4) `TStructFromTH`, `TFuel`, `powerDensityNeutronics` (mapped from other regions in a coupled run) are set each step by closed-form functions of the cell centre and step (`legacyTmDump.C::setCoupling`, mirrored in the test), because a single-region `GeN-Foam` run leaves them at the constructor's 1.0/1.0/0.
+
+Upstream reference: GeN-Foam's `solvers::legacyThermoMechanics` (library `libThermoMechanicsSolvers` built from the unmodified sources, `extendedThermoMechanics` out of `Make/files`, offbeat out of `Make/options`), driven by `upstream_driver/legacy_tm_dump/legacyTmDump.C`: the class constructed exactly as `meshHandler`/`regionSolvers` do, `correctPhysics()` once per step. `scripts/build_and_run_legacy_tm_dump.sh`, 3 steps of 1 s, 1 s wall.
+
+### Predictions (written BEFORE the first port run; committed first)
+
+* **Q1** (geometry): the cell centres `read_poly_mesh` computes are bit-identical to ESI's, so the coupling inputs are bit-identical. If not, every field differs at the 1e-16 level for that reason alone, which the first tally (`TStruct` at step 1) would show.
+* **Q2** (`TStruct`, `fuelDisp`, `CRDisp`): bit-identical at all three steps, with equal iteration counts and bit-identical initial residuals, because the matrices are short chains of exactly translated operations (`ddt`, corrected Laplacian from the shared `leastSquares` gradient, row scaling, `Sp`) and `PBiCG`/`DILU` is a transcription. This is the least certain item for `TStruct` (its matrix mixes every operator); a miss would be at 1e-15 to 1e-12 relative to `max |T|`.
+* **Q3** (`disp`): the same operation order as the bit-identical `solidDisplacementFoam` port, plus the new pieces (field-valued gamma, vector correction by components, `leastSquares` vector gradient assembled from three scalar gradients, `gaussGrad::correctBoundaryConditions`). **Prediction: not bit-identical on all cells at step 1; worst difference between 1e-16 and 1e-12 relative to `max |disp|`; the PCG iteration counts equal in at least 90 % of the 27 displacement solves; first divergence in the first displacement corrector's first solve (`dispx`), cause one of: the non-orthogonal boundary `deltaCoeffs` on the non-axis-aligned `defaultFaces` (patch-normal `delta()`), the order of `fvc::div` of the explicit correction, or the `grad(disp)` boundary correction.** A miss above 1e-9 would be a defect in the translation, not round-off, and is reported with its first diverging step.
+* **Q4** (`meshDisp`): bit-identical wherever `disp`, `fuelDisp`, `CRDisp` are (it is five multiplications and additions per cell); its worst difference is bounded by that of `disp` and `fuelDisp`.
+* **Q5** (`Max sigmaEq`, `residual_`): `residual_` equals the first-corrector initial residual of the LAST step to the digits the solves agree; `Max sigmaEq` equal to 1e-13 relative (it is a max over a boundary-inclusive set, so it exposes the boundary gradient correction).
+* **Q6** (substituted `GAMG`, measured separately in "Results"): at the SHIPPED tolerances (`TStruct` GAMG `1e-6`/`relTol 1e-3`, `disp` PCG `relTol 1e-3`) the port (`PBiCG`/`DILU`, `PCG`) differs from upstream by no more than the solver tolerance on that step: `TStruct` within `1e-3 |T^n - T^{n-1}|` (a few K x 1e-3, so under 1e-2 K) and `disp` within 1e-3 of its step increment.
+
+## Round 23 results (2026-11-26, release; `tests/genfoam_legacy_thermo_mechanics_vs_upstream.rs`, 5 tests, ~6 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `legacyThermoMechanics.C` constructor, `solveThermalMechanics.H`, `calculateStress.H`, `thermoMechanics.C` constructor (`fuelDisp`, `CRDisp`, `meshDisp`) | `genfoam::thermo_mechanics::legacy_fvm::LegacyFvmThermoMechanics` (`correct_physics`, `set_coupling_fields`, the `fuel_displacement`/`control_rod_displacement`/`mesh_displacement` feedback outputs) |
+| `PBiCG::solve`, `DILUPreconditioner`, `lduMatrix::Tmul`, `losortAddr` | `legacy_fvm::pbicg::pbicg_dilu` |
+| `thermoMechanicalProperties`, `fvSchemes`, `fvSolution`, `controlDict`, `0/` fields, `polyMesh`, `cellZones` | `legacy_fvm::case::LegacyFvmCase::read` (std; every unported selection refused by name) |
+| `fvMatrix::operator*=(volScalarField::Internal)` / `lduMatrix::operator*=`, `operator-=`, `fvm::ddt(rho, T)`, `gaussLaplacianSchemes` (scalar gamma), `correctedSnGrad::correction`, `gaussConvectionScheme::fvmDiv` + `upwind`, `leastSquaresGrad<vector>` + `gaussGrad::correctBoundaryConditions` | the operation order inside `legacy_fvm` (cited in the module and function docs); the scalar `leastSquares` gradient, `correctedSnGrad::fullGradCorrection`, `interpolate`, `surfaceIntegrate`, PCG/DIC are the earlier bit-identical ports, re-used |
+
+New library surface: one `mod` line (`two_phase::pcg` is now `pub(crate)`). The three coupling inputs, the six default values of `ZoneCard`, and the refusal list are in the module documentation. The older `MechanicsMeshSolver` is untouched.
+
+### Comparisons (all measured by the test above; `exact` counts bit-equal values, `+0 == -0`)
+
+| comparison | fields compared | linear solves | result |
+|---|---|---|---|
+| **Real class, tight protocol** (`legacyTmDump` driver, imposed coupling fields), 3 steps x 3 correctors | `TStruct`, `disp` (3 components), `fuelDisp`, `CRDisp`, `meshDisp` (3): 23340 / 70020 / 23340 / 23340 / 70020 values per step, 630,180 in all | 36: initial residual, final residual and iteration count of every one | **every value bit-identical at every step; 36/36 solves identical (iteration counts 113-139 for `PCG`, 2-6 for `PBiCG`); `Max sigmaEq` (cells and boundary faces) and `residual_` identical to all 17 digits** |
+| **Real `GeN-Foam` executable**, single region (`regionSolvers { thermoMechanicalRegion legacyThermoMechanics; }`, library through `libs`), the fields it WROTE at `writePrecision 17`, steps 1 and 3 kept | the same five fields (`TStruct` is forced to 1 K by `isPorous = 1`; max `fuelDisp` 7.34e-3 m, `CRDisp` 1.48e-2 m, `disp` 7.0e-3 m) | 36/36 identical | **bit-identical (10/10 tallies exact); `Max sigmaEq` (printed with 14 digits) equal** |
+| Control: `Gauss linear` gradients instead of `leastSquares` | step 1 | 3 corrector residuals differ | `disp` differs by **1.7e-2** of its max (0 of 70020 values equal), `meshDisp` 1.3e-3, `Max sigmaEq` 1.2e-3 relative, worst initial residual 3.2e-2; `TStruct`, `fuelDisp`, `CRDisp` unchanged (they use no displacement gradient) |
+| Control: `uncorrected` Laplacian instead of `corrected` | step 1 | residuals differ | `disp` differs by **2.7e-7** of its max (0 of 70020 equal), `meshDisp` 3.5e-7, `Max sigmaEq` 1.1e-6, worst initial residual 2.1e-6: the non-orthogonal correction is real on this mesh (small), and the comparison sees it |
+| **Shipped solver settings** (tutorial `fvSolution`: `PCG` `1e-6`/`relTol 1e-3`, expansions `PBiCG` `1e-5`/`0.01`, `TStruct` `GAMG` `1e-6`/`0.001`) against the port with `TStruct` `PBiCG`/`DILU` (the named substitute), step 1 | five fields | 23 of 24 iteration counts equal (the `TStruct` one differs: upstream's `GAMG` stops after 1 cycle) | `TStruct` worst **1.42e-2 K** (1.4e-5 of max `T`); `disp` worst **1.9e-8 m** (2.2e-6 of max); `meshDisp` 1.9e-8 (2.8e-6); `fuelDisp` exact; `CRDisp` 2.6e-13 (6.9e-11); `Max sigmaEq` 4.6e-6 relative. Step 2 (a development run; its reference is not kept, for size): `TStruct` 1.39e-2 K, `disp` 1.9e-8 m (2.4e-6), `CRDisp` 2.3e-10, `Max sigmaEq` 3.8e-6 |
+
+The agreement is a property of the operation order, not of the solver: PCG/DIC, PBiCG/DILU, the corrected-Laplacian explicit term, the row scaling and the boundary-corrected `grad(disp)` all reproduce upstream's arithmetic. No round-off allowance was needed and none is claimed; nothing is flagged for the maintainer under the 1e-9 rule.
+
+### Predictions: held and missed
+
+* **Q1 held**: the cell centres (and so the imposed inputs) are bit-identical (`TStruct` exact at step 1).
+* **Q2 held**: `TStruct`, `fuelDisp`, `CRDisp` bit-identical at all steps with equal iteration counts.
+* **Q3 MISSED**: I predicted `disp` would NOT be bit-identical on all cells, with a first divergence in the first `dispx` solve at 1e-16 to 1e-12 relative. It is bit-identical in all 210,060 values and in all 27 displacement solves. I expected the new pieces (field-valued gamma, component-wise corrections, the `leastSquares` vector gradient built from three scalar gradients, the patch-normal boundary delta on the non-axis-aligned side faces) to cost a last bit somewhere; they did not, because each reuses an operator already verified bit-identical or reproduces upstream's expression order.
+* **Q4 held** (bounded by `disp`/`fuelDisp`; exact).
+* **Q5 held, tighter than predicted**: `residual_` and `Max sigmaEq` equal to all 17 digits (predicted 1e-13).
+* **Q6 partly missed**: the stated bound "under 1e-2 K" for the `TStruct` difference MISSED (1.42e-2 K); the formulated bound (1e-3 of the step change, up to 381 K, so 0.38 K) held by a factor 27, and "`disp` within 1e-3 of its step increment" held by more than 400 (2.2e-6 of the step-1 displacement).
+
+### Deviations from upstream (all named) and what is not covered
+
+* `TStruct` `GAMG` -> `PBiCG`/`DILU` (`TStructSolver::GamgSubstitutedByPbicgDilu`, `LegacyFvmThermoMechanics::t_struct_gamg_substituted`; the faithful `GAMG` is gh:#1843). Measured above at the shipped tolerance. At the tight protocol upstream's own case also selects `PBiCG`/`DILU`, so that row has no deviation in the solver.
+* ~~The tutorial's `GFTractionDisplacement` patches are `fixedValue`/`zeroGradient` here (gh:#1235)~~ **CORRECTED 2026-11-26 (round 24, gh:#1235): ported; the round-23 tests keep the replacement (their references were made with it), the traction form is `tests/genfoam_traction_displacement_vs_upstream.rs`**; the zone cards differ from the tutorial's (identical in the tutorial); the coupling inputs are imposed (driver, test) or the constructor defaults (executable). The coupled ESFR run (TH and neutronics regions) is gh:#1846.
+* Refused by name, not ported: `compactNormalStress no` and transient `d2dt2` (gh:#1845), `Limited` Laplacian, `cellLimited`/`fourth` gradients, non-uniform initial fields, non-`zeroGradient` `TStruct` patches, `extendedThermoMechanics` (needs the lost offbeat API), `deformMesh`/`movePoints` (gh:#1784), `correctBaffleLessFields` (no baffles).
+* Comparisons are on ONE mesh (23340 hex cells; `corrected` vs `uncorrected` differ by 2.7e-7, so it is mildly non-orthogonal) and 3 steps; bit-identity says the operation order matches on this mesh, not that every branch (e.g. a `Limited` scheme, a cyclic patch) is exercised.
+
+### Moved numbers
+
+None. No pin, gate or tolerance of an existing test changed. `two_phase::mod.rs`: `mod pcg;` -> `pub(crate) mod pcg;`.
+
+### Reproduction
+
+`scripts/build_and_run_legacy_tm_dump.sh <nSteps> <out.txt>` (builds `libThermoMechanicsSolvers` and the driver, runs it; `SHIPPED=1` selects the tutorial `fvSolution`), `scripts/extract_legacy_tm_log.sh`, `scripts/extract_legacy_tm_written.sh` (the executable's written fields), `scripts/make_legacy_tm_case.sh` (stages the case from the upstream tutorial; `cases/legacy_tm_esfr` is its output, `cases/legacy_tm_esfr_shipped` the tutorial's own `fvSolution`). Upstream objects are deleted after each link; the run directories under `/home/user/upstream-build/gh1781` are scratch. The staged mesh is 684 KB gzipped; the references total 8.1 MB gzipped (`refs/legacy_tm_esfr*.ref.txt.gz`), kept at 17 digits so that the comparison is exact.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed (6 s); `--lib thermo_mechanics` 22 passed (7 new in `legacy_fvm::tests`); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` compiles `outram-foam-appbuilder-lib` for `x86_64-unknown-none`. Not run: the other suites of the crate and the workspace (the parent's integration run covers them); `docs/outram-foam-appbuilder-lib-api.md` (the generated mirror) was not regenerated.
+
+
+## Round 22 results (measured 2026-11-26, release, shared 4-core machine; upstream = the real unmodified binary, serial, tight; tests in `tests/genfoam_msfr_coupled_vs_upstream.rs`)
+
+**Upstream runs** (scratch under `/home/user/upstream-build/gh1813/`, deleted after extraction): `steadyStateTH` (shipped tolerances), tight `steadyStateEN` to 165 s, then three tight `transient` runs from that state. `scripts/reap_fluid_T.sh` saved `T` and deleted each step directory (10 MB per step). The references are `refs/msfr_full_{a,b,c}.ref.txt.gz` (every step's `deltaT`, every `h` initial residual, every `T (avg min max)` triple, Courant, every `power:`, neutron iteration counts, final `neutroResidual` and second-solve residuals per coupling iteration, `T` at selected steps; 1.3, 1.4 and 0.8 MB).
+
+**Finding 1 (the issue's step count was wrong).** The tutorial's `endTime 175` from the 165 s state is **1347 steps**, not 142 (the step size is capped at `maxDeltaT` = 7.4725e-3 s from step 15 on, and 10 s / 7.47e-3 s is about 1340). 142 steps reach t = 166.0 s. Part 1 therefore compares 1347 steps.
+
+| part, case | steps | worst `dt` | worst `T` field (kept steps) | worst `T` stats | worst `power:` | worst Courant | coupling / neutron iteration counts equal | `residual_` worst | wall |
+|---|---|---|---|---|---|---|---|---|---|
+| 1. A: tutorial dictionary, to 175 s (`msfr_full_transient_to_175_s_matches_upstream`) | 1347 | 9.3e-14 | 1.64e-12 (step 700; 9.2e-13 at the end) | 1.65e-12 | 1.29e-11 | 9.4e-14 | 1347/1347 (all 1) / 1347/1347 (all 1) | 1.46e-5 | 171 s |
+| 2. B: `minResidual 1e-7`, `maxIterations 6`, 276 steps to 167 s (`msfr_multi_iteration_coupling_matches_upstream`) | 276 | 9.3e-14 | 1.46e-12 | 1.05e-12 | 2.37e-11 | 9.4e-14 | 276/276 (1 at steps 1-10, **6 at 11-263, 1 from 264**) / 276/276 | 1.68e-5 | 168 s |
+| 4. C: `temperatureTimeProfile` on `hx`, 452 steps to 167.9 s (`..._452_steps_match_upstream`, `#[ignore]`) | 452 | 9.3e-14 | 1.98e-12 | 1.98e-12 | 3.51e-11 | 9.4e-14 | 452/452 (3 iterations at 300 steps) / 452/452 (cap of 50 reached) | 2.22e-6 | 1090 s |
+| 4. C, first 20 steps (`msfr_fixed_temperature_time_profile_matches_upstream`, every `cargo test`) | 20 | 9.3e-14 | 2.1e-15 | 1.1e-15 | 6.7e-15 | 9.4e-14 | 20/20 / 20/20 | 6.4e-8 | 2.6 s |
+
+No step is a "first diverging step": nothing exceeds 1e-9 anywhere. Bit identity is not reached; the differences are linear-solver round-off accumulated over hundreds of steps (`T` peaks near 2e-12 and decays again in A and B; in C it grows monotonically because the power excursion amplifies round-off). A model difference would show at 1e-6 or more immediately. The five `h` residuals of iteration 1 agree to 1.2e-5 (A, as in round 9; cancellation-dominated numbers, not gated); the single `h` residual of coupling iterations 2-6 in B to 1.65e-3 (a near-converged solve, 1e-11 absolute; printed, not gated); in C to 1.4e-8.
+
+### Part 2: what the multi-iteration case shows
+Upstream's first `h` residual crosses 1e-7 between steps 10 (8.89e-8) and 11 (1.058e-7), so the loop turns on at step 11, and the running-max residual (never reset) is below 1e-7 again only from step 264. The port reproduces BOTH switches and every iteration count (276/276), which tests the residual VALUE at two crossings, and `correctTightlyCoupledPhysics` (iterations 2-6 of the fluid: one `correctModels` and one `correctEnergy`) at 253 steps x 5 iterations. B is not a vacuous case: its `power:` at step 276 differs from A's by **3.3e-5** relative (19999008.2496 vs 19999660.4701), so the extra iterations change the answer.
+
+### Part 3: the neutronics `residual_` value
+`UpstreamTransientStep::residual` now carries upstream's `residual_`: `max(second-solve initial residual of every group of every neutron iteration, final neutroResidual)`; it is the default in `EnergyNeutroTransient`, and the round 9 stand-in stays as `residual_lower_bound_form` / `with_lower_bound_neutro_residual()`. Against the value computed from upstream's log (`RESID_n`, per coupling iteration): worst relative difference **1.46e-5 (A), 1.68e-5 (B), 2.2e-6 (C)**. The final `neutroResidual` (1e-8 scale in A and B, up to 1e-4 in C) dominates; the second-solve term is at the solver tolerance in both codes (upstream max 1.04e-14, port max 3.4e-15): the same order, **not** equal (two different linear solvers' round-off), and never the larger term in any compared step, so it cannot change a decision. It would matter only if the neutron loop converged below the solver tolerance. The old harness form equals the new one whenever the neutron loop takes one iteration (all steps of A and B: `NITER` is 1 everywhere in the references) and is larger otherwise; on the light chain (residual 1e-4 against 5e-5) both take the same decision and the step-1 power is bit for bit the same (asserted in `msfr_light_chain_matches_upstream`).
+
+### Part 4: what is done and what is not
+Done: `fixedTemperature`'s `temperatureTimeProfile` (`T_ = f(t) T_old / f(t - deltaT)`, applied at the end of each `correctEnergy` as `structure::correct` does, and once at construction, `T_old` stored once per step), reading the table through the existing `read_table_time_profile`; the earlier refusal "temperatureTimeProfile is not ported" is gone. **Not done: heat exchangers** (`structureProperties.<zone>.heatExchangers`; a child issue is filed): they need the primary/secondary zone `meshToMesh` mapping and the secondary region's `htc`/`T` (`heatExchanger.C`), and no case of this stack runs them in both codes (`OnePhaseCcCase::read` still refuses them by name). A time-profile `type` other than `table` (`fmi`, `constant`, `sine`) is refused by name, as in round 12.
+
+### Predictions: held and missed
+| id | held? | measured |
+|---|---|---|
+| V1 about 142 steps | **MISSED (the premise was wrong)** | 1347 steps to 175 s; 142 steps reach 166.0 s |
+| V2 loop converges after 1 iteration at every step of A | **held** | 1347/1347 |
+| V3 levels (dt, T, T stats, power, Courant 1e-11/1e-12/1e-12/1e-11/1e-11, counts equal everywhere) | **partly missed** | dt, Courant (9e-14) and counts (1347/1347) held; `T` field 1.64e-12, `T` stats 1.65e-12 and `power:` 1.29e-11 exceeded my 1e-12 / 1e-12 / 1e-11 (the prediction was made for 142 steps; the drift is over 1347). All far below 1e-9. Gates are the measured values x about 2.5 |
+| R1 `residual_` vs log value <= 1e-4, expected 1e-6..1e-5 | **held** | 1.5e-5 (A), 1.7e-5 (B, just above the expected band); the second-solve term is not reproduced, as predicted |
+| R2 old and new value equal in A | **held by construction** | one neutron iteration at every step; not a separate per-step measurement |
+| R3 light chain: same coupling decision | **held** | 3 unconverged iterations, step-1 power bit for bit equal (2.485079e7); the old-time-snapshot ablation still misses by 1.131e-2 |
+| M1 B: 1 iteration at steps 1-10, 6 from step 11 | **held, and more** | also back to 1 from step 264 (a second switch I did not predict); the port reproduces both |
+| M2 B levels | **mostly held** | dt, T, power (2.4e-11 against 1e-10), Courant held; **missed**: the later-iteration `h` residual, 1.65e-3 against the predicted 1e-6 |
+| M3 B differs from A by 1e-9..1e-6 | **MISSED in size** | 3.3e-5; the "not vacuous" condition held |
+| F1 C: T <= 1e-12, dt 1e-11, power 1e-11 | **partly missed** | dt 9.3e-14 held; `T` 1.98e-12 and `power:` 3.5e-11 are over, because C is a power excursion (+5 % in 2.9 s; the neutron loop reaches its cap of 50 and the coupling loop its cap of 3 at 300 of 452 steps) that amplifies round-off. The first 20 steps agree to 2e-15 / 7e-15, so the order of the profile update was right on the first run |
+| F2 C: the profile matters | **held, far above** | `power:` at step 452 is 2.1009e7 against A's 1.9999e7 (+5 %) |
+| H1 heat exchangers | not exercised | filed |
+| W1 wall times (A < 40 s, B < 150 s, C < 40 s) | **missed** | A 171 s, B 168 s, C 1090 s (the 50-iteration neutron cap); C's full comparison is `#[ignore]`, its first 20 steps run in every `cargo test` (2.6 s) |
+
+C was stopped at 452 steps on purpose (167.9 s): upstream's rate fell to 0.6 steps/s once the neutron loop hit its cap, and the remaining ~900 steps were not needed for the question asked. The reference records exactly the 452 complete steps (`N 452`).
+
+### Moved numbers
+None of an earlier gated number. `UpstreamTransientStep` gained three fields (no struct literal elsewhere). The neutronics `residual_` the workflow feeds to the loop changed from the stand-in to upstream's form; the coupling decision is the same in every compared case, and the light chain is unchanged (`dt` 2.0e-11, step-1 power 2.485079e7, as in round 15). `solve_twice` is untouched (`solve_twice_residuals` is new).
+
+### What is deliberately not the same as upstream, and what remains
+The second-solve residual uses OpenFOAM's normalisation but is a different number from upstream's (a different PCG; both sit at the solver tolerance). `T (avg min max)` of coupling iterations 2+ is not reported by the port (`correct_tightly_coupled_physics` returns only the residual), so those triples are checked through `T` at the kept steps only. Heat exchangers are not ported. Aitken acceleration remains not performed (round 6 decision).
+
+### Gates run (2026-11-26, release, targeted; the parent runs the full integration test)
+`--test genfoam_msfr_coupled_vs_upstream` (6 passed, 1 ignored in 178 s; the ignored 452-step C test re-run with its final gates: passed, 1064 s), `--test genfoam_msfr_chain_vs_upstream msfr_light_chain` (1 passed, 84 s), `-p petir --test no_platform_libm`, `bash scripts/check-nostd.sh` (exit 0).
+
+
+## Round 24 (gh:#1235): `GFTractionDisplacement` and `gapContact`, against GeN-Foam's own class
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26, **predictions committed BEFORE the first run of the traction code**.
+
+### What was searched before writing anything (CLAUDE.md "search before building")
+
+* Upstream, the whole of `src/classes/thermoMechanics/tractionDisplacement/` (1,035 lines): `GFTractionDisplacementFvPatchVectorField.{C,H}` (465) and `gapContactFvPatchVectorField.{C,H}` (570). Nothing else in GeN-Foam 652b3da derives from them; `extendedThermoMechanics` and `offbeat/solvers/fuelBehaviour` only mention `gapContact`. No tutorial uses `gapContact`; the `3D_SmallESFR` tutorials use `GFTractionDisplacement` on every `disp` patch but `zeroDispl`.
+* `solvers::solid_displacement_foam` (ESI `solidDisplacementFoam`, bit-identical, gh:#1383) refuses `tractionDisplacement` by name (module doc, line 67): checked, nothing to reuse (ESI's `tractionDisplacement` is a different class: uniform `E`/`nu`, `rho` factored differently, no thermal term, no pressure).
+* `genfoam::thermo_mechanics::MechanicsMeshSolver` (older port): `mesh_solve.rs` line 113 mentions a "`tractionDisplacement` boundary" as a traction surface of a different, scalar solver; rejected as the base in round 23 and still.
+* `outram-park-fork-offbeat/src/gap/contact.rs`: a port of OFFBEAT's `contactFvPatchVectorField` (radial gap, `boundaryStiffness = K A / V`); GeN-Foam's `gapContact` is a different class (`boundaryStiffness = gMin(2 (2 mu + lambda) deltaCoeffs)` over the patch, gap width `0.5 (own + interpolated neighbour)`, a face-normal gap). Checked and not reusable; the two share only the idea of a penalty pressure.
+* `outram-foam-basic-lib::BoundaryCondition::FixedGradient(T)`: one uniform gradient per patch whose `snGrad` is that constant; `GFTractionDisplacement`'s gradient is a per-face field recomputed at every `updateCoeffs()` from the solution, so it cannot be expressed there. Rejected; the new type lives beside the round-23 solver and is written so that the finite-element version (gh:#1782) can call it.
+* No kovan-reviewed function is edited: `thermo_mechanics/review.md` and the `legacy_fvm` folder hold no `kind = "review"` block (re-checked 2026-11-26).
+
+### What upstream's class does (read before any code), and what I expect it to do
+
+`updateCoeffs()` (`GFTractionDisplacementFvPatchVectorField.C` lines 143-212) runs once per `fvMatrix` construction of `disp` (the matrix constructor calls `psi.boundaryFieldRef().updateCoeffs()`; a patch updates once until its `evaluate()` resets `updated()`):
+
+```
+E = rhoE/rho;  mu = E/(2(1+nu));  lambda = nu E/((1+nu)(1-2nu));  twoMuLambda = 2 mu + lambda
+gradient = ((traction - pressure n)/rho + twoMuLambda snGrad - (n & sigmaD))/twoMuLambda
+gradient += n threeKalpha (TStruct - TStructRef)/twoMuLambda
+```
+
+with `snGrad` the *base-class* `fvPatchField<vector>::snGrad()` (`deltaCoeffs (value - internal)`), `sigmaD` the registered `sigmaD` patch field, and `evaluate()` setting `value = internal + gradient/deltaCoeffs` AFTER the solve, with the gradient of the matrix construction.
+
+Two findings from reading, both to be tested rather than assumed:
+
+* **`planeStress` typo.** The BC reads `thermoMechanicalProperties.found("rheologyOptions") ? subDict("rhelogyOptions").get<bool>("planeStress") : false` (lines 160-164): the guard says `rheologyOptions`, the sub-dictionary is spelled `rhelogyOptions`, and `legacyThermoMechanics` itself reads `rheologyOption` (singular). So the BC is plane strain whatever the case says, and a case with a `rheologyOptions` key would abort (`rhelogyOptions` not found). The port follows upstream (plane strain always; a `rheologyOptions` key is refused by name); the intended form is kept as a named option `traction_bc_honours_plane_stress`, used as a control.
+* **Two objects are called `E`.** `legacyThermoMechanics` registers `rhoE_` (object name `E`, declared first) and `E_` (also `E`, declared seven members later). The BC does `lookupPatchField("E")` and divides by `rho`. If the registry keeps the first, that is `rhoE/rho`, the Young's modulus per density; if it kept the second, the BC would divide `E/rho` by `rho` again. The port takes `rhoE/rho`.
+
+### The cases (staged by `scripts/make_legacy_tm_case.sh`; every deviation from the tutorial stated)
+
+Same case, mesh, zone cards, coupling functions and tight protocol as round 23, except:
+
+* **T0 "tutorial form"**: `0/disp` is the tutorial's OWN file, unedited: `zeroDispl` `fixedValue`, five `GFTractionDisplacement` patches with `traction 0`, `pressure 0`. Round 23's replacement is gone.
+* **T1 "loaded"**: T0 with nonzero inputs, so that `traction_` and `pressure_` are exercised and not only the thermal and `sigmaD` terms: `top` traction `(1e5 -2e5 3e5)` Pa; `topCR` pressure per face `5e4 (1 + 0.01 i)` Pa; `bottom` traction per face `(1e5 (1 + 0.001 i), 5e4, -5e4)` Pa and pressure `1e4` Pa; `bottomCR` traction `(5e4 0 0)` Pa; `defaultFaces` traction `(2e4 0 0)` Pa and pressure `2e5` Pa (`i` the face index in the patch; a per-face list on two patches so a face-order error cannot hide).
+* **T2**: T1 with `rheologyOption { planeStress yes; }` (one step): the BC must still be plane strain.
+* **`maxIter 100000`** for every linear solver (round 23: the default 1000). With the bottom released only the six `zeroDispl` faces constrain the body, so the displacement system is far worse conditioned than round 23's; a breached iteration cap would be a breached bound, and the protocol is fixed (cap raised), never the tolerance (`1e-14`, `relTol 0`).
+* The driver now also dumps, for every `GFTractionDisplacement` patch, the boundary `value` and the `gradient` (`F <step> dispB_<patch>`, `F <step> gradB_<patch>`).
+
+### Predictions (written BEFORE the first run; committed first)
+
+* **Q1** (the `E` lookup): the registry keeps `rhoE_`, so the port's `rhoE/rho` is right and the first loaded step agrees. A miss (the registry kept `E_`) would show as a boundary gradient wrong by the factor `rho` (1e3) in the `traction/rho` term and in `mu`, i.e. a worst `disp` difference at the 1e-3..1e-1 level of max |disp| at step 1, not round-off; I would then switch the port to upstream's form and record the correction.
+* **Q2** (bit-identity, T0): **every `disp` and `meshDisp` value at all 3 steps identical, 36 of 36 linear solves with identical initial/final residuals and iteration counts, `Max sigmaEq` and `residual_` identical, the boundary `gradient` and `value` of all five patches identical.** Confidence about 60 %: the BC is a short chain of exactly translated expressions, but the order of `updateCoeffs()` against `evaluate()`, and any `correctBoundaryConditions()` that the driver or the base classes call before the first corrector, are things I read rather than measured. If it is not identical: first divergence in step 1, first corrector, `dispx` (the state is simplest there: `disp = 0`, `sigmaD = 0`, so the gradient is the thermal term alone); worst relative difference to max |disp| between 1e-15 and 1e-10 if it is an operation-order difference in the gradient expression, above 1e-6 if it is a sequencing error (an `updateCoeffs()` before the first corrector, or after the solve).
+* **Q3** (T1): as Q2. If T0 is identical and T1 is not, the culprit is the `traction/pressure` term (the `(traction - pressure n)/rho` order) or the per-face reading.
+* **Q4** (iteration counts): the `dispx|y|z` PCG solves need between 300 and 5000 iterations at step 1 (round 23: 113-139), all below the cap of 100000.
+* **Q5** (size of the answer): max |`disp`| at step 3 of T0 is between 3e-3 and 3e-2 m (round 23's replacement run: 7.0e-3 m; the released bottom lets the column expand both ways). T1 differs from T0 by between 1e-3 and 1e-1 of max |`disp`|, the loads being 1e5..3e5 Pa on `E` of 5e8..2e9 Pa.
+* **Q6** (controls; each must be distinguishable from the reference): (a) round 23's replacement (`fixedValue 0` on `bottom`, `bottomCR`; `zeroGradient` elsewhere) against the T0 reference: worst `disp` difference above 0.1 of max |disp| (a fixed bottom against a free one); (b) the port with `pressure` zeroed against the T1 reference: above 1e-4; (c) the port with the traction zeroed against T1: above 1e-4; (d) the port with `traction_bc_honours_plane_stress` against the T2 reference: above 1e-3 (plane-stress `lambda` is 0.33 E against plane-strain 0.58 E at nu = 0.3, so `twoMuLambda` differs by about 20 %).
+* **Q7** (T2): bit-identical to upstream when the port follows upstream (plane strain in the BC); the cells use the plane-stress `lambda`, the BC does not, and that mismatch is upstream's.
+* **Q8** (`gapContact`): no differential test is possible standalone: it needs a `regionCoupled` patch pair, the neighbour region's `disp` and `meshDisp`, and the AMI interpolation between two meshes (coupled-region infrastructure, gh:#1846). The arithmetic (`gapWidth`, `boundaryStiffness`, the interface pressure) is ported as pure functions on face arrays, tested against hand-computed values (not against upstream), and a `type gapContact` patch in a case is REFUSED by name. A follow-up issue is filed.
+
+
+## Round 24 results (2026-11-26, release; `tests/genfoam_traction_displacement_vs_upstream.rs`, 7 tests, ~4 s wall for all)
+
+### What was ported (upstream file -> Rust)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `GFTractionDisplacementFvPatchVectorField.C` `updateCoeffs()` (lines 143-212), constructors (value = internal, gradient 0), `evaluate()` of `fixedGradientFvPatchField` | `legacy_fvm::traction::{GfTractionDisplacement::update_gradient, base_sn_grad, evaluate_value, TractionInputs}` (mesh-free, so the finite-element version, gh:#1782, can call them); wiring in `legacy_fvm/mod.rs` (`DispPatch::GfTractionDisplacement`; `update_disp_coeffs` = the `fvMatrix` constructor's `updateCoeffs()`; `correct_disp_boundary` = `evaluate()`; the `fixedGradient` `boundaryCoeffs` of `A == B`; the patch `snGrad()` in `grad(disp)` and `fvc::laplacian`) |
+| the reading of `traction`, `pressure` (`uniform` and `nonuniform List`) | `legacy_fvm::case::face_field`; a `gapContact` patch and a `rheologyOptions` key are refused by name |
+| `gapContactFvPatchVectorField.C` `gapWidth()`, `boundaryStiffness()`, the owner-side part of `updateCoeffs()` | `legacy_fvm::traction::GapContact::{gap_width, boundary_stiffness, update_owner}`: pure functions; the neighbour-side arrays are inputs; **no upstream comparison** |
+
+### Comparisons (all bit-for-bit: `exact` counts equal values)
+
+| case | what was compared | linear solves | result |
+|---|---|---|---|
+| **T0** tutorial `disp` unedited (zero traction/pressure), 3 steps | `disp` (70020 values x 3 steps), `meshDisp` step 3, boundary `value` and `gradient` of the five patches (12,330 values each per step, steps 1 and 3) | 36: initial residual, final residual, iteration count of every one | **every value identical (0 of ~329,000 compared values differ); 36/36 solves identical (`dispx|y|z` 163-175 iterations); `Max sigmaEq` and `residual_` identical to all 17 digits** |
+| **T1** loaded (nonzero traction and pressure, per-face lists) | the same | 36 | **identical in every value and every solve** |
+| **T2** T1 with `planeStress yes`, 1 step | `disp`, patch gradients and values | 12 | **identical**: upstream's BC stays plane strain, and the port reproduces that |
+| Control (a): round 23's replacement (`fixedValue 0` on `zeroDispl`/`bottom`/`bottomCR`, `zeroGradient` elsewhere) against the T0 reference | `disp` step 1 | | worst difference **1.07** of max `|disp|` |
+| Control (b): `pressure` zeroed against the T1 reference | `disp` step 1 | | **7.7e-3** |
+| Control (c): `traction` zeroed against the T1 reference | `disp` step 1 | | **0.76** |
+| Control (d): the INTENDED plane-stress lookup (`traction_bc_honours_plane_stress`) against the T2 reference | `disp` step 1 | | **0.167** |
+
+There is no first diverging step: nothing differs anywhere. No round-off allowance was needed and none is claimed; nothing is flagged under the 1e-9 rule. The agreement covers the new quantities directly (the boundary gradient and value of every patch, bit for bit, at the first and last step), not only their effect on `disp`.
+
+Sizes (for the reader): max |`disp`| T0 7.25e-3 m (step 1), 9.65e-3 m (step 3); T1 2.67e-2 m, 4.60e-2 m; T1 differs from T0 by 2.8 (step 1) and 4.2 (step 3) of T0's max |`disp`|. The loads are large for this model because only the six `zeroDispl` faces hold the body: the unbalanced load is carried through that patch.
+
+### Predictions: held and missed
+
+* **Q1 held** (the registry keeps `rhoE_` for `E`): the port's `rhoE/rho` agrees to the last bit; had `E_` been kept the boundary gradient would be wrong by `rho` = 1000.
+* **Q2 held, T0 bit-identical** (60 % confidence stated): including the sequencing (no `updateCoeffs()` before the first corrector; gradient of the matrix construction used by `evaluate()`; the boundary gradient and value identical, which is the direct evidence).
+* **Q3 held** (T1 identical).
+* **Q4 MISSED**: I predicted 300-5000 PCG iterations for `dispx|y|z` at step 1; upstream needed **171, 173, 172** (T0; T1 171-173; T2 172-175). The released bottom did not make the system as ill-conditioned as I expected, so `maxIter 100000` was not needed (the default 1000 would have sufficed; I kept it because the protocol was fixed before the run, and it was never reached). No cap was breached.
+* **Q5 half held, half MISSED**: max |`disp`| of T0 at step 3 is 9.65e-3 m (predicted 3e-3..3e-2, held). T1 differs from T0 by **2.8-4.2 of max |disp|**, predicted 1e-3..1e-1: missed by two orders of magnitude, because the loads (up to 3e5 Pa on a body held by six faces) are not small against `E` = 5e8-2e9 Pa over metre-scale lengths. It does not change a conclusion, but the loaded case is thereby a much larger perturbation than I intended.
+* **Q6 held** with margin: (a) 1.07 (> 0.1), (b) 7.7e-3 (> 1e-4), (c) 0.76 (> 1e-4), (d) 0.167 (> 1e-3). The plane-stress control (d) is smaller than the 20 % in `twoMuLambda` would suggest because the BC term is only part of the solution.
+* **Q7 held** (T2 identical).
+* **Q8 held** (no differential test of `gapContact`; arithmetic unit-tested; refused in cases).
+
+### Findings about upstream (both now documented in `traction.rs` and kept)
+
+1. `GFTractionDisplacement` reads `found("rheologyOptions") ? subDict("rhelogyOptions")... : false`: misspelled, so the BC is **always plane strain**; `planeStress yes` changes the cells' `lambda` and `threeK` but not the BC's (T2 measures this on the real class). A `rheologyOptions` key would abort upstream; the port refuses it by name.
+2. Two objects named `E` (`rhoE_` and `E_`) are constructed in `legacyThermoMechanics`; the registry keeps the first, which is what the BC needs; had the declaration order been the other way the BC would silently divide by `rho` twice.
+
+### Deviations from upstream (all named) and what is not covered
+
+* `gapContact`: not run against upstream (needs `regionCoupled` patches, the neighbour region's `disp`/`meshDisp` and AMI interpolation: gh:#1846). Its three formulas are checked against hand-computed values only. Its `neighbour()` field lookup, the `gapWidth` volScalarField write, `autoMap`/`rmap` and `write` are not ported.
+* `Gauss linear` gradients with a traction patch are REFUSED by name (the shared Gauss route computes the boundary `snGrad` as `deltaCoeffs (b - P)` and not as the patch `gradient()`); the ESFR case uses `leastSquares`.
+* Only `uniform` and `nonuniform List` `traction`/`pressure` are read; the `value` entry is ignored, as upstream does. Mapping, `write()` and the `fixedGradient` `evaluate()` entry through `correctBoundaryConditions` outside the solver are not exercised beyond the `mechanicsSolver off` branch (unit-tested for the multiplication by zero, not against upstream).
+* One mesh (23340 hex cells), 3 steps, coupling functions imposed; the BC on a non-axis-aligned patch is exercised on `defaultFaces` only.
+
+### Moved numbers
+
+None. Round 23's five tests are unchanged and pass (their references were made with the replacement patches; `LegacyFvmSettings` gained one field, default `false`).
+
+### Reproduction
+
+`TRACTION=t0|t1 [PLANE_STRESS=1] MAXITER=100000 scripts/build_and_run_legacy_tm_dump.sh <nSteps> <out.txt>` (the driver rebuild is automatic; it links the round-23 library, which already contained `GFTractionDisplacement`); `scripts/make_traction_disp.sh` writes the two `disp` files (committed under `cases/legacy_tm_esfr_traction/`, with the `fvSolution`); the references are `refs/legacy_tm_traction_{t0,t1,t2}{,_log}.ref.txt.gz` (5.6 MB gzipped in all: `disp` every step, `meshDisp` step 3, patch values/gradients steps 1 and 3).
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_traction_displacement_vs_upstream` 7 passed (4 s); `--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed; `--lib thermo_mechanics` 25 passed (3 new); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` exit 0. Not run: the other suites of the crate and the workspace (the parent's integration run covers them); `docs/outram-foam-appbuilder-lib-api.md` (generated mirror) not regenerated.
+
+# Round 25 (gh:#1782, child of #1216): finite-element small-strain thermo-elasticity, selectable beside the finite-volume solver by enum
+
+AI-written, not human-reviewed. Research, education and V&V only. There is no upstream GeN-Foam FEM, so nothing here is
+"bit-identical to upstream": the finite-volume path stays the default and the bit-identical one (round 23); the
+finite-element path is verified by closed forms, by code-to-code against the finite-volume path, and by an external FEM
+code (below). Tests: `tests/genfoam_fem_thermo_mechanics_gh1782.rs` and the unit tests in
+`src/genfoam/thermo_mechanics/fem/tests.rs`.
+
+## Searched before writing (reuse)
+
+`farrer-park` (FEM ports of MOOSE tensor mechanics): REUSED for `Mesh`, `ElementType` (`Hex8`, `Tet4`), `map_gradients`,
+`default_rule`, `BMatrix`, `Tensor4::isotropic`, `Voigt6`, `DofMap`/`SparsityPattern`/`CsrMatrix`, `DirichletSet`
+(elimination), `Traction`, `solve_linear` (CG + ILU(0)). Checked and rejected: `assembly::System` (one material for the
+mesh, no thermal strain; GeN-Foam has 8 zones and an eigenstrain) and `solve_nonlinear` (load-stepped plasticity).
+`outram-park-fork-offbeat` (finite-volume `smallStrain`: the wrong discretisation), `MechanicsMeshSolver` (finite volume),
+`outram-blender`'s `fem-export` converters (neutral mesh -> farrer Mesh; needs a neutral mesh rather than a polyMesh, and
+has no prism decomposition). Meshes of the V&V cases: `outram_foam_mesh::block_mesh` (the in-process `blockMesh`, with arc
+edges), a dev-dependency already. No `code_aster`/MOOSE port with a thermal eigenstrain exists in the workspace. The
+finite-volume expansion feedback (`fuelDisp`, `CRDisp`, `meshDisp`) is REUSED, not rewritten: two additive entry points
+split `correct_physics` at the displacement solve (`legacy_fvm/external_displacement.rs`, one `mod` line in
+`legacy_fvm/mod.rs`; no existing function edited).
+
+## Formulation
+
+Steady `div(sigma) = 0`, `sigma = D(eps) - 3K alpha (T - Tref) I`, weak form
+`K u = integral(B^T 3K alpha (T-Tref) I dV) + tractions`, `T` = the finite-volume `TStruct` per cell (piecewise constant).
+`Hex8` (2x2x2 Gauss) on all-hexahedral meshes, else `Tet4` on the conforming cone decomposition (prism -> 3 tets).
+`zeroGradient` maps to the natural traction-free condition (NOT the same condition: `dD/dn = 0` vs `sigma.n = 0`).
+Default stiffness normalisation `E = rhoE/rho` (GeN-Foam's own equation, `sigma/rho` continuous across zones);
+`Physical` (`E = rhoE`) is the option.
+
+## Predictions (written BEFORE any run of the finite-element code; committed first)
+
+Relative = divided by the amplitude (max |u|) of the exact or reference field.
+
+* **P1 free thermal expansion** (uniform `dT = 100 K`, three symmetry planes, rest free, graded Hex8 and Tet4 meshes,
+  `rho != 1`): `u = alpha dT x` is in the linear-element space, so the displacement error is round-off/solver tolerance,
+  `< 1e-9` relative, and the stress is zero to `< 1e-8` of `3K alpha dT`.
+* **P2 clamped bar** (`nu = 0.3`, ends and sides held at 0, `T = Tref + 500 sin^2(pi x/L)`, 1-D closed form
+  `u = -A (250 L / 2 pi) sin(2 pi x/L)`, `A = alpha (1+nu)/(1-nu)`, amplitude 8.87e-4 m for `L = 1`): observed order of the
+  max cell-average error for `n = 10, 20, 40, 80` cells along the bar: Hex8 `2.0 +- 0.15`; Tet4 (cone) between `1.5` and
+  `2.2`; the finite-volume path (same mesh, same `T`) `2.0 +- 0.15`. At `n = 20` the Hex8 error is between `1e-4` and
+  `2e-2` relative. The FEM-minus-FVM difference shrinks at order `2 +- 0.3`; both converge to the same closed form.
+* **P3 thick cylinder, internal pressure** (Lame, plane strain, `a = 0.1`, `b = 0.2`, `p = 100 MPa`, `E = 200 GPa`,
+  `nu = 0.3`, quarter annulus with arcs, symmetry planes, `u_z = 0`), Hex8 with `nr = 4, 8, 16, 32`: observed order of the
+  max cell `u_r` error `2.0 +- 0.2`; of the max cell `sigma_theta` error `1.0 +- 0.3` (stress is one order lower). Tet4:
+  displacement order `>= 1.5`, error larger than Hex8's on the same mesh.
+* **P4 thick cylinder, radial temperature** (Timoshenko, plane strain, free surfaces,
+  `T(r) = Tref + 100 ln(r/a)/ln(b/a)`, `T` at cell centres): `u_r` order `1.8 - 2.2` (cell-centre sampling of `T` is a
+  midpoint rule, O(h^2) in the weak form).
+* **P5 clamped smooth block** (cube `0.1 m`, all faces held at 0, `T = Tref + 200 sin sin sin`, `nu = 0.3`; `n = 4, 8, 16`
+  against an `n = 32` FEM reference aggregated to the coarse cells): FEM order `1.8 - 2.2`, FVM order `1.6 - 2.2`;
+  FEM-FVM relative difference at `n = 16` below `1 %` and falling by a factor `3 - 5` per halving.
+* **P6 ESFR** (3D_SmallESFR mechanics region, 23340 prisms, `Tet4` cone decomposition), same coupling fields as round 23,
+  step 1: `TStruct`, `fuelDisp`, `CRDisp` bit-identical between the two paths (the finite-element branch runs the
+  finite-volume code for them and they do not depend on `D`); injecting the finite-volume displacement reproduces the
+  finite-volume `meshDisp` bit for bit. FEM-vs-FVM `disp` is NOT small, because the lateral `zeroGradient` is not
+  traction-free and the mesh is coarse: relative L2 difference of `disp_z` `1 - 15 %`, of `disp_x`, `disp_y` `10 - 60 %`;
+  Max `sigmaEq` within a factor `0.3 - 3`. `Physical` vs `UpstreamRhoNormalised` stiffness: relative L2 difference of
+  `disp` `5 - 40 %` (rho spans 900 - 1500 across the zones).
+* **P7 external FEM code** (scikit-fem, Q1 hexahedra and P1 tetrahedra, same mesh, same eigenstrain, same BCs, run in a
+  scratch venv): agreement to round-off, `< 1e-8` relative in nodal displacement, for the same element. A larger
+  difference is a bug in one of them.
+
+## Round 25 results (2026-11-26, release, shared 4-core machine; `tests/genfoam_fem_thermo_mechanics_gh1782.rs`, 8 tests, 13 s; `--nocapture` prints every table)
+
+The prediction list above was committed (f0e3c9977) before any run of the finite-element code. Held / missed, with the
+numbers:
+
+| # | Prediction | Result | |
+|---|---|---|---|
+| P1 | free thermal expansion exact to `< 1e-9` | Hex8 `4.4e-13`, Tet4 `5.6e-13` (displacement, relative); stress `5.7e-13` / `9.0e-13` of `3K alpha dT` | held |
+| P2 | clamped bar: Hex8 order `2.0 +- 0.15`, Tet4 `1.5 - 2.2`, FVM `2.0 +- 0.15`, FEM-FVM shrinks at order 2 | see "Protocol correction" below. Against the 1-D closed form: Hex8 and FVM `1.703e-2, 4.148e-3, 1.030e-3, 2.572e-4` (n = 10..80), orders `2.04, 2.01, 2.00`, **identical to 1e-12 in `u_x`** (same 1-D discrete solution). Tet4 on that mesh `4.4e-2, 3.1e-2, 1.8e-2, 9.7e-3` (orders `0.49, 0.80, 0.87`) | Hex8, FVM held; Tet4 missed; "FEM-FVM shrinks at order 2" missed (they are the same to round-off) |
+| P2b | (added) exactly 1-D bar, `nu = 0.3`, only lateral components held, FEM | Hex8 = Tet4 (stretched and cubic cells) `1.7028e-2, 4.1480e-3, 1.0303e-3`, orders `2.04, 2.01` | held (the Tet4 shortfall of P2 is not the element) |
+| P3 | Lame `u_r` order `2.0 +- 0.2`; `sigma_theta` order `1.0 +- 0.3`; Tet4 `u_r` order `>= 1.5`, error larger | Hex8 (nr = 4, 8, 16, 32) `u_r` `9.87e-3, 2.52e-3, 6.33e-4, 1.58e-4` (orders `1.97, 1.99, 2.00`); `sigma_theta` `4.39e-3, 1.12e-3, 2.82e-4, 7.07e-5` (orders **`1.97, 1.99, 2.00`**); Tet4 `u_r` `6.18e-2, 1.95e-2, 5.80e-3` (orders `1.67, 1.75`), `sigma_theta` orders `1.30, 0.49`; Tet4 error 9x Hex8's at nr = 16 | `u_r` and Tet4 held; **`sigma_theta` order missed**: the cell-averaged stress converges at order 2, not 1 (an element average of a bilinear-in-`xi` stress is a Gauss-type sample, super-convergent; the order-1 expectation was for the stress at a node or point) |
+| P4 | Timoshenko `u_r` order `1.8 - 2.2` | `6.96e-3, 2.06e-3, 5.62e-4, 1.47e-4`, orders `1.76, 1.87, 1.94` (approaching 2 from below) | held at the last pair |
+| P5 | clamped block, FEM order `1.8 - 2.2`, FVM `1.6 - 2.2`, FEM-FVM `< 1 %` at n = 16, falling `3 - 5x` per halving | FEM vs n = 32 reference `2.03e-1, 4.60e-2, 1.20e-2` (orders `2.15, 1.94`); FVM `1.72e-1, 4.83e-2, 1.50e-2` (orders `1.83, 1.69`, drifting down); FEM-FVM `8.5e-2, 3.0e-2, 1.29e-2` (factors `2.83, 2.33`, orders `1.50, 1.22`) | orders held; **FEM-FVM `< 1 %` and `3 - 5x` missed**: the two converge to the same field but the difference falls at order 1.2 - 1.5, the finite-volume side being the slower (clamped-wall treatment, not investigated) |
+| P6 | ESFR: `TStruct`, `fuelDisp`, `CRDisp` bit-identical; injection bit-identical; `disp_x,y` `10 - 60 %`; `disp_z` `1 - 15 %`; Max `sigmaEq` ratio `0.3 - 3`; Physical vs normalised `5 - 40 %` | bit-identical (all four, incl. injected `meshDisp` x, y, z and `fuelDisp`); `disp_x` `14.58 %`, `disp_y` `14.58 %`, **`disp_z` `37.5 %`**; Max `sigmaEq` FVM `9.899e6`, FEM `1.031e7` Pa (ratio `1.042`); Physical vs normalised `5.13 %` | `disp_z` missed; the rest held (the `5 %` edge only just) |
+| P7 | scikit-fem agrees `< 1e-8` | Hex8 `1.2e-13`, Tet4 `5.5e-13` (max nodal difference / max `|u|`, 140 nodes, two zones with `rho != 1`, pressure, thermal load, symmetry planes, curved-edge hexes) | held |
+
+### Protocol correction (P2, found by the first run)
+
+The first P2 run gave `0.97` of the amplitude as the error of ALL THREE codes, equal to each other to three figures: the
+closed form was the one at fault. A `fixedValue` side patch holds `u_x` as well as `u_y`, `u_z` (the bar was clamped on its
+sides), so the 1-D solution was not the solution. Neither code was changed. The problem was redefined, not the tolerance:
+(i) `nu = 0`, free sides (`zeroGradient` for the finite-volume solver, the natural condition for the finite-element one), so
+the 1-D state satisfies both; (ii) P2b, the exactly 1-D case with `FixedComponents` (finite element only; the finite-volume
+solver cannot hold one component). Even (i) is not exactly 1-D: with traction-free sides the bar expands laterally,
+`u_y = alpha dT(x) y`, which creates a shear coupling of `O((h/L)^2)`; so P2's "error against the 1-D closed form" for Tet4 is
+not a convergence study (the reference is not that problem's exact solution) and no order is claimed from it. The unexplained
+part is why Tet4's difference from the 1-D reference does not fall while Hex8's does (on `nu = 0.3` P2b all three agree and
+converge at order 2); likely the constant-strain tetrahedra of the cone decomposition cannot follow the lateral expansion
+that varies from cell to cell, not investigated, filed.
+
+### The finding that matters: `zeroGradient` does not carry the thermal expansion
+
+In P2 the finite-element bar expands laterally (`max |u_y| = 1.5e-4 m`, `alpha dT y` with `dT` up to 500 K) and the
+finite-volume bar does not (`max |u_y| = 1e-18`): `zeroGradient` on `D` imposes `dD/dn = 0`, the thermal load
+`grad(3K alpha (T - Tref))` has no component across the side, and nothing else asks the side to move. GeN-Foam's own cases
+use `GFTractionDisplacement` there, which carries the thermal stress in the boundary condition (gh:#1235, being ported); with
+a plain `zeroGradient` the finite-volume solver omits the free lateral expansion. On the ESFR the same difference, plus the
+coarse mesh, is why `disp_z` differs by `37.5 %`: with every patch `fixedValue 0` (identical PDE and identical Dirichlet
+condition on both sides) the difference falls to `13.5 %` (x, y) and `3.6 %` (z), `max |u|` `3.07e-3` (FVM) and `3.15e-3`
+(FEM) m, which is the discretisation difference on 23 340 prisms cut into 70 020 tetrahedra.
+
+### Other measured facts
+
+* ESFR finite-element solve: `Tet4`, 70 020 elements, 39 879 dofs, 167 CG iterations (ILU(0), residual `7.7e-12`), 1.4 s with
+  assembly. Stiffness tolerance: `farrer-park`'s `1e-12` refused a `1.005e-12` true residual on the thick cylinder (stagnation
+  of the true residual); the default here is `1e-11`.
+* `Physical` stiffness (`E = rhoE`) vs GeN-Foam's `E = rhoE/rho`: `5.13 %` of the ESFR displacement.
+* P6's `Max sigmaEq` is the von Mises stress of the cell-averaged stress, scaled by `rho` as `calculateStress.H` does.
+* Round 23's own test (5 tests) passes unchanged: nothing in `legacy_fvm` was edited but one `mod external_displacement;` line.
+
+### External differential test (P7), status: done
+
+Instrument: scikit-fem 12.0.2 (numpy 2.4.6, scipy sparse direct solver), a scratch venv, `scripts/fem_differential_scikit_fem.py`
+reading the dump `fem_differential_dump` writes (mesh, per-element `E/rho`, `nu`, `alpha`, `Tref`, `T`, constrained
+components, pressure facets, the Rust nodal displacement). It assembles the same weak form with its own `ElementHex1`
+(2x2x2 Gauss) and `ElementTetP1`; the pressure load is its own numpy implementation. A first run read `1.14` for the hexahedron:
+the script's vertex permutation was wrong (scikit-fem's hexahedron vertex order is not the tensor order; the element volume was
+half the true one). The permutation was read off `MeshHex.init_tensor`, checked by volume, and only then re-run: `1.2e-13`.
+Not a differential against MOOSE or code_aster: neither is built here (`which ccx code_aster moose-opt` empty; `farrer-park`
+was verified against closed forms and manufactured solutions only, never run against MOOSE).
+
+### Not done (filed from this round)
+
+Nodal (continuous) temperature input, mixed-element meshes, reduced-integration or B-bar `Hex8` for nearly incompressible
+zones, `GFTractionDisplacement`/`gapContact` in the finite-element branch (gh:#1235), transient inertia (gh:#1845), a
+traction-free-versus-`zeroGradient` investigation of the finite-volume side (above), the Tet4 shortfall in P2.

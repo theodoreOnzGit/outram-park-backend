@@ -60,8 +60,10 @@
 //! | SP3, stationary fuel | `pseudo_time` | `Sp3Neutronics::step` | eigenvalue yes; transient no |
 //! | diffusion, circulating fuel + energy-only `onePhase` | `steadyStateEN` ([`EnergyNeutroDiffusion`]) | `energyNeutroLoop` ([`EnergyNeutroTransient`]) | both (round 11) |
 //!
-//! Refused by name: `steadyStateTH` (fluid mechanics, gh:#1812), SN (no transient path), point kinetics (no
-//! eigenvalue: its `keff_` is not iterated upstream).
+//! ~~Refused by name: `steadyStateTH` (fluid mechanics, gh:#1812)~~ **CORRECTED 2026-11-26 (gh:#1841, round 21):** `steadyStateTH`
+//! ([`SteadyStateTh`]) runs, and [`allrun::RootCase`] chains `steadyStateTH -> steadyStateEN -> transient` from `rootCase` with
+//! the fluid fields handed over in memory; its `p_rgh` `GAMG` is a named deviation ([`Deviation`]). Refused by name: SN (no
+//! transient path), point kinetics (no eigenvalue: its `keff_` is not iterated upstream).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -70,12 +72,16 @@ use uom::si::f64::Time;
 
 pub mod energy_neutro;
 pub mod reactor_state;
+pub mod steady_state_th;
+#[cfg(feature = "std")]
+pub mod allrun;
 
 pub use energy_neutro::{
     precursor_transport_from_velocity, EigenvalueRunControls, EnergyEigenvalueRecord, EnergyNeutroDiffusion,
     EnergyNeutroTransient, TransientRecord, TransientSettings,
 };
 pub use reactor_state::ReactorState;
+pub use steady_state_th::{Deviation, SteadyStateTh, ThRecord, ThRunControls};
 
 use crate::genfoam::neutronics::diffusion::DiffusionNeutronics;
 use crate::genfoam::neutronics::pseudo_time::{
@@ -135,8 +141,13 @@ pub enum EigenvalueStage {
         /// `controlDict` of the stage.
         controls: EigenvalueRunControls,
     },
-    /// `steadyStateTH`: fluid mechanics, not ported (gh:#1812).
-    SteadyStateTh,
+    /// `steadyStateTH`: the fluid region alone with the flow solved (gh:#1841).
+    SteadyStateTh {
+        /// The fluid region at `startTime 0`.
+        stage: SteadyStateTh,
+        /// `controlDict` of the stage.
+        controls: ThRunControls,
+    },
     /// SN has an eigenvalue driver but no transient to hand the state to.
     Sn,
     /// Point kinetics has no eigenvalue stage.
@@ -172,6 +183,15 @@ pub enum NormalisedState {
         /// Every step of the stage.
         history: Vec<EnergyEigenvalueRecord>,
     },
+    /// The fluid region at the end of `steadyStateTH`: what the `steadyStateEN` stage starts from (no neutronics yet).
+    SteadyStateTh {
+        /// The fluid region.
+        stage: SteadyStateTh,
+        /// Every step of the stage.
+        history: Vec<ThRecord>,
+        /// The deliberate differences from upstream this stage applied (empty when none).
+        deviations: Vec<Deviation>,
+    },
 }
 
 impl EigenvalueStage {
@@ -196,10 +216,11 @@ impl EigenvalueStage {
                 let history = stage.run_eigenvalue(&controls, |_, _| {})?;
                 Ok(NormalisedState::EnergyNeutroDiffusion { stage, history })
             }
-            Self::SteadyStateTh => Err(WorkflowError::NotPorted {
-                stage: "steadyStateTH",
-                reason: "the fluid-mechanics (momentum + pressure) stage is gh:#1812",
-            }),
+            Self::SteadyStateTh { mut stage, controls } => {
+                let history = stage.run(&controls, |_, _| {})?;
+                let deviations = stage.deviations();
+                Ok(NormalisedState::SteadyStateTh { stage, history, deviations })
+            }
             Self::Sn => Err(WorkflowError::NotPorted {
                 stage: "SN eigenvalue -> transient",
                 reason: "SN has a pseudo-time eigenvalue driver but no transient step to start",
@@ -228,6 +249,8 @@ impl NormalisedState {
         match self {
             Self::Diffusion { reactor, .. } | Self::Sp3 { reactor, .. } => *reactor,
             Self::EnergyNeutroDiffusion { stage, .. } => stage.reactor,
+            // `setSteadyStateTH` removes `0/uniform`: no `reactorState` exists, upstream's `lookupOrDefault` gives 1
+            Self::SteadyStateTh { .. } => ReactorState { k_eff: 1.0, p_target: 1.0 },
         }
     }
 

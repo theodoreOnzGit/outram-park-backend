@@ -1,0 +1,43 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      turbulenceProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+simulationType  RAS;//laminar;
+
+RAS
+{
+    RASModel        porousKEpsilon2PhaseCorrected;//porousKEpsilon;//LaheyKEpsilon;
+
+    turbulence      on;
+
+    printCoeffs     on;
+
+    liquidName      "liquid";
+    gasName         "vapour";
+}
+
+porousKEpsilon2PhaseCorrectedProperties//porousKEpsilonProperties
+{
+    "leftdownregioninletcorner:leftdownregioninletside1:leftdownregioninletside2:leftdownregioninletcenter1:leftdownregioninletcenter2:leftdownregionheatedcorner:leftdownregionheatedside1:leftdownregionheatedside2:leftdownregionheatedcenter1:leftdownregionheatedcenter2:leftdownregionoutletcorner:leftdownregionoutletside1:leftdownregionoutletside2:leftdownregionoutletcenter1:leftdownregionoutletcenter2:rightdownregioninletcorner:rightdownregioninletside:rightdownregioninletcenter1:rightdownregioninletcenter2:rightdownregionheatedcorner:rightdownregionheatedside:rightdownregionheatedcenter1:rightdownregionheatedcenter2:rightdownregionoutletcorner:rightdownregionoutletside:rightdownregionoutletcenter1:rightdownregionoutletcenter2"
+    {
+        convergenceLength           0.1;
+        turbulenceIntensityCoeff    2.6;//3.2;//1.6;//0.32;//0.16;
+        turbulenceIntensityAlphaCoeff   100;//20;//10;//5;
+        turbulenceIntensityExp      -0.125;
+        turbulenceLengthScaleCoeff  0.07;
+    }
+}
+// ************************************************************************* //

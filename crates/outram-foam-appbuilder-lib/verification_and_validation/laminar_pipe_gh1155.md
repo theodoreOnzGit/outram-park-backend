@@ -1196,6 +1196,21 @@ what is still open:
 
 ## Layer quality: cfMesh thinning against snappyHexMesh collapse, differentially (gh:#1215)
 
+> **Not re-checked: SnappyCollapse coverage figures (2026-11-26).** Every
+> `SnappyCollapse` coverage figure in this and the next two sections
+> (gh:#1215, #1240, #1241: "% of wall faces with all N layers",
+> "covered", "coverage") came from `LayerOutcome::faces`. That counted a
+> wall face's layers as the most of its points'. Since gh:#1241 the cells
+> are built by upstream's `nFaceLayers` rule (`FaceLayerCells::Upstream`,
+> the default), which gives a pinched face fewer. Where faces were pinched,
+> the figures are therefore **upper bounds**. Found when the layer index
+> read 541 layer cells against the outcome's 598 on TetGen's test pipe. The
+> `SnappyCollapse` route itself was removed the same day (gh:#1829: layers
+> are grown first, and no layers-last strategy is left), so the figures
+> cannot be re-measured on the current code; they were not re-measured. The cell counts, volumes, quality and
+> flow results are unaffected (they are measured on the mesh itself), and
+> so are the back-off and `CfMeshOptimise` figures.
+
 **Issue:** gh:#1215, the follow-up of gh:#1202's step 3 (3 layers diverge,
 one shrunk dual cell over the layer stack, 75–84° at the top-prism/dual
 interface; uniform thinning does not lower it). **Maintainer direction:**
@@ -3378,6 +3393,15 @@ the NaN faces (not drawn).
   `kovan-cli` run).
 
 ## The pipeline's acceptance gate refuses zero-area faces (gh:#1286, epic gh:#1251)
+
+> **Note, 2026-11-26 (gh:#1829).** The layers-last stage this section's test
+> refused (`bmE` at h 4 mm) no longer exists: layers are grown first. On
+> layers-first the same case grows all 3 layers at the full thickness, so
+> `final_mesh::diagnose_gh1283::gh1286_zero_area_layer_mesh_is_refused` now
+> asserts only the invariant (no face below `VSMALL`, no NaN angle on the
+> mesh returned). The gate in `acceptable` is unchanged. The test compiles
+> only with `cell-centre-dual`, which is why a cfMesh-only run did not show
+> that it had been failing on `develop` since gh:#1829.
 
 **The defect.** gh:#1283's `bmE` route at h 4 mm, 3 layers (above:
 `CellCentre` + `Corners`, boundary moves, `BoundaryProjection::EachPass`,

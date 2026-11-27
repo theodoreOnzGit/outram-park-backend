@@ -134,6 +134,8 @@ use staged::{PipelineStage, StageLog};
 /// Where the tetrahedra come from: the carved grid or TetGen (gh:#1796).
 pub mod tet_source;
 pub use tet_source::TetSource;
+/// Several regions in one mesh with body-fitted internal boundaries (NOT a port).
+pub mod multi_region;
 /// cfMesh's `tetMesh` layer steps on the pipeline's tetrahedra (gh:#1824).
 pub mod layers_first;
 

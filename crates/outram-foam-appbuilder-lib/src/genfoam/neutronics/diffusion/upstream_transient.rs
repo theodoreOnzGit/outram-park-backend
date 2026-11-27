@@ -82,7 +82,7 @@ use outram_foam_basic_lib::ldu_matrix::solvers::krylov_solve::KrylovOptions;
 use outram_foam_basic_lib::prelude::{fvm, Field, FvMatrix, VolScalarField};
 
 use super::DiffusionNeutronics;
-use crate::genfoam::neutronics::pseudo_time::{field_like, solve_twice};
+use crate::genfoam::neutronics::pseudo_time::{field_like, solve_twice_residuals};
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::neutronics::NeutronicsError;
 
@@ -149,6 +149,16 @@ pub struct UpstreamTransientStep {
     /// The first-solve initial residual of each group in the first neutron
     /// iteration (the `Solving for fluxStarG, Initial residual` lines).
     pub first_iteration_group_residuals: Vec<f64>,
+    /// `residual_` of upstream's `diffusionNeutronics` after this call (gh:#1813): `max` over every group of every neutron
+    /// iteration of the SECOND solve's initial residual (`fluxEq.H:29`) and the final iteration's `neutroResidual`
+    /// (`solveNeutronics.H:138`; `neutroResidual` is reset at the top of every iteration).
+    pub residual: f64,
+    /// The second-solve term of [`Self::residual`] alone (the already-solved system's initial residual; at the tight
+    /// protocol it is at the solver tolerance, far below the other term).
+    pub second_solve_residual: f64,
+    /// DEPRECATED form of `residual`, what the round 9 harness used: `max(first-iteration group residuals, whole
+    /// neutroResidual history)`. Equal to `residual` when the neutron loop takes one iteration, larger otherwise.
+    pub residual_lower_bound_form: f64,
 }
 
 /// `fvm::ddt(coeff, psi)` of `EulerDdtScheme::fvmDdt(vsf, vf)`, operation
@@ -191,6 +201,23 @@ impl DiffusionNeutronics {
             }
         }
         Ok(())
+    }
+
+    /// `runTime++`: store the old-time flux and `precStar` that every [`Self::upstream_transient_step`] call of
+    /// this time step integrates from (OpenFOAM's `storeOldTimes()` runs once per time index, so the second
+    /// and third iteration of an unconverged `multiPhysicsSolver` loop still use the values of the previous
+    /// step; gh:#1832). Call it once at the start of each step.
+    pub fn store_old_times(&mut self) {
+        let flux = self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
+        let prec_star = self.prec_star_values();
+        self.old_time = Some(super::UpstreamOldTime { flux, prec_star });
+    }
+
+    /// Back to the per-call snapshot form (each [`Self::upstream_transient_step`] call takes its old-time
+    /// values from the current state): the form before gh:#1832, kept as a named option. It is wrong when a
+    /// step is solved by more than one call.
+    pub fn clear_old_times(&mut self) {
+        self.old_time = None;
     }
 
     /// `precStar` per group, per cell (empty before [`Self::set_prec_star`]).
@@ -266,11 +293,17 @@ impl DiffusionNeutronics {
             }
         }
 
-        // Old-time values of this step (`oldTime()` is stored at the first
-        // modification in the time step).
-        let flux_old: Vec<Vec<f64>> =
-            self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect();
-        let prec_star_old: Vec<Vec<f64>> = self.prec_star_values();
+        // Old-time values of this step. `oldTime()` is stored once per time step, at the first access of a
+        // new time index: with [`Self::store_old_times`] called at the start of the step, every coupling
+        // iteration of the step reads those (gh:#1832). Without it the values are snapshotted here from the
+        // current state at every call (the earlier form, right for a step solved by one call).
+        let (flux_old, prec_star_old): (Vec<Vec<f64>>, Vec<Vec<f64>>) = match self.old_time.as_ref() {
+            Some(o) => (o.flux.clone(), o.prec_star.clone()),
+            None => (
+                self.state.flux().iter().map(|f| f.internal.as_slice().to_vec()).collect(),
+                self.prec_star_values(),
+            ),
+        };
 
         let one_minus_beta: Vec<f64> =
             self.xs.beta_tot.internal.as_slice().iter().map(|b| 1.0 - b).collect();
@@ -287,6 +320,7 @@ impl DiffusionNeutronics {
         let mut neutro_residual;
         let mut residual_history = Vec::new();
         let mut first_iteration_group_residuals = Vec::new();
+        let mut second_solve_residual = 0.0_f64;
         loop {
             // fluxEq.H
             neutro_residual = 0.0_f64;
@@ -334,9 +368,10 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, prompt), flux_g)
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
-                let (sol, init_res) =
-                    solve_twice(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
+                let (sol, init_res, second_res) =
+                    solve_twice_residuals(&eqn, &format!("fluxStar{gg}"), flux_g, self.settings.linear);
                 neutro_residual = neutro_residual.max(init_res);
+                second_solve_residual = second_solve_residual.max(second_res);
                 if neutro_iter == 0 {
                     first_iteration_group_residuals.push(init_res);
                 }
@@ -365,6 +400,12 @@ impl DiffusionNeutronics {
         }
 
         self.update_derived_fields();
+        let residual_lower_bound_form = first_iteration_group_residuals
+            .iter()
+            .chain(residual_history.iter())
+            .copied()
+            .fold(0.0, f64::max);
+        let residual = second_solve_residual.max(neutro_residual);
         Ok(UpstreamTransientStep {
             power_old,
             power: self.upstream_power(),
@@ -373,6 +414,9 @@ impl DiffusionNeutronics {
             neutro_residual,
             residual_history,
             first_iteration_group_residuals,
+            residual,
+            second_solve_residual,
+            residual_lower_bound_form,
         })
     }
 
