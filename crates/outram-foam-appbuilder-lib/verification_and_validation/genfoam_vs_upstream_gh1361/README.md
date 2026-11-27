@@ -6032,3 +6032,43 @@ The cell-centred region already relaxes per face. Not re-checked: `two_phase` mo
 ### Reproduction
 
 `bash upstream_driver/probe_one_phase_fc/build.sh` after copying `classes/{common,thermalHydraulics/{src,solvers}}` of `GeN-Foam-src` to `probe1894/classes` and applying the patch; `ISO=1 NOUTER=2 NCORR=1 bash run_up.sh iso21`; port: apply `port_probe_one_phase_fc_rs.patch`, `PORT_PROBE_FILE=... DIAG_NOUT=2 DIAG_NCORR=1 DIAG_P0=1 DIAG_NOHX=1 HX_TOL=1e-30 cargo test --release -p outram-foam-appbuilder-lib --test genfoam_heat_exchanger_vs_upstream diagnostic_step1_one_corrector -- --ignored --nocapture`; `python3 cmp.py up_iso21.txt port.txt`.
+
+# Round 47 (gh:#1898, gh:#1887): an SP3 data set on which upstream's two-group discontinuity-factor adjustment runs, and the SP3 path differenced against the binary with BOTH groups adjusting
+
+> Research, education and V&V only. AI draft, unreviewed. Maintainer direction 2026-11-27: "Port genfoam exhaustively", "Match all upstream"; on #1887: "sure" to finding an SP3-stable data set. Another agent writes Round 46; README merge conflicts keep both.
+
+## Why rounds 39 and 42 diverged (read from upstream and from its logs BEFORE any comparison; 2026-11-27)
+
+* `adjustDiscFactors.H` sets, per group and zone, `df_z = (A_z / sum A) / (I_z / sum I)` with `A_z = domainIntegrate(zone * fluxStar)`; it runs at the END of EVERY pseudo-time step of the eigenvalue branch (`solveNeutronicsSP3.H:119`, after `normFluxesSP3.H`), so the factors are computed from the flux of step 1, long before it has converged, and enter the operator of step 2 (`D/df`, `sigmaRemoval/df`, the `fluxStar2` terms).
+* SP3 starts from `defaultFlux` AND `defaultFlux2`, both `uniform 1` in the shipped slab tutorials (`0.orig/neutroRegion/defaultFlux{,2}`). `flux_ = (fluxStar_ - 2 fluxStar2_)/df` (`solveNeutronicsSP3.H:35`): the starting SCALAR flux is `1 - 2 = -1` everywhere, i.e. a negative power. `solveNeutronicsSP3.H:42-48` normalises at step 1 with `pTarget/pTot`, `pTot < 0`, which flips the sign of both moments; `calcKeff.H` then gets `keff = -0.14` and clamps to 0.1 (the "step 1 is the keff clamp" of round 42, measured in both codes); the end-of-step `adjustDiscFactors(fluxStar_)` integrates a `fluxStar` of mixed sign.
+* **Observed (upstream log reproduced today, round 39's `v1` data on SP3, shipped start; scratch `/home/user/upstream-build/gh1887/runs/t_s1`)**: the factors after step 1 are `-16.7, 2.5, 3.1, -19.1 | 1.39, 0.18, 0.32, 48.8` (reflector, coreLow, follower, controlRod; group 0 | group 1), keep changing sign and magnitude; the rod's group-1 factor sticks at 536 while the others fall to 1e-10..1e-14; at step 56 `DICPreconditioner::calcReciprocalD` divides by zero: FPE (exit 136). A negative or tiny factor makes `D/df` and `sigmaRemoval/df` of a zone negative or unbounded, the matrix is no longer an M-matrix, and a DIC pivot reaches 0.
+* **Hypothesis (the mechanism) and its test.** The divergence is caused by the NON-PHYSICAL STARTING SECOND MOMENT (`defaultFlux2 = 1` means a negative scalar flux), not by the adjustment recipe or by adjusting two groups as such. Test: the same data with `defaultFlux2 = 0` (the second moment of an isotropic angular flux is zero, so `fluxStar = phi0`, `flux = phi0 > 0`: the physical starting guess). **Disclosure:** ONE exploratory upstream run was made before this section was written, round 39's `v1` data on SP3 with `defaultFlux2 0` (`t_s1z`): 345 steps, no clamp warning, factors in 0.35..6.4 at the end. The data set below was derived afterwards from physical inputs and was not adjusted against any upstream run.
+
+## The data set (derived, not tuned; `scripts/make_r47_data.sh`, `cases/df_slab/nuclearData.{i0,i1,i2}`)
+
+* **Cross sections**: the IAEA 2-D PWR benchmark (Argonne Code Center Benchmark Problem Book, ANL-7416 Suppl. 2, 1977, problem 11-A2; two groups, `chi = (1,0)`, no up-scatter). **Values recalled from memory, NOT re-checked against the primary document in this session (flagged for the maintainer).** fuel 1 / fuel 2 / fuel 2 + rod / reflector: `D = 1.5, 0.4 | 1.5, 0.4 | 1.5, 0.4 | 2.0, 0.3` cm; `Sigma_a1 = 0.01, 0.01, 0.01, 0`; `Sigma_a2 = 0.080, 0.085, 0.130, 0.010`; `nuSigma_f2 = 0.135` (0 in the reflector); `Sigma_s12 = 0.02, 0.02, 0.02, 0.04` cm^-1. Mapped to `coreLow`, `follower`, `controlRod`, `reflector` of the round-39 mesh (2.197 m slab, 451 cells, graded), in m and m^-1.
+* **What SP3 needs and the benchmark does not give**: in-group scattering (second-moment total = `sigmaRemoval + sigmaFromTo[g][g]`, `fluxEqSP3.H`). Derived: isotropic scattering with `D = 1/(3 Sigma_t)`, so `Sigma_s,gg = 1/(3 D_g) - Sigma_r,g` (0.192 and 0.753 cm^-1 in fuel 1; 0.127 and 1.101 in the reflector; all positive). `nu = 2.5` and one energy unit per fission for `sigmaPow` (power is renormalised to `pTarget`); delayed data and `1/v` as round 39 (not used in an eigenvalue run).
+* **Reference integrals** (`integralFlux`) from upstream's own converged UNADJUSTED run on the same mesh and data (`i0`, tight protocol, 60 s; SP3 345 steps `keff` 1.0441, diffusion 230 steps 1.0434), zone fractions of `sum V_c phi_c`, ten digits, NO perturbation:
+  * `i1` (primary): the SP3 SCALAR flux `flux` (`phi0`), what a transport code tallies. The adjustment integrates `fluxStar = phi0 + 2 phi2`, so its factors absorb the second moment; the zone fractions of `fluxStar` and `flux` differ by up to 13 % (rod group 0: 0.0460 against 0.0474; reflector 0.0401 against 0.0455), so this is not a null test.
+  * `i2` (secondary): the diffusion flux of the same data (the reference a lower-order solver gives).
+  * `i0`: no adjustment, every factor 1 (control and regression).
+* **Why this avoids the mechanism (a stated reason, not a result)**: with `defaultFlux2 = 0` the start has positive power, step 1 is not a clamp, the first `fluxStar` is positive, and the first factors are zone-fraction ratios of a positive field.
+
+## Comparison criteria (fixed here, before any upstream run of `i1`/`i2` and any port run; none will change after seeing results)
+
+Round 42's eigenvalue level: step count and final `Time` equal (60 within 1e-9); `Time` rel < 5e-8; `|keff port - upstream| < 1e-12` at every step; `power` rel < 1e-12; first residual rel < 1e-6 where upstream >= 1e-6, abs < 1e-9 below; unit-sum shape of the final `flux0` and `flux1` rel < 1e-10. Plus upstream's printed `discFactorList` (17 digits) after the LAST step against the port's factors, rel < 1e-9, if the port exposes them. Bit-identical = every compared value `==`; where reached, the gate is tightened to `==` afterwards. A miss is recorded and asserted at the measured size with its cause, marked post-run. "Upstream runs" means: exit 0, 345 steps, zero `Warning: keff` lines, every factor in (0, 10).
+
+| id | claim | prediction |
+|---|---|---|
+| M1 | control: `i1` with the SHIPPED start (`defaultFlux2 1`) | upstream dies, clamps, or a factor <= 0 appears: 85 % |
+| M2 | `i1`, `defaultFlux2 0` | upstream runs: 70 % |
+| M3 | `i2`, `defaultFlux2 0` | upstream runs: 60 % |
+| M4 | `i0` SP3 at `defaultFlux2 0` against the port (unity, new data) | T1 to T7 hold (round 42 `s0`: `dk` 3.8e-15): 90 % |
+| P1 | `i1` against the port, both groups adjusting | T1 to T7 hold over all 345 steps: 70 %; bit-identical 5 % |
+| P2 | `i2` against the port | T1 to T7 hold: 60 % |
+| P3 | port on `i1` with the SHIPPED start (`set_uniform_second_moment(1)`) | its step-1 factors equal upstream's step-1 `discFactorList` to rel 1e-9, a negative entry included: 55 % |
+| K1 | control: the port without the adjustment on `i1` | `|dk|` at the last step > 1e-4: 85 % |
+| K2 | control: the port with every factor forced to 1 on `i1` | same: 85 % |
+| R1 | rounds 39/40/42/43 SP3 and diffusion tests | do not move: 95 % |
+
+Item (2) of the issue (liquid-fuel `XsEvolution`, `DiffusionNeutronics::step`, `disp`-driven `radExp`/`axExp`, `2D_FFTF`) gets its own predictions block, committed before its first run.
