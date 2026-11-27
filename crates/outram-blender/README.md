@@ -1,12 +1,19 @@
 # outram-blender
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. For research, education and V&V only. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
 > **This is a fork.** `outram-blender` is an independent
 > **fork / derivative of [Blender](https://github.com/blender/blender)'s
 > mesh-authoring architecture**, reusing its mesh/geometry design (GPL-2.0-or-later upstream)
 > for the OUTRAM PARK multiphysics suite. It is **not** affiliated with,
 > endorsed by, or sanctioned by the Blender Foundation. No Blender source tree
-> is bundled; **exactly one file** (`src/boolean_predicates.rs`) is a literal,
-> attributed port of Blender source — see
+> is bundled; ~~**exactly one file** (`src/boolean_predicates.rs`) is a literal,
+> attributed port of Blender source~~ **CORRECTED 2026-11-27** — **seven files**
+> carry a "Ported from Blender" attribution header (`boolean_predicates`,
+> `polyfill`, `polyfill_beautify`, `planar_faces`, `connect_concave`,
+> `connect_nonplanar`, `limited_dissolve`; found by grep of `src/`, listed as
+> PORTED in [`docs/upstream-port-coverage.md`](docs/upstream-port-coverage.md)) — see
 > [Licensing & provenance](#licensing--provenance). "Blender" identifies only
 > the upstream project it derives from.
 
@@ -59,6 +66,45 @@
 The base authoring library pulls in no solver — the CFD bridges are opt-in
 cargo features, so the default build stays light and Android- and
 wasm-buildable.
+
+**Name.** `outram` is the workspace's OUTRAM: **O**pen-source **U**nified
+**TR**Ansient **M**ulti-Physics (from OUTRAM PARK, `docs/ecosystem-naming.md`);
+`blender` credits the upstream whose mesh architecture it follows. **The
+question it answers:** how is the geometry a solver sees described, drawn and
+meshed, from a CSG reactor model or an authored surface to the cells a Monte
+Carlo, finite-volume or finite-element solver integrates over?
+
+**What this crate lets you study and challenge.** Geometry is where a reactor
+model most often goes silently wrong, and the workspace's rule is that it is
+drawn before it is trusted. This crate holds what makes that possible: the
+OpenMC CSG description and navigation kernel (`locate`,
+`distance_to_boundary`) and OpenMC's plotter, matched pixel for pixel against
+`openmc --plot`; the neutral `UnstructuredMesh` that FV, FE and Monte Carlo
+meshes are all converted through, with a plotter that draws the mesh itself;
+and a Blender-architecture mesh editor in which each geometry-processing
+algorithm (cotangent Laplacian, ARAP, QEM decimation, Loop and Catmull-Clark
+subdivision, robust Shewchuk predicates) is a readable module with its paper or
+Blender file named. The record of how hash-map iteration order once changed
+ARAP's bits from run to run (gh #1002) is kept as a lesson.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Upstream code: [Blender](https://github.com/blender/blender) commit `786af64aad84154047d93ee077e1fdd1d229f32d` (GPL-2.0-or-later; `boolean_predicates` from commit `96294be7…`), see [`upstream_source/README.md`](upstream_source/README.md) and [`docs/upstream-port-coverage.md`](docs/upstream-port-coverage.md); OpenMC (MIT, `LICENSE.openmc`) for `csg` and `spatial_mesh`; OpenFOAM `primitiveMesh` for the `unstructured` geometry; faer 0.24.4's SVD as ported into `petir`. Algorithms cited in the module docs include Shewchuk's predicates, Garland and Heckbert (QEM), Loop subdivision, Catmull-Clark, ARAP and Tutte parameterisation. No `crates/kovan-literature/CATALOGUE.md` entry is tied to this crate. |
+| Mathematical equations | Module docs: quadric surfaces and their distance and normal (`csg::surface`), lattice indexing (`csg::lattice`), the cotangent Laplacian and Taubin smoothing (`laplacian`), ARAP local/global steps (`arap`), the harmonic map (`parameterize`), QEM error quadrics (`decimate`), generalised winding number (`boolean_classify`), face and cell geometry (`unstructured::geometry`). |
+| Source code | `csg` (with `plot`, `gpu`), `spatial_mesh`, `unstructured` (with `convert`, `plot`, `locator`, `one_d`), `mesh`, `primitives`, `ops` and some 70 other operator modules (86 files in `src/`; module map below), `export`, `stl`, `foam_mesh`, `gnn_graph`, `gpu`. |
+| Interactive simulations | No app in this crate. MC Studio, Mesh Studio and Foam Studio in `crates/dhoby-ghaut/examples/` (`mc_studio`, `mesh_studio`, `foam_studio_web`) are built on it. CLI examples: `examples/authoring_primitives.rs`, `examples/mesh_operators.rs`, `examples/meshing_nexus_images.rs`. |
+| Visualisations | The CSG plotter `csg::plot` (PNG slices and ray traces) and its GPU ray tracer `csg::gpu`; the mesh plotter `unstructured::plot`; six committed mesh drawings in [`docs/meshing_nexus/`](docs/meshing_nexus/README.md), with what was checked in them. |
+| Verification and validation evidence | Plotter: `crates/outram-mc-libs/verification_and_validation/geometry_plotting/` (2026-09-25: 17 reference images, 241 041 pixels, 0 differing against OpenMC at `d7d3284a1`). GPU CSG pixel parity `tests/gpu_csg_parity.rs` (0 % on its test model; 0.36 % worst on HTR-10 in `dhoby-ghaut`). Determinism gate `tests/hash_order_determinism.rs` (gh #1002); GPU ARAP `tests/gpu_arap.rs` (positions within 9.2e-9 of the mesh size of the `f64` result, recorded in `AGENTS.md`). Boolean checked against analytic CSG volumes (two boxes: union 15, intersection 1, difference 7). The `unstructured` unit tests were recorded as not yet run on 2026-10-03 (`docs/meshing_nexus/README.md`). |
+| Human reviews and corrections | **3 functions carry a kovan human-review stamp** (by `github:theodoreOnzGit`, 2026-11-26, in `src/csg/review.md`): `csg::position::Position`, `Position::new` and `Direction`. No entry in `docs/human-corrections-to-ai-work.md` names this crate. Struck-through corrections in this README record the `gpu` feature (gh #486), `faer` → `petir` (gh #994, #996) and the retired `mc-export` feature. AI fleet review notes: [`docs/ai-fleet-review/`](docs/ai-fleet-review/). |
+
+**Status:** the CSG plotter has pixel-for-pixel evidence against OpenMC, and
+three `csg::position` items are human-reviewed; the mesh operators have unit
+tests and analytic checks only, and the neutral-mesh converters have no
+recorded test run. Nothing else here has been reviewed by a human.
 
 > **GPU compute (default-on `gpu` feature, never on Android): `f32` for speed,
 > CPU `f64` is the trusted path.** ~~The headless GPU kernels (`wgpu`) are built
@@ -154,8 +200,10 @@ crate derives from. The fork status is stated up top and in `Cargo.toml`.
 
 This crate is **not affiliated with, endorsed by, or sanctioned by the Blender
 Foundation.** "Blender" is used only to identify the upstream project whose
-mesh/geometry architecture inspired this fork. No Blender source code is
-included.
+mesh/geometry architecture inspired this fork. ~~No Blender source code is
+included.~~ **CORRECTED 2026-11-27** — no Blender source tree is bundled, but
+seven files are attributed ports of Blender source (see the top of this README
+and "Licensing & provenance").
 
 ## Licensing & provenance
 
@@ -174,15 +222,18 @@ included.
   redistribution clean here. Upstream's GPL-2 text ships verbatim as
   `LICENSE.blender`; the lineage and non-affiliation notice are in `NOTICE`;
   the full record with clone instructions is in `upstream_source/README.md`.
-- **Exactly one file is a literal port of Blender source:**
-  `src/boolean_predicates.rs`, from `blenlib`'s `BLI_math_boolean.hh` /
+- ~~**Exactly one file is a literal port of Blender source:**~~ **CORRECTED
+  2026-11-27** — seven files are (the six others, from commit `786af64a`, are
+  `polyfill`, `polyfill_beautify`, `planar_faces`, `connect_concave`,
+  `connect_nonplanar` and `limited_dissolve`, each with its own header block).
+  The first was `src/boolean_predicates.rs`, from `blenlib`'s `BLI_math_boolean.hh` /
   `intern/math_boolean.cc` at commit `96294be7…` (© 2023 Blender Authors,
   `GPL-2.0-or-later`). It carries that provenance in its own header block.
   Only the `double` predicate API is ported — Blender's `mpq_class` (GMP
   rational) overloads are deliberately not, so the crate stays
   Android-buildable with no C dependencies. Blender's `double` predicates are
   themselves a C++ adaptation of Shewchuk's public-domain `predicates.c`.
-- **Every other module is an independent reimplementation** of Blender's
+- **Every other module** (CORRECTED 2026-11-27: other than those seven) **is an independent reimplementation** of Blender's
   concepts and data-structure architecture (BMesh's vert/edge/loop/face model,
   the modifier stack, the operator naming). Design is not copyrightable, so no
   Blender copyright attaches to those files.
@@ -231,7 +282,7 @@ included.
 | ~~`sim` *(feature `mc-export`)*~~ | — | **MOVED 2026-10-02 to `nee_soon::sim`** (#486) |
 | `csg` | — (OpenMC port) | **real** — CSG description + pure navigation kernel, moved from `outram-mc-libs` 2026-10-02 (#486); `csg::plot` is the OpenMC plotter |
 | `spatial_mesh` | — (OpenMC port) | **real** — tally-mesh description (Regular / Rectilinear / Cylindrical / Spherical, `MeshKind`), moved from `outram-mc-libs` 2026-10-02 (#486); `MeshKind::Unstructured` since 2026-10-03 (#492) |
-| `unstructured` | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh, its geometry, `CellLocator`, the 1-D mesher, a mesh plotter; `convert::{foam, block_mesh, cfmesh, fem}` behind `foam-export` / `block-mesh` / `foam-mesh` / `fem-export`. Unit tests written, **not yet run** (testing deferred by the maintainer) |
+| `unstructured` | — (OpenFOAM `primitiveMesh` geometry port) | **draft** (2026-10-03, #492) — the neutral FV/FE/MC mesh, its geometry, `CellLocator`, the 1-D mesher, a mesh plotter; `convert::{foam, block_mesh, cfmesh, fem}` behind `foam-export` / `block-mesh` / `foam-mesh` / `fem-export`. Unit tests written, **not yet run** (testing deferred by the maintainer) — Not re-checked 2026-11-27 (no `cargo` run in this documentation pass) |
 | `foam_mesh` *(feature `foam-mesh`)* | — (no Blender analogue) | **real** — volume-meshing bridge: blender surface → `outram-park-fork-cfmesh` tet → dual → boundary-layers pipeline → OpenFOAM `polyMesh` (with a quality report). Gated by a **closed, consistently-wound 2-manifold check** on the input surface (`check_closed_manifold`), because the backend's carve classifies cells by ray parity and would silently mis-mesh a leaky surface. The **Mesh Studio** backend |
 
 ## Design rules honoured (workspace `CLAUDE.md`)
@@ -241,8 +292,11 @@ included.
 - **Enums for dispatch, never trait objects** — `MeshOp`, `Modifier`,
   `GeometryNode` are closed enums matched exhaustively.
 - **No `Box<T>`; `Arc<T>` for sharing; no `unsafe`.**
-- **Pure-Rust, Android-buildable** — no OpenGL/Vulkan/GUI in the library; any
-  future viewport lives in `examples/` only.
+- **Pure-Rust, Android-buildable** — no ~~OpenGL/Vulkan/~~GUI in the library;
+  any future viewport lives in `examples/` only. **CORRECTED 2026-11-27** — the
+  library does hold headless `wgpu` compute (`gpu`, `csg::gpu`) behind the
+  default-on `gpu` feature, target-gated off Android (checked in `AGENTS.md`,
+  "Cargo features").
 
 ## Quick start
 

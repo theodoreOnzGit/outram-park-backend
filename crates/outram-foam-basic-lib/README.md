@@ -25,17 +25,62 @@
 > `master` branch — no commit is pinned (translation was done by reading the
 > C++ source directly, not from an ongoing codegen-from-clone pipeline); see
 > `upstream_source/README.md` for the full provenance record.
+> **CORRECTED 2026-11-27** — that holds for the original layers only. Later
+> ports (reaction rates, mixtures, P1 and viewFactor radiation,
+> `faceAreaWeightAMI`) translate ESI OpenFOAM-v2506 or ESI commit
+> `6e2595746a396d688edd9890f4aebaaa7ff4ecfd`, as their rows below and their
+> records in `verification_and_validation/` state.
 
 Pure-Rust translation of the OpenFOAM primitive and finite-volume library layer —
 tensor algebra, polynomial solvers, ODE solvers, interpolation, thermophysics,
 fields, mesh, FV operators, and fluid/solid thermodynamics needed to build
 compressible and conjugate-heat-transfer CFD solvers.
 
+**Name.** `outram` is the workspace's OUTRAM: **O**pen-source **U**nified
+**TR**Ansient **M**ulti-Physics (from OUTRAM PARK, `docs/ecosystem-naming.md`);
+`foam` marks the OpenFOAM lineage; `basic-lib` is the bottom of that stack.
+**The question it answers:** how does OpenFOAM's finite-volume library layer
+(Layers 1–4: primitives, fields, mesh, operators, linear solvers,
+thermophysics) compute what it computes, written as Rust a reader can inspect?
+
+**What this crate lets you study and challenge.** It is the finite-volume
+method written out one operator at a time: how `fvm::laplacian` turns
+$-\nabla \cdot (\Gamma \nabla \phi)$ into an LDU matrix, how a
+non-orthogonal correction is added, how a DIC-preconditioned conjugate
+gradient or a GAMG V-cycle solves it, and how a JANAF or Peng-Robinson
+property is evaluated. Each routine names the OpenFOAM class it translates,
+so a reader can open the C++ beside the Rust. Many of those translations have
+been run against a real ESI OpenFOAM-v2506 build value by value, and the
+records say which ones are bit-identical, which differ by a few ulp, and why.
+The places where the port is known to be wrong (Peng-Robinson above the
+critical pressure, the JANAF `T(H)` inversion from a far guess) are kept as
+ignored tests and listed under "Limitations", so they can be checked rather
+than taken on trust.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Upstream code: OpenFOAM (GPL-3.0). The Foundation line ([`OpenFOAM/OpenFOAM-dev`](https://github.com/OpenFOAM/OpenFOAM-dev), `master`, no commit pinned, see [`upstream_source/README.md`](upstream_source/README.md)) for the original layers; ESI OpenFOAM-v2506 (tag `OpenFOAM-v2506`, `615aae61d7e95e110ca842ca105c799d10f59178`) for the reaction-rate, mixture, P1 and viewFactor radiation ports and as the comparison build; ESI commit `6e2595746a396d688edd9890f4aebaaa7ff4ecfd` for `faceAreaWeightAMI`. Math functions cite DiDonato and Morris (1986); quadrature nodes are checked against Abramowitz and Stegun 25.4.30. No `crates/kovan-literature/CATALOGUE.md` entry is tied to this crate. |
+| Mathematical equations | Module doc comments in `src/`: implicit Euler `fvm::ddt`, upwind `fvm::div`, Gauss linear and `corrected` Laplacians, the gray P1 radiation $G$ equation with Marshak walls, the grey-diffusive viewFactor balance, cubic equations of state (Peng-Robinson), JANAF and polynomial thermo, Sutherland transport, Arrhenius and fall-off reaction rates. The C++-to-Rust map per layer is [`docs/cpp-source-reference.md`](docs/cpp-source-reference.md). |
+| Source code | `primitives`, `polynomial`, `math`, `matrix`, `ode`, `interpolation`, `thermophysics`, `fields`, `mesh` (with `mesh::ami`, `mesh::face_area_weight_ami`), `io`, `ldu_matrix`, `krylov`, `fv_operators` (`fvm`, `fvc`), `fv_options`, `limiters`, `radiation`, `view_factor_radiation`, `view_factor_generation`, `esi_octree`, `fluid_thermo`, `steady_conduction`, `compute` (hybrid backend). |
+| Interactive simulations | None yet. Two CLI examples: `examples/tutorial_finite_volume_basics.rs` and `examples/hybrid_gpu_report.rs`. |
+| Visualisations | One committed geometry image: `verification_and_validation/upstream_view_factor_gh1529/images/geometry.png` (and `.svg`). No plotters. |
+| Verification and validation evidence | Code-to-code records against ESI OpenFOAM in [`verification_and_validation/`](verification_and_validation/): `upstream_ode_gh1362` (2026-11-13: Euler, RKF45, Rosenbrock23 90/90 single-step values bit-identical; final solve 5/5 with `integrate_esi_v2506`); `upstream_solvers_gh1362` (2026-11-13: PCG/DIC, `gauss_seidel_upstream` and `pbicgstab_dilu` 12000/12000 bit-identical); `upstream_ops_gh1362` (2026-11-11, operator-level geometry and discretisation counts); `upstream_thermo_gh1362` (2026-11-13: every non-Peng-Robinson combination bit-identical, Peng-Robinson 10 of 40 points differ in `Z` by up to 2 ulp); `upstream_radiation_gh1379` (P1, every compared quantity bit-identical); `upstream_view_factor_gh1529` (qr 1,344 of 1,344 values bit-identical on 7 cases); `upstream_ami_gh1859` (2026-11-27: 8579/8579 values in 17 cases). Matching tests in `tests/` (`*_vs_openfoam.rs`, `openfoam_*_code_to_code.rs`), plus analytic checks (`radiation_p1_analytic.rs`, `view_factor_concentric_cylinders.rs`, `non_orthogonal_laplacian.rs`). |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp (no `kind = "review"` block in any `review.md` here). No entry in `docs/human-corrections-to-ai-work.md` names this crate. Struck-through corrections in this README record the `cyclicAMI` 3-D weights (gh:#1859), the `viewFactor` port (gh:#1529) and the `viewFactorsGen` octree (gh:#1564); the V&V records strike through the fixed face-centre and volume ulp differences (gh:#1489) and the boundary `deltaCoeffs` defect (gh:#1488). |
+
+**Status:** the operators, linear solvers, ODE solvers, thermophysics and
+radiation listed above have AI-run code-to-code evidence against ESI
+OpenFOAM-v2506; none of it has been reviewed by a human, and physical
+validation belongs to the solvers built on this crate.
+
 ## `no_std` + `alloc` (gh:#1586)
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p outram-foam-basic-lib --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p outram-foam-basic-lib --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). Everything numerical stays: meshes,
 fields, the finite-volume operators, the LDU and Krylov solvers, ODEs,
 thermophysics, radiation, the `FoamFile` dictionary parser. `std` carries
@@ -293,21 +338,30 @@ current source; nothing here is aspirational. See also the
   building blocks (tensor algebra, primitives, FV operators, thermophysics
   kernels, field thermodynamics). The **Layer 5** logic — PISO/PIMPLE loops,
   multi-region coupling drivers, turbulence-model registries — lives in separate
-  downstream crates (`openfoam-icof`, `openfoam-cht`, `openfoam-rho`), which are
-  **not yet published**. On their own the operators here do not run a
-  time-marching CFD simulation.
+  downstream crates ~~(`openfoam-icof`, `openfoam-cht`, `openfoam-rho`), which are
+  **not yet published**~~ **CORRECTED 2026-11-27** — in
+  `outram-foam-appbuilder-lib` (its `solvers` and `case_runner` modules, checked
+  in its `src/lib.rs`), with closures in `outram-foam-turbulence-lib`. On their
+  own the operators here do not run a time-marching CFD simulation.
 - **No turbulence models.** `LaminarModel` / `kOmegaSST` and `divDevRhoReff` are
   planned for the CHT solver crate, not present here. Only laminar terms can be
   assembled.
-- **No OpenFOAM case / `polyMesh` file I/O.** Meshes are constructed in code via
+- ~~**No OpenFOAM case / `polyMesh` file I/O.** Meshes are constructed in code via
   `FvMeshBuilder` (you supply `owner`/`neighbour` connectivity and the geometric
   Vecs) or via `interface::one_dimensional_meshing::create_one_d_mesh` for 1-D
   system-code meshes. Reading an OpenFOAM `constant/polyMesh` directory is a
-  downstream concern, not in this crate. (The DIC/warm-start discussion below
-  refers to a `read_poly_mesh` that lives in the appbuilder crate.)
+  downstream concern, not in this crate.~~ **CORRECTED 2026-11-27** — the `io`
+  module reads and writes case files (`PolyMesh::read` in `src/io/poly_mesh.rs`,
+  `FoamFile::read` in `src/io/dict.rs`, `read_vol_scalar_field` in
+  `src/io/field.rs`, `io::case`), behind the `std` feature; meshes can still be
+  built in code with `FvMeshBuilder` or `create_one_d_mesh`. (The DIC/warm-start
+  discussion below refers to a `read_poly_mesh` that lives in the appbuilder crate.)
 - **Serial only.** No MPI / domain decomposition; there are no processor
-  boundary patches. The linear solvers and operators run single-threaded on one
-  mesh.
+  boundary patches. ~~The linear solvers and operators run single-threaded on one
+  mesh.~~ **CORRECTED 2026-11-27** — field kernels, SpMV and the Krylov solvers
+  can run multi-threaded on one mesh through `ComputeBackend::CpuMulti` (the
+  optional `parallel` feature, "Cross-layer — hybrid execution backend" above);
+  the default is `Serial`.
 
 ### Finite-volume numerics
 
@@ -318,8 +372,11 @@ current source; nothing here is aspirational. See also the
   `fvc::muscl` (`Upwind` / `Linear` / limiter variants), intended for
   density-based central-upwind fluxes — the Kurganov–Tadmor flux assembly itself
   is Layer-5 work and is not wired up here.
-- **Laplacian is Gauss-orthogonal only — no non-orthogonal / skewness
-  correction.** `fvm::laplacian` and `fvc::sn_grad` use the orthogonal
+- ~~**Laplacian is Gauss-orthogonal only — no non-orthogonal / skewness
+  correction.**~~ **CORRECTED 2026-11-27** — `fvm::laplacian_corrected` (Gauss
+  linear `corrected` / `limited corrected`, bit-identical to OpenFOAM-v2506,
+  gh:#1362) and `fvm::laplacian_corrected_face_centre` exist (Layer 3 table
+  above); what follows still describes the default `fvm::laplacian`. `fvm::laplacian` and `fvc::sn_grad` use the orthogonal
   face-area-over-centre-distance coefficient
   (`src/fv_operators/fvm/laplacian.rs`), ignoring the angle between the face-area
   vector and the owner→neighbour vector. Diffusion is therefore accurate on
@@ -365,8 +422,10 @@ current source; nothing here is aspirational. See also the
 
 - **Krylov / multigrid solvers assume symmetric positive-definite systems.**
   `conjugate_gradient` (DIC-preconditioned) and `gamg` target the symmetric
-  pressure system. Asymmetric systems fall back to `gauss_seidel`; there is no
-  BiCGStab/GMRES.
+  pressure system. ~~Asymmetric systems fall back to `gauss_seidel`; there is no
+  BiCGStab/GMRES.~~ **CORRECTED 2026-11-27** — asymmetric systems have
+  `krylov::bicgstab`, `krylov::gmres` and `ldu_matrix::pbicgstab_dilu`
+  (`src/krylov/`, `src/ldu_matrix/`; Layer 2 table above).
 - **GAMG rebuilds its hierarchy on every solve** and is **slower than DIC-PCG
   below ~10^4–10^5 cells** (see the performance section below). It is
   mesh-independent in V-cycle count but not yet cached across time steps or usable
@@ -394,7 +453,9 @@ current source; nothing here is aspirational. See also the
 
 - **The stiff `Rosenbrock23` solver needs a user Jacobian.** `OdeSystem::jacobian`
   has a default that **panics** (`unimplemented!`, `src/ode/mod.rs`); only the
-  explicit `Euler` and `Rkf45` solvers work without one.
+  explicit `Euler` and `Rkf45` solvers work without one. **CORRECTED
+  2026-11-27** — the default still panics, but `math::differentiate::NumericalJacobian`
+  supplies a finite-difference Jacobian, so a caller need not hand-code one.
 - **`Polynomial<N>::integral()` (degree-raising form) is not implemented.** The
   type-level definite integral that returns a `Polynomial<{N+1}>` needs nightly
   `generic_const_exprs`; use the scalar `integral(x1, x2) -> f64` /
@@ -413,7 +474,9 @@ current source; nothing here is aspirational. See also the
 ### Platform / build
 
 - **Pure Rust, no BLAS required by the library.** Runtime dependencies are only
-  `thiserror`, `uom`, and `ndarray`, so the library builds headless (including
+  ~~`thiserror`, `uom`, and `ndarray`~~ **CORRECTED 2026-11-27** — `petir`,
+  `thiserror` and `uom`, plus the optional `rayon` and `wgpu` (checked in
+  `Cargo.toml`; `ndarray` is a dev-dependency since gh:#1586), so the library builds headless (including
   Android and other no-system-BLAS targets). The LAPACK comparison benchmark
   (`tests/matrix_bench.rs`) *does* need system OpenBLAS (Linux) / Intel MKL
   (Windows/macOS); it is a **dev-dependency, target-gated off Android**, and is
@@ -536,7 +599,10 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
                                    OdeSolver/OdeIntegrator enum dispatch)
 ✅ Layer 1f — Interpolation       (interpolate_xy, interpolate_spline_xy)
 ✅ Layer 1g — Math functions      (erf_inv, inc_gamma_*, inv_inc_gamma)
-✅ Layer 1h — Thermophysics       (EOS, Thermo, Transport traits + 4 impls each)
+✅ Layer 1h — Thermophysics       (EOS, Thermo, Transport traits; 10 EOS,
+                                   6 thermo, 6 transport, plus reaction rates
+                                   and mixtures. CORRECTED 2026-11-27: was
+                                   "4 impls each")
 ✅ Layer 2  — Fields + Mesh       (VolField, SurfaceField, FvMesh, LduMatrix,
                                    FvMatrix, FvVectorMatrix, RegionInterface,
                                    Gauss-Seidel + CG solvers)
@@ -547,9 +613,10 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
                                    adjust_phi)
 ✅ Layer 4  — Field thermodynamics (FluidThermo, PsiThermo, RhoThermo,
                                     SolidThermo, ConstSolidThermo)
-⬜ Layer 5  — Solver logic         (icoFoam PISO loop → openfoam-icof;
-                                    chtMultiRegionFoam → openfoam-cht;
-                                    rhoPimpleFoam → openfoam-rho)
+⬜ Layer 5  — Solver logic         (lives in outram-foam-appbuilder-lib,
+                                    not here. CORRECTED 2026-11-27: was
+                                    "openfoam-icof / -cht / -rho", crates
+                                    that do not exist)
 ```
 
 ## Changelog
@@ -595,8 +662,9 @@ cargo test -p outram-foam-basic-lib --test matrix_bench --release -- --nocapture
   This also matches OpenFOAM, where a `GeometricField` keeps its fixed
   registered `IOobject` name and solvers *print* residual labels rather than
   accumulating an expression string onto the field. After the fix the cavity
-  runs at a flat ~0.45 ms/step and ~3.7 MB RSS. See the Translation-notes
-  callout in `CLAUDE.md` for the full write-up.
+  runs at a flat ~0.45 ms/step and ~3.7 MB RSS. See the Translation
+  notes in [`docs/cpp-source-reference.md`](docs/cpp-source-reference.md) and
+  [`AGENTS.md`](AGENTS.md) for the full write-up.
 
 ## License
 
