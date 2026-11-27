@@ -12,6 +12,7 @@ the port gained (each variant is a small case the REAL binary runs in seconds):
   w3_pump     : zone0 `momentumSource (0 0 50)` with `momentumSourceTimeProfile { type table; startTime 1; table table ((0 1) (2 0.5) (4 0.25)); }`
   w4_churchill: zone0 drag model `Churchill` (surfaceRoughness 1e-6) in place of the case's `ReynoldsPower`, when the case has one
   w5_noslip   : the `fixedWalls` patch U `slip` -> `noSlip`
+  w6_aniso    : zone0 drag per axis as the FFTF core: `localZ` Rehme (217 pins, FFTF numbers), `localX`/`localY` ReynoldsPower 0.96 / -0.145
 
 usage: make_fftf_piece_variants.py <base case dir> <out dir>
 """
@@ -25,7 +26,7 @@ def edit(path, f):
 
 def main():
     base, out = sys.argv[1], sys.argv[2]
-    names = ['w1_dilu', 'w2_half_cc', 'w2_recon05', 'w2_recon1', 'w2_recon0', 'w3_pump', 'w4_churchill', 'w5_noslip']
+    names = ['w1_dilu', 'w2_half_cc', 'w2_recon05', 'w2_recon1', 'w2_recon0', 'w3_pump', 'w4_churchill', 'w5_noslip', 'w6_aniso']
     for v in names:
         d = os.path.join(out, v)
         shutil.rmtree(d, ignore_errors=True)
@@ -59,6 +60,18 @@ def main():
         assert m
         return t[:m.start()] + m.group(1) + 'noSlip;' + t[m.end():]
     edit(os.path.join(out, 'w5_noslip', '0/fluidRegion/U'), noslip)
+
+    def aniso(t):
+        m = re.search(r'dragModels\s*\{\s*"zone0"\s*\{[^}]*\}', t)
+        assert m
+        body = ('dragModels\n    {\n        "zone0"\n        {\n'
+                '            "localZ"\n            {\n                type                Rehme;\n                numberOfPins        217;\n'
+                '                pinDiameter         0.005842;\n                wireDiameter        0.001445;\n                wireLeadLen         0.302;\n'
+                '                wetWrapPerimeter    0.38143;\n            }\n'
+                '            "localX"\n            {\n                type    ReynoldsPower;\n                coeff   0.96;\n                exp     -0.145;\n            }\n'
+                '            "localY"\n            {\n                type    ReynoldsPower;\n                coeff   0.96;\n                exp     -0.145;\n            }\n        }')
+        return t[:m.start()] + body + t[m.end():]
+    edit(os.path.join(out, 'w6_aniso', pp), aniso)
 
 if __name__ == '__main__':
     main()

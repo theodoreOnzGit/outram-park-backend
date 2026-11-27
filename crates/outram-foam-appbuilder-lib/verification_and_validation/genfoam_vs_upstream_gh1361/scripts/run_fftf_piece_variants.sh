@@ -7,7 +7,7 @@ OUT=$2
 HERE=$(dirname "$0")
 source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1
 mkdir -p "$OUT"
-for v in w1_dilu w2_half_cc w2_recon05 w2_recon1 w2_recon0 w3_pump w4_churchill w5_noslip; do
+for v in w1_dilu w2_half_cc w2_recon05 w2_recon1 w2_recon0 w3_pump w4_churchill w5_noslip w6_aniso; do
   c="$VAR/$v"
   sed -i "s/^endTime .*/endTime         ${END_TIME:-4.9};/" "$c/system/controlDict"
   (cd "$VAR" && GeN-Foam -case "$v" > "$v/log.GeN-Foam" 2>&1; echo "$v exit $?")

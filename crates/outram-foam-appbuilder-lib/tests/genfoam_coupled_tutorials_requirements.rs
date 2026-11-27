@@ -19,7 +19,11 @@
 //!   2026-11-27 (gh:#1913, README round 55)**: rows 1-5 are ported (laminar, polynomial thermo, Nusselt `htc`, passive structure, the
 //!   `h` solvers) and the shipped `fluidRegion` is READ AS SHIPPED with the one named deviation `GAMG` -> `PCG`/`DIC`
 //!   ([`GamgPolicy::SubstitutePcgDic`]); with `GamgPolicy::Refuse` the first refusal is the `GAMG` one (row 8).
-//! * `2D_FFTF`: the first refusal is `fvSolution: no solver entry matches `h`` (the reader's `h` lookup finds no entry; the case's `h` solver is `PBiCG`/GAMG, not the ported PBiCGStab/diagonal).
+//! * `2D_FFTF`: ~~the first refusal is `fvSolution: no solver entry matches `h`` (the reader's `h` lookup finds no entry; the case's `h`
+//!   solver is `PBiCG`/GAMG, not the ported PBiCGStab/diagonal)~~ **CHANGED 2026-11-27 (gh:#1870, README round 62)**: the regex keys
+//!   `"(h|k|epsilon)"`, `PBiCG`/`DILU`, the pump `momentumSourceTimeProfile`, `cellCenteredFaceReconstruction`, `Churchill`/`Rehme` and
+//!   per-axis drag and `noSlip` are ported; with the named `GAMG` substitution the first refusal is
+//!   `structureProperties.IHXPrimary:IHXSecondary.localTortuosity is not ported` (the tensor-diffusivity Laplacian of `UEqn_1p.H`/`EEqn_1p.H`).
 //!
 //! Pass criterion: the pinned substring is in the refusal. Controls: none (the refusal text is the measurement).
 
@@ -63,7 +67,13 @@ fn fftf_first_refusal_is_pinned() {
         eprintln!("SKIP: upstream tutorials not found; set GENFOAM_UPSTREAM");
         return;
     };
-    let msg = first_refusal(&up.join("Tutorials/reactorCases/2D_FFTF/rootCase")).expect("the shipped case is not yet readable");
+    let case = up.join("Tutorials/reactorCases/2D_FFTF/rootCase");
+    // the GAMG substitution is the named deviation of the whole workspace (rounds 17, 21, 44)
+    let opts = CaseReadOptions { check_region_solvers: false, gamg: GamgPolicy::SubstitutePcgDic, ..CaseReadOptions::default() };
+    let msg = OnePhaseCcCase::read_with_options(&case, &case.join("constant/fluidRegion/polyMesh"), &opts)
+        .err()
+        .map(|e| format!("{e}"))
+        .expect("the shipped case is not yet readable");
     eprintln!("2D_FFTF first refusal: {msg}");
-    assert!(msg.contains("no solver entry matches `h`"), "{msg}");
+    assert!(msg.contains("localTortuosity is not ported"), "{msg}");
 }
