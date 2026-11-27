@@ -6904,3 +6904,51 @@ A decimal of at most ~12 significant digits is rounded differently by `strtold`-
 | R8 | `outram-foam-cli`, `outram-foam-mesh`, `outram-park-fork-cfmesh` tests unchanged (default entry points) | 95 % |
 
 Criteria (fixed here): a pin may move for round-off by up to 1e-9 relative (direct) or 1e-4 (propagated), recorded old/new where it lives; beyond that, or unexplained, STOP and report. No gate is loosened. A gate is tightened only to a value the post-run measurement supports and only where the result is bit-identical.
+
+# Round 54 (coupled tutorials end to end; gh:#1879 "U go couple lah", children of #1216): the requirements table, and the choice of tutorial
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Maintainer: "Port genfoam exhaustively", "Match all upstream", and on #1879 "U go couple lah". This section is the requirements table committed BEFORE any piece is ported; pieces and their differentials follow below it as they land (none had landed at the time of this commit: see "Status").
+
+## 1D_thermalMSR_pointKinetics: skipped, by the maintainer's own deferral
+
+`system/controlDict:50` of the shipped case reads `liquidFuel true` and `nuclearData:77` `initPrecursorsLiquidFuel true`; its fuel circulates through a cold leg, hot leg, `hx` and `pump` loop. That is the cyclic liquid-fuel coupled path of gh:#1905, DEFERRED by the maintainer. Not done.
+
+## A fact found first that changes what "against the real binary" means for `2D_fullCoupling`
+
+The built `GeN-Foam` binary (652b3da on ESI v2506) lists only `SNNeutronics SP3Neutronics adjointDiffusionNeutronics diffusionNeutronics multiPhysicsSolver onePhase pointKinetics twoPhase` as solvers; the shipped case's `thermoMechanicalRegion` aborts with `Unknown solver of type: legacyThermoMechanics` (measured 2026-11-27). The TM library of rounds 23-27 (`/home/user/upstream-build/gh1781/lib/libThermoMechanicsSolvers.so`: upstream's unmodified `legacyThermoMechanics` and `GFTractionDisplacement` sources, `Make/options` without offbeat) fixes that when loaded with `libs ("libThermoMechanicsSolvers.so");` in `controlDict` and `LD_LIBRARY_PATH`: the REAL executable then runs the shipped steady state (Allrun's `setSteadyState`, edits by sed: `/home/user/upstream-build/gh1912/run_ss.sh`) in **5 s, 476 steps to t = 100** (first `deltaT` 1, then 0.2084211, ...), each step "Solving physics once": map, then per region `deformMesh()` + `correctPhysics()` (GAMG `p_rgh`, `diagonalPBiCGStab` `h`, 3 PIMPLE correctors, neutronics with `keff_` 0.625 at step 1, 3 thermoMechanical iterations, `fuelDisp`). So the reference for this tutorial is cheap and exists. The shipped fluid region is `laminar`, 144 cells; neutro 432 cells; the tutorial has three regions.
+
+## Requirements table (read from the shipped case files, 2026-11-27; the first refusal of the port's reader is pinned by `tests/genfoam_coupled_tutorials_requirements.rs`)
+
+DONE = ported and differenced; PART = ported in part; MISSING = nothing in the port (or refused by name).
+
+| # | requirement | 2D_fullCoupling | 2D_FFTF | 1D_thermalMSR | port state |
+|---|---|:-:|:-:|:-:|---|
+| 1 | `simulationType laminar` in the `cellCentered` region | needs | no (porousKEpsilon) | no | MISSING: `simulationType other than RAS is not ported` (first refusal, pinned) |
+| 2 | `h` solver `smoothSolver`/`symGaussSeidel` (fullCoupling), `PBiCG` (FFTF); the reader takes `PBiCGStab`/`diagonal` only (FFTF: its `fvSolution` has no entry the reader's `h` lookup matches, pinned) | needs | needs | n/a | MISSING (named deviation candidate: PBiCGStab at the tight protocol, like GAMG -> PCG/DIC) |
+| 3 | `heRhoThermo` `icoPolynomial` + `hPolynomial` + `polynomial` transport in the `cellCentered` region | needs | no (Boussinesq/hConst) | no | PART: the polynomial stack exists (`two_phase/thermo.rs`, `PhaseThermo::Polynomial`), the cc region holds only `BoussinesqHConst`; non-Boussinesq `fluid::rho()` is the variable thermo `rho` |
+| 4 | `NusseltReynoldsPrandtlPower` heat-transfer model in the solved cc region | needs | needs | needs | MISSING in the cc reader (only `constant`); the closure exists, unit-tested |
+| 5 | `passiveProperties` (`T.passiveStructure`, mapped to the neutronics) | needs | needs (6 zones) | no | MISSING: `structureProperties.<z>.passiveProperties is not ported` |
+| 6 | `nuclearFuelPin` wired in the cc region, `gapH` constant / `gapHPowerDensity` table | needs (constant) | needs (table) | no | DONE (round 37, MSFR variant); shipped dictionaries not yet run |
+| 7 | `lumpedNuclearStructure` | no | no | needs | DONE (round 37) |
+| 8 | GAMG for `p_rgh` | needs | needs | needs | named deviation GAMG -> PCG/DIC (rounds 17, 21, 44) |
+| 9 | `momentumMode cellCenteredFaceReconstruction`, `porousInterfaceSharpness 0.5` (gh:#1865) | no | needs | no | MISSING |
+| 10 | `momentumSourceTimeProfile` (pump; gh:#1870) | no | needs | needs | MISSING (refused by name) |
+| 11 | drag `Rehme` (x2), `Churchill`; per-direction `localX/localY/localZ` entries | no | needs | no | MISSING in the solved cc flow (`only ReynoldsPower is ported for the solved flow`) |
+| 12 | `localTortuosity` (IHX; gh:#1229) | no | needs | no | MISSING |
+| 13 | heat exchangers `pIHX`/`sIHX` | no | needs | no | DONE (round 44) |
+| 14 | `nOuterCorrectors 6`, `nCorrectors 6`, `removeBaffles` with 8 `mappedWall` faces, `uniformFixedValue` U, `noSlip`, `slip` | no | needs | no | PART (several refused by name at the BC reader; `removeBaffles` is gh:#1236) |
+| 15 | 14 328-cell fluid mesh, 900 s steady state + 1200 s transient | no | needs | no | cost, not a gap |
+| 16 | point kinetics from the case files (`nuclearData`, `reactorState`, feedback zones, `TStruct`/`TStructMech` feedback, `decayPowerTimeProfile`, driveline, `GEMReactivityMap`, `controlRodReactivityMap`) | needs (no GEM, no driveline in the shipped transient) | needs (GEM, decay power, driveline) | needs | MISSING: no case reader (gh:#1883); GEM refused by name |
+| 17 | coupled `multiPhysicsSolver` loop `fluid onePhase` + `neutro pointKinetics` | needs (transient) | needs | needs | PART: the loop is ported (`correct_physics_loop`, rounds 9, 22) for diffusion + onePhase only |
+| 18 | `diffusionNeutronics` eigenvalue stage on a mesh that DEFORMS (`meshDeformation { neutroRegion { displacementField disp; } }`) in the per-step "solve each physics once" loop | needs | no | no | PART: `deformMesh`, `V0/V00/meshPhi` ported (rounds 26, 30); the region solvers do not take the moving-mesh data (gh:#1856) |
+| 19 | `legacyThermoMechanics` region inside the coupled run | needs | no | no | PART: the region alone is bit-identical (rounds 23-27); not wired (gh:#1846) |
+| 20 | `meshToMesh` among three different meshes; fields `T.passiveStructure`, `T.fuelAvForNeutronics`, `powerDensity`, `meshDisp` | needs | 2 regions | no | PART: `cell_overlap` exact (round 28); wiring gh:#1854 |
+| 21 | `-initializeMappedFields` and the `Allrun` stage chain from the root case | needs | needs | needs | PART: the 2D_MSFR chain only (round 21) |
+| 22 | function objects (`massFlow`, `TBulk`) | no | needs | no | DONE (round 51) |
+| 23 | liquid-fuel loop (`liquidFuel true`, cyclic neutro mesh) | no | no | needs | DEFERRED by the maintainer (gh:#1905) |
+
+Open (MISSING or PART) rows per tutorial: `2D_fullCoupling` 11 (rows 1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 21); `2D_FFTF` 13 (rows 2, 4, 5, 9, 10, 11, 12, 14, 16, 17, 20, 21, and the hours-long 14 328-cell reference of row 15); `1D_thermalMSR` skipped. **Chosen: `2D_fullCoupling`** (fewest; smallest mesh; the real reference runs in 5 s). Its hard remainder is the TM chain, rows 18-20 (gh:#1846, #1856, #1854), not the fluid rows.
+
+## Status at this commit
+
+No piece is ported yet. Order of work, each piece differenced against the real binary at the tight protocol before the next: (A) rows 1-5 on a fluid-only variant of the shipped `fluidRegion` with a prescribed `powerDensityNeutronics`; (B) diffusion + fluid steady state (rows 17, 18 without TM); (C) TM wiring (rows 19, 20, gh:#1846); (D) the point-kinetics transient (row 16, gh:#1883). The criteria and predictions of each stage are committed in this section before its run; none exists yet because no stage was run.
