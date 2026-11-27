@@ -27,7 +27,7 @@
 //! precondition under which `removeBaffles` (`polyTopoChange::changeMesh`) leaves a mesh WITHOUT duplicate faces exactly as it was:
 //! faces in canonical upper-triangular order, every point used. A mesh failing it is refused by name
 //! ([`PolyMeshError`]), as are more than one cell zone (the multi-zone layout of `ZoneMesh::writeData` was never seen in a real file),
-//! non-empty face or point zones and patch types other than `patch`, `wall`, `empty`.
+//! non-empty face or point zones and patch types other than `patch`, `wall`, `empty` and (since gh:#1236) `mappedWall`.
 //!
 //! `no_std` + `alloc`; no file I/O. V&V: `tests/genfoam_written_rest_vs_upstream.rs` (README "Round 69").
 
@@ -45,6 +45,9 @@ pub struct PolyPatchOut {
     pub name: String,
     /// The group list (`inGroups`) of the copy: the original's, including the constraint-type or `wall` group.
     pub in_groups: Vec<String>,
+    /// `physicalType` of the original patch (`patchIdentifier::write` prints it between `type` and `inGroups` when set; gh:#1236, README round 78:
+    /// the shipped 3D_SmallESFR_old fluid mesh has `physicalType patch;` on its wall and inlet/outlet patches).
+    pub physical_type: Option<String>,
     /// `nFaces`.
     pub n_faces: usize,
     /// `startFace`.
@@ -93,6 +96,18 @@ impl core::fmt::Display for PolyMeshError {
 }
 
 impl PolyMeshOut {
+    /// What `<start>/<region>.baffleLess/polyMesh` holds (gh:#1236, README round 78): `createBaffleLessMeshes` writes the mesh INSIDE
+    /// `removeBaffles` (`mesh.write()`, `mergeOrSplitBaffles.C`), BEFORE it copies the zones (`addZones`, `meshHandler.C:491-525`), so the three zone
+    /// files of the start directory are `0()`; the zones appear only in the directories written later. This copy has none.
+    #[must_use]
+    pub fn at_start(&self) -> Self {
+        let mut m = self.clone();
+        m.cell_zones.clear();
+        m.n_face_zones = 0;
+        m.n_point_zones = 0;
+        m
+    }
+
     /// The faces of the copy are exactly the faces of the region mesh when `removeBaffles` (`polyTopoChange::changeMesh`, no inflation, no
     /// cell or point ordering, no duplicate faces to merge) renumbers nothing: internal faces ordered by owner and then neighbour
     /// (`polyTopoChange::reorderCompactFaces`), boundary faces in patch order, every point used (`polyTopoChange::compact` drops unused points).
@@ -138,7 +153,7 @@ impl PolyMeshOut {
         if self.n_face_zones != 0 || self.n_point_zones != 0 {
             return Err(PolyMeshError::Refused("a non-empty face or point zone".to_string()));
         }
-        if self.cell_zones.len() != 1 {
+        if self.cell_zones.len() > 1 {
             return Err(PolyMeshError::Refused(format!("{} cell zones (the one-zone layout of `cellZones` is the only one seen)", self.cell_zones.len())));
         }
         Ok(())
@@ -189,6 +204,9 @@ fn boundary_text(m: &PolyMeshOut, location: &str) -> String {
     for p in &m.patches {
         let _ = write!(s, "    {}\n    {{\n", p.name);
         s.push_str(&statement_text(2, "type", "patch"));
+        if let Some(pt) = &p.physical_type {
+            s.push_str(&statement_text(2, "physicalType", pt));
+        }
         if !p.in_groups.is_empty() {
             let mut g = format!("{}(", p.in_groups.len());
             for (k, w) in p.in_groups.iter().enumerate() {
@@ -210,6 +228,10 @@ fn boundary_text(m: &PolyMeshOut, location: &str) -> String {
 }
 
 fn cell_zones_text(m: &PolyMeshOut, location: &str) -> String {
+    if m.cell_zones.is_empty() {
+        // the start-time form (`PolyMeshOut::at_start`): `0()`, no `meta` block
+        return empty_zones_text(location, "cellZones");
+    }
     let names: Vec<String> = m.cell_zones.iter().map(|(n, _)| n.clone()).collect();
     let mut s = header_with_meta("regIOobject", location, "cellZones", &names);
     let _ = write!(s, "{}\n(", m.cell_zones.len());
@@ -284,7 +306,7 @@ pub fn write_poly_mesh(m: &PolyMeshOut, location: &str, opts: &WriteOptions) -> 
 /// `text` is the `constant/<region>/polyMesh/boundary` file. Returns `(name, type, groups, nFaces, startFace)` in file order.
 ///
 /// # Errors
-/// [`PolyMeshError::Refused`] for a patch type other than `patch`, `wall`, `empty`, or a file that does not parse.
+/// [`PolyMeshError::Refused`] for a patch type other than `patch`, `wall`, `empty`, `mappedWall`, or a file that does not parse.
 pub fn parse_boundary_patches(text: &str) -> Result<Vec<PolyPatchOut>, PolyMeshError> {
     let bad = |m: &str| PolyMeshError::Refused(format!("boundary file: {m}"));
     let open = text.find("\n(").ok_or_else(|| bad("no patch list"))?;
@@ -296,6 +318,7 @@ pub fn parse_boundary_patches(text: &str) -> Result<Vec<PolyPatchOut>, PolyMeshE
         let end = rest[brace..].find('}').ok_or_else(|| bad("unclosed patch"))? + brace;
         let body = &rest[brace + 1..end];
         let (mut ptype, mut groups, mut n_faces, mut start) = (String::new(), Vec::<String>::new(), None, None);
+        let mut physical_type: Option<String> = None;
         for stmt in body.split(';') {
             let s = stmt.trim();
             if s.is_empty() {
@@ -309,6 +332,7 @@ pub fn parse_boundary_patches(text: &str) -> Result<Vec<PolyPatchOut>, PolyMeshE
                     let inner = v.split_once('(').and_then(|(_, r)| r.rsplit_once(')')).map_or("", |(a, _)| a);
                     groups = inner.split_whitespace().map(ToString::to_string).collect();
                 }
+                "physicalType" => physical_type = Some(v.to_string()),
                 "nFaces" => n_faces = v.parse::<usize>().ok(),
                 "startFace" => start = v.parse::<usize>().ok(),
                 _ => {}
@@ -321,9 +345,18 @@ pub fn parse_boundary_patches(text: &str) -> Result<Vec<PolyPatchOut>, PolyMeshE
                     groups.push(ptype.clone());
                 }
             }
+            // `mappedWall` (the ESFR baffles, gh:#1236): `createBaffleLessMeshes` copies it as a plain `polyPatch` (`type patch`, the sample entries
+            // dropped), keeping the groups `wallPolyPatch` and `mappedPatchBase` added; the file lists them, any missing one is appended
+            "mappedWall" => {
+                for g in ["wall", "mappedPatch"] {
+                    if !groups.iter().any(|x| x == g) {
+                        groups.push(g.to_string());
+                    }
+                }
+            }
             other => return Err(PolyMeshError::Refused(format!("patch type {other}"))),
         }
-        out.push(PolyPatchOut { name, in_groups: groups, n_faces: n_faces.ok_or_else(|| bad("no nFaces"))?, start_face: start.ok_or_else(|| bad("no startFace"))? });
+        out.push(PolyPatchOut { name, in_groups: groups, physical_type, n_faces: n_faces.ok_or_else(|| bad("no nFaces"))?, start_face: start.ok_or_else(|| bad("no startFace"))? });
         rest = &rest[end + 1..];
     }
     Ok(out)
@@ -343,8 +376,8 @@ mod tests {
             neighbour: vec![1],
             n_cells: 2,
             patches: vec![
-                PolyPatchOut { name: "a".to_string(), in_groups: vec!["wall".to_string()], n_faces: 6, start_face: 1 },
-                PolyPatchOut { name: "b".to_string(), in_groups: vec![], n_faces: 4, start_face: 7 },
+                PolyPatchOut { name: "a".to_string(), in_groups: vec!["wall".to_string()], physical_type: None, n_faces: 6, start_face: 1 },
+                PolyPatchOut { name: "b".to_string(), in_groups: vec![], physical_type: None, n_faces: 4, start_face: 7 },
             ],
             cell_zones: vec![("zone0".to_string(), vec![0, 1])],
             n_face_zones: 0,

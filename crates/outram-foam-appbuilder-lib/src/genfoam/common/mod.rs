@@ -53,6 +53,8 @@
 //!   mesh-to-mesh helpers used only by multi-region coupling. **Deferred** to
 //!   `genfoam::multi_region` ~~(tracked under the appbuilder epic `op-p6p`)~~
 //!   (**CORRECTED 2026-11-27:** `op-*` ids are retired; tracked under gh:#1216).
+//!   ~~`mergeOrSplitBaffles` deferred~~ **CORRECTED 2026-11-27 (gh:#1236, README round 78):** its merge branch is ported as
+//!   `multi_region::baffle_merge`; `latticeMap` stays deferred.
 //! - ~~The 2-D/3-D `FieldField` `InterpolateTableGF` instantiations —
 //!   spatial cross-section interpolation. **Deferred** to
 //!   `genfoam::neutronics::xs`, which owns the group-XS containers.~~

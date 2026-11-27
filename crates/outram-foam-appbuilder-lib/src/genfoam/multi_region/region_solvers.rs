@@ -43,8 +43,11 @@
 //!   start directory)~~ **CHANGED 2026-11-27 (gh:#1926, README round 66)**: `read` of such a case is ported (the regions are constructed from the written start
 //!   directory; the in-memory restart stays callable); ~~`regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922)~~ **CHANGED 2026-11-27 (gh:#1922, README
 //!   round 61)**: ported as [`RegionSolver::PointKinetics`], reached only through [`RegionSolvers::restart_transient`];
-//! * `removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236). For a mesh without any, upstream's
-//!   baffle-less mesh is the same mesh (`Writing 0 duplicate faces`) and `correctBaffleLessFields` is a copy of the primitive field: the
+//! * ~~`removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236)~~ **CORRECTED 2026-11-27 (gh:#1236, README
+//!   round 78):** the baffle-less mesh is BUILT ([`baffle_merge`](crate::genfoam::multi_region::baffle_merge): `mergeOrSplitBaffles.C`
+//!   `insertDuplicateMerge` + `polyTopoChange::changeMesh` ordering), byte-identical to the real binary's own `fluidRegion.baffleLess/polyMesh` of
+//!   the 3D_SmallESFR_old start directory (21 252 duplicate faces); what stays refused is a face zone on a merged face, a pair on one cell and the
+//!   zone layout of later write times. `correctBaffleLessFields` is a copy of the primitive field: the
 //!   `.baffleLess` source is then the region's own field as of the end of its last `correctPhysics()`;
 //! * `-initializeMappedFields`: upstream's mapped fields are `NO_READ` (TM) or `READ_IF_PRESENT` with default values (neutronics,
 //!   fluid), so a run from the SHIPPED `0/` starts from the constructors' defaults, which are used here (TM `TStructFromTH = TFuel = 1`,
@@ -464,7 +467,8 @@ fn build_maps(
 /// The geometry of region `name`'s `.baffleLess` mesh as the start directory holds it (`<start>/<name>.baffleLess/polyMesh`, written by the real
 /// `createBaffleLessMeshes` at every start: `Writing mesh to time <start>`), for the maps whose SOURCE is that region (gh:#1950, README round 75).
 /// `None` when the directory is absent (a case that starts from time 0 with identical meshes uses the baffled geometry, as rounds 54-74 did).
-/// The port does not BUILD the merged mesh (gh:#1236); reading the one the real binary wrote is what a restart of its own run has.
+/// ~~The port does not BUILD the merged mesh (gh:#1236)~~ **CORRECTED 2026-11-27 (README round 78):** the port builds it ([`baffle_less::build_baffle_less`]);
+/// this reader is only the fallback when the build is refused.
 ///
 /// # Errors
 /// [`AppBuilderError`] for a mesh that cannot be read or whose cell count is not the region's.
@@ -933,17 +937,33 @@ impl RegionSolvers {
                 dm = dm.restarted_at(&points).map_err(|e| case_err(root, format!("{name}: restart mesh: {e}")))?;
             }
             let remove_baffles = rb(name);
-            let baffle_less = if remove_baffles { Some(baffle_less::read_baffle_less(&poly, &dm)) } else { None };
+            let baffle_less = if remove_baffles { Some(baffle_less::build_baffle_less(&poly, &dm)) } else { None };
             // gh:#1944 (README round 74): `createBaffleLessMeshes` merges duplicate faces (`Writing 21252 duplicate faces`) and leaves every CELL
             // as it was (same count, same order, same shape: the real log's overlap volumes of the `.baffleLess` maps equal the baffled ones to 1e-14),
             // so the `meshToMesh` sources `<region>.baffleLess` hold the region's own cell values and their weights are the baffled mesh's (1 for
-            // identical cells). The merged mesh itself is not built: refused by name only where it would be WRITTEN (`baffle_less` above).
+            // identical cells). ~~The merged mesh itself is not built~~ **CORRECTED (gh:#1236, README round 78):** it is built, below.
             let _ = has_baffles(&dm);
             geometries.push(OverlapMesh::from_deformable(&dm).map_err(|e| case_err(root, format!("{name}: overlap geometry: {e}")))?);
             // the maps FROM a `removeBaffles` region use its baffle-less mesh; a start directory that holds it (a transient started from a written
             // steady state) gives the geometry the neutronics mesh, moved by the steady state, actually overlaps (gh:#1950)
             let bl_start = if start_time == 0.0 { "0".to_string() } else { time_dir_name(root, start_time)? };
-            source_geometries.push(if remove_baffles { read_baffle_less_geometry(root, name, &bl_start, dm.mesh().n_cells)? } else { None });
+            // gh:#1236 (README round 78): the `.baffleLess` geometry is BUILT (`createBaffleLessMeshes`: duplicate faces merged, faces renumbered as
+            // `polyTopoChange::changeMesh` does) from the region's own points and faces; only when the build is refused is the real binary's own
+            // `<start>/<region>.baffleLess/polyMesh` read, as rounds 75-77 did
+            let built = match &baffle_less {
+                Some(Ok(m)) => {
+                    let pts: Vec<Vector3> = m.points.iter().map(|p| Vector3::new(p[0], p[1], p[2])).collect();
+                    Some(OverlapMesh::new(&pts, m.faces.clone(), m.owner.clone(), m.neighbour.clone()).map_err(|e| case_err(root, format!("{name}.baffleLess: overlap geometry: {e}")))?)
+                }
+                _ => None,
+            };
+            source_geometries.push(if !remove_baffles {
+                None
+            } else if built.is_some() {
+                built
+            } else {
+                read_baffle_less_geometry(root, name, &bl_start, dm.mesh().n_cells)?
+            });
             let n = dm.mesh().n_cells;
             let fv = dm.mesh().clone();
             let mut fields = RegionFields::default();
@@ -1798,6 +1818,18 @@ mod multi_physics_tests {
         assert!(latest_time(&empty).is_err());
         let _ = std::fs::remove_dir_all(&dir);
         let _ = std::fs::remove_dir_all(&empty);
+    }
+
+    /// gh:#1236 (README round 78): `build_baffle_less` on a mesh WITHOUT duplicate faces (the shipped fullcoupling fluid mesh: `Writing 0 duplicate
+    /// faces`) returns the region's own faces in `changeMesh` order, which for a canonical mesh is the mesh as read, with the patch table unchanged.
+    #[test]
+    fn building_the_baffle_less_mesh_of_a_mesh_without_baffles_changes_nothing() {
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let poly = case.join("constant/fluidRegion/polyMesh");
+        let dm = DeformableMesh::read(&poly, PointCellsOrder::CellAscending).unwrap();
+        let read = baffle_less::read_baffle_less(&poly, &dm).unwrap();
+        let built = baffle_less::build_baffle_less(&poly, &dm).unwrap();
+        assert_eq!(built, read);
     }
 
     /// `read_baffle_less_geometry`: absent directory -> `None` (the baffled geometry is used), a mesh of the region's cell count -> the geometry, another

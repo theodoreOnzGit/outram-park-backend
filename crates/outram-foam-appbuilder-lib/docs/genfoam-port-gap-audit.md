@@ -336,7 +336,7 @@ TRACECHF / VapourTRACE / lookUpTableCHF, `twoParameters` and `byRegime`, MULES f
 | `common/timeProfile` | 397 | `common/time_profile.rs` | ported (`commDataLayer` out of scope) | unit (8); **libCommon driver, gh:#1361 (2026-11-12)**: table values bit-identical to upstream on 712 points (ESI `Function1::Table` form; the Foundation form is kept as `value_foundation` and differed in 242 of 667 interior points, up to 24 ulp) |
 | `common/InterpolateTable` | 675 | `common/interpolate_table.rs` | ported (1-D); ~~`FieldField` 2-D/3-D instantiations deferred~~ **CORRECTED 2026-11-27:** the `Field` / `FieldField` 2-D and 3-D instantiations are ported in `common/interpolate_table_nd.rs` (gh:#1223; `lookUpTableCHF` is the only consumer, `common/mod.rs` still lists them as deferred: stale doc, flagged below); **PD for the 1-D table (bit-identical), PU-by-use for the N-D one** (reached through the `lookUpTableCHF` variant runs at 6e-4..8e-4, unexplained, gh:#1816) | unit (9); **libCommon driver, gh:#1361 (2026-11-12)**: 618 values, 90 integrals and 504 `getNextPoint` bit-identical to upstream |
 | `common/solver` | 457 | enum dispatch in each module | partial (by design). **Re-checked 2026-11-27: PU (by design):** the run-time-selectable region-solver base is `NeutronicsModel` + `ThermalHydraulicsSolver` + `workflow` enums; its `deltaTFactor`/`maxDeltaT` handling is in `coupled_loop::adjust_delta_t` (PD, round 9) | — |
-| `common/mergeOrSplitBaffles` | 608 | — | missing | — |
+| `common/mergeOrSplitBaffles` | 608 | `multi_region/baffle_merge.rs` (merge branch only) | ~~missing~~ **CORRECTED 2026-11-27 (gh:#1236, README round 78, verified by running `esfr_baffle_less_mesh_is_byte_identical_to_the_real_one`):** `removeBaffles` with `split = 0`, `detectOnly = 0` (what `createBaffleLessMeshes` calls) is ported (`insertDuplicateMerge`, `findDuplicateFaces`, `polyTopoChange::changeMesh` face order): the 3D_SmallESFR_old fluid mesh's 21 252 duplicate faces merge to a mesh byte-identical to the real binary's `fluidRegion.baffleLess/polyMesh` (eight files); NOT ported, refused by name: `split`, `detectOnly`, face-zone flip bookkeeping, a pair on one cell, a decomposed run | gh:#1236 |
 | `common/latticeMap` | 315 | — | missing | — |
 | `common/listOperation` | 154 | — | missing (dictionary I/O helper) | — |
 | `openFoamImportedSolvers/compressibleInterFoam` | 1,511 (575 + `include/equations` 936) | — | missing. **Re-checked 2026-11-27:** compiled into `libOFSolvers` but referenced by nothing in `src/`, `GeN-Foam/` or `Tutorials/` (grep): the lowest-value row; gh:#1237 asks to check the workspace's own `outram-foam-multiphase` port first | — |
@@ -473,7 +473,7 @@ Each is one deliverable. Sizes are upstream lines to port.
     residual control, shared by `onePhase` and `twoPhase`.
 17. **`adjointDiffusion`** (849 lines) and the SN transient.
 18. **thermoMechanics**: traction / gap-contact BCs (1,035 lines; gh:#1235). ~~The legacy FVM solver itself~~ **ADDED 2026-11-26 (round 23):** `legacy_fvm` is compared bit for bit with the real class on the ESFR mechanics region.
-19. **`common`**: `mergeOrSplitBaffles`, `latticeMap` (923 lines), when the
+19. **`common`**: ~~`mergeOrSplitBaffles`~~ (**done 2026-11-27, round 78, gh:#1236: the merge branch**), `latticeMap` (315 lines: not needed by `removeBaffles`; still missing), when the
     multi-region layer needs them.
 20. **`openFoamImportedSolvers`**: `compressibleInterFoam`, `scalarTransportFoam`
     (1,884 lines); check first whether the workspace's own ports cover them.
