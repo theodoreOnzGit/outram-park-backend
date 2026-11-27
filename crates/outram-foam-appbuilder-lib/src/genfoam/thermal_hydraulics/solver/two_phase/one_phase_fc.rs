@@ -1326,7 +1326,9 @@ impl OnePhaseFcSolver {
         // structure::correct, after the power models: `iter().correct(HT, H, THXPtr_())` of every heat exchanger (structure.C:1000-1018)
         if self.structure.heat_exchangers.is_present() {
             let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_used[c]).collect();
-            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.fluid.t.c[c]).collect();
+            // `sMesh_.lookupObject("T")` is the CURRENT temperature (after the solve); the C3 control uses `T.prevIter()`
+            let t_sec = if self.structure.heat_exchangers.secondary_uses_prev_iter_t { &t_used } else { &self.fluid.t.c };
+            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * t_sec[c]).collect();
             self.structure.heat_exchangers.correct(&ht, &self.htc, &self.htc, &s_ht);
         }
         if self.structure_old_time_stale {
@@ -1504,6 +1506,28 @@ impl OnePhaseFcSolver {
     #[must_use]
     pub fn without_kinetic_energy(mut self) -> Self {
         self.controls.include_kinetic_energy = false;
+        self
+    }
+
+    /// CONTROL (README round 44, C1): no heat exchangers, whatever `structureProperties.heatExchangers` says (the explicit ablation).
+    #[must_use]
+    pub fn without_heat_exchangers(mut self) -> Self {
+        self.structure.heat_exchangers = crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet::default();
+        self
+    }
+
+    /// CONTROL (README round 44, C2): every primary cell takes its NEAREST secondary cell with weight 1 instead of the
+    /// `meshToMesh` overlap weights.
+    #[must_use]
+    pub fn with_nearest_cell_heat_exchanger_mapping(mut self) -> Self {
+        self.structure.heat_exchangers.nearest_cell_mapping = true;
+        self
+    }
+
+    /// CONTROL (README round 44, C3): the secondary side's `htc*T` with `T.prevIter()` instead of the current `T`.
+    #[must_use]
+    pub fn with_heat_exchanger_secondary_prev_iter_temperature(mut self) -> Self {
+        self.structure.heat_exchangers.secondary_uses_prev_iter_t = true;
         self
     }
 

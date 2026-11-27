@@ -166,6 +166,12 @@ pub struct HeatExchangerZone {
     pub hw: f64,
     /// `mappingPtr_`: source = the translated secondary mesh, target = the primary mesh.
     pub mapping: CellVolumeWeightAddressing,
+    /// CONTROL, not upstream (README round 44, C2): the same mapping with every primary cell taking its NEAREST translated
+    /// secondary cell with weight 1. Used only by [`HeatExchangerSet::with_nearest_cell_mapping`].
+    pub nearest_cell_mapping: CellVolumeWeightAddressing,
+    /// `delta`: the translation applied to the secondary mesh (`pCOV - sCOV`), logged by upstream as
+    /// `Heat exchanger <name> mapping: applied translation of (..) m`.
+    pub translation: Vector3,
 }
 
 /// The raw polyMesh lists and the geometry `heatExchanger::constructSecondaryHX` reads from `mesh_` and the secondary mesh
@@ -220,6 +226,32 @@ fn centre_of_volume(cells: &[usize], v: &[f64], c: &[Vector3]) -> (Vector3, f64)
     (Vector3::new(cov.x / vol, cov.y / vol, cov.z / vol), vol)
 }
 
+/// CONTROL (README round 44, C2): every target cell gets the nearest source cell centre with weight 1 (no overlap volumes).
+fn nearest_cell_addressing(src: &OverlapMesh, tgt: &OverlapMesh) -> CellVolumeWeightAddressing {
+    let sc = src.cell_centres();
+    let tc = tgt.cell_centres();
+    let mut tgt_to_src_addr = Vec::with_capacity(tc.len());
+    for t in &tc {
+        let mut best = 0usize;
+        let mut best_d = f64::INFINITY;
+        for (i, s) in sc.iter().enumerate() {
+            let d = (s.x - t.x) * (s.x - t.x) + (s.y - t.y) * (s.y - t.y) + (s.z - t.z) * (s.z - t.z);
+            if d < best_d {
+                best_d = d;
+                best = i;
+            }
+        }
+        tgt_to_src_addr.push(vec![best]);
+    }
+    CellVolumeWeightAddressing {
+        src_to_tgt_addr: vec![Vec::new(); sc.len()],
+        src_to_tgt_wght: vec![Vec::new(); sc.len()],
+        tgt_to_src_wght: vec![vec![1.0]; tc.len()],
+        tgt_to_src_addr,
+        v: 0.0,
+    }
+}
+
 impl HeatExchangerZone {
     /// `heatExchanger::heatExchanger` + `constructSecondaryHX` for a secondary zone in the SAME mesh.
     ///
@@ -248,7 +280,8 @@ impl HeatExchangerZone {
         let target = OverlapMesh::new(mesh.points, mesh.faces.to_vec(), mesh.owner.to_vec(), mesh.neighbour.to_vec())
             .map_err(|e| HeatExchangerError::Mesh(e.to_string()))?;
         let mapping = CellVolumeWeightAddressing::new_normalised(&translated, &target);
-        Ok(Self { primary_cells, i_a, hw: wall_conductance.max(1e-69), mapping })
+        let nearest_cell_mapping = nearest_cell_addressing(&translated, &target);
+        Ok(Self { primary_cells, i_a, hw: wall_conductance.max(1e-69), mapping, nearest_cell_mapping, translation: delta })
     }
 }
 
@@ -261,6 +294,11 @@ pub struct HeatExchangerSet {
     pub i_a_hx: Vec<f64>,
     /// `THX` (`T.HX`): zero until the first `structure::correct`, then the surface temperature on the primary cells.
     pub t_hx: Vec<f64>,
+    /// CONTROL (README round 44, C2): map with the nearest source cell instead of the overlap weights. Default `false`.
+    pub nearest_cell_mapping: bool,
+    /// CONTROL (README round 44, C3): the secondary `htc*T` taken with the temperature BEFORE the energy solve (as the primary
+    /// side's `HT` is) instead of upstream's current `T`. Default `false`.
+    pub secondary_uses_prev_iter_t: bool,
 }
 
 impl HeatExchangerSet {
@@ -273,7 +311,7 @@ impl HeatExchangerSet {
                 i_a_hx[c] += z.i_a;
             }
         }
-        Self { zones, i_a_hx, t_hx: vec![0.0; n_cells] }
+        Self { zones, i_a_hx, t_hx: vec![0.0; n_cells], nearest_cell_mapping: false, secondary_uses_prev_iter_t: false }
     }
 
     /// Whether the region has heat exchangers (`THXPtr_.valid()`).
@@ -300,8 +338,9 @@ impl HeatExchangerSet {
         for z in &self.zones {
             let mut hs_op = vec![0.0; n];
             let mut hts_op = vec![0.0; n];
-            z.mapping.map_src_to_tgt_scalar(s_h, &mut hs_op);
-            z.mapping.map_src_to_tgt_scalar(s_ht, &mut hts_op);
+            let mapping = if self.nearest_cell_mapping { &z.nearest_cell_mapping } else { &z.mapping };
+            mapping.map_src_to_tgt_scalar(s_h, &mut hs_op);
+            mapping.map_src_to_tgt_scalar(s_ht, &mut hts_op);
             for &c in &z.primary_cells {
                 let t = hx_wall_temperature(
                     WallConductance::new::<wm2k>(z.hw),

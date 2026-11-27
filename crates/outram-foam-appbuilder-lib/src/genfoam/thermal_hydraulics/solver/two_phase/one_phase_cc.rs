@@ -87,6 +87,7 @@ pub use turbulence::{
 };
 use turbulence::TurbState;
 pub use super::radial_power::fvc_laplacian_uncorrected;
+use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet;
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
@@ -315,6 +316,8 @@ pub struct OnePhaseCcCase {
     pub dh: Vec<f64>,
     /// `volumetricArea.activeStructure`: the `fixedTemperature` power model's area per cell.
     pub ia_act: Vec<f64>,
+    /// `structureProperties.heatExchangers` with `iAHX` and `T.HX` (README round 44, gh:#1847); empty when none.
+    pub heat_exchangers: HeatExchangerSet,
     /// `T.fixedTemperature` (read from the start directory) per cell.
     pub t_fixed: Vec<f64>,
     /// `temperatureTimeProfile` of each `fixedTemperature` zone (gh:#1813): the cells of the zone and the table of scaling factors.
@@ -688,10 +691,12 @@ impl OnePhaseCcCase {
         let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
-            for refused in ["powerOffCriterionModel", "heatExchangers"] {
-                if key == refused {
-                    return Err(ctx.e(format!("structureProperties.{refused} is not ported")));
-                }
+            if key == "heatExchangers" {
+                // `structure.C:265` skips it as a zone key; read after the loop (`constructHeatExchangers`, README round 44)
+                continue;
+            }
+            if key == "powerOffCriterionModel" {
+                return Err(ctx.e(format!("structureProperties.{key} is not ported")));
             }
             let cells = zone_cells(key)?;
             if solve_flow {
@@ -783,6 +788,10 @@ impl OnePhaseCcCase {
             }
         }
         let min_re = scalar(&pp, "residualFluidStructureRe").unwrap_or(10.0);
+        let heat_exchangers = match sp.get_dict("heatExchangers") {
+            Some(hxd) => super::case::read_heat_exchangers(&ctx, hxd, poly_mesh_dir, &g, &zone_cells)?,
+            None => HeatExchangerSet::default(),
+        };
 
         // ---- fields at the start time
         let tdir = alloc::format!("{start_time}");
@@ -922,6 +931,7 @@ impl OnePhaseCcCase {
             power_density_neutronics: radial.q_neutronics,
             radial_needs_laplacian: radial.needs_laplacian,
             ia_act,
+            heat_exchangers,
             t_fixed,
             t_profiles,
             htc_model,
@@ -959,6 +969,8 @@ pub struct OnePhaseCcSolver {
     ia_act: Vec<f64>,
     /// The radial-conduction power models (gh:#1879), state included.
     radial: Vec<RadialPowerModel>,
+    /// `structureProperties.heatExchangers` with `iAHX` and `T.HX` (README round 44, gh:#1847).
+    heat_exchangers: HeatExchangerSet,
     /// The structure's `powerDensityNeutronics` per cell.
     q_neutronics: Vec<f64>,
     /// `T.prevIter()` stored by `EEqn_1p.H` before the solve (`HT = Hs*T.prevIter()`).
@@ -1063,6 +1075,7 @@ impl OnePhaseCcSolver {
             }
         }
         let q_neutronics = case.power_density_neutronics.clone();
+        let heat_exchangers = case.heat_exchangers.clone();
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
         let re = vec![case.min_re; n];
@@ -1079,6 +1092,7 @@ impl OnePhaseCcSolver {
             t_act_old,
             ia_act,
             radial,
+            heat_exchangers,
             q_neutronics,
             t_prev: Vec::new(),
             structure_heat_flux: vec![0.0; n],
@@ -1284,6 +1298,15 @@ impl OnePhaseCcSolver {
     /// # Panics
     /// On a singular radial matrix (upstream's `Foam::solve` is a `FatalError`: the case is unphysical).
     fn structure_correct(&mut self) {
+        // after the power models: the heat exchangers' `correct(HT, H, THX)` (structure.C:1000-1018): `sHT = htc*T` with the
+        // CURRENT temperature, `HT = Hs*T.prevIter()` (README round 44)
+        if self.heat_exchangers.is_present() {
+            let n = self.geom.n_cells();
+            let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.t_prev[c]).collect();
+            let s_ht: Vec<f64> = (0..n).map(|c| self.htc[c] * self.t[c]).collect();
+            let h = self.htc.clone();
+            self.heat_exchangers.correct(&ht, &h, &h, &s_ht);
+        }
         if self.radial.is_empty() {
             return;
         }
@@ -1495,8 +1518,19 @@ impl OnePhaseCcSolver {
             su[c] = ih * (self.t_act[c] - self.t[c] + self.he[c] / cp);
             sp[c] = ih / cp;
         }
-        e.su(&g, &su);
-        e.sp(&g, &sp);
+        if self.heat_exchangers.is_active() {
+            // `structure.C:1148-1156`: `Q += iAHX*H*(THX-T+he/Cp) - fvm::Sp(iAHX*H/Cp, he)` BEFORE `EEqn -= Q`: the source and the
+            // diagonal receive `(V*act + V*hx)` as ONE sum (negations are exact), not two additions (README round 44)
+            for c in 0..n {
+                let v = g.mesh.cell_volumes[c];
+                let (su_hx, sp_hx) = self.heat_exchangers.source_and_coeff(c, self.htc[c], self.t[c], self.he[c], cp);
+                e.source[c] += v * su[c] + v * su_hx;
+                e.ldu.diag[c] += v * sp[c] + v * sp_hx;
+            }
+        } else {
+            e.su(&g, &su);
+            e.sp(&g, &sp);
+        }
         // - alpha * powerDensity
         let pd: Vec<f64> = (0..n).map(|c| self.alpha[c] * self.power_density[c]).collect();
         e.su(&g, &pd);
