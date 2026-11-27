@@ -1,21 +1,21 @@
 mesh,cell_type,cells,points,faces,volume_cm3,exact_cm3,volume_rel_diff,non_star_cells,max_non_orth_deg,patches
-neutronics,tet-dual polyhedral,23303,340665,241033,6.911167e7,6.918101e7,-1.0023e-3,4020,74.5,pebble_bed_to_conus:348 pebble_bed_to_side_reflector:942 pebble_bed_to_core_cavity:336 conus_to_discharge_tube:198 conus_to_conus_graphite:1656 conus_to_pebble_bed:1098 walls:10272 discharge_tube_to_bottom_structures:6168 discharge_tube_to_conus:198 core_cavity_to_pebble_bed:336 core_cavity_to_side_reflector:768 core_cavity_to_top_reflector:330 top_reflector_to_core_cavity:354 top_reflector_to_side_reflector:1407 top_reflector_to_control_rod_band:192 top_reflector_to_cold_gas_plenum:1413 top_reflector_to_carbon_bricks:525 cold_gas_plenum_to_top_reflector:3045 cold_gas_plenum_to_side_reflector:1467 cold_gas_plenum_to_coolant_band:384 side_reflector_to_bottom_structures:819 side_reflector_to_conus_graphite:1662 side_reflector_to_control_rod_band:15237 side_reflector_to_coolant_band:6270 side_reflector_to_carbon_bricks:3975 side_reflector_to_pebble_bed:6597 side_reflector_to_core_cavity:4005 side_reflector_to_top_reflector:3957 side_reflector_to_cold_gas_plenum:1176 control_rod_band_to_bottom_structures:192 control_rod_band_to_side_reflector:4980 control_rod_band_to_top_reflector:192 coolant_band_to_bottom_structures:450 coolant_band_to_side_reflector:13575 coolant_band_to_cold_gas_plenum:411 carbon_bricks_to_bottom_structures:3273 carbon_bricks_to_side_reflector:3168 carbon_bricks_to_top_reflector:399 bottom_structures_to_discharge_tube:6144 bottom_structures_to_carbon_bricks:2961 bottom_structures_to_conus_graphite:936 bottom_structures_to_side_reflector:1218 bottom_structures_to_control_rod_band:318 bottom_structures_to_coolant_band:384 conus_graphite_to_bottom_structures:1464 conus_graphite_to_conus:1626 conus_graphite_to_side_reflector:384
+neutronics,tet-dual polyhedral,42997,653735,433297,6.916422e7,6.918101e7,-2.4273e-4,6310,75.3,pebble_bed_to_conus:756 pebble_bed_to_side_reflector:1764 pebble_bed_to_core_cavity:702 conus_to_discharge_tube:210 conus_to_conus_graphite:1614 conus_to_pebble_bed:1254 walls:35046 discharge_tube_to_bottom_structures:6180 discharge_tube_to_conus:210 core_cavity_to_pebble_bed:726 core_cavity_to_side_reflector:1566 core_cavity_to_top_reflector:744 top_reflector_to_core_cavity:684 top_reflector_to_side_reflector:3180 top_reflector_to_control_rod_band:192 top_reflector_to_cold_gas_plenum:2856 top_reflector_to_carbon_bricks:1383 cold_gas_plenum_to_top_reflector:3045 cold_gas_plenum_to_side_reflector:1467 cold_gas_plenum_to_coolant_band:384 side_reflector_to_bottom_structures:1587 side_reflector_to_conus_graphite:1653 side_reflector_to_control_rod_band:17754 side_reflector_to_coolant_band:12816 side_reflector_to_carbon_bricks:13320 side_reflector_to_pebble_bed:6768 side_reflector_to_core_cavity:3657 side_reflector_to_top_reflector:5340 side_reflector_to_cold_gas_plenum:1467 control_rod_band_to_bottom_structures:192 control_rod_band_to_side_reflector:6144 control_rod_band_to_top_reflector:192 coolant_band_to_bottom_structures:417 coolant_band_to_side_reflector:13359 coolant_band_to_cold_gas_plenum:414 carbon_bricks_to_bottom_structures:8949 carbon_bricks_to_side_reflector:14505 carbon_bricks_to_top_reflector:1602 bottom_structures_to_discharge_tube:6156 bottom_structures_to_carbon_bricks:6669 bottom_structures_to_conus_graphite:948 bottom_structures_to_side_reflector:1566 bottom_structures_to_control_rod_band:327 bottom_structures_to_coolant_band:387 conus_graphite_to_bottom_structures:1662 conus_graphite_to_conus:1698 conus_graphite_to_side_reflector:438
 thermal_hydraulics,tet-dual polyhedral + boundary layers,6423,95526,49472,5.641045e6,5.644581e6,-6.2636e-4,275,58.1,outlet:1329 bed_wall:3531 pebble_bed_to_core_cavity:1320 core_cavity_to_pebble_bed:1872 cavity_wall:2616 inlet:1944
 structural,tetrahedral FEM (Tet4),131265,24229,269064,6.259483e7,6.267742e7,-1.3177e-3,0,83.6,walls:13068
 
 mesh,region,cells,mesh_cm3,exact_cm3,rel_diff
-neutronics,pebble_bed,442,3.140125e6,3.144614e6,-1.4273e-3
-neutronics,conus,558,4.241391e5,4.246201e5,-1.1328e-3
-neutronics,discharge_tube,1575,4.337759e5,4.343959e5,-1.4273e-3
-neutronics,core_cavity,374,2.496399e6,2.499967e6,-1.4273e-3
-neutronics,top_reflector,1249,8.189033e6,8.198151e6,-1.1122e-3
+neutronics,pebble_bed,1247,3.140462e6,3.144614e6,-1.3202e-3
+neutronics,conus,587,4.241433e5,4.246201e5,-1.1230e-3
+neutronics,discharge_tube,1571,4.337759e5,4.343959e5,-1.4273e-3
+neutronics,core_cavity,1040,2.496448e6,2.499967e6,-1.4078e-3
+neutronics,top_reflector,3554,8.194473e6,8.198151e6,-4.4860e-4
 neutronics,cold_gas_plenum,818,6.934776e5,6.937252e5,-3.5694e-4
-neutronics,side_reflector,7363,1.467246e7,1.468902e7,-1.1271e-3
-neutronics,control_rod_band,894,2.154927e6,2.158007e6,-1.4273e-3
-neutronics,coolant_band,2406,2.062337e6,2.062507e6,-8.2593e-5
-neutronics,carbon_bricks,2385,1.521242e7,1.522655e7,-9.2795e-4
-neutronics,bottom_structures,4654,1.911777e7,1.913392e7,-8.4380e-4
-neutronics,conus_graphite,585,5.148031e5,5.155411e5,-1.4315e-3
+neutronics,side_reflector,11712,1.469373e7,1.468902e7,3.2050e-4
+neutronics,control_rod_band,1088,2.154927e6,2.158007e6,-1.4273e-3
+neutronics,coolant_band,2365,2.061734e6,2.062507e6,-3.7494e-4
+neutronics,carbon_bricks,9593,1.522813e7,1.522655e7,1.0390e-4
+neutronics,bottom_structures,8757,1.912812e7,1.913392e7,-3.0297e-4
+neutronics,conus_graphite,665,5.148022e5,5.155411e5,-1.4332e-3
 thermal_hydraulics,pebble_bed,2838,3.143071e6,3.144614e6,-4.9052e-4
 thermal_hydraulics,core_cavity,3585,2.497974e6,2.499967e6,-7.9724e-4
 structural,top_reflector,11876,8.184958e6,8.198151e6,-1.6092e-3
@@ -28,9 +28,9 @@ structural,bottom_structures,30158,1.910051e7,1.913392e7,-1.7457e-3
 structural,conus_graphite,2728,5.157783e5,5.155411e5,4.6020e-4
 
 from,to,overlap_cm3,to_coverage,uncovered_target_cells,seconds
-neutronics,thermal_hydraulics,5.636708e6,0.999231,0,5.9
-thermal_hydraulics,neutronics,5.636708e6,0.081559,20888,5.9
-neutronics,structural,6.258508e7,0.999844,0,35.8
-structural,neutronics,6.258508e7,0.905565,1232,35.8
-thermal_hydraulics,structural,9.889829e3,0.000158,126467,0.7
-structural,thermal_hydraulics,9.889829e3,0.001753,5283,0.7
+neutronics,thermal_hydraulics,5.637395e6,0.999353,0,15.0
+thermal_hydraulics,neutronics,5.637395e6,0.081507,39113,15.0
+neutronics,structural,6.259067e7,0.999934,0,77.2
+structural,neutronics,6.259067e7,0.904957,2457,77.2
+thermal_hydraulics,structural,9.889829e3,0.000158,126467,1.5
+structural,thermal_hydraulics,9.889829e3,0.001753,5283,1.5

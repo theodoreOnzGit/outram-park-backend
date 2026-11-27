@@ -111,12 +111,13 @@ a mesh was a face. Now:
   25 cm, cause not found (`diagnose_th_cavity_volume_at_25_cm`); that is
   one reason it is not the default.
 
-Default sizes (30 / 15 / 25 cm, 32 segments), built from `b73f1ad43`; whole
-run 56 s (it was 2 m 34 s).
+Default sizes (~~30~~ **20** / 15 / 25 cm, 32 segments; the neutronics
+default moved to 20 cm on 2026-11-27, maintainer, on the Step 10 mesh study),
+built from `418706d13`; whole run 1 m 52 s (2 m 34 s on 2026-11-26).
 
 | mesh | cells | volume vs exact | worst region | non-star cells | max non-orth |
 |---|---|---|---|---|---|
-| neutronics (12 regions, per region + AMI) | 23 303 polyhedra | **−0.10 %** | `conus_graphite` −0.14 % | 4 020 | 74.5° |
+| neutronics (12 regions, per region + AMI, 20 cm) | ~~23 303~~ 42 997 polyhedra | ~~−0.10 %~~ **−0.02 %** | `conus_graphite` −0.14 % | 6 310 | 75.3° |
 | thermal-hydraulics (bed + cavity, cavity layered) | 6 423 | **−0.06 %** | `core_cavity` −0.08 % | 275 | **58.1°** |
 | structural (conforming Tet4) | 131 265 | **−0.13 %** | `control_rod_band` −0.63 % | 0 | 83.6° |
 
@@ -131,21 +132,25 @@ the 30 cm neutronics mesh (2026-10-05), is −0.04 %.
 the notes give both side areas and the AMI weight sums
 (`mesh_notes_ami_2026-11-27.md`):
 
+Numbers at the 20 cm default; ~~struck~~ values are the 30 cm run.
+
 - **Flat pairs** whose rims match on both sides: sums 1 to round-off, areas
-  equal to 1e-15. Four of them, plus the TH bed/cavity pair (whose cavity
-  side carries the layer columns' rim: source min 0.972, mean 0.99964).
-- **Curved pairs** (cylinders): mean sums 1.00005 to 1.0012. Over all
-  pairs the two side areas differ by at most 2.5e-3. Predicted before measuring: an excess over 1 of about
-  π²/(6N²), from the projection along the bisector that upstream uses (the
-  port's own cylinder test confirms the model). I estimated N from the cell
-  size, about 19 around r = 0.9 m, and predicted 2–5e-3; the measured excess
-  is about 5× smaller, because the snapped dual faces are finer than the
-  cell size.
+  equal to 1e-15. Two of them (~~four~~), plus the TH bed/cavity pair
+  (whose cavity side carries the layer columns' rim: source min 0.972,
+  mean 0.99964).
+- **Curved pairs** (cylinders): mean sums up to 1.0004 (~~1.0012~~). Over
+  all pairs the two side areas differ by at most 2.0e-3 (~~2.5e-3~~).
+  Predicted before measuring: an excess over 1 of about π²/(6N²), from the
+  projection along the bisector that upstream uses (the port's own cylinder
+  test confirms the model). I estimated N from the cell size, about 19
+  around r = 0.9 m at 30 cm, and predicted 2–5e-3; the measured excess was
+  about 5× smaller, because the snapped dual faces are finer than the cell
+  size.
 - **Thin flat bands** (the cold-gas plenum, the coolant and control-rod
-  bands against their neighbours): mean sums down to 0.9899, single faces
-  down to 0.966. Not predicted. Probably TetGen splitting the rim rings at
-  different angles on the two sides, so the rims do not line up; not
-  checked.
+  bands against their neighbours): mean sums down to 0.9955 (~~0.9899~~),
+  single faces down to 0.977 (~~0.966~~). Not predicted. Probably TetGen
+  splitting the rim rings at different angles on the two sides, so the
+  rims do not line up; not checked.
 
 **The map gate moved, with the maintainer's agreement.** The test maps a
 power density neutronics → TH and compares integrals. Its bound ~~1e-4~~ is
