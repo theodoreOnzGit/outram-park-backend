@@ -7871,3 +7871,43 @@ Time-profile types that no variant runs (`linearRamp`, `halfCosineRamp`, `quarte
 | X1 | fingerprints of the three regions <= 1e-9 at every step for every variant that runs | 80 % |
 | X2 | no earlier number moves | 90 % |
 | X3 | the `profiles` variant's power differs from the baseline by > 1e-3 at step 100 | 85 % |
+
+# Round 64 (gh:#1229, #1928 under #1870/#1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah"): the real 900 s steady state started; `localTortuosity` (the tensor-diffusivity Laplacian)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 63 (#1927): keep both on merge. **Predictions and every criterion below are committed BEFORE the first port run of the `w7` variants.** The real-binary reference of the variant was extracted first (it is an input of the test, not of the port).
+
+## The real as-shipped 2D_FFTF steady state (started first, detached)
+
+* Run dir `/home/user/upstream-build/fftf_ss900` = a copy of `Tutorials/reactorCases/2D_FFTF` whose `Allrun` has ONE edit, `cases="steadyState"` (the transient stage is not started; every line of `setSteadyState` runs as shipped: `foamDictionary` edits `endTime 900`, `writeInterval 900`, `maxCo 50`, `maxDeltaT 2`, `onePhase`, `removeBaffles true`, then `GeN-Foam`, serial, GAMG as shipped). Started 2026-11-27 16:02 UTC with `nohup setsid ./run_ss.sh`.
+* **GeN-Foam PID 22461**; log `/home/user/upstream-build/fftf_ss900/steadyState/log.GeN-Foam` (wrapper stdout: `allrun.out`). Measured ~1 s/step; it writes only at t = 900 (~16 MB per region).
+* Extraction (when finished): the `900` directory of each region, the log's `deltaT` sequence and solve summary, into `refs/fftf_r64_asshipped_ss900*`. The state of this run at the end of the session is in "Results" below.
+
+## Variants (real binary, 20 steps, tight protocol of round 55; `scripts/make_fftf_piece_variants.py`, `run_fftf_piece_variants.sh`)
+
+| variant | edit | what it exercises |
+|---|---|---|
+| `w7_tort` | half zone (72 of 144 cells, an interface) + `zone0.localTortuosity (0.7 1.3 0.01389)` | `UEqn_1p.H` `fvm::laplacian(alpha rho nuEff tortuosity, U)` + `fvc::div(alpha rho nuEff tortuosity & dev2(T(grad U)))`; `EEqn_1p.H` `fvm::laplacian(interpolate(alpha) interpolate(tortuosity alphaEff), he)`; the mesh is Cartesian (x-y plane, `empty` z), so `SfGammaCorr` is exactly 0 |
+| `w7r_rot0`, `w7r_tort` | mesh points rotated about z so that `Sf & gamma` is not parallel to `Sf` | the `gammaSnGradCorr` path. **The real binary FAILED on the control `w7r_rot0` itself** (30 deg: SIGFPE in `Polynomial::value`; 5 deg: `Maximum number of iterations exceeded ... T: 1.19e31` at step 1; the case is not stable on a rotated mesh), so these variants carry no reference and the correction path is NOT differenced against the real binary (see Criterion 4 and "Not done"). |
+
+## Criteria (fixed here; none will change after seeing results)
+
+1. `w7_tort` is read and run by the port without refusal, 20 steps, step count equal to the reference.
+2. Fields `U` (gated on `max|U|`), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics` at every kept step `<= 1e-9` relative to the max of the reference; `dt` sequence `<= 1e-12`; `T` lines `<= 1e-9`; solve logs: initial residual absolute difference `<= 1e-11` and iteration difference `<= 5` for solves whose upstream residual exceeds 1e-10 (the standing pins of rounds 55/62); noise-floor iteration counts REPORTED, NOT gated.
+3. Controls (each must differ from the `w7_tort` reference): the port with the UEqn tortuosity off (EEqn on) differs in `U` or `T` by more than 1e-9; the port with the EEqn tortuosity off (UEqn on) differs by more than 1e-9 in `T`.
+4. The tensor-gamma Laplacian is unit-tested on its own: for a diagonal `gamma = g I` it reproduces the scalar-gamma matrix coefficients to <= 1e-12 relative, and `SfGammaSn`/`SfGammaCorr` of a hand-built non-axis-aligned face equal `SfGamma = Sf & gamma`, `SfGammaSn = SfGamma & Sn`, `SfGammaCorr = SfGamma - SfGammaSn Sn` to 1e-14.
+5. Earlier numbers (rounds 3-63) do not move: `genfoam_fftf_pieces_vs_upstream` (w1-w6), `genfoam_fullcoupling_fluid_vs_upstream`, `genfoam_fullcoupling_three_region_vs_upstream`, `genfoam_fullcoupling_transient_vs_upstream` pass at their pins; anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+6. `genfoam_coupled_tutorials_requirements` re-pinned to the first refusal of the shipped FFTF case still missing; the round 54 table row and gap-audit row struck through.
+7. Wedge patches: the tortuous path applies to EVERY face of the fluid mesh (identity tortuosity outside the zone), including the 14 328 wedge faces of the FFTF vessel; the wedge boundary value of the tensor is `cellT & I & cellT.T()`. Whatever of this the port does not carry is REFUSED by name; it is not differenced (no wedge case among the variants).
+
+## Predictions (written before any port number of this round was looked at)
+
+| id | prediction | probability |
+|---|---|---|
+| T1 | `w7_tort` within 1e-9 at all 20 steps | 70 % |
+| T2 | `w7_tort` bit-identical in `U` (worst difference exactly 0) | 20 % |
+| T3 | both controls of criterion 3 differ | 90 % |
+| T4 | the rotated variants can be run by the real binary | missed already (written post-run): they cannot |
+| T5 | earlier numbers do not move | 90 % |
+| T6 | the next refusal of the shipped FFTF case after `localTortuosity` is in the BC / turbulence readers (`mappedWall`, `porousKEpsilon` wall entries) rather than the structure reader | 55 % |
+| T7 | the port does not complete the shipped FFTF steady state this session | 90 % |
+| T8 | the real 900 s steady state finishes before this session ends | 10 % |

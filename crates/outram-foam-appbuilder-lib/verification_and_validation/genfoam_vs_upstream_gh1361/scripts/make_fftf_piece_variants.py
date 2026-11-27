@@ -13,6 +13,11 @@ the port gained (each variant is a small case the REAL binary runs in seconds):
   w4_churchill: zone0 drag model `Churchill` (surfaceRoughness 1e-6) in place of the case's `ReynoldsPower`, when the case has one
   w5_noslip   : the `fixedWalls` patch U `slip` -> `noSlip`
   w6_aniso    : zone0 drag per axis as the FFTF core: `localZ` Rehme (217 pins, FFTF numbers), `localX`/`localY` ReynoldsPower 0.96 / -0.145
+  w7_tort     : (round 64, gh:#1229) the half zone (72 of 144 cells; an interface) with `localTortuosity (0.7 1.3 0.01389)` on `zone0` (the
+                tensor-diffusivity Laplacian of `UEqn_1p.H` and `EEqn_1p.H`); the mesh is Cartesian, so `SfGammaCorr` is exactly 0
+  w7r_rot0    : (round 64) the half zone, NO tortuosity, the mesh points ROTATED by 30 degrees about z (control: the port on a rotated mesh)
+  w7r_tort    : (round 64) the half zone, `localTortuosity (0.7 1.3 0.01389)`, mesh rotated 30 degrees about z: `Sf & gamma` is not parallel
+                to `Sf`, so `SfGammaCorr` (the `gammaSnGradCorr` term) is non-zero
 
 usage: make_fftf_piece_variants.py <base case dir> <out dir>
 """
@@ -26,7 +31,7 @@ def edit(path, f):
 
 def main():
     base, out = sys.argv[1], sys.argv[2]
-    names = ['w1_dilu', 'w2_half_cc', 'w2_recon05', 'w2_recon1', 'w2_recon0', 'w3_pump', 'w4_churchill', 'w5_noslip', 'w6_aniso']
+    names = ['w1_dilu', 'w2_half_cc', 'w2_recon05', 'w2_recon1', 'w2_recon0', 'w3_pump', 'w4_churchill', 'w5_noslip', 'w6_aniso', 'w7_tort', 'w7r_rot0', 'w7r_tort']
     for v in names:
         d = os.path.join(out, v)
         shutil.rmtree(d, ignore_errors=True)
@@ -72,6 +77,24 @@ def main():
                 '            "localY"\n            {\n                type    ReynoldsPower;\n                coeff   0.96;\n                exp     -0.145;\n            }\n        }')
         return t[:m.start()] + body + t[m.end():]
     edit(os.path.join(out, 'w6_aniso', pp), aniso)
+
+    # round 64 (gh:#1229): the tortuous zone, on the Cartesian and on the rotated mesh
+    for v in ('w7_tort', 'w7r_rot0', 'w7r_tort'):
+        edit(os.path.join(out, v, 'constant/fluidRegion/polyMesh/cellZones'), half)
+    for v in ('w7_tort', 'w7r_tort'):
+        edit(os.path.join(out, v, pp), lambda t: re.sub(r'(volumeFraction\s+0\.5;)', r'\1\n        localTortuosity     (0.7 1.3 0.01389);', t, count=1))
+    import math
+    c, s = math.cos(math.radians(float(os.environ.get("ROT_DEG", "30")))), math.sin(math.radians(float(os.environ.get("ROT_DEG", "30"))))
+    def rotate(t):
+        m = re.search(r'\n(\d+)\n\(\n(.*?)\n\)', t, flags=re.S)
+        pts = []
+        for line in m.group(2).split('\n'):
+            x, y, z = (float(w) for w in line.strip('()').split())
+            pts.append('(%.17g %.17g %.17g)' % (c * x - s * y, s * x + c * y, z))
+        assert len(pts) == int(m.group(1))
+        return t[:m.start()] + '\n' + m.group(1) + '\n(\n' + '\n'.join(pts) + '\n)' + t[m.end():]
+    for v in ('w7r_rot0', 'w7r_tort'):
+        edit(os.path.join(out, v, 'constant/fluidRegion/polyMesh/points'), rotate)
 
 if __name__ == '__main__':
     main()
