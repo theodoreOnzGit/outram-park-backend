@@ -77,6 +77,15 @@ public:
                int(decayPowerTimeProfile_.valid()), int(externalReactivityTimeProfile_.valid()),
                int(boronReactivityTimeProfile_.valid()), int(externalSourceModulationTimeProfile_.valid()));
         printf("CFG nCells %d\n", int(mesh_.nCells()));
+        printf("VOL");
+        forAll(mesh_.V(), i) printf(" %.17g", mesh_.V()[i]);
+        printf("\n");
+        forAll(mesh_.cellZones(), zi)
+        {
+            printf("ZONE %s %d", mesh_.cellZones()[zi].name().c_str(), int(mesh_.cellZones()[zi].size()));
+            forAll(mesh_.cellZones()[zi], j) printf(" %d", int(mesh_.cellZones()[zi][j]));
+            printf("\n");
+        }
         fflush(stdout);
     }
 

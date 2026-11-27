@@ -99,6 +99,6 @@ mkdir -p "$HERE/refs"
 for v in $VARIANTS; do
   make_case $v
   (cd "$WORK" && $OF pkRun1864 -case $v > "$WORK/$v.log" 2>&1) || { tail -20 "$WORK/$v.log"; echo "FAILED $v"; continue; }
-  grep -E '^(CFG|PROF|T|K|F) ' "$WORK/$v.log" | gzip -9n > "$HERE/refs/pk1864_$v.ref.txt.gz"
+  grep -E '^(CFG|VOL|ZONE|PROF|T|K|F) ' "$WORK/$v.log" | gzip -9n > "$HERE/refs/pk1864_$v.ref.txt.gz"
   echo "$v: $(grep -c '^K ' "$WORK/$v.log") steps, $(stat -c %s "$HERE/refs/pk1864_$v.ref.txt.gz") bytes"
 done

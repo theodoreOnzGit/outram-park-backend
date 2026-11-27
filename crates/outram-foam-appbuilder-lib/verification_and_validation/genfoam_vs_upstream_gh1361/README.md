@@ -4828,3 +4828,51 @@ The references were generated and their CFG/T/K lines glanced at for sanity (pow
 | P8 | constructor results (initial `precursorPowers`, `intrinsicGain`, `ksrc <-> subcriticalIndex`, beam power) | bit-identical |
 | P9 control | weighted average with the flux NOT squared | differs from step 2 at >= 1e-6 relative |
 | P10 control | `decay` variant stepping the TOTAL power instead of the fission power | differs from step 1 by order `decay/total` (6 %) |
+
+## Round 36 results (measured 2026-11-27, release; `tests/genfoam_point_kinetics_vs_upstream.rs`, 5 tests, 0.04 s; `--nocapture` prints every tally)
+
+**What was ported.** `neutronics/point_kinetics/model.rs`, `PointKineticNeutronics`: the solid-fuel class (constructor, `computeFeedbackFieldValues.H`, `correctReactivity.H`, `solvePointKinetics.H`, `calcDrivelineReactivity`, `maxDeltaT`, `interpolationTable::interpolateValue`); and in `point_kinetics/mod.rs` upstream's `solve()` (Gaussian elimination without row scaling) as the DEFAULT of `PointKineticsState::step`, with the earlier Crout LU kept as the named option `LinearSolveForm::CroutLu` (`step_with`). Upstream -> Rust: `pointKineticNeutronics::pointKineticNeutronics` -> `PointKineticNeutronics::new`; `computeFeedbackFieldValues.H` -> `feedback_values`; `correctReactivity.H` -> `reactivity_terms`; `calcDrivelineReactivity` -> `driveline_reactivity`; `solvePointKinetics.H` -> `step` (matrix assembly in `PointKineticsState::step_with`); `maxDeltaT` -> `max_delta_t`; `Foam::solve(List, SquareMatrix, List)` -> `solve_openfoam_gaussian`; `setFeedbackCellField` -> `feedback_cell_field`.
+
+**Result: every quantity of every variant is bit-identical to the real class, in a FREE run** (nothing of upstream's per-step state is an input; 120 steps x 10 variants, 504 tallies, each n/n; `every_variant_is_bit_identical_to_the_real_class` gates all of them). Quantities: constructor (`beta`, `subcriticalIndex`, `ksrc`, `intrinsicGain`, `externalSourcePowerRef`, `fissionPower`, `decayPower`, initial precursor powers), the seven weighted averages and seven references, the twelve reactivity terms and the total, fission/decay/total power, the eight precursor powers, source power and modulation, beam power and intensity, `maxDeltaT()`, the sums of `oneGroupFlux_`, the last `fluxes_[g]`, `powerDensity_`, `secondaryPowerDensity_`, and the profile values (`decayPower`, `externalReactivity`, `boron`, modulation).
+
+| variant | steps | worst relative difference, any quantity | first diverging step |
+|---|---:|---|---|
+| `feedback`, `thermal`, `rods_a`, `rods_d`, `profiles`, `decay`, `src_transient`, `src_monitor`, `restart_both`, `combined` | 120 each | 0 (all bit-identical) | none |
+
+### Controls (each comparison can fail)
+
+| control | result |
+|---|---|
+| upstream's rows with the earlier Crout LU (`LinearSolveForm::CroutLu`, `feedback`) | `power` 0/120 bit-identical, worst 1.7e-12, first difference at step 0; precursor powers 15/960, worst 1.7e-13; `maxDeltaT` 118/120. This is the cause teh-o-prke named (gh:#1439): same answer to ~1e-12, different bits |
+| averages weighted by the flux, not the flux squared | differs from upstream at step 2 by more than 1e-6 (gated) |
+| the total power instead of the fission power (`decay`) | differs by more than 1e-2 (the decay fraction); the fission power equals upstream's bit for bit |
+
+### Analytic check
+
+`one_group_step_matches_the_closed_form`: one group, zero feedback, `rho = 2e-3` from `externalReactivityTimeProfile`, one step: Cramer's rule for the 2x2 backward-Euler system gives `P1` and `C1`; the class agrees to < 1e-12 (the closed form orders the operations differently, so it is not bit-identical by design). The existing `genfoam_point_kinetics_inhour` (asymptotic period against the inhour equation) still passes.
+
+### Predictions: held and missed
+
+| # | verdict |
+|---|---|
+| P1 | held: bit-identical on every step of every variant with upstream's elimination; the Crout control fails as predicted (worst 1.7e-12) |
+| P2 | **missed first, then held for a reason that was not mine**: the first run showed the averages differing at step 1 by 1e-4 (`TCool`, `rhoCool`) and then 1e-14 on all averages. Cause: the case lists `coolantFeedbackZones (...)` (the key the shipped `1D_MSR_pointKinetics`, `2D_FFTF` and my own variant files use), but upstream's constructor reads **`coolFeedbackZones`** (`pointKineticNeutronics.C`, `setFeedbackCellField(coolFeedbackCellField_, "coolFeedbackZones")`), so the list is silently ignored and every cell is a coolant cell (the driver's `CFG sumCoolCells` is 640, not the zone size). My test had used the zone list; the 1e-14 spread after step 1 was the consequence of the wrong coolant weights changing the power and hence the flux weights. With upstream's behaviour reproduced, all 119 x 10 averages are bit-identical (also the volumes are the driver's own `mesh.V()`, printed at 17 digits, so volume identity with the port's mesh code is not re-tested here; rounds 9/26 did) |
+| P3 | held, stronger: expected 0-2 steps with a 1-ulp `ln` difference; observed none. 119 Doppler terms of `feedback` (log) are bit-identical with PETIR `r_ln` against glibc `log`, and `thermal` (sqrt) as well |
+| P4 | held (both map orientations, knots, outside) |
+| P5 | held (`table` profiles with `startTime`, decay, modulation, `powerMonitoring`) |
+| P6, P7, P8 | held |
+| P9, P10 | held (controls above) |
+
+### Findings (upstream behaviours, reproduced and now recorded)
+
+1. **`coolantFeedbackZones` is ignored by upstream; the key it reads is `coolFeedbackZones`.** The shipped `1D_MSR_pointKinetics` (and `2D_FFTF`, which also lists `coolantFeedbackZones`) therefore average the coolant temperature and density over EVERY cell, not the listed zones. Reproduced (`PkMeshData::cool` is the all-cells field in the test, with this comment). Not corrected in upstream (not ours); worth a report to the case's authors.
+2. `nuSource_` and `beamEnergy_` are uninitialised members when `externalSourceNeutronics` is false (the driver printed `3e47`); never used in that case. The driver prints 0 then.
+3. Upstream's `GEM` branch prints `Bla bla`/`The other` debug lines and has the comment "GEM REACTIVITY does NOT work in GeN-Foam 2.0": refused by name, `PkModelError::GemNotPorted`.
+4. `externalSourcePowerOld_` is set to the NEW source power at the start of the step, so the source row of the matrix always uses the current source: reproduced.
+5. `TDrivelineValue` is weighted over `TStruct_` (there is no driveline temperature field). The restart references are read as `TladRef` and `TDriveLineRef` but written as `TCladRef` and `TDrivelineRef` (`correctReactivity`/`solvePointKinetics.H`, `reactorState_.set(...)`): a restart from a `reactorState` that upstream itself wrote never finds those two (they fall back to the first-step average). `reactorState` references are not supported by the port (the first-step averages are the references).
+
+### What is NOT done (filed)
+
+* **The shipped `1D_MSR_pointKinetics` itself** (liquid fuel: `solvePointKineticsLiquidFuel.H`, precursor transport on a cyclic neutro mesh fed by `U`, `alpha`, `alphat`, `mu` mapped from a forced-circulation `onePhase` loop with a `GAMG` `p_rgh` and a pump). Not run, not ported: needs the liquid-fuel PK class, a cyclic-mesh `fvm::div/laplacian` with `PBiCG/DILU`, and the fluid region. `1D_thermalMSR_pointKinetics`, `2D_onePhaseAndPointKineticsCoupling`, `2D_onePhaseAndSubcriticalPointKineticsCoupling`, `2D_fullCoupling`, `2D_FFTF`, `testing/2D_MSFR_ULOF_diffusion_and_pk`: not run.
+* `GEMReactivityMap` (refused), FMU inputs (refused), time-profile types other than `table` (refused), `reactorState` references and the `reactorState` write-out, the case reader (`nuclearData`/`reactorState`/`externalSource` -> `PkConfig`; the test repeats the case script's numbers), the mesh wrapper that reads cell zones and volumes from a case, the coupled loop and workflow stage (`EigenvalueStage` still refuses point kinetics by name), the written-field comparison (`pTarget`, `precursorPowers` in `reactorState`), the `2D_externalSourceDiffusion`-style pairing of the subcritical external source with round 32's diffusion source.
+* Time clock: `t` and `dt` are read from the reference.
