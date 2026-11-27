@@ -25,6 +25,8 @@ ctl $C endTime 100
 ctl $C deltaT 1
 ctl $C writeControl timeStep
 ctl $C writeInterval 1
+# gh:#1919 round 60: ADJ=1 follows the tutorial's Allrun time control (writeControl adjustableRunTime, writeInterval 100): the last step lands on t = 100
+if [ -n "$ADJ" ]; then ctl $C writeControl adjustableRunTime; ctl $C writeInterval 100; fi
 ctl $C writePrecision 17
 printf 'libs ("libThermoMechanicsSolvers.so");\n' >> $C/system/controlDict
 cp $C/constant/multiRegionCouplingDict_steadyState $C/constant/multiRegionCouplingDict
