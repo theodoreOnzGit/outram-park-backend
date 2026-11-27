@@ -281,6 +281,9 @@ pub enum GamgPolicy {
     /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21).
     #[default]
     SubstitutePcgDic,
+    /// Run upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, defaults of ESI v2506; [`crate::genfoam::common::gamg`], gh:#1934): the
+    /// entry's `tolerance`/`relTol`/`maxIter` and GAMG keys are honoured, selections that are not ported are refused by name.
+    Native,
 }
 
 /// The `controlDict` entries a stage of the Allrun chain sets (`startTime`, `endTime`, `deltaT`), typed instead of edited.
@@ -1632,6 +1635,12 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn alpha_phi(&self) -> &[f64] {
         &self.alpha_phi
+    }
+
+    /// The `GAMG` solves since the last call (`GamgPolicy::Native`): `(initial residual, residual after each V-cycle)` per `p_rgh` solve, in order
+    /// (gh:#1934: what upstream's instrumented `GAMGSolver` dumps). Empty when `p_rgh` runs `PCG`.
+    pub fn take_gamg_log(&mut self) -> Vec<(f64, Vec<f64>)> {
+        self.flow.as_mut().map_or_else(Vec::new, |f| f.gamg.take_log())
     }
 
     /// The pressure solves of the last time step (empty without flow).

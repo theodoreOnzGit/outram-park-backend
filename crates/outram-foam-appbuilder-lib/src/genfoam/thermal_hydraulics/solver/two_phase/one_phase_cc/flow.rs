@@ -64,7 +64,11 @@ use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use super::super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector, VectorBc};
+#[cfg(feature = "std")]
+use super::super::gamg_solve::read_gamg_controls;
+use super::super::gamg_solve::GamgSolveState;
 use super::super::pcg::pcg_dic;
+use crate::genfoam::common::gamg::GamgControls;
 use super::super::{dev2_div, dev2_div_tortuous, tensor_laplacian, PRghPcg};
 use super::OnePhaseCcSolver;
 use super::super::thermo::PhaseThermo;
@@ -139,6 +143,10 @@ pub struct OnePhaseFlowCase {
     pub p_rgh: PRghPcg,
     /// The `p_rghFinal` entry, used by the last corrector of the last outer iteration.
     pub p_rgh_final: PRghPcg,
+    /// `Some` when `solvers.p_rgh` selected `GAMG` and [`super::GamgPolicy::Native`] runs upstream's `GAMGSolver` (gh:#1934).
+    pub p_rgh_gamg: Option<GamgControls>,
+    /// The same for `solvers.p_rghFinal`.
+    pub p_rgh_final_gamg: Option<GamgControls>,
     /// `true` when `solvers.p_rgh` selected `GAMG` and `PCG`/`DIC` ran in its place (the named deviation of [`super::GamgPolicy`]).
     pub p_rgh_gamg_substituted: bool,
     /// `pMin` [Pa].
@@ -220,6 +228,8 @@ pub(super) struct FlowState {
     pub ghf: Vec<f64>,
     /// The pressure solves of the last [`OnePhaseCcSolver::correct_physics`] call.
     pub solves: Vec<PressureSolve>,
+    /// The cached `GAMG` agglomeration of the mesh (`GamgPolicy::Native`).
+    pub gamg: GamgSolveState,
 }
 
 /// `fvMatrix<vector>` with `internalCoeffs`/`boundaryCoeffs` kept per boundary face, as OpenFOAM keeps them
@@ -507,6 +517,7 @@ pub(super) fn read_flow_case(
     }
     let solvers = ctx.sub(fs, "solvers")?;
     let substituted = core::cell::Cell::new(false);
+    let gamg_ctl: core::cell::RefCell<[Option<GamgControls>; 2]> = core::cell::RefCell::new([None, None]);
     let pcg_entry = |name: &str, fallback: Option<PRghPcg>| -> Result<PRghPcg, AppBuilderError> {
         match last_match(solvers, name) {
             Some(FoamEntry::SubDict(d)) => {
@@ -515,8 +526,11 @@ pub(super) fn read_flow_case(
                     (None, Some(f)) => f.tolerance,
                     (None, None) => return Err(ctx.e(format!("solvers.{name}: no tolerance"))),
                 };
-                if fallback.is_none() {
-                    let is_gamg = word(d, "solver").as_deref() == Some("GAMG");
+                let is_gamg = word(d, "solver").as_deref() == Some("GAMG");
+                if is_gamg && gamg == super::GamgPolicy::Native {
+                    let c = read_gamg_controls(name, d, None).map_err(|e| ctx.e(e))?;
+                    gamg_ctl.borrow_mut()[usize::from(fallback.is_some())] = Some(c);
+                } else if fallback.is_none() {
                     if is_gamg && gamg == super::GamgPolicy::SubstitutePcgDic {
                         substituted.set(true);
                     } else if word(d, "solver").as_deref() != Some("PCG") || word(d, "preconditioner").as_deref() != Some("DIC") {
@@ -634,11 +648,14 @@ pub(super) fn read_flow_case(
         }
     }
     let _ = pp.get("pMin").ok_or_else(|| ctx.e("phaseProperties: pMin is missing"))?;
+    let [p_rgh_gamg, p_rgh_final_gamg] = gamg_ctl.into_inner();
     Ok(OnePhaseFlowCase {
         n_correctors: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
         correct_until_convergence: bool_entry(pimple, "correctUntilConvergence").unwrap_or(false),
         p_rgh,
         p_rgh_final,
+        p_rgh_gamg,
+        p_rgh_final_gamg,
         p_rgh_gamg_substituted: substituted.get(),
         p_min: ctx.f64(pp, "pMin")?,
         p_ref_cell: scalar(pp, "pRefCell").unwrap_or(0.0) as usize,
@@ -685,6 +702,7 @@ impl FlowState {
             gh,
             ghf,
             solves: Vec::new(),
+            gamg: GamgSolveState::default(),
         }
     }
 }
@@ -975,8 +993,15 @@ impl OnePhaseCcSolver {
             for pass in 1..=n_pass {
                 let solver = if self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple) { fc.p_rgh_final } else { fc.p_rgh };
                 let mut x = fs.p_rgh.c.clone();
-                let perf =
-                    pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter);
+                let gamg_ctl = if self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple) { fc.p_rgh_final_gamg } else { fc.p_rgh_gamg };
+                let perf = match gamg_ctl {
+                    // GamgPolicy::Native: upstream's GAMGSolver (gh:#1934); the agglomeration is cached in `fs.gamg`
+                    Some(ctl) => {
+                        let p = fs.gamg.solve(&g, &peqn.ldu, &peqn.source, &mut x, &ctl);
+                        crate::genfoam::common::pcg::PcgPerformance { iterations: p.iterations, initial_residual: p.initial_residual, final_residual: p.final_residual }
+                    }
+                    None => pcg_dic(&peqn.ldu, &peqn.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter),
+                };
                 fs.solves.push(PressureSolve {
                     outer,
                     corrector: corr_piso,

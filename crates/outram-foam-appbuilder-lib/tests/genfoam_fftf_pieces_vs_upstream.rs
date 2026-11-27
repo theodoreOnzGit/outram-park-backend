@@ -26,7 +26,7 @@ use std::path::{Path, PathBuf};
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::genfoam::multi_region::coupled_loop::adjust_delta_t;
-use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{CaseReadOptions, GamgPolicy, OnePhaseCcCase, OnePhaseCcSolver};
 
 const GATE: f64 = 1e-9;
 const FLOOR: f64 = 1e-10;
@@ -267,6 +267,10 @@ struct RunReport {
     /// Round 65 (gh:#1929): worst difference of the turbulence fields (`k`, `epsilon`, `nut`, `alphat` cells; `nut`/`alphat` patch values
     /// as `nut@<patch>`), each relative to the reference's own max.
     turb: Vec<(String, f64)>,
+    /// Round 67 (gh:#1934): every `p_rgh` solve compared: `(total, upstream solves that stopped at maxIter 1000, solves with a different iteration count and upstream below maxIter, worst initial residual relative difference)`.
+    prgh: (usize, usize, Vec<String>, f64),
+    /// Per step: worst relative initial-residual difference of the `p_rgh` solves whose upstream residual exceeds 1e-6 (the first steps where the paths part).
+    prgh_by_step: Vec<(usize, f64)>,
 }
 
 fn bump(v: &mut Vec<(String, f64)>, key: &str, x: f64) {
@@ -327,7 +331,9 @@ fn decade(ini: f64) -> usize {
 
 /// Run `n_steps` steps of the staged case (`None`: to the reference's last step) and compare with the references.
 fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: Option<usize>, ctl: impl Fn(OnePhaseCcSolver) -> OnePhaseCcSolver) -> RunReport {
-    let solver0 = OnePhaseCcSolver::from_case_dir(root, poly).unwrap_or_else(|e| panic!("the staged case is not readable: {e}"));
+    // README round 67: `GAMG` entries run upstream's own solver (`GamgPolicy::Native`); every other selection reads as before
+    let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+    let solver0 = OnePhaseCcCase::read_with_options(root, poly, &opts).map(OnePhaseCcSolver::new).unwrap_or_else(|e| panic!("the staged case is not readable: {e}"));
     let mut solver = ctl(solver0);
     let rf = read_fields(&vv_dir().join("refs").join(field_ref));
     let lg = read_log(&vv_dir().join("refs").join(log_ref));
@@ -350,9 +356,29 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
         big_iter_diffs: Vec::new(),
         u_abs_over_umax: [0.0; 3],
         turb: Vec::new(),
+        prgh: (0, 0, Vec::new(), 0.0),
+        prgh_by_step: Vec::new(),
     };
     let patches = patch_ranges(poly);
     let rp = read_patch_values(&vv_dir().join("refs").join(field_ref));
+    // README round 67: per-V-cycle comparison with the instrumented real run (`GAMG_CYCLES=<ref file>`)
+    let cycle_ref: Option<Vec<(f64, Vec<f64>)>> = std::env::var("GAMG_CYCLES").ok().map(|f| {
+        let text = String::from_utf8(gunzip(&vv_dir().join("refs").join(f))).expect("utf8");
+        let mut v: Vec<(f64, Vec<f64>)> = Vec::new();
+        for l in text.lines() {
+            let w: Vec<&str> = l.split_whitespace().collect();
+            match w[0] {
+                "SOLVE" => v.push((w[4].parse().expect("f"), Vec::new())),
+                "VC" => v.last_mut().expect("solve").1.push(w[3].parse().expect("f")),
+                _ => {}
+            }
+        }
+        v
+    });
+    let mut cycle_idx = 0usize;
+    let mut cycle_first: Option<String> = None;
+    let mut cycle_flips: Vec<String> = Vec::new();
+    let mut cycle_worst = 0.0_f64;
     for step in 1..=n_steps {
         solver.begin_time_step(dt);
         let (_r, outer) = solver.correct_physics();
@@ -365,8 +391,46 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
         }
         // solve log
         let solves = solver.pressure_solves().to_vec();
+        if let Some(cy) = cycle_ref.as_ref() {
+            for (ini, cyc) in solver.take_gamg_log() {
+                let k = cycle_idx;
+                cycle_idx += 1;
+                let Some((rini, rcyc)) = cy.get(k) else { continue };
+                let n = cyc.len().min(rcyc.len());
+                let worst_abs = (0..n).fold(0.0_f64, |m, i| m.max((cyc[i] - rcyc[i]).abs())) / rini;
+                let note = format!("solve {k} (step {step}): upstream {} cycles, port {}; initial residual diff {:e} (rel {:e}); worst |cycle residual diff|/initial {:e}", rcyc.len(), cyc.len(), (ini - rini).abs(), ((ini - rini) / rini).abs(), worst_abs);
+                if rcyc.len() != cyc.len() || worst_abs > 1e-6 {
+                    if cycle_first.is_none() {
+                        cycle_first = Some(note.clone());
+                    }
+                    if cycle_flips.len() < 8 {
+                        cycle_flips.push(note);
+                    }
+                }
+                cycle_worst = cycle_worst.max(worst_abs);
+            }
+        }
         for &(o, c, ini, it) in lg.prgh.get(&step).map_or(&[][..], Vec::as_slice) {
             let Some(mine) = solves.iter().find(|x| x.outer == o && x.corrector == c) else { continue };
+            rep.prgh.0 += 1;
+            if std::env::var("GAMG_DIAG").is_ok() && step <= 2 {
+                println!("DIAG step {step} p_rgh outer {o} corr {c}: ref ini {ini:.17e} its {it}; port ini {:.17e} its {}", mine.initial_residual, mine.iterations);
+            }
+            if it >= 1000 {
+                rep.prgh.1 += 1;
+            } else if mine.iterations as i64 != it {
+                rep.prgh.2.push(format!("step {step} outer {o} corr {c}: upstream {it} its (ini {ini:e}), port {} (ini {:e})", mine.iterations, mine.initial_residual));
+            }
+            if ini > FLOOR {
+                rep.prgh.3 = rep.prgh.3.max(((mine.initial_residual - ini) / ini).abs());
+            }
+            if ini > 1e-6 {
+                let d = ((mine.initial_residual - ini) / ini).abs();
+                match rep.prgh_by_step.last_mut() {
+                    Some(l) if l.0 == step => l.1 = l.1.max(d),
+                    _ => rep.prgh_by_step.push((step, d)),
+                }
+            }
             if ini > FLOOR {
                 rep.solve_worst_res = rep.solve_worst_res.max(((mine.initial_residual - ini) / ini).abs());
                 rep.solve_worst_it = rep.solve_worst_it.max((mine.iterations as i64 - it).abs());
@@ -383,6 +447,11 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
             }
         }
         let hs = solver.h_solves().to_vec();
+        if std::env::var("GAMG_DIAG").is_ok() && step <= 6 {
+            for &(o, ini, it) in lg.h.get(&step).map_or(&[][..], Vec::as_slice) {
+                println!("DIAG step {step} h outer {o}: ref ini {ini:e} its {it}; port ini {:e} its {}", hs[o - 1].0, hs[o - 1].1);
+            }
+        }
         for &(o, ini, it) in lg.h.get(&step).map_or(&[][..], Vec::as_slice) {
             let (r, n) = hs[o - 1];
             if ini > FLOOR {
@@ -402,6 +471,9 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
         }
         for (o, st) in outer.t_stats.iter().enumerate() {
             if let Some(up) = lg.tstat.get(&(step, o + 1)) {
+                if std::env::var("GAMG_DIAG").is_ok() && step <= 6 {
+                    println!("DIAG step {step} outer {}: T mine {:.9e} {:.9e} {:.9e} ref {:.9e} {:.9e} {:.9e}", o + 1, st.0, st.1, st.2, up[0], up[1], up[2]);
+                }
                 for (x, y) in [st.0, st.1, st.2].iter().zip(up) {
                     rep.t_line_worst = rep.t_line_worst.max(((x - y) / y).abs());
                 }
@@ -477,6 +549,12 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
             }
         }
         dt = adjust_delta_t(true, &[solver.max_delta_t()], 1e-300, dt).expect("adjustable");
+    }
+    if cycle_ref.is_some() {
+        println!("CYCLES: {cycle_idx} solves compared with the instrumented real run; worst |cycle residual diff|/initial residual {cycle_worst:e}; first solve beyond 1e-6 of its initial residual or with another cycle count: {cycle_first:?}");
+        for f in &cycle_flips {
+            println!("CYCLES:   {f}");
+        }
     }
     rep
 }
@@ -794,4 +872,102 @@ fn w11_passive_structure_started_below_the_fluid_matches_the_real_binary() {
     variant_tpas(&root);
     let r = run_case(&root, &poly, "fftf_r65_w11_tpas.ref.txt.gz", "fftf_r65_w11_tpas_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
     check("w11_tpas", &r);
+}
+
+
+// ------------------------------------------------------------------------------------------------------------------------------
+// Round 67 (gh:#1934): the shipped 2D_FFTF steady state with upstream's own GAMG for `p_rgh` (GamgPolicy::Native), README "Round 67".
+// ------------------------------------------------------------------------------------------------------------------------------
+
+/// Stage the shipped `2D_FFTF/rootCase` with the Allrun `setSteadyState` edits; `tight`: every `tolerance` `1e-14` and `relTol` `0` in `solvers`
+/// (`p_rgh` KEEPS `solver GAMG; smoother DIC;`, the protocol of `scripts/run_fftf_gamg_real.sh tight`), otherwise `fvSolution` as shipped.
+fn stage_fftf_gamg(tag: &str, tight: bool) -> Option<(PathBuf, PathBuf)> {
+    let (root, poly) = stage_fftf(tag)?;
+    // `stage_fftf` applies the PCG substitution of round 62; put the shipped solvers block back
+    let up = PathBuf::from(std::env::var("GENFOAM_UPSTREAM").unwrap_or_else(|_| "/home/user/upstream-build/GeN-Foam-src".to_string()));
+    std::fs::copy(up.join("Tutorials/reactorCases/2D_FFTF/rootCase/system/fluidRegion/fvSolution"), root.join("system/fluidRegion/fvSolution")).expect("copy fvSolution");
+    if tight {
+        edit_file(&root, "system/fluidRegion/fvSolution", |t| {
+            let mut inside = false;
+            let mut out = Vec::new();
+            for line in t.lines() {
+                let w = line.split_whitespace().next();
+                if w == Some("solvers") {
+                    inside = true;
+                }
+                if w == Some("PIMPLE") {
+                    inside = false;
+                }
+                match (inside, w) {
+                    (true, Some("tolerance")) => out.push("        tolerance       1e-14;".to_string()),
+                    (true, Some("relTol")) => out.push("        relTol          0;".to_string()),
+                    _ => out.push(line.to_string()),
+                }
+            }
+            out.join("\n") + "\n"
+        });
+    }
+    Some((root, poly))
+}
+
+fn print_prgh(name: &str, r: &RunReport) {
+    println!(
+        "{name}: p_rgh solves compared {}; upstream solves at maxIter {} (reported, not gated); iteration counts that differ (upstream below maxIter): {}; worst initial residual relative difference (above 1e-10) {:e}",
+        r.prgh.0,
+        r.prgh.1,
+        r.prgh.2.len(),
+        r.prgh.3
+    );
+    println!("{name}: per-step worst p_rgh initial-residual relative difference (solves above 1e-6): {:?}", r.prgh_by_step.iter().map(|(s, d)| format!("{s}:{d:.1e}")).collect::<Vec<_>>());
+    for l in r.prgh.2.iter().take(10) {
+        println!("{name}:   {l}");
+    }
+}
+
+fn gamg_tight_run(n: usize) -> Option<RunReport> {
+    let (root, poly) = stage_fftf_gamg("gamg_tight", true)?;
+    let t0 = std::time::Instant::now();
+    let r = run_case(&root, &poly, "gamg_r67_tight.ref.txt.gz", "gamg_r67_tight_log.ref.txt.gz", (n != usize::MAX).then_some(n), |s| s);
+    println!("fftf gamg tight: {n} steps, wall time {:?}", t0.elapsed());
+    print_report("fftf_gamg_tight", &r);
+    print_prgh("fftf_gamg_tight", &r);
+    Some(r)
+}
+
+/// README round 67 criterion (c) on the first 2 steps (minutes in release: every tight GAMG solve runs up to 1000 V-cycles).
+#[test]
+#[ignore = "minutes in release; run with -- --ignored"]
+fn gamg_tight_first_two_steps_match_the_real_binary() {
+    let Some(r) = gamg_tight_run(2) else { return };
+    assert!(r.first_diverging.is_none(), "first diverging {:?}", r.first_diverging);
+}
+
+/// README round 67 criterion (c): all steps of the real tight-GAMG reference.
+#[test]
+#[ignore = "about an hour in release; run with -- --ignored"]
+fn gamg_tight_steady_state_matches_the_real_binary() {
+    let Some(r) = gamg_tight_run(usize::MAX) else { return };
+    assert!(r.first_diverging.is_none(), "first diverging {:?}", r.first_diverging);
+    assert!(r.t_line_worst <= GATE, "T lines {:e}", r.t_line_worst);
+    assert!(r.dt_worst <= 1e-12, "dt sequence {:e}", r.dt_worst);
+    assert!(r.prgh.2.is_empty(), "iteration counts differ: {:?}", r.prgh.2);
+}
+
+/// README round 67 criterion (d): the AS-SHIPPED loose run against the real log of round 62 (7 printed digits): `N` steps from the environment
+/// variable `GAMG_LOOSE_STEPS` (default 100).
+#[test]
+#[ignore = "minutes to hours in release; run with -- --ignored (GAMG_LOOSE_STEPS)"]
+fn gamg_as_shipped_loose_steady_state_matches_the_real_log() {
+    let Some((root, poly)) = stage_fftf_gamg("gamg_loose", false) else { return };
+    let n: usize = std::env::var("GAMG_LOOSE_STEPS").ok().and_then(|v| v.parse().ok()).unwrap_or(100);
+    let t0 = std::time::Instant::now();
+    let log = &std::env::var("GAMG_LOOSE_LOG").unwrap_or_else(|_| "fftf_r62_asshipped_ss_first1804_log.ref.txt.gz".to_string());
+    let r = run_case(&root, &poly, log, log, Some(n), |s| s);
+    println!("fftf gamg loose: {n} steps, wall time {:?}", t0.elapsed());
+    print_report("fftf_gamg_loose", &r);
+    print_prgh("fftf_gamg_loose", &r);
+    assert!(r.prgh.2.is_empty(), "p_rgh iteration counts differ: {:?}", &r.prgh.2[..r.prgh.2.len().min(5)]);
+    assert!(r.prgh.3 <= 1e-6, "p_rgh initial residuals {:e}", r.prgh.3);
+    assert!(r.dt_worst <= 1e-6, "dt {:e}", r.dt_worst);
+    assert!(r.t_line_worst <= 1e-6, "T lines {:e}", r.t_line_worst);
 }

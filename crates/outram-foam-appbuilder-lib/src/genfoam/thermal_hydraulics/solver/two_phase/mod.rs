@@ -109,6 +109,7 @@ use crate::nostd_prelude::*;
 mod alpha_mules;
 pub(crate) mod foam_regex;
 pub mod case;
+pub mod gamg_solve;
 pub mod fv;
 pub mod mules;
 pub mod one_phase_cc;

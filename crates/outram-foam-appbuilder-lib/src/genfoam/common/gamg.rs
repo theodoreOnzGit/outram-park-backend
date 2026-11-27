@@ -41,6 +41,7 @@
 use crate::nostd_prelude::*;
 use super::pcg::{converged, dic_reciprocal_diag, g_sum_mag, norm_factor, pcg_dic};
 use outram_foam_basic_lib::prelude::LduMatrix;
+#[allow(unused_imports)]
 use petir::mathf::RealMath;
 
 /// `GREAT` for doubles (`doubleScalarGreat`).
@@ -390,6 +391,17 @@ fn coarsen_matrix(fine: &LduMatrix, lvl: &AggLevel) -> LduMatrix {
     m
 }
 
+/// The coarse matrices of `a` over `agg` (`matrixLevels_` of `GAMGSolver`: entry `i` is the matrix of coarse level `i + 1`).
+#[must_use]
+pub fn coarse_matrices(a: &LduMatrix, agg: &GamgAgglomeration) -> Vec<LduMatrix> {
+    let mut mats: Vec<LduMatrix> = Vec::with_capacity(agg.levels.len());
+    for (i, lvl) in agg.levels.iter().enumerate() {
+        let coarse = coarsen_matrix(if i == 0 { a } else { &mats[i - 1] }, lvl);
+        mats.push(coarse);
+    }
+    mats
+}
+
 /// `lduMatrix::residual(rA, psi, source)` (`lduMatrixATmul.C:268-340`): note `source - diag psi` first, then the faces
 /// subtracted, which is NOT `source - Amul(psi)` in floating point.
 fn ldu_residual(a: &LduMatrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
@@ -514,11 +526,7 @@ pub fn gamg_dic_solve(a: &LduMatrix, agg: &GamgAgglomeration, ctl: &GamgControls
         return Err("GAMG: no coarse levels created (matrix too small for GAMG or nCellsInCoarsestLevel too large)".to_string());
     }
     // the constructor: agglomerate the matrices, build the smoothers
-    let mut mats: Vec<LduMatrix> = Vec::with_capacity(agg.levels.len());
-    for (i, lvl) in agg.levels.iter().enumerate() {
-        let coarse = coarsen_matrix(if i == 0 { a } else { &mats[i - 1] }, lvl);
-        mats.push(coarse);
-    }
+    let mats = coarse_matrices(a, agg);
     let mut r_d = Vec::with_capacity(mats.len() + 1);
     r_d.push(dic_reciprocal_diag(a));
     for m in &mats {
