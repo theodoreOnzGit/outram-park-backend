@@ -9019,3 +9019,13 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | B8 | loose: pass counts equal at every step | 60 % |
 | B9 | the real tight transient also takes 73 steps (the loose one did) | 80 % |
 | B10 | the port runs the 73 steps in under 15 minutes | 75 % |
+
+
+## Part C (gh:#1949): is the step-2 `meshDisp` fingerprint miss of round 74 cancellation? (written BEFORE the real re-run and the port run)
+
+Round 74 recorded `meshDisp`/`disp` sum fingerprints 3.8e-9 off at steps 2-3 (full fields at the kept steps 10, 50, 200 at 5.9e-15 to 7.3e-14; steps 2 and 3 not kept) and `fuelDisp` 9.6e-11, `CRDisp` 2.1e-11 at step 2. **Method:** the real tight run of `scripts/make_esfr_coupled_case.sh` (the round 74 case, tight, `writeInterval 1`) for 3 steps with `extract_esfr_coupled_stream.py <dir> <prefix> 3 1,2,3` keeping the full `disp`, `TStruct`, `meshDisp` (and the neutronics `disp`) at steps 1, 2, 3; the port's first 3 steps of the same inflated case (`ESFR_REF=r75step2`). **Criterion (fixed):** if the full fields of `meshDisp`, `disp` (TM and neutronics) at steps 2 and 3 agree with the real ones to `<= 1e-9` on their own max-norm while their sum fingerprints miss, the miss is cancellation in the fingerprint; if a full field is off by more than 1e-9, the miss is real and its cause is the next item. `fuelDisp`/`CRDisp` are lists of per-cell scalars (not in `KEY`): the criterion is their fingerprints as before plus, for these two, the fields kept through the `KEY` list extended in the extractor (`fuelDisp`, `CRDisp`).
+
+| id | prediction | P |
+|---|---|---|
+| C1 | the full-field `meshDisp` and `disp` agree to `<= 1e-12` at steps 2 and 3 (the fingerprint miss is cancellation) | 80 % |
+| C2 | `fuelDisp` and `CRDisp` full fields agree to `<= 1e-9` at step 2 | 70 % |

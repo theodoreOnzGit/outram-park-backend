@@ -21,7 +21,7 @@ FIELDS = {
 KEY = {
     'fluidRegion': ['T', 'U', 'p_rgh', 'T.fuelAvForNeutronics'],
     'neutroRegion': ['flux0', 'powerDensity', 'TFuel', 'disp'],
-    'thermoMechanicalRegion': ['disp', 'TStruct', 'meshDisp'],
+    'thermoMechanicalRegion': ['disp', 'TStruct', 'meshDisp', 'fuelDisp', 'CRDisp'],
 }
 VECTORS = ('U', 'disp', 'meshDisp')
 NCELLS = {'fluidRegion': 23322, 'neutroRegion': 23322, 'thermoMechanicalRegion': 23340}
