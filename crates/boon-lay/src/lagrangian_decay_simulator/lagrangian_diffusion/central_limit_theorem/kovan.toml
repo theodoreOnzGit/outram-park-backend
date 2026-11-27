@@ -69,7 +69,7 @@ physical_interface = true
 id = "fn:a1bf7e1c579cb7f6"
 name = "sample_dimensioned_gaussian_vector"
 qual = "sample_dimensioned_gaussian_vector"
-hash = "sha256:e3d1bf914c14bcd3e79cf398eab5dc5bbeff34e158d20d1acbb86ea86e68e241"
+hash = "sha256:6c09751570135fedbf15d8e1a25d7ba81cd41dca6434110ac476082e86e6faf5"
 doc_hash = "sha256:5cd1dbb867e876f183ffbdec17eabb12eb2f06daade8a0690f4938f174046d2f"
 physical_interface = true
 

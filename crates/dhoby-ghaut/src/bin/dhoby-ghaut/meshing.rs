@@ -1298,7 +1298,7 @@ pub fn split_rim_chords(mesh: &mut VolumeMesh, rings: &[[f64; 2]], n_seg: usize)
             if ra != rb {
                 continue;
             }
-            let (ta, tb) = (pa.y.atan2(pa.x), pb.y.atan2(pb.x));
+            let (ta, tb) = (pa.y.r_atan2(pa.x), pb.y.r_atan2(pb.x));
             let mut dt = tb - ta;
             if dt > core::f64::consts::PI {
                 dt -= 2.0 * core::f64::consts::PI;

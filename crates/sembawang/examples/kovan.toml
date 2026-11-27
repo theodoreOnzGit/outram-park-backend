@@ -3,6 +3,36 @@ kind = "code_folder"
 crate = "sembawang"
 dir = "crates/sembawang/examples"
 
+[module."bwr_mark1_ensemble.rs"]
+path = "example:bwr_mark1_ensemble"
+
+[[module."bwr_mark1_ensemble.rs".function]]
+id = "fn:c380b2815881c92e"
+name = "main"
+qual = "main"
+hash = "sha256:571eb7428406a8cca746ac6963a32c4644b47f42ca08b7444c0755aff9f6247e"
+doc_hash = "sha256:8540f7fa584d34fa24b4713d768163a6fcdd62782422cd55fd465ac40498715d"
+
+[module."bwr_mark1_sensitivity.rs"]
+path = "example:bwr_mark1_sensitivity"
+
+[[module."bwr_mark1_sensitivity.rs".function]]
+id = "fn:a86ff1b9f57d641e"
+name = "main"
+qual = "main"
+hash = "sha256:55004456830baa5837c10e4459ef24a04ba6af704dad8694edef548c664ee97e"
+doc_hash = "sha256:44f1570fa6700e55bb9b3151cb49467320b7dce881173506c8b6811181243129"
+
+[module."containment_network_geometry.rs"]
+path = "example:containment_network_geometry"
+
+[[module."containment_network_geometry.rs".function]]
+id = "fn:c8719c43c3cee935"
+name = "main"
+qual = "main"
+hash = "sha256:77fabc6f6bd5aad303ecfab3c9175bc31f5345ed65e0c18beebc626df6df3c4d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
 [module."htr10_air_ingress_human_audited_example.rs"]
 path = "example:htr10_air_ingress_human_audited_example"
 
@@ -195,14 +225,14 @@ doc_hash = "sha256:bb3f4483956345ac581cd7f3816949cc3fa453aacfd4a38a3e878eeb65dc7
 id = "fn:133094d36406c3dc"
 name = "htr10_inventory"
 qual = "htr10_inventory"
-hash = "sha256:b17f4a443541f41eabd26cbd2880821d8a65b6aeac4dbda10f4127d71adf47f3"
+hash = "sha256:8803e53fc9b7eccf54710c3bc0c6bf9b5df9285789d3f415e4d457ccb87cac82"
 doc_hash = "sha256:db71da5122c6fff8acc0d447aa593aae673d843f3c67e3b56c0a6c0feb2e07bf"
 
 [[module."htr10_air_ingress_human_audited_example.rs".function]]
 id = "fn:09ba3df6bde9b392"
 name = "main"
 qual = "main"
-hash = "sha256:d36536b4b1a2499994f1e145aff9a0d52314b2f8f58adfeab8d76e549ea4eab9"
+hash = "sha256:8fd31012a199a96fa09d22cfdb295a2b116ba2626a1c43b40f07004a6bbac557"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."htr10_air_ingress_human_audited_example.rs".function]]
@@ -404,14 +434,14 @@ doc_hash = "sha256:bb3f4483956345ac581cd7f3816949cc3fa453aacfd4a38a3e878eeb65dc7
 id = "fn:ffb8203192f7e742"
 name = "htr10_inventory"
 qual = "htr10_inventory"
-hash = "sha256:b17f4a443541f41eabd26cbd2880821d8a65b6aeac4dbda10f4127d71adf47f3"
+hash = "sha256:8803e53fc9b7eccf54710c3bc0c6bf9b5df9285789d3f415e4d457ccb87cac82"
 doc_hash = "sha256:db71da5122c6fff8acc0d447aa593aae673d843f3c67e3b56c0a6c0feb2e07bf"
 
 [[module."htr10_air_ingress_kora_bound.rs".function]]
 id = "fn:f4019bba09945355"
 name = "main"
 qual = "main"
-hash = "sha256:9f135d02cdb2b5cb1eaa492c80f835f640aa0f6b29938aa53423b34f695ac472"
+hash = "sha256:5e619214926dbb06931ddabd16f5f3e5800ecb8499839e4f5cf4f8e7aaa1da09"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."htr10_air_ingress_kora_bound.rs".function]]
@@ -541,14 +571,14 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:f79c6abd5dd8ed31"
 name = "htr10_inventory"
 qual = "htr10_inventory"
-hash = "sha256:e742a23b3f2ada5c31ebe0d810e452b468754dcf8cc976e7aedea3fc04c8e760"
+hash = "sha256:cfca30334fa94a3e8d5097674befc2b56c94c8d85e2512ea07af815d44bd7338"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."htr10_dlofc_dose.rs".function]]
 id = "fn:ac404fb23e1af3a0"
 name = "main"
 qual = "main"
-hash = "sha256:08ad88e9d2b0d5c0e839ffa30378ee579c8b3fe483ba21046c619d606e88bf06"
+hash = "sha256:a715d2ae396b14c205da2526777cedf98b60265c426467374d418fe1b67268b3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."htr10_dlofc_dose.rs".function]]
@@ -608,14 +638,14 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:c202d533bfbd56ad"
 name = "htr10_inventory"
 qual = "htr10_inventory"
-hash = "sha256:6d3b0762d7bdf35ebe7232d15fef90b6d50d5d44797f342da5f526664761b092"
+hash = "sha256:e19b6bb3a4426812a23d02cd23ed016925cfa6968b0d83f1d8a15226af60d28f"
 doc_hash = "sha256:ac3dd5399e9d3b18a888d5304cdb877e07ff9e35de5bee33f380861803a26e3f"
 
 [[module."htr10_dlofc_panama_source_term.rs".function]]
 id = "fn:0250f0e397fa01e4"
 name = "main"
 qual = "main"
-hash = "sha256:61eeddbd961329e9aea527b24a985a18de2e13c5086b4499c12f1c5376a4cabe"
+hash = "sha256:2bdf231d96a3f8f7a844b11d2b28489779b90e4ff8d1e7d082d84a74aec0bef1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."htr10_dlofc_panama_source_term.rs".function]]
@@ -821,7 +851,7 @@ doc_hash = "sha256:c421a41ade5f2dc5a30a21ef087a25e45d04057d2359dcc7c76836c1163d4
 id = "fn:33220789bb5de5cb"
 name = "main"
 qual = "main"
-hash = "sha256:8c7441a62e36373ed3355f00f3051d80106918208cea2b163c67f3cacfbe6a2a"
+hash = "sha256:4125b51fd2c8a7351e8237d6200a8a7925eed771eeb7b72ff0fa0906681addba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."npmhtgr_chain.rs".function]]
@@ -910,7 +940,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:e3fad524fb317ed1"
 name = "main"
 qual = "main"
-hash = "sha256:b69c1ef22042e2ed9c7f745623d777ee4d4f9b72b59bf2c91067493e41cf6ba4"
+hash = "sha256:69198271cc13afcd02253897a12b4419b8bd5e058fb3f1b81ab144589f4ac01e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [test_run]

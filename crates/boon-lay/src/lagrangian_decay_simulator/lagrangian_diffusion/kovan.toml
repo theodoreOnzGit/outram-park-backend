@@ -65,7 +65,7 @@ test = true
 id = "fn:e423c1b5888563c8"
 name = "sample_unit_vector"
 qual = "sample_unit_vector"
-hash = "sha256:0a990d8cc2d756fd66f1b71575276d880766e375e54397b7c58e8fdd5fc4eacb"
+hash = "sha256:d487b573409e4b92ca6bc095fc249e926c985061139f958b6be854aa6195fc26"
 doc_hash = "sha256:0b6b9136afbb7245900cd3771d67dbfbe9e3f475b8fd787e5a45dc831477ae35"
 test = true
 
@@ -124,7 +124,7 @@ test = true
 id = "fn:bd4df429a178e304"
 name = "sample_unit_vector"
 qual = "sample_unit_vector"
-hash = "sha256:0a990d8cc2d756fd66f1b71575276d880766e375e54397b7c58e8fdd5fc4eacb"
+hash = "sha256:d487b573409e4b92ca6bc095fc249e926c985061139f958b6be854aa6195fc26"
 doc_hash = "sha256:3ca8c80a15f65ce68b53dc1f4b15e2db132291426f2e4feebacb7af7921592d1"
 test = true
 
@@ -219,7 +219,7 @@ test = true
 id = "fn:c2324eb7a608e69d"
 name = "sample_isotropic_direction"
 qual = "sample_isotropic_direction"
-hash = "sha256:9bb6a2e52dd218e923259a6b607261865ff5f4b5f1efafb069e3ca44fd16b0b6"
+hash = "sha256:116c212c6676085b927915a6710bce96a9e4b64109e00cf3545fc459079b4248"
 doc_hash = "sha256:b3a310360d64a2baf862f54061c699f8b45238fb40817121cab50365c602ed23"
 test = true
 
@@ -256,7 +256,7 @@ test = true
 id = "fn:85600d6b14523692"
 name = "random_point_in_spherical_shell"
 qual = "random_point_in_spherical_shell"
-hash = "sha256:12cfadcaf3d2f3b005f67125b48d860b6bca1044aa6bcab8cfc859b8b8eb2bc7"
+hash = "sha256:77971bf24791a82214d7148cf8df041c2104424ee3cecbff385b22684b7ac5f5"
 doc_hash = "sha256:7fca8b084b0e12192da9d54a1a21c3801c75bfa9adf468e6eae0ab7abeeeb794"
 test = true
 
@@ -320,7 +320,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:0d65d00c4fc1e53d"
 name = "_sample_isotropic_direction"
 qual = "_sample_isotropic_direction"
-hash = "sha256:37cddc3071d622daa9418aca72ee9d1a0078e74d5fe01684859d8f145611c6d6"
+hash = "sha256:12a37724ef42f16ae7f022d5238275f8d13876d0b530c5341a5b319f84d5d6be"
 doc_hash = "sha256:b3a310360d64a2baf862f54061c699f8b45238fb40817121cab50365c602ed23"
 
 [[module."isotropic_scattering.rs".function]]
@@ -334,7 +334,7 @@ doc_hash = "sha256:cdb4c292b821434c1337260a7bf3ff0b8a2202414430a8a9887ee61d70706
 id = "fn:719418725e5855dd"
 name = "sample_isotropic_direction_into_array"
 qual = "sample_isotropic_direction_into_array"
-hash = "sha256:16c5e8a95fed64fd07b030e3b345aa064081f04b704288132685178074588d3f"
+hash = "sha256:a41c533b3153767da85e4c56ff90a33e84c9170d3038d41274beaf2edb2be696"
 doc_hash = "sha256:7d3add92a7853fb7292b5ed485ec82ede7703a01a50424f94759476825b44d3a"
 physical_interface = true
 

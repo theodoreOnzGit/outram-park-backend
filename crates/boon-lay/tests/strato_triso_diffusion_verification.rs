@@ -64,6 +64,12 @@ const EPS: f64 = 2.2e-16;
 // ---------------------------------------------------------------- gates (from PLAN.md)
 
 const GATE_U1_REL: f64 = 1e-12;
+/// U1's gate on the release fraction F(t), absolute (2026-11-26, local
+/// change L8, maintainer decision). F is a fraction in [0, 1] computed as
+/// 1 - sum w exp(-lambda t); at early times the sum cancels to ~1e-15, where
+/// a relative difference is meaningless, so its round-off is judged on the
+/// scale of F itself: 1e-14, about 45 machine epsilon.
+const GATE_U1_FT_ABS: f64 = 1e-14;
 const GATE_U2_ABS: f64 = 1e-10;
 const GATE_A1_ABS: f64 = 1e-10;
 const GATE_FV_EXTRAP_ABS: f64 = 2e-5;
@@ -265,9 +271,15 @@ fn case_layers(id: &str) -> (Vec<f64>, Vec<f64>) {
 }
 
 /// U1: the port reproduces upstream STRATO's Sturm-Liouville output.
+///
+/// Gates: 1e-12 relative on eigenvalues, weights, `lambda_covered` and
+/// `accuracy_floor`; 1e-14 absolute on F(t) (since local change L8).
+/// ~~Result: 978 of 978 values bit-identical.~~ **Result 2026-11-26 (L8,
+/// transcendentals through PETIR):** see the printed line and the V&V
+/// README's U1 row.
 #[test]
 fn u1_port_matches_upstream_sturm_liouville() {
-    let (mut worst, mut values, mut identical) = (0.0_f64, 0_usize, 0_usize);
+    let (mut worst, mut worst_ft_abs, mut values, mut identical) = (0.0_f64, 0.0_f64, 0_usize, 0_usize);
     for id in SL_CASES {
         let (d, r) = case_layers(id);
         let lambda_max = meta(id, "lambda_max");
@@ -278,8 +290,13 @@ fn u1_port_matches_upstream_sturm_liouville() {
             if ours.to_bits() == theirs.to_bits() {
                 identical += 1;
             }
-            worst = worst.max(rd);
-            assert!(rd <= GATE_U1_REL, "{id} {what}: port {ours:.17e} upstream {theirs:.17e} rel {rd:.2e}");
+            if what == "F(t)" {
+                worst_ft_abs = worst_ft_abs.max((ours - theirs).abs());
+                assert!((ours - theirs).abs() <= GATE_U1_FT_ABS, "{id} {what}: port {ours:.17e} upstream {theirs:.17e} abs {:.2e}", (ours - theirs).abs());
+            } else {
+                worst = worst.max(rd);
+                assert!(rd <= GATE_U1_REL, "{id} {what}: port {ours:.17e} upstream {theirs:.17e} rel {rd:.2e}");
+            }
         };
         let modes = csv_rows(&format!("sl_{id}_modes.csv"));
         assert_eq!(modes.len(), s.eigenvalues.len(), "{id}: mode count");
@@ -296,7 +313,7 @@ fn u1_port_matches_upstream_sturm_liouville() {
             }
         }
     }
-    println!("U1: {values} values over {} cases, {identical} bit-identical, worst relative difference {worst:.3e} (gate {GATE_U1_REL:.0e})", SL_CASES.len());
+    println!("U1: {values} values over {} cases, {identical} bit-identical, worst relative difference {worst:.3e} (gate {GATE_U1_REL:.0e}) on eigenvalues, weights, lambda_covered and accuracy_floor, worst F(t) absolute difference {worst_ft_abs:.3e} (gate {GATE_U1_FT_ABS:.0e})", SL_CASES.len());
 }
 
 /// U2: the port against STRATO's independent Python oracle value.

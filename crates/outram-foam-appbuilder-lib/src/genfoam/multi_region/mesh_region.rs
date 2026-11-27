@@ -462,6 +462,7 @@ mod tests {
     };
     use crate::genfoam::neutronics::xs::variables::{VariableLaw, XsVariable};
 
+    use super::super::cell_overlap::OverlapMesh;
     use super::super::coupling_fields::{CouplingField, CouplingRegion, MeshHandler};
     use super::super::mesh_to_mesh::MappingMethod;
     use super::super::outer_iteration::{FeedbackCoefficient, MultiPhysicsSolver, RegionModel};
@@ -643,14 +644,16 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(T_REF),
         );
 
-        let mut neutro = CouplingRegion::new("neutro", neutro_mesh.clone());
+        let mut neutro = CouplingRegion::new("neutro", neutro_mesh.clone())
+            .with_overlap_mesh(Arc::new(OverlapMesh::box_grid(neutro_mesh.n_cells, 1, 1, [0.0; 3], [1.0; 3])));
         neutro.insert_scalar(VolScalarField::uniform("TFuel", neutro_mesh.clone(), T_REF));
         neutro.insert_scalar(VolScalarField::uniform(
             "powerDensityNeutronics",
             neutro_mesh.clone(),
             0.0,
         ));
-        let mut fluid = CouplingRegion::new("fluid", th_mesh.clone());
+        let mut fluid = CouplingRegion::new("fluid", th_mesh.clone())
+            .with_overlap_mesh(Arc::new(OverlapMesh::box_grid(th_mesh.n_cells, 1, 1, [0.0; 3], [1.0; 3])));
         fluid.insert_scalar(VolScalarField::uniform("TFuel", th_mesh.clone(), T_REF));
         fluid.insert_scalar(VolScalarField::uniform(
             "powerDensityNeutronics",
@@ -736,14 +739,16 @@ mod tests {
             ThermodynamicTemperature::new::<kelvin>(T_REF),
             ThermodynamicTemperature::new::<kelvin>(T_REF),
         );
-        let mut neutro = CouplingRegion::new("neutro", neutro_mesh.clone());
+        let mut neutro = CouplingRegion::new("neutro", neutro_mesh.clone())
+            .with_overlap_mesh(Arc::new(OverlapMesh::box_grid(neutro_mesh.n_cells, 1, 1, [0.0; 3], [1.0; 3])));
         neutro.insert_scalar(VolScalarField::uniform("TFuel", neutro_mesh.clone(), T_REF));
         neutro.insert_scalar(VolScalarField::uniform(
             "powerDensityNeutronics",
             neutro_mesh.clone(),
             0.0,
         ));
-        let mut fluid = CouplingRegion::new("fluid", th_mesh.clone());
+        let mut fluid = CouplingRegion::new("fluid", th_mesh.clone())
+            .with_overlap_mesh(Arc::new(OverlapMesh::box_grid(th_mesh.n_cells, 1, 1, [0.0; 3], [1.0; 3])));
         fluid.insert_scalar(VolScalarField::uniform("TFuel", th_mesh.clone(), T_REF));
         fluid.insert_scalar(VolScalarField::uniform(
             "powerDensityNeutronics",

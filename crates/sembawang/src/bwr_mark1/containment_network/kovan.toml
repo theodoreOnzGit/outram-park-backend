@@ -1,0 +1,124 @@
+schema_version = 1
+kind = "code_folder"
+crate = "sembawang"
+dir = "crates/sembawang/src/bwr_mark1/containment_network"
+
+[module."drawing.rs"]
+path = "crate::bwr_mark1::containment_network::drawing"
+
+[[module."drawing.rs".function]]
+id = "fn:397e00c29fdfe5a1"
+name = "geometry"
+qual = "ContainmentNetwork::geometry"
+hash = "sha256:e3e9041832a7250d8c0a37b740ba07f523ef026fda8b9b462795a5a55ddb9b67"
+doc_hash = "sha256:d1cfb8eb53d7959fd9f79cca64868b6a6867559dc2ec59ac3c4a40b253f5fd61"
+
+[[module."drawing.rs".function]]
+id = "fn:96bb3ebfe1de08ab"
+name = "geometry_svg"
+qual = "ContainmentNetwork::geometry_svg"
+hash = "sha256:30c88c8233153b22b13b8316116fbee2020c8d454a4dd2365ee37accda275d19"
+doc_hash = "sha256:5d65d57855510a4740ccd71a33ab9b1328a955945a2aed861b96369db898c670"
+
+[[module."drawing.rs".function]]
+id = "fn:dd7fea1a41e1b115"
+name = "DW_PORTS"
+qual = "DW_PORTS"
+item = "const"
+shape = "const"
+hash = "sha256:444c0a8226d4cf805c48b24690ae0fbad6c54d7b522b948bf08e5f8fb28f6b02"
+doc_hash = "sha256:f986c4026da23dc27365cb7ac9c068703c4ee8bc73a212be05b856fe741538e7"
+
+[[module."drawing.rs".function]]
+id = "fn:1ee3fc71688a1da1"
+name = "LEFT"
+qual = "LEFT"
+item = "const"
+shape = "const"
+hash = "sha256:08e604588a3e56117ef866871bbf5bc0ce6b5a12b86495761a10d9d059104d64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:b8d093d7a7bbb482"
+name = "PANEL_W"
+qual = "PANEL_W"
+item = "const"
+shape = "const"
+hash = "sha256:38427392abe70e3571b9c48eb65041561f2e0ff347d759ec6fa3b30890aeb991"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:8125080fca4ed267"
+name = "PATHS"
+qual = "PATHS"
+item = "const"
+shape = "const"
+hash = "sha256:15b9accceb736bdaae3a71f045646506fd4447cf0bcca9d30910b5887471caa1"
+doc_hash = "sha256:566184ff2783c49b1efb1762dcb71f51669ca9256bcd17a5531dd63229bb7594"
+
+[[module."drawing.rs".function]]
+id = "fn:194e376e89705687"
+name = "PLOT_H"
+qual = "PLOT_H"
+item = "const"
+shape = "const"
+hash = "sha256:fc0ad9199be8281ce9654309ddb1469272d3b484c4608bfc626c3328f775edbb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:4ed360120f76d355"
+name = "RB_PORTS"
+qual = "RB_PORTS"
+item = "const"
+shape = "const"
+hash = "sha256:bb11e4f78a0007cef795fd7a96bff03038ece5b8b33e3f7442d8ff17d0591218"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:1301ed0142c6b832"
+name = "TOP"
+qual = "TOP"
+item = "const"
+shape = "const"
+hash = "sha256:08e604588a3e56117ef866871bbf5bc0ce6b5a12b86495761a10d9d059104d64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:e961a989ae9908c3"
+name = "VolumeGeometry"
+qual = "VolumeGeometry"
+item = "type"
+shape = "struct"
+hash = "sha256:86bcbd00d47e47985eb083f73d21a536ec60ca804d76ebdd816c956704fe2b12"
+doc_hash = "sha256:5f027e3bb73972fd15f6b2e3f9dd7ed5e40f3d4bc12a1f12c0e5bc8264a3f58d"
+
+[[module."drawing.rs".function]]
+id = "fn:284500a8f318f1c1"
+name = "WW_PORTS"
+qual = "WW_PORTS"
+item = "const"
+shape = "const"
+hash = "sha256:86ace1ce01c91f4e951b2906a8bb4d6d6f79495cf118aede1020306f9b4b4284"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:c675739b550312ff"
+name = "esc"
+qual = "esc"
+hash = "sha256:efeb2c53e4506cae6e08f1414f2c27a891062b750c6ff166721e92ec5d61519a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:2cd520bb18f4c4cc"
+name = "read_volume"
+qual = "read_volume"
+hash = "sha256:453117e2407c8d2a35119bedc0dfde9bbae647e1e0c615ce0493a281c11a61fb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."drawing.rs".function]]
+id = "fn:ef14b5254acdd652"
+name = "the_drawing_shows_what_the_network_holds"
+qual = "the_drawing_shows_what_the_network_holds"
+hash = "sha256:31cc8fe7546dcb7b34c3a1b7ad4e1335e5abfd041a70ee051da1ee7e62afc0fd"
+doc_hash = "sha256:e76b7e8337622b2be9aaaa9d3f4239bf7fc30a34f18bc0133d77b35dcf85ccd3"
+test = true

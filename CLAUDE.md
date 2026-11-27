@@ -661,12 +661,18 @@ A system BLAS is **only** needed to run `outram-foam-basic-lib`'s
 library in the workspace needs it (`sudo pacman -S openblas` /
 `sudo apt install libopenblas-dev`).
 
-**This workspace has two submodules** — `reference-data/ace`
+~~**This workspace has two submodules**~~ **This workspace has three
+submodules** (CORRECTED 2026-11-27) — `reference-data/ace`
 (`theodoreOnzGit/ace_and_other_data`, since 2026-09-20), holding the gzipped
-NJOY2016 ACE tables that are too large to track here directly, and
+NJOY2016 ACE tables that are too large to track here directly,
 `crates/kovan-literature/reactor-literature` (`theodoreOnzGit/reactor-literature`,
 since 2026-09-22), holding the open literature PDFs (see "Literature and the
-Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
+Kovan corpus" below), and
+`crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/refs`
+(the `genfoam-vs-upstream-refs` branch of `theodoreOnzGit/C-_YouTube_OpenFoam`,
+since 2026-11-27, maintainer decision), holding the GeN-Foam
+differential-test references (`*.ref.txt.gz`, ~78 MB); new references are
+written there and committed in that repository. Clone with `git clone --recurse-submodules`, or run
 `git submodule update --init` afterwards. A plain clone leaves each path an
 **empty directory rather than an error**, so nothing complains until something
 looks for a file and does not find one. (Since 2026-09-30 the first workspace

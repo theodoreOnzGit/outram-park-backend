@@ -48,7 +48,7 @@ path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dep
 id = "fn:6bb57890166f7fd5"
 name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer"
-hash = "sha256:551c2fa7936ab4360979d8c5b7107305e110020db747978dc3860e2adb9f65ef"
+hash = "sha256:42ba0a543722cab952818ff087e50635c7e9d309a19098f6da4ed88cbcd8634b"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -56,7 +56,7 @@ test = true
 id = "fn:1a77bae1a8ead147"
 name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel"
-hash = "sha256:4e466ff9b1b7482d342e1890f00b2990d2edb92cb3379f8be4ffe3c4cf49a550"
+hash = "sha256:72d7f3dee9a1b9e404b1bc42449851e8d628701376b9a8f39a321da700859a72"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -64,7 +64,7 @@ test = true
 id = "fn:74c149ecf50768ee"
 name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc"
-hash = "sha256:bac807cda8a2b9f36528b6cbce25f40c8a3c54ecd871eef458baf2e792aaa35e"
+hash = "sha256:d68549d8675eba9208a2c2d5cbf6dab8758752e167460f4053c2f146655e8bab"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -72,12 +72,21 @@ test = true
 id = "fn:68835f79d2429664"
 name = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic"
-hash = "sha256:31e8fe8b77823898714493a7f70dae6e29a639152f1fd862168483d5010b59b0"
+hash = "sha256:16b7487949c505955657ca9602802d5e1675e646dfbfc1c6ac4f6bbc0ea6833f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [module."mod.rs"]
 path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dependent_collisions::diffusion_coeffs"
+
+[[module."mod.rs".function]]
+id = "fn:3addeec4441a1c38"
+name = "KR_BUFFER_D_M2_PER_S"
+qual = "KR_BUFFER_D_M2_PER_S"
+item = "const"
+shape = "const"
+hash = "sha256:33da807c5247857d08f2d25af7e20ad5e7bd23cdb87242f78aae5c07a2af97c9"
+doc_hash = "sha256:40dbbf07bfa5a89a207b9fc89892276c0ffbb771fee12a3c3fbb6a04744459c9"
 
 [[module."mod.rs".function]]
 id = "fn:32729abf9a906a48"
@@ -91,7 +100,7 @@ physical_interface = true
 id = "fn:eb9b9e6d7b0f9a9c"
 name = "get_d1_for_cs"
 qual = "get_d1_for_cs"
-hash = "sha256:e9a081c215cb9a6bdbe3fc6f6783b44039a95d1b8923b7ededf2c481bb9a0076"
+hash = "sha256:5b577ed11d58c9600af6d08e61c35ea1c4cc55689f399bb1e66bbfc03146d7d4"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 physical_interface = true
 
@@ -99,7 +108,7 @@ physical_interface = true
 id = "fn:276704a175fea00f"
 name = "get_d1_for_kr"
 qual = "get_d1_for_kr"
-hash = "sha256:69a8918603c382b7f77f159ada7b22a7a967193fe19ba90b7d608311f5c92d27"
+hash = "sha256:76ee53f4fe6decc4d22a4e25dc003967e1a9626ed5de28534bd157c38025a0f1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 physical_interface = true
 
@@ -123,7 +132,7 @@ physical_interface = true
 id = "fn:f6f96e9259dea849"
 name = "get_d2_for_kr"
 qual = "get_d2_for_kr"
-hash = "sha256:8d951e91da8e254f0bc057921bc448aa6b5da2030458df044a1ea04819e96e1f"
+hash = "sha256:5c3f67e3c373afc4420bab2194b6d1f5fbcba4e3da431f39466f04ef4fb3c409"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 physical_interface = true
 
@@ -179,7 +188,7 @@ physical_interface = true
 id = "fn:31464d09516fe216"
 name = "get_q2_for_kr"
 qual = "get_q2_for_kr"
-hash = "sha256:c8330c29912ca23bda9cce9c5e0cf456b3627d9224258baa70fb9003018a0b1a"
+hash = "sha256:67dc3ff6a0c86e2d1517c84fa733ca941d3279aeb0460a0e5973003c4cffcd9f"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 physical_interface = true
 
@@ -214,7 +223,7 @@ path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dep
 id = "fn:a43b45a14cb81502"
 name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer"
-hash = "sha256:5400eb38983ff7f7aaa8c8f1f67bcf486f8e33ee048405130d203f47a2605de4"
+hash = "sha256:6c76683a23bac13e0ccf441384a8ac5846e1c70d2353acc0f8b3fb9b3c9f5571"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -222,7 +231,7 @@ test = true
 id = "fn:363719f25cc6ffdc"
 name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel"
-hash = "sha256:02d7ac6f59d201d7094f48bbbd03738cce5e628a3e15e84e2a0b926f53c8d645"
+hash = "sha256:2cc3022fcc087ad34cceb795e8fbf6a05c0c135a0284cb1c4a2e71018c5d2a51"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -230,7 +239,7 @@ test = true
 id = "fn:9590d50dd58c7da3"
 name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc"
-hash = "sha256:c5908f642404e1d16137fbe378ee6ff96d68cfdd6b4fcce38aeb944e4f825d7c"
+hash = "sha256:1e7dc35602478f3df5df72847211c3b494026c813960adc9354c9c99e9c8526e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -238,7 +247,7 @@ test = true
 id = "fn:41942eb9ab8f7cd3"
 name = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic"
-hash = "sha256:999ddc15fea58ea9ad806089fab4fb7c727676cccf17bc9198c20560e927dc68"
+hash = "sha256:c86800743a2e68fbf4ffa5ed265ba61f02bd1c3012acbb815f171c1eab314c36"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -249,7 +258,7 @@ path = "crate::lagrangian_decay_simulator::lagrangian_diffusion::temperature_dep
 id = "fn:78e1e21e2c25c1ac"
 name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer"
-hash = "sha256:499f1b930015baae6f86c76b6e0f59fdc1cbe6596d507fa128b0ef0dc71aa90e"
+hash = "sha256:58b1657ba241e4d72d8c32dbc4da27a641cb66414d8805bb2eaec8ce4683a189"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -257,7 +266,7 @@ test = true
 id = "fn:546d1a18bee5137e"
 name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel"
-hash = "sha256:3b918a9dde8def96e521e01c4a27b8b7a515980d981f22f28c972610237fabfb"
+hash = "sha256:967e57344dfab3e7e11cd54b543aa00ccd36b7e84bea40edfcbe25f2664973f7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -265,7 +274,7 @@ test = true
 id = "fn:abb12e87257a14b6"
 name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc"
-hash = "sha256:6c092df9dfa27277bee6a1848f3886faba30b972aff0e6efba075f2c2b10cf8f"
+hash = "sha256:41b3e9f4b4a564eae9cebf5e7fad4394d28176b9e5d5fbaffe24d5b09e2f9de0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -273,7 +282,7 @@ test = true
 id = "fn:61c1694cf8bdbf70"
 name = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic"
 qual = "test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic"
-hash = "sha256:b0385db83f6cd4b8dcb8de232862b095da30d9d16a644e2c0cfd055e4582e703"
+hash = "sha256:3a1854a84e899e92dd7bce06b7f407e3f55667c06b9e05046fbf316806639118"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 

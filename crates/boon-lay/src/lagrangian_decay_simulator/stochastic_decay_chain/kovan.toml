@@ -59,7 +59,7 @@ name = "DecayChainIntoIter"
 qual = "DecayChainIntoIter"
 item = "type"
 shape = "struct"
-hash = "sha256:32b2cc501e17825ac333b4232421baeec930f68009024e0a9e7f9caae52328fb"
+hash = "sha256:91fb5c977efb8f089d4aae9ed92026dbdb89111d3d98d5fe9221054daf5db57c"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."iterator_for_decay_chain.rs".function]]
@@ -82,7 +82,7 @@ name = "DecayChainIter"
 qual = "DecayChainIter"
 item = "type"
 shape = "struct"
-hash = "sha256:4975574592aca6cd109dcbeaf93809f5278704e91a757e548afd02c41c27d380"
+hash = "sha256:33deb4217e9b7f6a851bbdefee9e8836866501099d19f32062584bc9b9e1ea15"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."iterator_for_decay_chain.rs".function]]
@@ -105,7 +105,7 @@ name = "DecayChainIterMut"
 qual = "DecayChainIterMut"
 item = "type"
 shape = "struct"
-hash = "sha256:85b98375d52ab14c87a636d3242a38aa72710236db0585863beaef17dde1dbb9"
+hash = "sha256:4996be40c2859cec390fd6d3289fc7b8e36c5cb39f98713baaa1ada3750b591a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."iterator_for_decay_chain.rs".function]]
@@ -152,15 +152,15 @@ name = "StochasticDecayChain"
 qual = "StochasticDecayChain"
 item = "type"
 shape = "struct"
-hash = "sha256:beeb7546ff69bd5d0ebe5f25d4ab84da93196bbf17f027933ac9f7507f2ab883"
+hash = "sha256:4a8ed3906e17b2f47018b96b0240ad864d38362b91ab86969056f250c3a56779"
 doc_hash = "sha256:e9201f9d1266529d6ca8606ac327c8676b895181a450972119c6dded77c46883"
 
 [[module."mod.rs".function]]
 id = "fn:3dbac5330a933de5"
 name = "new_single_stochastic_chain_from_nuclide"
 qual = "StochasticDecayChain::new_single_stochastic_chain_from_nuclide"
-hash = "sha256:fee4e41430a02d47f3b8b009f4542ed98cdafb4e61809a4bd7cf386b53b7143b"
-doc_hash = "sha256:f42b672355b6c0a1e3a4324f416f2dd01ae699ceba883e5d4abcc896210dc748"
+hash = "sha256:b4d492f3c8ea4226d7b09203ad1c643ca4b191a4593210b24388bf59bd0f4882"
+doc_hash = "sha256:c57d132314183d7c08b47998900c2d740219619e10e672a767d09932d0963c56"
 
 [test_run]
 commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"

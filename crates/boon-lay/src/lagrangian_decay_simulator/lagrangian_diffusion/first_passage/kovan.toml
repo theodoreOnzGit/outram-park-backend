@@ -57,7 +57,7 @@ name = "DepletionOutcome"
 qual = "DepletionOutcome"
 item = "type"
 shape = "enum"
-hash = "sha256:abb0014c9973900185a091263c2c792e4859b15210547d46f766230fb6a0c560"
+hash = "sha256:85e6cf5066b2be94287bfd4bf03e0a1cb5d0a834a65c13fbb6d0aec26bab585a"
 doc_hash = "sha256:d62966dab3c384314d1de77e3f598d94b3d71c716a98e4e1731ae4e2d99cdfa8"
 
 [[module."depletion.rs".function]]
@@ -88,7 +88,7 @@ physical_interface = true
 id = "fn:e344ca7e8cba825a"
 name = "advance_until"
 qual = "WoSWalker::advance_until"
-hash = "sha256:af19623f9bcc4cca8ba3865a5d063103db74b0f9f1bb0ea0fa9d875d4dfbd93a"
+hash = "sha256:5638ead26f0168f47d24f80710cf8cfed28a1d08e7a8947e079abaa71c006131"
 doc_hash = "sha256:fac2935acb2acaff0a608d866b2ba5da436c6dd48b46581fc1747a7ce0dee439"
 physical_interface = true
 
@@ -96,30 +96,45 @@ physical_interface = true
 id = "fn:d946baef670a5072"
 name = "decay_once"
 qual = "WoSWalker::decay_once"
-hash = "sha256:716b38693f7e317010510ba4fa9230fb79cb1db7448a607f129b5beabae7d7b5"
-doc_hash = "sha256:9c51bb23378014d5d1084421b80e55e02e226845413250bb47d7804a9596baaa"
+hash = "sha256:ba969c0f3167fef93f5da0722883dec5f32b3f7fb971bfaf6634e0e84d179a3d"
+doc_hash = "sha256:353c1cc060143ee533e00a7c3a04f399d1ab7008656d43eb25ad1490f58cb945"
 
 [[module."depletion.rs".function]]
 id = "fn:98ae5e90ba81943f"
 name = "decay_rate"
 qual = "WoSWalker::decay_rate"
-hash = "sha256:e352311a3512083540cc0fb148e2b0367513190104d0efdb5b8f86adaa4f2236"
+hash = "sha256:c1a706f749861e8aa7a320cdb7bb2b77b828c33615842cfb3a5009ab3bb765c2"
 doc_hash = "sha256:ffe1ccb21dae47d029954e70b3b0f2e7012fa1dba0dd7a5f5461de9ff4b619a0"
 physical_interface = true
+
+[[module."depletion.rs".function]]
+id = "fn:8515498f99f0f2c5"
+name = "sample_decay"
+qual = "WoSWalker::sample_decay"
+hash = "sha256:801fad2ecf65c894d6858dda9541f494f3027c77f08f8f8ed6d2adf15e38aad2"
+doc_hash = "sha256:d3c3310a4c62619ee7299950ce0c99c06f36b84326d51fe1f5eee2f71804eaac"
 
 [[module."depletion.rs".function]]
 id = "fn:8f9005acb4cb4c77"
 name = "decay_changes_nuclide_to_higher_z_daughter"
 qual = "decay_changes_nuclide_to_higher_z_daughter"
-hash = "sha256:466ab42ed93b28919498663f040c6203a9b827ffbf499d1bee9da3b7e3df9034"
+hash = "sha256:aa45ba99aa07c8f04ada08f1fd234801e55316bdc1e402e15295172acad65288"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."depletion.rs".function]]
+id = "fn:8601495a15886786"
+name = "he5_walker_leaves_chain_without_panic"
+qual = "he5_walker_leaves_chain_without_panic"
+hash = "sha256:c0e8c1e5e5ea3f4586e627e5e81ee63a9386e8f2ba6b22a1c4974c0165dd9a29"
+doc_hash = "sha256:45299d16e25625f6521ba07e4b627552924524857148f215daadfdfaa936d572"
 test = true
 
 [[module."depletion.rs".function]]
 id = "fn:87bf1bea2a3d9acd"
 name = "irradiation_transmutes_a_stable_target"
 qual = "irradiation_transmutes_a_stable_target"
-hash = "sha256:cca2de4aa1cbd4d89c7ee3ff10b66badbf5f1a4343cc8627caca16d43a3a9dd8"
+hash = "sha256:379a06fd621f9b6bc0dc2fb3db88ec0a35a05e0f5b2b5d069370617580148279"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -127,7 +142,7 @@ test = true
 id = "fn:3d9b16a2345b4ae9"
 name = "no_field_leaves_a_stable_nuclide_unchanged"
 qual = "no_field_leaves_a_stable_nuclide_unchanged"
-hash = "sha256:dec996ddc43532e636788b2e8d4e279f86983ee0403a7e04c32cff30e866b355"
+hash = "sha256:79519b4ae395d41f06c3d1e024fdbc2a75dcaca1d4664aafecd0fd1fe6d345f7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -135,7 +150,7 @@ test = true
 id = "fn:dba9277493f8d8d8"
 name = "sample_event_time"
 qual = "sample_event_time"
-hash = "sha256:4954055a920ece143c0ea34d6e98e04c3d90f6a16b3b5ee56d366d749545128b"
+hash = "sha256:794b0f0e60e2f036cb6f05d0582936d7510ab11076cc7a8542be4fb6bfc5ddc8"
 doc_hash = "sha256:e5a6971896611f232d1c29aff193f2aef0e1253c2733d58bc62541d04982b047"
 physical_interface = true
 
@@ -290,7 +305,7 @@ name = "LiveEnsemble"
 qual = "LiveEnsemble"
 item = "type"
 shape = "struct"
-hash = "sha256:47a3ad75060cdba5878f6c8e32af654a7332f43dc20f245c2ccfdc2ee94e4f8d"
+hash = "sha256:3cf917424aaa825b93867144dadd8213a0a6038b0f2f92e7f6073b2fa29bc30f"
 doc_hash = "sha256:faa52193dd95dd5d4e0022dfe110818e3a5112bad1a8b924c21d10e8a6142f9d"
 
 [[module."live.rs".function]]
@@ -321,7 +336,7 @@ physical_interface = true
 id = "fn:b1d3f047d448706b"
 name = "advance_gpu"
 qual = "LiveEnsemble::advance_gpu"
-hash = "sha256:5facedf263db5721e45301c12c623b4807c3987908160c4b1a0a22b56eb1c273"
+hash = "sha256:48f9d0e1c48faae76416945ea9b6c1edc53f2956fb15751540a734cbaf40c91a"
 doc_hash = "sha256:0a850201546fd1de919fbf5231cea5fde7cb01c8f1f78e8fea8260efca79dbe5"
 physical_interface = true
 
@@ -452,21 +467,21 @@ name = "ExitTimeInverseCdf"
 qual = "ExitTimeInverseCdf"
 item = "type"
 shape = "struct"
-hash = "sha256:b6a6f8218bb2a5da2e8f3432e084aad9ea68917dd3836b04d96e269f29521872"
+hash = "sha256:f7e97c2466541c21d849fa17696ecf5eea0e866e794b468050f465e43af5c568"
 doc_hash = "sha256:02032ea0a9d24f2c0836f8e9a43f3e4fa0c23da3cfb5f075a9dda328b7abe406"
 
 [[module."sphere_fpt.rs".function]]
 id = "fn:5def10cd47b11af8"
 name = "build"
 qual = "ExitTimeInverseCdf::build"
-hash = "sha256:fb620e8aedc1c7928ede5abfefb14d7cd734e5e7b2b1b5f6d2e4f6d9390b57be"
+hash = "sha256:0e947ea0e477f4e938c7d9d31b7cb1e000e0b9f929f3efaec71597007ef2c244"
 doc_hash = "sha256:0a2ecf2b9321f371bf20258e8953d9e85aaeeacc86ed11280d9546219845906e"
 
 [[module."sphere_fpt.rs".function]]
 id = "fn:dc272457144b4fc5"
 name = "sample_theta"
 qual = "ExitTimeInverseCdf::sample_theta"
-hash = "sha256:d76542a7a0ee6f79bd96d4e60ece1c56b632acaa06a0630bc61a3b9b888c4761"
+hash = "sha256:70630bd3cd4e390e17cc38e625582abda6e08fec56ff8acec7735ae0e982d897"
 doc_hash = "sha256:167e6355694270784f7542d4c78d2e02ce17e2e595a779b9537e5f4a109c05ac"
 
 [[module."sphere_fpt.rs".function]]
@@ -495,7 +510,7 @@ physical_interface = true
 id = "fn:14a7b2f6739beca5"
 name = "mean_fpt_matches_r2_over_6d"
 qual = "mean_fpt_matches_r2_over_6d"
-hash = "sha256:1ce77bad92ea8e61ad6b0d6f5612645877d42db7c2ae9dc0d0125f0f1e65b58b"
+hash = "sha256:fc4b788f1ddad88a7429496e82cccc4c8e9aca6731488a070dd3a85923ecf8b9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
@@ -549,7 +564,7 @@ test = true
 id = "fn:abe41bd48774738b"
 name = "survival_probability"
 qual = "survival_probability"
-hash = "sha256:9a67e42676949a3388ec5ce8ae29285b259416fdbc24566988fd9251588ead78"
+hash = "sha256:3bcc1ad81db03ca314363db09c4c92650d450779cf24c01f4e245d5e90fd1a58"
 doc_hash = "sha256:432755e27610bead2630c75c548f9341ab9c08b6bbff631328fa4fa69daf901d"
 
 [module."walk_on_spheres.rs"]
@@ -570,7 +585,7 @@ name = "HopOutcome"
 qual = "HopOutcome"
 item = "type"
 shape = "enum"
-hash = "sha256:ab1bbfc955d6154e95c72e4ad6dbc9590cdfe444405c9a6ddede21412dae38ad"
+hash = "sha256:6bb7fa90a240fdcf173889c650e4702e6739de7c387341a7879e32e972d1a84d"
 doc_hash = "sha256:4d28e2736cb5b497ecdc4473126ee4c8eae18512505153253b17cab7af9afdf7"
 
 [[module."walk_on_spheres.rs".function]]
@@ -595,14 +610,14 @@ name = "WoSWalker"
 qual = "WoSWalker"
 item = "type"
 shape = "struct"
-hash = "sha256:3f6717e88b14a93d7ca7e709979bbfb955e7b48d2d0a8338f3ad56018f71a8b5"
+hash = "sha256:408b902d46a2ec3d8e5c8377e1d0b4c9db073fe23155dc10ef9594f84b38dec8"
 doc_hash = "sha256:b73a69812088d860e74cb558849b3bbc51bb7f4d979ec81e21fa1a19fadf9da2"
 
 [[module."walk_on_spheres.rs".function]]
 id = "fn:ed08217f51a73691"
 name = "diffuse_until"
 qual = "WoSWalker::diffuse_until"
-hash = "sha256:44bd39d1a3225b26a0e610410e7eddc6313757f9469003b6622126ac50e60542"
+hash = "sha256:166bf0e27d12f9fecbc06eb3ad9d9905501037ee574163a83256edae2e3b0ddc"
 doc_hash = "sha256:35d6012c4c6379d355af360ef1524736065341f52491952de675cf9232055776"
 physical_interface = true
 
@@ -610,15 +625,22 @@ physical_interface = true
 id = "fn:e61eddfd6593621d"
 name = "diffusion_at"
 qual = "WoSWalker::diffusion_at"
-hash = "sha256:937b894c4172e1627ec8e742dfab20f3547386a5fcb65e1164d5619585267048"
-doc_hash = "sha256:3fe8efc87b6fd4b00203f7b69bcddf399fc274e9debeb26cb74e801428bb78e0"
+hash = "sha256:dcefea818e1cb1722176af665193b7061cfae0654a16062344c67f1d7b1ddd72"
+doc_hash = "sha256:a9e42acf565948ffe18d0bceeedd84cf3247bd2f7f09e632552e5a0770bbb444"
 physical_interface = true
+
+[[module."walk_on_spheres.rs".function]]
+id = "fn:d2c1ee261f66bdf9"
+name = "halt"
+qual = "WoSWalker::halt"
+hash = "sha256:c87669b099d64211959398f2199ed7cf85a299b4188a265421ce583d04778ac2"
+doc_hash = "sha256:8cda6944a8af3e67d7cd693dbfd493d84f74826778b93c954971e36f20a4bddb"
 
 [[module."walk_on_spheres.rs".function]]
 id = "fn:eb14ffc0037e1f27"
 name = "hop"
 qual = "WoSWalker::hop"
-hash = "sha256:8a12705cac3d7bbdcba4e88829ec622e96bee267a1b05e0d8b48e041b5edb5f0"
+hash = "sha256:72b1c00c25e36830b912593fbafc5da22e5acbad2d9deb76f76ca6eb3e583b38"
 doc_hash = "sha256:23df1da1a0155f1e0cd883b8ae04323a1dbc862864fafe131d86cac6a9c0d2e2"
 physical_interface = true
 
@@ -626,7 +648,7 @@ physical_interface = true
 id = "fn:eabbb78407dd7db3"
 name = "new"
 qual = "WoSWalker::new"
-hash = "sha256:c4ba87445c849d4ae74df5a1a5941eb29ee13341fff81d69530beb0df3059c6c"
+hash = "sha256:a783f5d724d4e94e72bf1819c54a9705b3ec176cfcb3682aac1d2c1bfe73e418"
 doc_hash = "sha256:96a6076e1069b7602fbeb10fe4d8cdf07d9f1acbca3d97abf6a1aceeff6ca4ab"
 physical_interface = true
 
@@ -665,8 +687,16 @@ physical_interface = true
 id = "fn:35746b1c9112e76e"
 name = "step_multilayer"
 qual = "WoSWalker::step_multilayer"
-hash = "sha256:a3fba9a736d4261250a0ae817d19a8077483076119f4c1dd1ca6a0bb3806b02c"
+hash = "sha256:3a19b126af2fd4c66a107768d3cd6cc4a7dde49301b3dfe6a38cc736be21f318"
 doc_hash = "sha256:d0dbb444e2fa324ad3179d39c7ab58ff6dc6e7c1efe0daad46af7b239b123a14"
+
+[[module."walk_on_spheres.rs".function]]
+id = "fn:633ffb3885a7cf8e"
+name = "try_walk_until_released"
+qual = "WoSWalker::try_walk_until_released"
+hash = "sha256:72c5f1b5b37942964fcea01c4186f0fc6f8e727da20034fdd8d5279d4e24af6d"
+doc_hash = "sha256:e86f07de29885094a09414511031d892ed4ab8425bd6f2369a828d17753be568"
+physical_interface = true
 
 [[module."walk_on_spheres.rs".function]]
 id = "fn:4d1a5cf741e07866"
@@ -680,8 +710,8 @@ physical_interface = true
 id = "fn:97dde7a3974d9234"
 name = "walk_until_released"
 qual = "WoSWalker::walk_until_released"
-hash = "sha256:e07f146694a2d28224691b2ba1cef74d45a7224b4ad3578ea6417f6c948a906f"
-doc_hash = "sha256:85c595422955d20bf13110ea87d145c73468e4bd17c143a3ab60cac63e370b41"
+hash = "sha256:effa79c224ab84a8a36fa5839307513e48d5ab3f369f96f24bac6ae94b74073b"
+doc_hash = "sha256:a56c17bfa710c128306d07165ad7f23e74c5789aca248211ce6d4e98f616ecf6"
 physical_interface = true
 
 [[module."walk_on_spheres.rs".function]]
@@ -729,7 +759,7 @@ test = true
 id = "fn:1984230cd38291bc"
 name = "interface_rule_gives_uniform_equilibrium_density"
 qual = "interface_rule_gives_uniform_equilibrium_density"
-hash = "sha256:5172ee56931b065b5c420a751558b657811d4f8ab0f9e84b85640c12db4b545b"
+hash = "sha256:1beb21aa6a9653c2d437a164e67b0852634847d932f3c5786c7062226c9f5dfd"
 doc_hash = "sha256:84ba2681bd8ea2737b0d30999fbf5b35b59d427a1af88d4234cccf83336dda52"
 test = true
 
@@ -737,7 +767,7 @@ test = true
 id = "fn:c87d10f000ee46bb"
 name = "multilayer_walk_transmits_across_interfaces"
 qual = "multilayer_walk_transmits_across_interfaces"
-hash = "sha256:e9e8e440a5b242c536b6c3c5b21f90f221c69b1a7bd11729be19d4e1bd2278f2"
+hash = "sha256:27d48b30ed0f1b69bad96e752abf768d1b6fdd9f2b238770ca50a87512c3a2d3"
 doc_hash = "sha256:0b5ecc7123cb5d62212b9f32984e5fb4de35b66d2f4262b7fe91d2b602284869"
 test = true
 
@@ -761,7 +791,7 @@ test = true
 id = "fn:ec1eaba9b8e12d8d"
 name = "radial_distance"
 qual = "radial_distance"
-hash = "sha256:c23c23b777ccf60bd7c360aec74912265855f39eb3aeea10ed56f36ea6e891d5"
+hash = "sha256:cb4f7aae35129460d8c0f0a56912fe840fa91d8db9ad565e95c46bc0fb25ac5d"
 doc_hash = "sha256:cf0a52d749af6caea94a05cc1b46a99d171935577a8968a39706c948157e993e"
 physical_interface = true
 
@@ -769,7 +799,7 @@ physical_interface = true
 id = "fn:dcfe88c840191e5d"
 name = "sample_uniform_in_ball"
 qual = "sample_uniform_in_ball"
-hash = "sha256:936e35d916783989addb365e2a403ca268538e34e8d9c3cc32c31370108dab8b"
+hash = "sha256:80e6c048889b1b8768022fecbccefb177fab128b0b9eb2ba1e60c0a76fc5dfaf"
 doc_hash = "sha256:f757b50e7d94f66fcebb63121fa92e594374b653257e32daa0a8a5ce236f5574"
 physical_interface = true
 

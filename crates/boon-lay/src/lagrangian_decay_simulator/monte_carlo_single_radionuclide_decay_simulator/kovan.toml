@@ -44,7 +44,7 @@ name = "SingleNuclideSimulatorMC"
 qual = "SingleNuclideSimulatorMC"
 item = "type"
 shape = "struct"
-hash = "sha256:ed320175bd927032de3cad029261e31d6325416991c2739bb807faaba8086bf8"
+hash = "sha256:57d501e20523653e4d067b99300afbb4a26917ff811a4156322c1b32262605c0"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mod.rs".function]]
@@ -118,7 +118,7 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 id = "fn:4f17d5d6b9d957fa"
 name = "get_decay_constant"
 qual = "SingleNuclideSimulatorMC::get_decay_constant"
-hash = "sha256:b2e8798148804aaae06dd37b97c78df2031fbc1d48f2df619054608e90fad511"
+hash = "sha256:2306d6c6458d3333421a36e930ebf2977b069c7fa851ee9da654cb4e4a12f157"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 physical_interface = true
 
@@ -133,7 +133,7 @@ doc_hash = "sha256:8f4e7b560bd01fbb25426a920293bb595fe6d10a0c5bd80332214b71d5ee9
 id = "fn:9fa80256432281e7"
 name = "get_time_to_decay_stochastic"
 qual = "SingleNuclideSimulatorMC::get_time_to_decay_stochastic"
-hash = "sha256:69967ea4afc2d52c6a68ef69ad4fd1f39c5246ac1baa31537d00fa071c6b04d9"
+hash = "sha256:c5b0bdc163bec17154b31df0a4eb23775cb7851c0a5f3bbf17fb106c28ce03e0"
 doc_hash = "sha256:107a978ce216caee6f50b377f6aeb12c4f8d73c6a8f496dbd0e47c9576bffa5a"
 physical_interface = true
 
@@ -198,7 +198,7 @@ path = "crate::lagrangian_decay_simulator::monte_carlo_single_radionuclide_decay
 id = "fn:dbc78165ed943718"
 name = "decay_chain_th232"
 qual = "decay_chain_th232"
-hash = "sha256:75a1e0d170a8e1999e886c5785f060e7158aa44eefc811335e3a3bdebb177bcc"
+hash = "sha256:26c471264d372ad4c0536a645f560b4eb5880e94da2d029ce17d693a9bc03d52"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 

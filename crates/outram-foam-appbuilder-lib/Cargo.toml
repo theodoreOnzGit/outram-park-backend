@@ -53,6 +53,10 @@ outram-foam-multiphase = { workspace = true }
 # quadrature, B matrix, CSR assembly, Dirichlet elimination and ILU-preconditioned CG. farrer-park depends only on
 # petir, uom, thiserror-nostd, hashbrown and outram-foam-basic-lib, so no cycle; no_std + alloc without `std`.
 farrer-park = { workspace = true }
+# gh:#1852: `fvGeometryScheme::setMeshPhi` (`face::sweptVol`), bit-identical to ESI v2506 (gh:#1380), reused for `meshPhi` of a
+# deformed region. outram-foam-mesh depends on outram-foam-basic-lib (and petir, thiserror-nostd, ndarray-nostd) only: no cycle;
+# `no_std` + `alloc` without `std`. (It is also a dev-dependency below, with `std`, for the tutorials.)
+outram-foam-mesh = { workspace = true }
 
 [features]
 default = ["std", "long-tests"]
@@ -67,6 +71,7 @@ std = [
     "outram-foam-turbulence-lib/std",
     "outram-foam-multiphase/std",
     "farrer-park/std",
+    "outram-foam-mesh/std",
 ]
 # Tests over 5 minutes (root CLAUDE.md "Slow tests and CI"): on by default,
 # skipped by `cargo quick-test`. ADDED 2026-11-03 for the HTR-10 R-Z mesh
