@@ -5318,3 +5318,58 @@ AI-written, not human-reviewed. Research, education and V&V only. Upstream: GeN-
 * **P6 (moved numbers).** None: rounds 3-17, 34, 35 and 37 gates are re-run unchanged (the `fixedPower` path is untouched; the one-phase reader only changes module path).
 * **P7 (NOT done, stated now so it cannot be dropped quietly).** `2D_KNS37-L22` end to end; neutronics as the input of the power density (the setter exists, no coupling); `nuclearFuelPinTest`, FMU models, restarts from a model's own written fields (refused by name); `interpolatedNuclearFuelPin` against the binary. No `dmdtW` split specific to the radial models exists upstream (the boiling models read `iAact` and `Twall`, which the wiring supplies), so none is written.
 * **P8 (cost).** Each upstream run <= 3 minutes; each reference < 0.6 MB gzipped, total < 4 MB.
+
+## Round 40 (upstream linear solvers for neutronics, maintainer: Match all upstream; gh:#1890)
+
+**Maintainer direction 2026-11-27: "Match all upstream".** Rounds 1, 6, 32, 32b and 39 explain every round-off-level neutronics difference by "basic-lib's CG against `PCG`/`DIC`" (flux) and "basic-lib's BiCGStab against `PBiCG`/`DILU`" (precursors), and round 39's `v1_d1`/`v2_d1` miss is upstream's first `fluxStar0` solve stopping at 0 iterations because its OpenFOAM-normalised initial residual (5.8e-15 / 8.3e-15) is under `tolerance 1e-14`. All of these were *hypotheses about the solvers*, never tested, because the port could not run upstream's solvers on the neutronics matrices. This round makes it able to.
+
+### What upstream selects (read from the shipped `fvSolution` of every neutronics tutorial before any code)
+
+`Tutorials/reactorCases/{2D_MSFR,2D_FFTF,3D_SmallESFR_old,3D_SmallESFR_NewSolverVerification,Godiva_SN,1D_MSR_pointKinetics}/*/system/neutroRegion/fvSolution` and `toBeUpdated/2D_RegressionESFR` all say the same thing: `flux.*|adjoint_flux.*` **PCG/DIC**; `prec.*|precStar.*|adjoint_prec.*` **PBiCG/DILU** (the `smoothSolver`/`GaussSeidel` and `Stab` alternatives are commented out); `angularFlux.*` **PBiCGStab/DILU**. The `GAMG` block next to the PCG one is commented out in every tutorial. The V&V protocol (`scripts/tight_protocol.sh`) only rewrites `tolerance` to 1e-14 and `relTol` to 0 in every `fvSolution`, so the upstream runs of rounds 1-39 ran exactly these three solvers. `maxIter` is not set anywhere, so upstream's is OpenFOAM's default 1000; the port's tests pass 100 000 (a control below).
+
+### What was searched before writing anything (CLAUDE.md "search before building")
+
+`two_phase/pcg.rs` (`pcg_dic`, bit-identical since round 17, also used by `one_phase_cc` and `legacy_fvm`), `legacy_fvm/pbicg.rs` (`pbicg_dilu`, round 23, bit-identical to the binary), `two_phase/pbicgstab.rs` (`pbicgstab_diagonal`, round 3; `diagonal` preconditioner only). **Not found:** `PBiCGStab` with `DILU`. Reused as they are: PCG/DIC and PBiCG/DILU. `pcg.rs` moved to `genfoam/common/pcg.rs` (so the neutronics side does not import from the thermal-hydraulics tree) with `two_phase/pcg.rs` kept as a one-line re-export (`pub(crate) use crate::genfoam::common::pcg::*`), so every existing import, including `one_phase_fc.rs` (gh:#1878, another agent), resolves to the same function. New: `pbicgstab_dilu` (the diagonal version of round 3 with `DILUPreconditioner` from `pbicg.rs`), the `LinearSolverForm` / `NeutronEquation` / `LinearSolve` selection (`common/linear_solvers.rs`), and a `form` field on `DiffusionSettings`, `Sp3Settings`, `SnSettings`, `SnPseudoTimeSettings`. `GAMG`: not ported (gh:#1843); a case that selects it would run PCG/DIC, a named deviation (no shipped neutronics case selects it). No kovan-reviewed function exists in the touched folders (`review.md` holds no `kind = "review"` block); basic-lib is not touched.
+
+**Default.** `LinearSolverForm::Upstream { rel_tol: 0, min_iter: 0 }`: flux -> `pcg_dic`, precursors -> `pbicg_dilu`, angular flux -> `pbicgstab_dilu`, each with OpenFOAM's `normFactor` residual, `tolerance`, `relTol`, `maxIter`, `minIter` and the zero-iteration exit. The earlier form is `LinearSolverForm::BasicLib` / `settings.with_basic_lib_cg()`, deprecated, kept callable (flux: basic-lib CG; precursors, angular flux: ILU(0)-BiCGStab; static SN sweep: Gauss-Seidel).
+
+### Baseline (measured 2026-11-27 with the new code and `LinearSolverForm::BasicLib` forced, i.e. the pre-round-40 solves; release, private target dir)
+
+| test | worst difference before |
+|---|---|
+| `genfoam_neutronics_vs_upstream` (guided slabs, static eigenvalue) | diffusion: `dk` -5.8e-14 / -4.6e-14, flux shape 5.7e-13 / 3.4e-13; SP3: `dk` -1.7e-13 / -1.3e-13, shape 2.3e-12 / 1.4e-12 |
+| `genfoam_pseudo_time_vs_upstream` | diffusion guided 1/2: max `dk` 3.33e-14 / 6.24e-14 (median 2.5e-14 / 4.8e-14), shape 2.6e-13 / 4.3e-13, first residual rel 2.3e-10 / 1.3e-10; SP3: `dk` 4.5e-14 / 1.3e-13, shape 3.7e-13 / 1.5e-13 |
+| `genfoam_external_source_vs_upstream` (A, B, C, F, G) | power 4.8e-14, 1.5e-13, 2.4e-13, 2.4e-13, 2.1e-14; flux(t=100) 6.6e-14, 1.8e-13, 7.7e-14, 3.6e-14, 1.5e-15; iteration counts equal at every step |
+| `genfoam_df_driveline_vs_upstream` | `v0` 5.8e-15, `v0_d1` 5.1e-15, `v0_d3` 6.2e-15, `v1` 1.9e-13, `v2` 8.7e-15, `v3` 5.1e-15; `v1_d1`: departs at step 202 (`dk` 6.7e-3), `v2_d1`: departs at 205 (8.6e-3) |
+| `genfoam_sn_vs_upstream` (slab, 6 steps) | `dk` 4.4e-16, 8.9e-16, 2.4e-15, 2.3e-15, 2.3e-14, 2.4e-15; `dP` up to 2.2e-14; shape 1.1e-15 |
+| `genfoam_msfr_transient_vs_upstream` (non-ignored) | step 1-20: `rel_prec_max` 5.8e-14 growing to 4.2e-12 (step 20), `rel_flux_max` 4e-15 to 1.3e-14, `rel_dP` 3e-15 to 8e-15, neutron iterations 1/1 |
+| `genfoam_msfr_coupled_vs_upstream` | `rel_P` 3e-15 to 7e-15, `maxrel_T` 7e-16 to 2e-15, `rel_h1res` 1.4e-10 to 1.7e-9, iterations equal |
+| `genfoam_msfr_chain_vs_upstream` | EN 600 steps: keff 2.2e-13 (step 1), 4.5e-14 at step 600, `h1` 2.6e-9 (step 1) to 9.9e-11, `flux0..3` 9.3e-11 .. 1.3e-10; light chain 5 transient steps: power 3.5e-12, `h1` 1.3e-11 |
+| `genfoam_msfr_allrun_vs_upstream` | seven-quantity rows of 1e-12 to 1e-15 |
+| `genfoam_point_kinetics_vs_upstream` | bit-identical (no linear solve) |
+
+### Predictions (written BEFORE any run of the new default; committed first)
+
+Criteria, fixed now and not to be changed after seeing results: **bit-identical** means every compared value `==` (for `dk`: exactly 0); the existing gates are NOT loosened; where a result is bit-identical the gate is tightened to bit-identity afterwards, with the previous bound named in the test; a number that moves the wrong way (a larger worst difference than the baseline above) is investigated by reading upstream before anything else.
+
+Reasoning behind the predictions: `pcg_dic` is the same recurrence as the basic-lib DIC-CG (same preconditioner), differing in the residual measure (OpenFOAM's `normFactor`, which for a system with a large `sumA * mean(x)` is much larger than `||b||`, so it stops at a different iteration at the same `tolerance`) and in operation order. So the old port solved to a different point; the matrices themselves are assembled from the same bit-identical cross sections and geometry (rounds 1, 6, 9, 26). The one thing that could still keep a case away from bit-identity is a matrix coefficient that differs in the last bit (a face-interpolation or an `fvm::ddt` operation order not yet translated exactly), which no earlier round could see through the solver noise.
+
+| id | claim | predicted outcome |
+|---|---|---|
+| S1 | guided slabs, diffusion + SP3, static (`genfoam_neutronics_vs_upstream`) | worst `dk` falls at least 5x (diffusion <= 1e-14, SP3 <= 3e-14); flux shape falls at least 5x. Bit-identical: 35 % |
+| S2 | `genfoam_pseudo_time_vs_upstream` diffusion and SP3 | max `dk` <= 5e-15 diffusion, <= 2e-14 SP3 (>= 5x down); first residual rel <= 1e-9. Whole history bit-identical: 30 % |
+| S3 | external source A, B, C, F, G | power <= 1e-14 and flux(t=100) <= 1e-14 in all five; iteration counts equal at every step (as before). Bit-identical: 30 % |
+| S4 | `df_driveline` `v0`, `v0_d1`, `v0_d3`, `v2`, `v3` | `dk` <= 2e-15 each (from 5e-15 to 9e-15). `v1` (1.9e-13): <= 2e-14 |
+| S5 | **`v1_d1`**: the port's first `fluxStar0` solve at step 202 | **does 0 iterations like upstream: 60 %** (its initial residual is round-off noise near 5.8e-15 against the 1e-14 threshold; the noise realisation differs unless the state is bit-identical). If it does, `keff_` follows upstream through step 230 to <= 1e-9 and the port's power at step 202 is ~5e-3 off `pTarget`, as upstream's. If it does not, the miss stays and I report the port's initial residual at step 202 and which side of 1e-14 it falls |
+| S6 | **`v2_d1`** at step 205 (upstream initial residual 8.3e-15) | 0 iterations like upstream: 45 %; same consequences as S5 |
+| S7 | `maxIter` control: `v1_d1`, `v2_d1` with `max_iter` 1000 (upstream's value) instead of 100 000 | no gated number changes (no solve in these cases needs more than 1000 iterations); if one does, upstream stops there and so does the port |
+| S8 | SN slab (`genfoam_sn_vs_upstream`, `PBiCGStab`/`DILU`) | `dk` at step 5 falls from 2.3e-14 to <= 5e-15; no step worse than 2.4e-15. Bit-identical: 30 % |
+| S9 | `genfoam_point_kinetics_vs_upstream` | unchanged, bit-identical (it has no linear solve) |
+| S10 | MSFR transient, steps 1-20 | `rel_prec_max` falls at least 10x at every step (<= 1e-13 at step 20, from 4.2e-12) because the precursor equation now runs `PBiCG`/`DILU` (round 6 attributed the growth with group index to the solver); `rel_flux_max` and `rel_dP` stay <= 2e-14. `rel_prec_max` bit-identical at step 1: 45 % |
+| S11 | MSFR transient, precursor totals at step 50 (round 6: 1.3e-11) and the per-cell precursors (3.5e-10) | <= 1e-12 and <= 1e-11. This tests round 6's hypothesis; if it misses, the hypothesis was wrong and the cause is elsewhere (matrix assembly of the transport term), which I would then localise |
+| S12 | MSFR chain (EN 600 steps; light chain) | keff worst <= 5e-14 (from 2.2e-13), `h1` <= 1e-10 at step 1 (from 2.6e-9), `flux0..3` <= 2e-11 (from 1.3e-10); light-chain power <= 1e-12. 55 % |
+| S13 | MSFR coupled and allrun | no number moves beyond ~2x in either direction on the TH-dominated quantities (`maxrel_T`, `rel_P`, seven-quantity rows); `rel_h1res` falls >= 10x |
+| S14 | `--lib neutronics`, `--lib two_phase`, `legacy_fvm`, one_phase/msfr_th tests that exercise `pcg.rs` | all pass, unchanged (the move of `pcg.rs` is a re-export) |
+| S15 | the static solvers (`solve_eigenvalue`, transient, SP3, SN sweep: the port's own drivers, not upstream's) in `--lib neutronics` | the 78 tests pass without any bound changed; a unit test that counts iterations or asserts the Gauss-Seidel behaviour of the SN sweep would fail, and then it is the test that assumed the old solver |
+| C1 | control: `with_basic_lib_cg()` on the same tests | reproduces the baseline table above to the printed digits (the old path is untouched) |
+| C2 | control: `pbicgstab_dilu` on a 1-D chain | converges in 1 to 2 iterations (DILU is the exact LU on a chain) |
