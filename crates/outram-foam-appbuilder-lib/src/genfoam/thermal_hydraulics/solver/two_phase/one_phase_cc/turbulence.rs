@@ -702,10 +702,11 @@ impl OnePhaseCcSolver {
         let nb = g.n_faces() - ni;
         let m = g.mesh.clone();
         let th = self.case.thermo.clone();
-        let rho0 = th.rho0;
+        // `rho0` (Boussinesq: `rho` is that constant everywhere; the reader refuses `turbulence true` for any other package)
+        let rho0 = self.rho.first().copied().unwrap_or(0.0);
         // `nu() = transport_.nu()` = the thermo's mu/rho(T) (cells and, with `zeroGradient` T, the owner value on faces):
         // `PhaseCompressibleTurbulenceModel` does not override `TurbulenceModel::nu()`, it does NOT use the model's `rho_` (= `rho0`)
-        let nu_c: Vec<f64> = (0..n).map(|i| th.mu / th.rho(self.t[i])).collect();
+        let nu_c: Vec<f64> = (0..n).map(|i| { let pp = th.props(self.p[i], self.t[i]); pp.mu / pp.rho }).collect();
         let nu_b: Vec<f64> = (0..nb).map(|i| nu_c[m.owner[ni + i]]).collect();
         let rdt = 1.0 / self.dt;
         let vol = &m.cell_volumes;
