@@ -1,0 +1,116 @@
+diff --git a/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_fc.rs b/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_fc.rs
+index 8c9799f5c..dd51dd0ab 100644
+--- a/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_fc.rs
++++ b/crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/two_phase/one_phase_fc.rs
+@@ -989,6 +989,28 @@ impl OnePhaseFcSolver {
+         }
+     }
+ 
++    /// PROBE gh:#1894 (temporary, not kept)
++    fn probe_dump(&self, name: &str, v: &[f64]) {
++        use std::io::Write;
++        let path = match std::env::var("PORT_PROBE_FILE") {
++            Ok(p) => p,
++            Err(_) => return,
++        };
++        let mut f = std::fs::OpenOptions::new().create(true).append(true).open(path).expect("probe file");
++        let mut line = format!("S {} {}", PROBE_CORR.load(std::sync::atomic::Ordering::SeqCst), name);
++        for x in v {
++            line.push_str(&format!(" {:.17e}", x));
++        }
++        line.push('\n');
++        f.write_all(line.as_bytes()).expect("write");
++    }
++
++    /// PROBE gh:#1894 (temporary, not kept)
++    fn probe_dump_v(&self, name: &str, v: &[Vector3]) {
++        let flat: Vec<f64> = v.iter().flat_map(|x| [x.x, x.y, x.z]).collect();
++        self.probe_dump(name, &flat);
++    }
++
+     /// `pEqnf_1p.H` with its `pEqnRoutines`. Returns the first PISO initial residual.
+     fn correct_pressure(&mut self, ueqn: &VecEqn) -> f64 {
+         let g = self.geom.clone();
+@@ -1023,6 +1045,31 @@ impl OnePhaseFcSolver {
+ 
+         let mut first_res = 0.0;
+         for corr in 1..=self.controls.n_corr.max(1) {
++            PROBE_CORR.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
++            {
++                let fl = &self.fluid;
++                self.probe_dump("alpha", &fl.alpha.c);
++                self.probe_dump("rho", &fl.rho.c);
++                self.probe_dump("p_in", &self.p.c);
++                self.probe_dump("T", &fl.t.c);
++                self.probe_dump("contErr", &fl.cont_err);
++                self.probe_dump("magU", &fl.mag_u);
++                self.probe_dump_v("U", &fl.u.c);
++                self.probe_dump_v("B_U", &fl.u.b);
++                self.probe_dump("UA", &ueqn.eqn.a(&g));
++                self.probe_dump_v("UH", &ueqn.h(&g, &fl.u));
++                self.probe_dump("alphaf", &alpha_f[..ni]);
++                self.probe_dump("alphaRhofByDt", &arf[..ni]);
++                self.probe_dump("alphaRhof0ByDt", &arf0[..ni]);
++                self.probe_dump("rAUf1", &rauf[..ni]);
++                self.probe_dump("alpharAUf", &alpharauf[..ni]);
++                self.probe_dump("phi_in", &fl.phi[..ni]);
++                self.probe_dump("phi_old", &fl.phi_old[..ni]);
++                self.probe_dump("alphaRhoPhi", &fl.alpha_rho_phi[..ni]);
++                self.probe_dump("B_phi_in", &fl.phi[ni..]);
++                self.probe_dump("B_alphaRhoPhi", &fl.alpha_rho_phi[ni..]);
++                self.probe_dump("B_alphaf", &alpha_f[ni..]);
++            }
+             self.assign_p_rgh_from_p();
+             // correctBoundaryFlux_1p.H: a fixedValue flux patch (noSlip, fixedValue velocity) is `Sf . U_b`
+             for f in ni..nf {
+@@ -1065,6 +1112,14 @@ impl OnePhaseFcSolver {
+                     }
+                 }
+             }
++            self.probe_dump("p_rgh_pre", &self.p_rgh.c);
++            self.probe_dump("gh", &self.gh.c);
++            self.probe_dump("phiSbyA", &phi_s[..ni]);
++            self.probe_dump("phiHbyA", &phi_hbya[..ni]);
++            self.probe_dump("rAUf2", &rau_p[..ni]);
++            self.probe_dump("B_phiHbyA", &phi_hbya[ni..]);
++            self.probe_dump("B_phiSbyA", &phi_s[ni..]);
++            self.probe_dump("B_rAUf2", &rau_p[ni..]);
+             // pEqnComp
+             let p_rgh_0 = self.p_rgh.c.clone();
+             let p_rgh_0_b = self.p_rgh.b.clone();
+@@ -1099,6 +1154,9 @@ impl OnePhaseFcSolver {
+             // `uncorrected` Laplacian (the only scheme read, see `OnePhaseFcCase::read`) the matrix and source of every pass are the
+             // same, so they are built once; only `p_rgh` differs between passes (gh:#1878 item 1, README round 38).
+             let n_pass = self.controls.n_non_orth_correctors + 1;
++            self.probe_dump("pdiag", &peqn.ldu.diag);
++            self.probe_dump("pupper", &peqn.ldu.upper);
++            self.probe_dump("psource", &peqn.source);
+             let mut converged = false;
+             for pass in 1..=n_pass {
+                 let mut x = self.p_rgh.c.clone();
+@@ -1147,6 +1205,10 @@ impl OnePhaseFcSolver {
+                     self.fluid.phi[f] = self.phi_real[f] / alpha_f[f];
+                 }
+             }
++            self.probe_dump("p_rgh_post", &self.p_rgh.c);
++            self.probe_dump("B_p_rgh_post", &self.p_rgh.b);
++            self.probe_dump("phi_post", &self.phi_real[..ni]);
++            self.probe_dump("B_phi_post", &self.phi_real[ni..]);
+             for c in 0..n {
+                 self.fluid.dgdt[c] = -(comp_expl[c] + cc[c] * (self.p_rgh.c[c] - p_rgh_0[c]) * rdt);
+             }
+@@ -1176,6 +1238,9 @@ impl OnePhaseFcSolver {
+             }
+             self.assign_p_rgh_from_p();
+             self.p_rgh.correct_bc(&g);
++            self.probe_dump("p_out", &self.p.c);
++            self.probe_dump("p_rgh_out", &self.p_rgh.c);
++            self.probe_dump("rho_out", &self.fluid.rho.c);
+             if self.controls.correct_until_convergence && converged {
+                 break;
+             }
+@@ -1564,3 +1629,4 @@ impl OnePhaseFcSolver {
+         self
+     }
+ }
++static PROBE_CORR: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);

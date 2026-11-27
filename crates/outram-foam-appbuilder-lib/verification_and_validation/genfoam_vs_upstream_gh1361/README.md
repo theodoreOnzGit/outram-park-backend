@@ -5787,3 +5787,31 @@ Probe plan: an instrumented copy of `libFFSSolvers2` (`upstream_driver/probe_one
 - **H5 (residual hypothesis, to be refined by the dump): a coefficient of the momentum equation in pass 2 that differs by ~1e-10 relative: the friction `Kd` (from `Re`, `|U|`: `magU` is set by `fluid_.magU() = mag(U)` after the corrector, `Re` in `correctModels` at the start of pass 2) or `alphaRhofByDt`/`rAUf`.** Prediction: `A` and `rAUf` differ at outer 2 by a spatially smooth relative difference of ~1e-10 (one sign everywhere, as the pressure-drop scaling is a single factor) and `U` by < 1e-14; and the quantity that differs is the one built from `U` of pass 1 (`Kd`/`Re`/`magU`), because `U` of pass 1 is the only pass-1 quantity that is not round-off in the control and enters the pass-2 coefficients (`|U|` moves by ~1e-10 relative from the inlet value 2 m/s through the first pass's `p_rgh` solve at dt = 1e-3).
 
 Decision rule (fixed now): the first dumped quantity, in the order cell inputs -> face inputs -> boundary values -> matrix -> solution, that differs by more than 1e-13 relative at (outer 2, corrector 1) is the proximate cause; its upstream expression is then read, the port is made to match it, and `p` of the 1 x 1, 1 x 2 and 2 x 1 runs and the committed gates of rounds 4, 38 and 44 are re-measured. No gate is loosened.
+
+## Probe 1 (measured 2026-11-27, release, `nOuterCorrectors 2`, `nCorrectors 1`, every tolerance 1e-30, exchangers removed, heater power 0; step 1; `upstream_driver/probe_one_phase_fc/`)
+
+Worst `|port - upstream| / max |upstream|` per dumped quantity, (outer 1) / (outer 2); the first quantity that differs is the proximate cause (decision rule above).
+
+| quantity | outer 1 | outer 2 |
+|---|---|---|
+| `alpha`, `rho`, `p`, `T`, `U` (cells and boundary), `magU`, `phi`, `phi.oldTime()`, `alphaf`, `alphaRhofByDt`, `gh`, `p_rgh` before the solve | 0 .. 1.4e-16 | 0 .. 3.6e-14 (`p`, `p_rgh`: the pass-1 result), `U` 2e-15 |
+| **`UEqn.A()` (cells)** | **5.95e-6** (uniform: port smaller by 0.1150 in every cell, `A` = 19311.3) | **5.95e-6** (same) |
+| **`UEqn.H()` (z)** | **6.7e-6** | **6.7e-6** |
+| `rAUf` (first, second), `alpharAUf`, `pupper` | 2.55e-7 | 2.55e-7 |
+| `phiHbyA` | 1.2e-9 | 1.2e-9 |
+| `p_rgh` after the solve, `p` | **3.6e-14** | **3.46e-11** (the baseline) |
+| `phi` after the solve | 2e-15 | 4.5e-15 |
+
+**Finding.** The momentum matrix of the port differs from upstream's in the FIRST pass already, by a uniform 0.115 in `A` (relative 6e-6) and 0.23 in `H_z`; the pressure of pass 1 does not show it (`p` 3.6e-14) because with `U = phi/(alpha |Sf|)` uniform and `phi.oldTime() = phi` the error in `rAUf` multiplies `(alphaRhof0ByDt phi_old + flux(H)) - phi/alpharAUf`, which cancels to first order when the velocity is unchanged; pass 2 starts from the pass-1 `phi`, `contErr` and `p` and no longer cancels. **Predictions: P0 MISSED** (I predicted `A` agrees at outer 1 to 1e-14: it is 6e-6); **H1's "not the cause" MISSED, its sign held** (port `A` smaller than upstream, as the missing `cmptMax - cmptMin` of the slip wall's laplacian `internalCoeffs` predicts); **H2, H3, H4 held** (`contErr` of the control 3.6e-12 absolute at pass 1 and 5e-11 of 1.8e-3 at pass 2, boundary `phi` agrees to 4e-17, `rho`, `gh`, `p_rgh` bookkeeping 1e-16); H5 (a `Kd`/`Re` lag) MISSED: `magU`, `U`, `rho`, `T` agree to 4e-15.
+
+**Cause (to be confirmed by the fix).** `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1147-1149`, `:1235-1238`) adds `cmptMax(cmptMag(iCoeffs))` per boundary face before the dominance test and subtracts `cmptMin(iCoeffs)` after it, per FACE and over the three COMPONENTS; `UEqn.A()` then adds `cmptAv(iCoeffs)`. `one_phase_fc::relax_diag` (round 38) assumed the three components of `iCoeffs` equal, so that `cmptMax(cmptMag) - cmptMin = |v| - v = 2 max(-v, 0)` (its `convective_inflow2`). That holds for `zeroGradient`, `fixedValue`, `noSlip` (every earlier round) but NOT for a `slip` wall: the laplacian `gradientInternalCoeffs = -deltaCoeffs snGradTransformDiag` with `snGradTransformDiag = |n|` per component (`basicSymmetryFvPatchField`), so a wall of normal `x` has `iCoeffs = (c, 0, 0)`, `cmptMax - cmptMin = c` and `cmptAv = c/3`: the upstream diagonal gets `c + c/3` of that face where the port's gets `c/3`. In a 1-D tube (four side walls per cell) the `z` momentum equation is therefore missing the viscous wall contribution `sum_f c_f` of the cmptMax-cmptMin pair, uniform over the cells; the pressure drop `p - p_out` carries it as a relative scaling because `U` is fixed by continuity.
+
+## Predictions for the fix (written BEFORE the fix is built or run; committed first)
+
+Fix: `relax_diag` gets the two per-cell boundary sums of upstream's formula, `pre[c] = sum_f (cmptMax(cmptMag(iCoeffs_f)) - cmptAv(iCoeffs_f))` added inside the dominance test and `post[c] = sum_f (cmptAv(iCoeffs_f) - cmptMin(iCoeffs_f))` added after the division, built per boundary FACE from `Vector::patch_coeffs` with the convective and laplacian parts summed as `fvMatrix::operator+=` does; for equal components they reduce to `2 max(-v, 0)` and `0` (the old `convective_inflow2`).
+
+- **F1.** `UEqn.A()` and `UEqn.H()` at (outer 1) agree with upstream to <= 1e-13 relative (from 6e-6 / 6.7e-6); the 0.115 difference is closed to <= 1e-12 absolute.
+- **F2.** `p` after 2 outer x 1 corrector: <= 1e-12 (from 3.5e-11); after 1 x 1 and 1 x 2: unchanged (<= 1e-13).
+- **F3.** Full step 1 of `1D_HX/onePhase` (6 x 6): `p` <= 1e-9 (from 3.2e-8), `Uz` <= 1e-10 (from 1.0e-9), `Q` and `htc`, `Re` <= 1e-9; the late-time offset (6e-10 of `p` from step 500) drops below 1e-11. If `p` stays above 1e-9 at step 1, a second cause exists and the probe is repeated at 6 x 6.
+- **F4.** Rounds 4 and 38 (no slip patch: `zeroGradient`, `noSlip`, `fixedValue`) are bit-for-bit unchanged: for them `pre = 2 max(-v, 0)` and `post = 0` reproduce the old path in exact arithmetic; at most a last-bit difference from the order of the sums, which the pins tolerate to 1e-9 (the maintainer's rounding allowance). Predicted worst movement of any committed round-4/38 number: <= 1e-13 relative.
+- **F5.** The energy-equation `relax` (`one_phase_fc.rs`, scalar `h`) is untouched (its `iCoeffs` are scalar: equal "components"), so `T` is unchanged to 1e-15 in the control.
