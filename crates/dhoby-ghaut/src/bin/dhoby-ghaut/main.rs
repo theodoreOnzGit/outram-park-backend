@@ -962,6 +962,9 @@ mod tests {
             assert!(rel.abs() < 0.01, "{id}: {rel:e}; notes {:#?}", m.notes);
         }
         assert!(!m.ami.is_empty());
+        // Every region dualled (2026-11-27: the single-region pipeline had
+        // skipped the solid's dual and kept 949 570 tetrahedra).
+        assert!(m.kinds.iter().all(|(k, _)| k != "Tet4"), "{:?}", m.kinds);
         let names: Vec<&str> = m.patches.iter().map(|p| p.0.as_str()).collect();
         for p in ["top", "bottom", "side"] {
             assert!(names.contains(&p), "patch {p}: {names:?}");
@@ -1003,6 +1006,12 @@ mod tests {
             let zones = outram_foam_appbuilder_lib::io::poly_mesh::read_cell_zones(&pm).expect("cellZones read back");
             let in_zones: usize = zones.iter().map(|z| z.cells.len()).sum();
             assert_eq!(in_zones, m.cells, "{:?}: every cell in exactly one zone", m.role);
+        }
+        // The FV meshes are dualled in every region (no region left as
+        // tetrahedra, 2026-11-27).
+        for role in [MeshRole::Neutronics, MeshRole::ThermalHydraulics] {
+            let m = &b.meshes[role.index()];
+            assert!((0..m.n_cells()).all(|c| m.cell_kind(c) != outram_blender::unstructured::ElementKind::Tet4), "{role:?} has tetrahedra");
         }
         let s = &b.meshes[MeshRole::Structural.index()];
         assert!((0..s.n_cells()).all(|c| s.cell_kind(c) == outram_blender::unstructured::ElementKind::Tet4));

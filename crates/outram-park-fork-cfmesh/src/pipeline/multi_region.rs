@@ -99,6 +99,12 @@ pub struct MultiRegionSurface {
     /// One point strictly inside every connected component of every
     /// region, and the region's index.
     pub seeds: Vec<(Vec3, usize)>,
+    /// TetGen hole points (`holelist`, 2026-11-27): one inside every
+    /// enclosed volume that belongs to no region, removed from the mesh. A
+    /// single region meshed on its own with others inside it (HTR-10's solid
+    /// graphite round the bed and plenums) needs one per cavity; without it
+    /// the cavity is meshed with no seed and refused.
+    pub holes: Vec<Vec3>,
 }
 
 impl MultiRegionSurface {
@@ -185,6 +191,7 @@ pub fn multi_region_tetgen(s: &MultiRegionSurface, source: TetSource) -> Result<
         .iter()
         .map(|(p, g)| [p.x, p.y, p.z, (*g + 1) as f64, -1.0])
         .collect();
+    plc.holes = s.holes.iter().map(|p| [p.x, p.y, p.z]).collect();
     let r = tetrahedralize_plc(&plc, &sw.behavior()).map_err(|e| format!("TetGen refused the multi-region surface: {e:?}"))?;
     let out = r.output.ok_or("TetGen wrote no output")?;
     let attr = out.tet_attributes.as_ref().ok_or("TetGen gave no region attributes (-A)")?;
@@ -682,6 +689,7 @@ mod tests {
             interface: vec![false, false, true],
             region_names: vec!["a".into(), "b".into()],
             seeds: vec![(Vec3::new(0.5, 0.5, 0.5), 0), (Vec3::new(1.5, 0.5, 0.5), 1)],
+            holes: Vec::new(),
         }
     }
 
@@ -714,6 +722,7 @@ mod tests {
             interface: vec![false, true],
             region_names: vec!["shell".into(), "core".into()],
             seeds: vec![(Vec3::new(0.5, 0.5, 0.5), 0), (Vec3::new(1.5, 1.5, 1.5), 1)],
+            holes: Vec::new(),
         }
     }
 
@@ -739,6 +748,26 @@ mod tests {
         let names: Vec<&str> = m.mesh.patches.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, outer, "only the outer patches are patches");
         assert!(m.interface_faces.last().unwrap().1 > 0, "interface faces present");
+    }
+
+    /// The shell of the nested cubes meshed alone (2026-11-27): the core's
+    /// faces become an outer patch, a hole point inside the core removes it,
+    /// and the dual has exactly the shell's volume (27 - 1). Without the hole
+    /// the core is meshed with no seed and refused.
+    #[test]
+    fn a_region_meshed_alone_keeps_its_cavity_as_a_hole() {
+        let mut s = nested_cubes();
+        s.interface = vec![false, false];
+        s.region_names.truncate(1);
+        s.seeds.truncate(1);
+        let err = multi_region_mesh(&s, source(), true).unwrap_err();
+        assert!(err.contains("no seed point"), "{err}");
+        s.holes = vec![Vec3::new(1.5, 1.5, 1.5)];
+        let m = multi_region_mesh(&s, source(), true).unwrap();
+        m.mesh.validate().expect("closed");
+        assert!((m.mesh.total_volume() - 26.0).abs() < 1e-9, "{}", m.mesh.total_volume());
+        let names: Vec<&str> = m.mesh.patches.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(names, ["outside", "shell_to_core"]);
     }
 
     #[test]

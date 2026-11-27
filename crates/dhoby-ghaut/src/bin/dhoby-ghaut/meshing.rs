@@ -373,10 +373,13 @@ pub struct JoinedRegions {
 ///   closed surface ([`fitted_surface`] keeping that region alone). An edge
 ///   to another kept region `h` is the patch `<region>_to_<h>`; any other
 ///   boundary edge is named by `outer(a, b)` (cm).
-/// - **Mesh.** The single-region pipeline meshes it
-///   (`surface_to_tet_dual_mesh_multipatch`: TetGen `-pq1.414a<V>`, `V` the
-///   regular tetrahedron of `cell_cm`, then the polyhedral dual), with the
-///   layers `layers(region)` asks for grown first.
+/// - **Mesh.** TetGen `-pq1.414a<V>` (`V` the regular tetrahedron of
+///   `cell_cm`) on that surface alone, then the polyhedral dual. A region
+///   with no layers is dualled by `pipeline::multi_region` with one region
+///   (the dual re-wound exactly from the tetrahedra); a region that grows
+///   the layers `layers(region)` asks for goes through the single-region
+///   pipeline (`surface_to_tet_dual_mesh_multipatch`), which grows them
+///   first. A skipped dual is refused.
 /// - **Snap.** With `snap = Some(delta)` (metres) each region's mesh is
 ///   snapped onto the true surfaces of revolution, its interface sides
 ///   included ([`snap_checked`]: a morph within `delta`, then the surface
@@ -416,23 +419,47 @@ pub fn mesh_regions_joined(
             Some(o) if holds(o) => side(g, o),
             _ => outer(a, b),
         });
-        let labels: Vec<&str> = fs.surf.marker.iter().map(|&k| fs.surf.patch_names[k].as_str()).collect();
-        let regions = SurfaceRegions::from_labels(&labels);
         let lay = layers(g);
-        let opts = TetDualOptions {
-            cell_size: h,
-            dual: true,
-            dual_min_faces: true,
-            n_layers: lay.as_ref().map_or(0, |l| l.n),
-            first_layer_thickness: lay.as_ref().map_or(0.0, |l| l.first_m),
-            expansion: lay.as_ref().map_or(1.0, |l| l.expansion),
-            layer_patches: lay.as_ref().map_or_else(Vec::new, |l| l.patches.clone()),
-            tet_source: tets,
-            ..TetDualOptions::default()
+        let mut vm = match &lay {
+            // A region without layers: TetGen on its own surface, the dual
+            // re-wound from the tetrahedra (`multi_region`, one region).
+            // ~~The single-region pipeline~~ (2026-11-27): its dual is
+            // wound from each cell's vertex average, which leaves a cell
+            // open at a re-entrant edge, and it then SKIPS the dual and
+            // keeps the tetrahedra ("both dual variants would invalidate
+            // the mesh"): HTR-10's solid graphite (949 570 tetrahedra at
+            // 10 cm), and the neutronics top reflector and coolant band.
+            None => {
+                let m = outram_park_fork_cfmesh::pipeline::multi_region::multi_region_mesh(&fs.surf, tets, true).map_err(|e| format!("{id}: {e}"))?;
+                notes.extend(m.notes.into_iter().map(|n| format!("{id}: {n}")));
+                m.mesh
+            }
+            // A region with layers: the single-region pipeline, which grows
+            // them first (cfMesh HARD RULE, gh:#1829). A skipped dual is
+            // refused, never kept.
+            Some(l) => {
+                let labels: Vec<&str> = fs.surf.marker.iter().map(|&k| fs.surf.patch_names[k].as_str()).collect();
+                let regions = SurfaceRegions::from_labels(&labels);
+                let opts = TetDualOptions {
+                    cell_size: h,
+                    dual: true,
+                    dual_min_faces: true,
+                    n_layers: l.n,
+                    first_layer_thickness: l.first_m,
+                    expansion: l.expansion,
+                    layer_patches: l.patches.clone(),
+                    tet_source: tets,
+                    ..TetDualOptions::default()
+                };
+                let (vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(&fs.surf.points, &fs.surf.tris, &regions, &opts)
+                    .map_err(|e| format!("{id}: {e}"))?;
+                if let Some(n) = rep.stage_notes.iter().find(|n| n.contains("dual skipped")) {
+                    return Err(format!("{id}: {n}; a region must be dualled, not left as tetrahedra"));
+                }
+                notes.extend(rep.stage_notes.into_iter().map(|n| format!("{id}: {n}")));
+                vm
+            }
         };
-        let (mut vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(&fs.surf.points, &fs.surf.tris, &regions, &opts)
-            .map_err(|e| format!("{id}: {e}"))?;
-        notes.extend(rep.stage_notes.into_iter().map(|n| format!("{id}: {n}")));
         if let Some(delta) = snap {
             let n = snap_checked(&mut vm, None, &fs.segs_m, n_seg, delta).map_err(|e| format!("{id}: {e}"))?;
             notes.push(format!("{id}: {n}"));
@@ -1191,6 +1218,16 @@ pub fn fitted_surface(
             }
         }
     }
+    // With no interface (one region kept), every run is wound away from its
+    // region, so a shell of negative volume is a cavity: what it encloses
+    // belongs to another region and gets a TetGen hole point
+    // (`tet_source::hole_points`, the single-region pipeline's rule). With
+    // interfaces the windings are not oriented and there is no hole.
+    let holes: Vec<V> = if interface.iter().any(|&i| i) {
+        Vec::new()
+    } else {
+        outram_park_fork_cfmesh::pipeline::tet_source::hole_points(&points, &tris).into_iter().map(|h| V::new(h[0], h[1], h[2])).collect()
+    };
     FittedSurface {
         surf: outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface {
             points,
@@ -1200,6 +1237,7 @@ pub fn fitted_surface(
             interface,
             region_names: present.iter().map(|&g| map.regions[g].id.clone()).collect(),
             seeds,
+            holes,
         },
         global: present,
         segs_m,
