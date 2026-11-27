@@ -4376,6 +4376,45 @@ Two defects of the existing reader, found because this case's `nuclearData` coul
 * `limited corrected`, `orthogonal` and other `laplacianSchemes`, `ddtSchemes` other than `steadyState`/`Euler`, `integralPredictor`, `implicitPredictor`, `aitkenAcceleration` true: refused by the reader.
 * The point-kinetics half of the source (`externalSourceMode`, `nuSource`, `beamEnergy`): gh:#1864.
 
+## Round 32b (gh:#1863, time profile): `externalSourceModulationTimeProfile` of `constant/<region>/externalSource`
+
+### What upstream does (read before any code or run; GeN-Foam 652b3da on ESI v2506)
+
+* `neutronics.C:265-281` (the initialiser list): `externalSource_` is an `IOdictionary` of `constant/<region>/externalSource` (READ_IF_PRESENT) and `externalSourceModulationTimeProfile_` is `timeProfile(externalSource_, "externalSourceModulationTimeProfile", time)`.
+* `common/timeProfile/timeProfile.C:100-137` (the `(IOdictionary, name, Time)` constructor): when the key is found, `dict_ = subDict(name)`, `type_ = dict_.get<word>("type")` (mandatory), `startTime_ = lookupOrDefault("startTime", 0)`, and for `type_ != "fmi"` `Function1<scalar>::New(type_, dict_, type_)`; `fmi` needs the `commDataLayer` (live co-simulation, out of scope by `RESPONSIBLE_USE.md`). `valid()` (`:181`) is false without the key; `value(t)` (`:194-223`) is `functionPtr_->value(t - startTime_)`.
+* `diffusion/include/createFluxMatrices.H:3-10`: once per step, `externalSourceModulation = profile.value(mesh_.time().timeOutputValue())` (the time AFTER the increment) when valid, else 1; the group source is `externalSourceFlux[g] * externalSourceModulation * externalSourceNeutronics_`.
+* `Function1Types::Table` (`OpenFOAM-v2506/src/OpenFOAM/primitives/functions/Function1/Table/Table.C:34-76`): the entry named `table` as a stream (`table table ((t v) ...)`, the leading word `table` discarded; the form of the shipped point-kinetics tutorials), else `file`, else `values ((t v) ...)`. `TableBase`: `outOfBounds` default `clamp`, `interpolationScheme` default `linear`.
+* Shipped use: only `featureCases/2D_onePhaseAndSubcriticalPointKineticsCoupling` and the `fmuCases/2D_LFRpowerPlant` cases (point kinetics, `type table` with `startTime 1500000000`, and `type fmi`); no shipped diffusion case has the file.
+
+### Searched before writing (reuse)
+
+`TimeProfile` (`genfoam/common/time_profile.rs`: ESI table value, `start_time`) and `ExternalSource::with_modulation` / `modulation_at` exist. `thermal_hydraulics/solver/two_phase/case.rs::read_table_time_profile` reads `type table` / `startTime` / `table` from a `FoamDict` but is `pub(super)` in another module tree (other agents work there; not touched), takes a TH `Ctx`, and does not know the `values` form: the diffusion reader gets its own reader beside `ExternalSourceCase` and cites it.
+
+### Cases (the port reads the same bytes upstream runs; `cases/external_source_profile/`, `scripts/run_external_source_profile.sh`)
+
+| id | case |
+|---|---|
+| F | round 32's B (closed medium) with `ddtSchemes Euler` and `externalSource_F`: inline `table table (...)`, `startTime 5`, knots (0 1) (15 1) (35 3) (55 3) (75 0.5), i.e. real times 1 until t = 20, ramp to 3 at 40, hold to 60, down to 0.5 at 80, hold |
+| G | round 32's A (shipped walls `fixedValue 0`, a non-uniform flux, `corrected` laplacian) with `ddtSchemes Euler` and `externalSource_G`: the `values (...)` form, no `startTime`, knots (0 1) (10 1) (30 2.5) (50 0.5) |
+| H (control 1) | port F with the file ignored (modulation 1) against upstream F: must differ |
+| I (control 2) | port F with `startTime` ignored (0) against upstream F: must differ |
+
+### Predictions (written BEFORE any upstream run of F or G and BEFORE any port code of this round; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| R1 | F, G: `power` of every step, port against upstream | <= 1e-9 relative at every step, typically 1e-13 to 1e-12 (CG against DIC-PCG, as round 32); NOT bit-identical. Odds 80 % |
+| R2 | neutron iterations per step | equal at every step of F and G (F: the 50-iteration cap every step, trivially; G: non-trivial); odds 85 % |
+| R3 | `deltaT` sequence and number of steps | `deltaT` equal to 1e-10 relative; steps equal; between 200 and 5000 for each (the profile moves the power by a factor 3, which shrinks `adjustTimeStep` steps) |
+| R4 | modulation is read at the time AFTER the increment, and the profile is silent before it starts | upstream F and upstream C (round 32 ref) agree BIT FOR BIT on `power` at every step whose `Time` is <= 20, and differ (> 1e-6 relative) at the first step with `Time` > 20 (an exactly flat profile: `w0*1 + w1*1` may differ from 1 by 1 ulp in the interior of the flat segment: if it does, R4 holds at 1e-15, not bit for bit) |
+| R5 | F final power | modulation 0.5 held from t = 80 to 100 and the system linear in the source: ratio of the final power to round 32's B steady 53214.292 W in [0.49, 0.52]; maximum power of F in [1.45e5, 1.65e5] W (3 x 53214 = 1.6e5, minus the time to follow the ramp) |
+| R6 | G final power | ratio to round 32's A final 18709.241 W in [0.49, 0.52] |
+| R7 | flux at t = 100, port against upstream | <= 1e-9 of the field maximum per group |
+| R8 | control H (profile ignored) | step counts or powers differ: first step with relative power difference > 1e-6 is the first with `Time` > 20; the final power differs by more than 0.5 relative (port at 53166 W against upstream near 26600 W). Fails the gate: yes |
+| R9 | control I (`startTime` ignored) | first step with relative power difference > 1e-6 is the first with `Time` > 15, before the true ramp (20); the final power agrees to < 1e-2 (both hold 0.5 long enough), the trajectory does not. Fails the gate: yes |
+| R10 | refusals | `type fmi`, `type sine`, `outOfBounds repeat`, `interpolationScheme` other than `linear`, `file`, an unknown key, a missing `type`, and a malformed table are each refused by name |
+| R11 | wall time | port < 60 s for F and G together |
+
 ## Round 33 (gh:#1866): onePhase `nNonOrthogonalCorrectors`, the pressure reference cell and Boussinesq, in the cell-centred and the face-centred region
 
 Epic #1216 ("Port genfoam exhaustively", maintainer 2026-11-27). Upstream: GeN-Foam `652b3da`, `thermalHydraulics/solvers/onePhase/include/equations/{pEqn_1p.H, pEqnf_1p.H, pEqnRoutines/{solveP_rgh_1p,updatePP_rghRho_1p,calcrAUfSetSnGradCalcComp_1p,calcPhiSbyA_1p}.H}`, `customPimpleControl` (`correct(bool)`, `updateFirstPISOPrevPIMPLE`) and OpenFOAM-ESI v2506 `pimpleControl::finalInnerIter`, `solutionControl::{correctNonOrthogonal,finalNonOrthogonalIter}`.
