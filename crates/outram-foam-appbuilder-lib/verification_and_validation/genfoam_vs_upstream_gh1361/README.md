@@ -5626,3 +5626,35 @@ None: no number of rounds 1 to 40 moved (R1). The F1 premise (the `external_sour
 * The workflow (`AllrunEdits::neutron_linear`, `EnergyNeutroDiffusion::new`) still takes explicit settings (tight protocol) and does not read the case's `fvSolution`: reading the shipped `relTol 1e-1` there would change the MSFR chain numbers; not done, open in gh:#1887.
 * Static `solve_eigenvalue` with a factor and circulating fuel, `DiffusionNeutronics::step`, `upstream_eigenvalue_step`, `upstream_transient_step` with a factor: refused by name, left in gh:#1887 (liquid-fuel runs need the MSFR TH state; the MSFR neutronics case with non-unit `discFactor` was not run).
 * Filed as gh:#1893: the liquid-fuel factors, `2D_FFTF` neutronics alone, `disp`-driven `radExp` / `axExp`, the workflow reading `fvSolution`, an SP3-stable adjusting data set.
+
+# Round 43 (gh:#1891, #1890, #1893; children of #1216): the MSFR precursor difference, the workflow reading `fvSolution`, discontinuity factors in the liquid-fuel steps
+
+> Research, education and V&V only. AI draft, unreviewed. Maintainer direction 2026-11-27: "Port genfoam exhaustively", "Match all upstream". Another agent writes Round 44; README merge conflicts keep both.
+
+## Item 1 (gh:#1891): why the MSFR transient precursors differ by 5.8e-14 (step 1) to 1.3e-11 (totals, step 50) and 3.5e-10 (per cell)
+
+### Read before any run (2026-11-27, GeN-Foam 652b3da on ESI v2506)
+
+* `diffusion/include/precEq.H`, `liquidFuel_` branch, per group: `fvm::ddt(alphaPtr_()*(1-eigenvalueNeutronics_), precStar_[precI]) + fvm::Sp(lambda[precI]*alphaPtr_(), precStar_[precI]) - neutroSource_/keff_*Beta[precI] + fvm::div(phiPtr_(), precStar_[precI], "div(phi_,precStar_)") - fvm::laplacian(diffCoeffPrecPtr_(), precStar_[precI])`, then `precEq.solve()`, `prec_ = precStar_*alphaPtr_()`. `solveNeutronics.H:48-53` first sets `phiPtr_() = fvc::flux(UPtr_()*alphaPtr_())` and `diffCoeffPrecPtr_() = (alphatPtr_() + muPtr_()/xs_.ScNo())/rhoCool_`.
+* The mapped fields come from `multiRegionCouplingDict_transient`: sources `T thermo:rho T T.cladAvForNeutronics T.passiveStructure U mu alpha thermo:alpha` to targets `TCool rhoCool TFuel TClad TStructMech U mu alpha alphat`, so the neutronics' `alphat` is the fluid's laminar `thermo:alpha` (not a turbulence field), and `mu` the thermo's `mu`.
+* The port's one-way test (`tests/genfoam_msfr_transient_vs_upstream.rs`) hands the constants `mu = 0.01`, `alphat = 0.01*(1/8)`, builds `phi` itself (`fvc::flux(U*alpha)` on the port's mesh from `START_U` and the committed `alpha` column) and `rho_cool(T) = 4125 (1 - 2e-4 (T - 900))`. None of those was ever compared with upstream's own values at the bit level: they were reasoned to be constants. The chain workflow also uses constants (`th.alpha_h()`, `th.mu`).
+
+### Method
+
+An instrumented copy of upstream's `precEq.H` (scratch copy of `src/classes/{common,neutronics}`, `libNeutronicsSolvers` rebuilt into a private `FOAM_USER_LIBBIN`; the shipped sources and libraries are untouched) writes, for the first 16 `precEq` calls of the transient, at `writePrecision 17`: `keff_`, `deltaT`, `neutroSource_`, `Beta`, `lambda`, `alpha`, `diffCoeffPrec`, `rhoCool`, `alphat`, `mu`, `precStar` old and current, `phi`, the matrix `diag`, `upper`, `lower`, `source`, `internalCoeffs`, `boundaryCoeffs` before `solve()`, and the solution. The port assembles the same matrix from the same inputs and is compared array by array (`==`).
+
+### Hypotheses and predictions (written BEFORE the first run of the instrumented binary and before any change to the port; committed first)
+
+Criteria, fixed now: an array is "identical" iff every element `==`; the first array that differs, in the order inputs (`alphat`, `mu`, `rhoCool`, `diffCoeffPrec`, `alpha`, `phi`, `neutroSource`), matrix (`diag`, `upper`, `lower`, `source`, boundary coefficients), solution, is the location of the cause. After a fix: `tests/genfoam_msfr_transient_vs_upstream.rs` reports `rel_prec_max`, the per-step totals and the step-50 per-cell precursors; "bit-identical" means every compared precursor value `==` at every one of the 50 steps. A residual below 1e-9 with an explained cause is allowed (CLAUDE.md); anything else is recorded as a miss.
+
+| id | hypothesis | prediction |
+|---|---|---|
+| H1 | upstream's `alphat` (`thermo:alpha`) or `mu` is not the port's constant in the last bits (`alpha = kappa/Cp` against `mu/Pr`), so `diffCoeffPrec` differs by ulps | 40 % this is where the first non-identical array is |
+| H2 | the port's `phi` (`fvc::flux` of the cell `U alpha`, the test's own construction) differs from upstream's in the last bits (interpolation operation order, boundary faces) | 30 % |
+| H3 | the matrix assembled from IDENTICAL inputs differs in the port (an `fvm::div`/`fvm::laplacian`/`fvm::ddt` operation order or the boundary treatment) | 20 % |
+| H4 | the source `neutroSource/keff*Beta` or `precStarOld` differs | 5 %; `keff_`, `Beta`, `lambda`, the start state are read at 17 digits |
+| H5 | no input and no coefficient differs and the solve differs (the solver: refuted for the final solution by round 40) | 5 % |
+| P1 | after the fix of whichever it is, step-1 `rel_prec_max` is 0 (bit-identical) and the 50-step totals fall to <= 1e-13 | 60 % |
+| P2 | the flux, power and iteration counts of the test do not move (they were already at <= 1.1e-14) | 85 % |
+| P3 | the chain and coupled tests (which use the same constants) move by less than 2x in `rel_P`, `maxrel_T`; `rel_h1res` may fall | 60 % |
+| C1 | control: the port with the old constants against the same dump differs in the located array by the same ulps | holds by construction if H1 or H2 |
