@@ -68,7 +68,9 @@ fn read_ref(path: &Path) -> HashMap<String, Vec<f64>> {
 
 fn stage_case() -> PathBuf {
     let src = vv_dir().join("cases/msfr_neutro");
-    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join("gh1891_msfr");
+    // one scratch directory per test thread (the tests of this file run in parallel)
+    let thread = format!("{:?}", std::thread::current().id()).replace(['(', ')'], "");
+    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1891_msfr_{thread}"));
     let _ = std::fs::remove_dir_all(&dst);
     std::fs::create_dir_all(dst.join("polyMesh")).expect("scratch dir");
     std::fs::copy(src.join("nuclearData"), dst.join("nuclearData")).expect("nuclearData");
