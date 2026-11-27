@@ -74,6 +74,16 @@ const BANNER: &str = "/*--------------------------------*- C++ -*---------------
 /// `Foam::IOobject::writeEndDivider`, with the two newlines `regIOobject::writeObject` puts before it.
 const FOOTER: &str = "\n\n// ************************************************************************* //\n";
 
+/// [`FOOTER`] for the sibling writers (`foam_ascii_mesh`).
+pub(crate) fn footer() -> &'static str {
+    FOOTER
+}
+
+/// `keyword<pad>value;\n` at `indent`, for the sibling writers.
+pub(crate) fn statement_text(indent: usize, key: &str, value: &str) -> String {
+    statement(indent, key, value)
+}
+
 /// What `controlDict` fixes about the text: `writePrecision` (`writeFormat ascii`, `writeCompression off`, `timeFormat general` are not options).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct WriteOptions {
@@ -96,6 +106,8 @@ pub enum FoamWriteError {
     PatchType(String),
     /// A list whose length is not a multiple of the component count.
     Shape(String),
+    /// A mesh object the writer refuses by name (`foam_ascii_mesh`).
+    Mesh(String),
 }
 
 impl core::fmt::Display for FoamWriteError {
@@ -103,6 +115,7 @@ impl core::fmt::Display for FoamWriteError {
         match self {
             Self::PatchType(t) => write!(f, "patch field type `{t}` is not written by this port (supported: {SUPPORTED_PATCH_TYPES:?})"),
             Self::Shape(s) => write!(f, "malformed field data: {s}"),
+            Self::Mesh(s) => write!(f, "{s}"),
         }
     }
 }

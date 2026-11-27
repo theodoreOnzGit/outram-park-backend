@@ -319,6 +319,8 @@ pub struct FluidFields {
     pub htc: Vec<f64>,
     /// `powerDensityNeutronicsToLiquid` per cell.
     pub power_density: Vec<f64>,
+    /// `alphaRhoMagU`: cells and boundary faces (gh:#1935; the value the stage wrote, read by the next stage as `READ_IF_PRESENT`).
+    pub alpha_rho_mag_u: (Vec<f64>, Vec<f64>),
 }
 
 /// How a case is read: the stage edits of `Allrun` as values, and where the start fields come from.
@@ -426,6 +428,9 @@ pub struct OnePhaseCcCase {
     pub alpha_phi: Vec<f64>,
     /// `powerDensityNeutronicsToLiquid`.
     pub power_density: Vec<f64>,
+    /// `alphaRhoMagU` READ from the start directory (or handed over): cells and boundary faces; `None`: `fluid::initAlphaPhis` computes
+    /// `alpha*rho*magU` at construction (`fluid.C:720-723`, gh:#1935).
+    pub alpha_rho_mag_u: Option<(Vec<f64>, Vec<f64>)>,
     /// `residualFluidStructureRe` (default 10).
     pub min_re: f64,
     /// `solveFluidMechanics true`: the momentum/pressure part of the case (`None` for the frozen-flux region).
@@ -1153,6 +1158,24 @@ impl OnePhaseCcCase {
             match hand { Some(h) => (h.alpha_rho_phi.clone(), h.alpha_phi.clone()), None => (surface("alphaRhoPhi")?, surface("alphaPhi")?) }
         };
 
+        // `alphaRhoMagU` (`READ_IF_PRESENT`, `fluid.C:185`): the written start directory's, or the previous stage's handed over; else computed
+        let alpha_rho_mag_u: Option<(Vec<f64>, Vec<f64>)> = if let Some(h) = hand {
+            Some(h.alpha_rho_mag_u.clone())
+        } else if solve_flow && exists("alphaRhoMagU") {
+            let path = fdir.join("alphaRhoMagU");
+            let text = std::fs::read_to_string(&path).map_err(|e| AppBuilderError::Io { path: path.clone(), source: e })?;
+            let (internal, per_patch) = parse_scalar_field_text(&text, n, &patches).map_err(|m| ctx.e(format!("alphaRhoMagU: {m}")))?;
+            let mut bvals = vec![0.0; g.n_faces() - ni];
+            for (q, vals) in mesh.patches.iter().zip(per_patch) {
+                for (k, v) in vals.into_iter().enumerate() {
+                    bvals[q.start - ni + k] = v;
+                }
+            }
+            Some((internal, bvals))
+        } else {
+            None
+        };
+
         if let Some(td) = &tortuosity {
             tensor_laplacian::tortuosity_fields(&g, td).map_err(|m| ctx.e(m))?;
         }
@@ -1185,6 +1208,7 @@ impl OnePhaseCcCase {
             alpha_rho_phi,
             alpha_phi,
             power_density,
+            alpha_rho_mag_u,
             min_re,
             flow,
             tortuosity,
@@ -1271,6 +1295,11 @@ pub struct OnePhaseCcSolver {
     rho: Vec<f64>,
     /// `fluid::rho()` on every boundary face (index `face - n_internal`).
     rho_b: Vec<f64>,
+    /// `alphaRhoMagU_` (cells, boundary faces): set at construction (`fluid::initAlphaPhis`) or READ; `correctAlphaRhoMagU()` only runs with
+    /// `momentumMode cellCenteredFaceReconstruction` (`reconstructU_1p.H:21`), which the writer refuses by name (gh:#1935).
+    alpha_rho_mag_u: (Vec<f64>, Vec<f64>),
+    /// `fluid_.dgdt()` as the last final non-orthogonal pass of the last corrector set it: `-pEqnComp & p_rgh_` (`pEqn_1p.H:64`), cells.
+    dgdt: Vec<f64>,
     /// `fluid::rho().oldTime()` per cell: its value at the start of the time step.
     rho_old: Vec<f64>,
     /// `fluid.Cp()` placeholder field (`fluid.C:597`, `EEqn_1p.H` end): `thermo.Cp()` as of the last `thermo.correct()`.
@@ -1369,6 +1398,14 @@ impl OnePhaseCcSolver {
                 (ni0..geom.n_faces()).map(|f| case.thermo.props(case.p[geom.mesh.owner[f]], ts0.b[f - ni0]).rho).collect(),
             ),
         };
+        // `fluid::initAlphaPhis`: `alphaRhoMagU_ = alpha*rho*magU_` unless the file was read; `magU_ = mag(U_)` of the constructed `U`
+        let alpha_rho_mag_u = match case.alpha_rho_mag_u.clone() {
+            Some(read) => read,
+            None => (
+                (0..n).map(|c| alpha[c] * rho[c] * u.c[c].mag()).collect(),
+                (ni0..geom.n_faces()).map(|f| alpha[geom.mesh.owner[f]] * rho_b[f - ni0] * u.b[f - ni0].mag()).collect(),
+            ),
+        };
         let mut s = Self {
             case,
             geom,
@@ -1417,6 +1454,8 @@ impl OnePhaseCcSolver {
             rho_old: rho.clone(),
             rho,
             rho_b,
+            alpha_rho_mag_u,
+            dgdt: vec![0.0; n],
             cp_f: vec![0.0; n],
             kappa_f: vec![0.0; n],
             pr_f: vec![0.0; n],
@@ -1457,6 +1496,7 @@ impl OnePhaseCcSolver {
             t_fixed: self.case.t_fixed.clone(),
             htc: self.htc.clone(),
             power_density: self.power_density.clone(),
+            alpha_rho_mag_u: self.alpha_rho_mag_u.clone(),
         }
     }
 

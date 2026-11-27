@@ -53,6 +53,7 @@ use crate::nostd_prelude::*;
 pub mod control_dict;
 pub mod field_reader;
 pub mod foam_ascii;
+pub mod foam_ascii_mesh;
 pub mod fv_schemes;
 pub mod fv_solution;
 pub mod nuclear_data;

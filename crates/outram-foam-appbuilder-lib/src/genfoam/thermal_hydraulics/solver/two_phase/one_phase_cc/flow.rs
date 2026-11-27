@@ -974,9 +974,11 @@ impl OnePhaseCcSolver {
             let mut peqn = Eqn::new(&g);
             peqn.neg_laplacian(&g, &rauf, &fs.p_rgh);
             let dphi = fv::div(&g, &phi_hbya);
+            let mut comp_all = vec![0.0; n];
             for c in 0..n {
                 let v = m.cell_volumes[c];
                 let comp = (self.cont_err[c] - (0.0 + dap[c]) * rho[c]) / rho[c];
+                comp_all[c] = comp;
                 peqn.source[c] -= v * comp;
                 peqn.source[c] -= v * dphi[c];
             }
@@ -1020,6 +1022,12 @@ impl OnePhaseCcSolver {
                 fs.p_rgh.c = x;
                 fs.p_rgh.correct_bc(&g);
                 if pass == n_pass {
+                    // `fluid_.dgdt() = -pEqnComp & p_rgh_` (`pEqn_1p.H:64`, ESI `fvMatrix::operator&`): `pEqnComp` is a pure source `-V comp`
+                    // (`psi = 0`), negated to `V comp`, then `/= -V` (the diagonal and boundary terms add exact zeros): `dgdt = (V comp)/(-V)`
+                    for c in 0..n {
+                        let v = m.cell_volumes[c];
+                        self.dgdt[c] = (v * comp_all[c]) / (-v);
+                    }
                     // phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf (a fixedValue flux patch ignores the assignment)
                     p_flux_final = Eqn::laplacian_flux(&g, &rauf, &fs.p_rgh);
                 }

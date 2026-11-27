@@ -187,6 +187,8 @@ pub struct PointKineticRegion {
     pub last: Option<PkStepReport>,
     /// GEM (`GEMFlowFaceZone` of the fluid region `fluidRegionName`), when the case gives a `GEMReactivityMap` (gh:#1927).
     pub gem: Option<GemFaces>,
+    /// `keff_` as `reactorState` holds it (read at the start directory, never changed by point kinetics; written as `keff`, gh:#1935).
+    pub k_eff: f64,
 }
 
 /// The faces `calcGEMLevelAndReactivity` sums `phi*|Sf|` over (`phiFaces_`, `phiMagSf_`), and the region whose `phi` it reads.
@@ -233,6 +235,8 @@ pub struct Region {
     pub solver: RegionSolver,
     /// `removeBaffles` for this region (the sources are then its `.baffleLess` copies).
     pub remove_baffles: bool,
+    /// What `<region>.baffleLess/polyMesh` holds when `remove_baffles` (gh:#1935): `Err` is a refusal by name, raised when the directory is written.
+    pub baffle_less: Option<Result<crate::io::foam_ascii_mesh::PolyMeshOut, String>>,
 }
 
 /// Which couplings the run applies. All on is upstream; each off is a control (README round 57).
@@ -477,6 +481,28 @@ fn read_start_points(root: &Path, region: &str, time_dir: &str) -> Result<Option
     Ok(Some(pts.iter().map(|p| Vector3::new(p[0], p[1], p[2])).collect()))
 }
 
+/// `<time>/<region>/meshPhi` of a start directory (`READ_IF_PRESENT` by `fvMesh`, kept until the mesh moves): internal faces then every
+/// boundary face (an `empty` patch has no entries: zeros), `None` when the file is absent.
+fn read_start_mesh_phi(root: &Path, region: &str, time_dir: &str, dm: &DeformableMesh) -> Result<Option<Vec<f64>>, AppBuilderError> {
+    use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::parse_scalar_field_text;
+    let path = root.join(time_dir).join(region).join("meshPhi");
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let text = std::fs::read_to_string(&path).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
+    let mesh = dm.mesh();
+    let patches: Vec<(String, usize)> = mesh.patches.iter().map(|q| (q.name.clone(), q.size)).collect();
+    let (internal, per_patch) = parse_scalar_field_text(&text, mesh.n_internal_faces, &patches).map_err(|m| case_err(root, format!("{region}/meshPhi: {m}")))?;
+    let mut out = vec![0.0; mesh.n_faces];
+    out[..mesh.n_internal_faces].copy_from_slice(&internal);
+    for (q, vals) in mesh.patches.iter().zip(per_patch) {
+        for (k, v) in vals.into_iter().enumerate() {
+            out[q.start + k] = v;
+        }
+    }
+    Ok(Some(out))
+}
+
 /// The fields of the neutronics region a written directory holds (`createNeutronicsFields.H`, all `READ_IF_PRESENT`; the fluxes and
 /// precursors are required here because the `defaultFlux`/`defaultPrec` fall-back of an absent file is not ported for a written start).
 struct NeutronicsFiles {
@@ -574,6 +600,7 @@ fn build_point_kinetics(
     Ok((pk, case.gem))
 }
 
+mod baffle_less;
 mod written;
 pub use written::WrittenState;
 
@@ -645,6 +672,7 @@ impl RegionSolvers {
                 dm = dm.restarted_at(&points).map_err(|e| case_err(root, format!("{name}: restart mesh: {e}")))?;
             }
             let remove_baffles = rb(name);
+            let baffle_less = if remove_baffles { Some(baffle_less::read_baffle_less(&poly, &dm)) } else { None };
             if remove_baffles && has_baffles(&dm) {
                 return Err(case_err(root, format!("{name}: removeBaffles on a mesh with baffles is not ported (gh:#1236); only a mesh without duplicate faces is")));
             }
@@ -652,6 +680,12 @@ impl RegionSolvers {
             let n = dm.mesh().n_cells;
             let fv = dm.mesh().clone();
             let mut fields = RegionFields::default();
+            // `meshPhi` READ from the start directory stays what it was until the mesh moves (`fvMesh` constructor, README round 69)
+            if let Some(td) = &time_dir {
+                if let Some(phi) = read_start_mesh_phi(root, name, td, &dm)? {
+                    fields.set_scalar("meshPhi", phi);
+                }
+            }
             let solver = match kind.as_str() {
                 "onePhase" => {
                     let s = OnePhaseCcSolver::from_case_dir(root, &poly)?;
@@ -738,7 +772,11 @@ impl RegionSolvers {
                     if let Some(g) = gem_request {
                         gem_requests.push((regions.len(), g));
                     }
-                    RegionSolver::PointKinetics(PointKineticRegion { mesh: dm.clone(), pk, last: None, gem: None })
+                    {
+                        let rs_dir = root.join(td);
+                        let k_eff = ReactorState::read(&rs_dir).map_err(|e| case_err(root, format!("{}/uniform/reactorState: {e}", rs_dir.display())))?.k_eff;
+                        RegionSolver::PointKinetics(PointKineticRegion { mesh: dm.clone(), pk, last: None, gem: None, k_eff })
+                    }
                 }
                 "legacyThermoMechanics" => {
                     // `disp`, `fuelDisp`, `CRDisp` are READ from the start directory (a written one holds them as lists)
@@ -752,7 +790,7 @@ impl RegionSolvers {
                 }
                 other => return Err(case_err(root, format!("regionSolvers.{name} {other}: only onePhase, diffusionNeutronics and legacyThermoMechanics are ported in this loop"))),
             };
-            regions.push(Region { name: name.clone(), fv, fields, solver, remove_baffles });
+            regions.push(Region { name: name.clone(), fv, fields, solver, remove_baffles, baffle_less });
         }
         let maps = build_maps(&regions, &mappings, &geometries, root)?;
         let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time);
@@ -917,6 +955,7 @@ impl RegionSolvers {
     ) -> Result<(), AppBuilderError> {
         let keep_original = self.switches.restart_on_original_mesh;
         let RegionSolver::Neutronics(n) = &mut self.regions[ni].solver else { unreachable!("found as Neutronics") };
+        let k_eff = n.k_eff;
         let fresh = if keep_original { n.mesh.restarted_at(&n.mesh.original_points().to_vec()) } else { n.mesh.restarted_at_current_points() }
             .map_err(|e| case_err(root, format!("{nname}: restart mesh: {e}")))?;
         let cells = fresh.mesh().n_cells;
@@ -932,7 +971,7 @@ impl RegionSolvers {
         let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
         self.regions[ni].fv = fresh.mesh().clone();
         self.geometries[ni] = geometry;
-        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None, gem: gem_faces });
+        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None, gem: gem_faces, k_eff });
         let rebuild_phi = !self.switches.restart_keeps_phi;
         for r in self.regions.iter_mut() {
             match &mut r.solver {

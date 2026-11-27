@@ -10,7 +10,8 @@
 //!
 //! [`OnePhaseCcSolver::written_fields`]: one [`FieldFile`] per field object the solver holds the state of, with the patch fields the
 //! solver's own boundary conditions give (`fixedValue` values, `fixedFluxPressure` gradients, `calculated` face values). What the solver
-//! does not hold (`dgdt`, `alphaRhoMagU`) is not written and is listed by the caller.
+//! does not hold is not written and is listed by the caller (gh:#1935, round 69: `dgdt` and `alphaRhoMagU` are now written; `alphaRhoMagU` is
+//! refused by name under `momentumMode cellCenteredFaceReconstruction`, see [`OnePhaseCcSolver::writes_alpha_rho_mag_u`]).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -112,6 +113,37 @@ impl OnePhaseCcSolver {
             push(field_file("fluidRegion/Kd", time_name, Data::flat(9, kd), plain_patches(mesh, "zeroGradient")));
         }
 
+        // ---- alphaRhoMagU (init-time value or READ; refused by name when `correctAlphaRhoMagU()` runs) and dgdt (`fluid.C:185-224`)
+        if let Some(fc) = &self.case.flow {
+            if !fc.reconstruct_u {
+                let patches = mesh
+                    .patches
+                    .iter()
+                    .map(|p| {
+                        if p.kind == PatchKind::Empty {
+                            PatchOut::plain(&p.name, "empty")
+                        } else {
+                            PatchOut::with_value(&p.name, "calculated", Data::scalar(boundary_slice(&self.alpha_rho_mag_u.1, mesh, p)))
+                        }
+                    })
+                    .collect();
+                push(field_file("fluidRegion/alphaRhoMagU", time_name, Data::scalar(self.alpha_rho_mag_u.0.clone()), patches));
+            }
+            // `dgdt` patch values are `extrapolatedCalculated`'s: the adjacent cell's value
+            let patches = mesh
+                .patches
+                .iter()
+                .map(|p| {
+                    if p.kind == PatchKind::Empty {
+                        PatchOut::plain(&p.name, "empty")
+                    } else {
+                        PatchOut::with_value(&p.name, "calculated", Data::scalar((p.start..p.start + p.size).map(|f| self.dgdt[mesh.owner[f]]).collect()))
+                    }
+                })
+                .collect();
+            push(field_file("fluidRegion/dgdt", time_name, Data::scalar(self.dgdt.clone()), patches));
+        }
+
         // ---- the face fluxes
         push(surface_field("fluidRegion/alphaPhi", time_name, mesh, &self.alpha_phi));
         push(surface_field("fluidRegion/alphaRhoPhi", time_name, mesh, &self.alpha_rho_phi));
@@ -151,5 +183,14 @@ impl OnePhaseCcSolver {
         }
         let _ = (face_slice, value_patches);
         Ok((out, trad_objects))
+    }
+}
+
+impl OnePhaseCcSolver {
+    /// Whether [`Self::written_fields`] writes `alphaRhoMagU`: not under `momentumMode cellCenteredFaceReconstruction`, where
+    /// `reconstructU_1p.H:21` calls `correctAlphaRhoMagU()` every corrector (not ported; refused by name, gh:#1935).
+    #[must_use]
+    pub fn writes_alpha_rho_mag_u(&self) -> bool {
+        self.case.flow.as_ref().is_some_and(|f| !f.reconstruct_u)
     }
 }

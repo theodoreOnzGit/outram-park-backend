@@ -17,7 +17,8 @@ use std::path::Path;
 
 use super::{case_err, RegionSolver, RegionSolvers};
 use crate::error::AppBuilderError;
-use crate::genfoam::multi_region::written_state::{field_file, plain_patches, value_patches, vector_data};
+use crate::genfoam::multi_region::written_state::{field_file, plain_patches, surface_field, value_patches, vector_data};
+use crate::io::foam_ascii_mesh::write_poly_mesh;
 use crate::io::foam_ascii::{
     format_g, time_name, write_dictionary_file, write_field_file, write_list_file, write_time_dict, Data, FoamWriteError, ListObject, WriteOptions,
 };
@@ -56,7 +57,7 @@ impl RegionSolvers {
         let tn = self.time_directory_name();
         let mut state = WrittenState::default();
         let mut add = |path: String, text: String| state.files.push((format!("{tn}/{path}"), text));
-        let mut k_eff_p_target: Option<(f64, f64)> = None;
+        let mut reactor_state: Option<Vec<(String, String)>> = None;
         let mut not_written: Vec<String> = Vec::new();
         for r in &self.regions {
             let name = r.name.as_str();
@@ -74,13 +75,24 @@ impl RegionSolvers {
                             fields.extend(field_file(&format!("{name}/{nm}"), &tn, Data::scalar(v.to_vec()), plain_patches(&r.fv, "zeroGradient")));
                         }
                     }
-                    not_written.extend(["dgdt", "alphaRhoMagU"].iter().map(|n| format!("{name}/{n}")));
+                    if !f.solver.writes_alpha_rho_mag_u() {
+                        not_written.push(format!("{name}/alphaRhoMagU: refused by name (momentumMode cellCenteredFaceReconstruction: correctAlphaRhoMagU() runs every corrector, not ported)"));
+                    }
                     if r.remove_baffles {
-                        not_written.push(format!("{name}.baffleLess/polyMesh/*"));
+                        match &r.baffle_less {
+                            Some(Ok(m)) => {
+                                let files = write_poly_mesh(m, &format!("{tn}/{name}.baffleLess/polyMesh"), opts).map_err(|e| FoamWriteError::Mesh(e.to_string()))?;
+                                for (file, text) in files {
+                                    add(format!("{name}.baffleLess/polyMesh/{file}"), text);
+                                }
+                            }
+                            Some(Err(msg)) => return Err(FoamWriteError::Mesh(format!("{name}.baffleLess: {msg} is refused by name"))),
+                            None => not_written.push(format!("{name}.baffleLess/polyMesh/*: not read")),
+                        }
                     }
                 }
                 RegionSolver::Neutronics(n) => {
-                    k_eff_p_target = Some((n.k_eff, n.p_target));
+                    reactor_state = Some(vec![("keff".to_string(), format_g(n.k_eff, opts.precision)), ("pTarget".to_string(), format_g(n.p_target, opts.precision))]);
                     let cells = r.fv.n_cells;
                     let st = n.solver.state();
                     let star = n.solver.flux_star();
@@ -110,19 +122,71 @@ impl RegionSolvers {
                     for nm in ["defaultPrec", "defaultExternalSourceFlux"] {
                         fields.extend(field_file(&format!("{name}/{nm}"), &tn, Data::scalar(vec![0.0]), plain_patches(&r.fv, "zeroGradient")));
                     }
-                    let points: Vec<[f64; 3]> = n.mesh.points().iter().map(|p| [p.x, p.y, p.z]).collect();
-                    add(
-                        format!("{name}/polyMesh/points"),
-                        write_list_file("vectorField", &format!("{tn}/{name}/polyMesh"), "points", &ListObject::Plain(Data::vector(&points)), opts),
-                    );
-                    not_written.push(format!("{name}/meshPhi"));
+                    // `polyMesh::movePoints` sets the points' instance to the current time: `points` is written only after a move
+                    if n.mesh.is_moving() {
+                        let points: Vec<[f64; 3]> = n.mesh.points().iter().map(|p| [p.x, p.y, p.z]).collect();
+                        add(
+                            format!("{name}/polyMesh/points"),
+                            write_list_file("vectorField", &format!("{tn}/{name}/polyMesh"), "points", &ListObject::Plain(Data::vector(&points)), opts),
+                        );
+                    }
+                    // `meshPhi`: the last move's swept-volume flux, else the one READ from the start directory (`fvMesh` keeps it until the mesh moves)
+                    let phi = n.mesh.mesh_phi().map(<[f64]>::to_vec).or_else(|| r.fields.scalar("meshPhi").map(<[f64]>::to_vec));
+                    match phi {
+                        Some(phi) => {
+                            let file = surface_field(&format!("{name}/meshPhi"), &tn, &r.fv, &phi);
+                            if let Some(f) = file {
+                                add(format!("{name}/meshPhi"), write_field_file(&f, opts)?);
+                            }
+                        }
+                        None => not_written.push(format!("{name}/meshPhi: the mesh never moved and none was read (upstream has no such object)")),
+                    }
                 }
-                RegionSolver::PointKinetics(_) => {
-                    not_written.push(format!("{name}/*: the point-kinetics region's own state is not written (refused by name)"));
+                RegionSolver::PointKinetics(p) => {
+                    // the objects `pointKineticNeutronics` registers with AUTO_WRITE (README round 69: the real `110` of the PK stage)
+                    let pk = &p.pk;
+                    let patches_flux = value_patches(&r.fv, "fixedValue", Data::scalar(vec![0.0]));
+                    for (g, fl) in pk.fluxes.iter().enumerate() {
+                        fields.extend(field_file(&format!("{name}/flux{g}"), &tn, Data::scalar(fl.clone()), patches_flux.clone()));
+                    }
+                    for (k, pr) in pk.prec.iter().enumerate() {
+                        fields.extend(field_file(&format!("{name}/prec{k}"), &tn, Data::scalar(pr.clone()), plain_patches(&r.fv, "zeroGradient")));
+                    }
+                    fields.extend(field_file(&format!("{name}/oneGroupFlux"), &tn, Data::scalar(pk.one_group_flux.clone()), plain_patches(&r.fv, "zeroGradient")));
+                    for nm in ["powerDensity", "secondaryPowerDensity", "TFuel", "TClad", "TCool", "TStruct", "TStructMech", "rhoCool"] {
+                        if let Some(v) = r.fields.scalar(nm) {
+                            fields.extend(field_file(&format!("{name}/{nm}"), &tn, Data::scalar(v.to_vec()), plain_patches(&r.fv, "zeroGradient")));
+                        }
+                    }
+                    fields.extend(field_file(&format!("{name}/defaultPrec"), &tn, Data::scalar(vec![0.0]), plain_patches(&r.fv, "zeroGradient")));
+                    // `fvMesh` keeps the `meshPhi` it READ (the PK mesh is a fresh one at the written points and never moves)
+                    match r.fields.scalar("meshPhi") {
+                        Some(phi) => {
+                            if let Some(f) = surface_field(&format!("{name}/meshPhi"), &tn, &r.fv, phi) {
+                                add(format!("{name}/meshPhi"), write_field_file(&f, opts)?);
+                            }
+                        }
+                        None => not_written.push(format!("{name}/meshPhi: none was read (upstream has no such object)")),
+                    }
+                    let mut entries = vec![("keff".to_string(), format_g(p.k_eff, opts.precision))];
+                    for (k, vals) in pk.reactor_state_write_entries() {
+                        let text = if k == "precursorPowers" {
+                            let mut t = format!("{} (", vals.len());
+                            for v in &vals {
+                                t.push(' ');
+                                t.push_str(&format_g(*v, opts.precision));
+                            }
+                            t.push_str(" )");
+                            t
+                        } else {
+                            format_g(vals[0], opts.precision)
+                        };
+                        entries.push((k, text));
+                    }
+                    reactor_state = Some(entries);
                 }
                 RegionSolver::ThermoMechanics(t) => {
                     fields.extend(t.solver.written_fields(&tn, &r.fv)?);
-                    not_written.extend(["alpha", "gapWidth", "fuelDispVector"].iter().map(|n| format!("{name}/{n}")));
                 }
             }
             for f in fields {
@@ -130,8 +194,7 @@ impl RegionSolvers {
                 add(path, write_field_file(&f, opts)?);
             }
         }
-        if let Some((k, p)) = k_eff_p_target {
-            let entries = vec![("keff".to_string(), format_g(k, opts.precision)), ("pTarget".to_string(), format_g(p, opts.precision))];
+        if let Some(entries) = reactor_state {
             add("uniform/reactorState".to_string(), write_dictionary_file(&format!("{tn}/uniform"), "reactorState", &entries));
         }
         add("uniform/functionObjects/functionObjectProperties".to_string(), write_dictionary_file(&format!("{tn}/uniform/functionObjects"), "functionObjectProperties", &[]));

@@ -466,6 +466,8 @@ pub struct LegacyFvmThermoMechanics {
     lambda: Vec<f64>,
     two_mu_lambda: Vec<f64>,
     three_k_alpha: Vec<f64>,
+    /// `alpha_` of `legacyThermoMechanics` (the card's `alpha`, per cell; written as `alpha`, gh:#1935).
+    alpha: Vec<f64>,
     // coupling inputs
     t_struct_from_th: Vec<f64>,
     t_fuel: Vec<f64>,
@@ -646,6 +648,7 @@ impl LegacyFvmThermoMechanics {
             lambda,
             two_mu_lambda,
             three_k_alpha,
+            alpha,
             // TStructFromTH_ and TFuel_ are constructed as uniform 1.0, powerDensityNeutronics_ as 0
             t_struct_from_th: vec![1.0; n],
             t_fuel: vec![1.0; n],

@@ -862,6 +862,12 @@ impl DeformableMesh {
         self.state.old_points.as_deref()
     }
 
+    /// `polyMesh::moving()`: true once `movePoints` has run (gh:#1935: `polyMesh` writes `points` only then).
+    #[must_use]
+    pub fn is_moving(&self) -> bool {
+        self.state.moving
+    }
+
     /// `fvMesh::phi()` (`meshPhi`): the swept volume of every face over `deltaT`, internal faces then boundary faces; `None`
     /// before the first move.
     #[must_use]
