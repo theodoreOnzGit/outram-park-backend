@@ -353,6 +353,9 @@ pub struct PointKineticNeutronics {
     pub power_density: Vec<f64>,
     /// `secondaryPowerDensity_` (W/m^3) per cell.
     pub secondary_power_density: Vec<f64>,
+    /// `prec_[i]` per cell: the precursor fields READ from the start directory, which `solvePointKinetics.H` only rescales by
+    /// `precursorPowers_[i]/precursorPowersOld_[i]`; empty (nothing to rescale) unless [`Self::from_read_fields`] set them (gh:#1922).
+    pub prec: Vec<Vec<f64>>,
 }
 
 impl PointKineticNeutronics {
@@ -492,12 +495,51 @@ impl PointKineticNeutronics {
             fluxes,
             power_density,
             secondary_power_density,
+            prec: Vec::new(),
             cfg,
             params,
             state,
             mesh,
             form,
         })
+    }
+
+    /// The constructor of a RESTART (`pointKineticNeutronics.C:522-654`, the branch "pre-existing flux fields exist in the start time folder"):
+    /// `fluxes_` are the `flux0`, `flux1`, ... READ from the start directory (their number is `energyGroups_`), `oneGroupFlux_` is
+    /// `0 + flux0 + flux1 + ...` summed in that order (`oneGroupFlux_ *= 0.0; oneGroupFlux_ += fluxi`), and the `prec0`, ... fields read from the
+    /// start directory are kept in [`Self::prec`] to be rescaled with the precursor powers (`solvePointKinetics.H`). `initialOneGroupFluxByZone`
+    /// is NOT consulted (upstream: "otherwise it is just reconstructed from the sum of those").
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::new`]; [`PkModelError::FieldLength`] when a flux or precursor field has the wrong length.
+    pub fn from_read_fields(
+        mut cfg: PkConfig,
+        mesh: PkMeshData,
+        fluxes: Vec<Vec<f64>>,
+        power_density: Vec<f64>,
+        secondary_power_density: Vec<f64>,
+        prec: Vec<Vec<f64>>,
+        form: LinearSolveForm,
+    ) -> Result<Self, PkModelError> {
+        let n = mesh.volume.len();
+        if fluxes.is_empty() || fluxes.iter().any(|f| f.len() != n) {
+            return Err(PkModelError::FieldLength("fluxes"));
+        }
+        if prec.iter().any(|p| p.len() != n) {
+            return Err(PkModelError::FieldLength("prec"));
+        }
+        cfg.energy_groups = fluxes.len();
+        let mut one_group = vec![0.0; n];
+        for g in &fluxes {
+            for (o, x) in one_group.iter_mut().zip(g) {
+                *o += *x;
+            }
+        }
+        let mut me = Self::new(cfg, mesh, one_group, power_density, secondary_power_density, form)?;
+        me.fluxes = fluxes;
+        me.prec = prec;
+        Ok(me)
     }
 
     /// `computeFeedbackFieldValues.H`: the flux-squared weighted averages. Every integral is
@@ -763,6 +805,7 @@ impl PointKineticNeutronics {
         // Old-time values (the time index changed).
         self.power_old = self.power;
         let fission_power_old = self.fission_power;
+        let precursor_powers_old = self.precursor_powers();
         self.state.step_with(
             &self.params,
             Time::new::<second>(dt),
@@ -788,6 +831,16 @@ impl PointKineticNeutronics {
         }
         for x in self.secondary_power_density.iter_mut() {
             *x *= power_density_scale;
+        }
+        // `prec_` fields read at a restart: `precursori *= precursorPowers_[i]/precursorPowersOld_[i]` where the old power is not 0
+        let precursor_powers_new = self.precursor_powers();
+        for (i, field) in self.prec.iter_mut().enumerate() {
+            if precursor_powers_old[i] != 0.0 {
+                let factor = precursor_powers_new[i] / precursor_powers_old[i];
+                for x in field.iter_mut() {
+                    *x *= factor;
+                }
+            }
         }
         self.steps += 1;
         Ok(PkStepReport {

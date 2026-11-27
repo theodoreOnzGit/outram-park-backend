@@ -6938,8 +6938,8 @@ DONE = ported and differenced; PART = ported in part; MISSING = nothing in the p
 | 13 | heat exchangers `pIHX`/`sIHX` | no | needs | no | DONE (round 44) |
 | 14 | `nOuterCorrectors 6`, `nCorrectors 6`, `removeBaffles` with 8 `mappedWall` faces, `uniformFixedValue` U, `noSlip`, `slip` | no | needs | no | PART (several refused by name at the BC reader; `removeBaffles` is gh:#1236) |
 | 15 | 14 328-cell fluid mesh, 900 s steady state + 1200 s transient | no | needs | no | cost, not a gap |
-| 16 | point kinetics from the case files (`nuclearData`, `reactorState`, feedback zones, `TStruct`/`TStructMech` feedback, `decayPowerTimeProfile`, driveline, `GEMReactivityMap`, `controlRodReactivityMap`) | needs (no GEM, no driveline in the shipped transient) | needs (GEM, decay power, driveline) | needs | ~~MISSING: no case reader (gh:#1883); GEM refused by name~~ **UPDATED 2026-11-27 (gh:#1919/#1923, README round 60)**: the AS-SHIPPED transient of this tutorial is the DIFFUSION transient (round 59 finding), and it is DONE: `integralPredictor.H` ported, `eigenvalueNeutronics false` in the three-region loop, restart emulated, 542 steps against the real binary (power 2.4e-12, every field <= 4.9e-10; the fluid-solve residual gate missed, 3.1e-10). The POINT-KINETICS variant (`regionSolvers.neutroRegion pointKinetics`) is STILL MISSING: no case reader (gh:#1883), restart, `RegionSolver::PointKinetics` (gh:#1922); GEM refused by name |
-| 17 | coupled `multiPhysicsSolver` loop `fluid onePhase` + `neutro pointKinetics` | needs (transient) | needs | needs | ~~PART: the loop is ported (`correct_physics_loop`, rounds 9, 22) for diffusion + onePhase only~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE for this tutorial's steady state: `RegionSolvers` runs the main loop of `GeN-Foam.C` over `onePhase` + `diffusionNeutronics` + `legacyThermoMechanics`, 476 steps, every field of the three regions <= 2.5e-13 of the real binary at every step (the fluid solve residual gate missed: 1.1e-10 absolute). The point-kinetics transient (`neutro pointKinetics`) is gh:#1916 **UPDATED 2026-11-27 (gh:#1919, README round 60): the loop also runs the as-shipped diffusion transient (`RegionSolvers::restart_transient`); with `neutroRegion pointKinetics` it is still refused by name (gh:#1922)** |
+| 16 | point kinetics from the case files (`nuclearData`, `reactorState`, feedback zones, `TStruct`/`TStructMech` feedback, `decayPowerTimeProfile`, driveline, `GEMReactivityMap`, `controlRodReactivityMap`) | needs (no GEM, no driveline in the shipped transient) | needs (GEM, decay power, driveline) | needs | ~~MISSING: no case reader (gh:#1883); GEM refused by name~~ **UPDATED 2026-11-27 (gh:#1919/#1923, README round 60)**: the AS-SHIPPED transient of this tutorial is the DIFFUSION transient (round 59 finding), and it is DONE: `integralPredictor.H` ported, `eigenvalueNeutronics false` in the three-region loop, restart emulated, 542 steps against the real binary (power 2.4e-12, every field <= 4.9e-10; the fluid-solve residual gate missed, 3.1e-10). The POINT-KINETICS variant (`regionSolvers.neutroRegion pointKinetics`) is STILL MISSING: no case reader (gh:#1883), restart, `RegionSolver::PointKinetics` (gh:#1922); GEM refused by name ~~MISSING for the point-kinetics variant: no case reader, no `RegionSolver::PointKinetics`, restart refused~~ **UPDATED 2026-11-27 (gh:#1922, README round 61)**: DONE for the PK variant of this tutorial: `read_pk_config` (`point_kinetics/case.rs`), `PointKineticNeutronics::from_read_fields`, `RegionSolver::PointKinetics`, `RegionSolvers::restart_transient` with `neutroRegion pointKinetics`; 551 steps against the real binary, `power` 6.6e-14, every PK term and fingerprint <= 1e-9 except the `TFuel` reactivity term at 1.3e-5 relative (8e-12 pcm absolute: cancellation); GEM, decay power, feedback zones, external source and liquid fuel still refused by name in the reader. |
+| 17 | coupled `multiPhysicsSolver` loop `fluid onePhase` + `neutro pointKinetics` | needs (transient) | needs | needs | ~~PART: the loop is ported (`correct_physics_loop`, rounds 9, 22) for diffusion + onePhase only~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE for this tutorial's steady state: `RegionSolvers` runs the main loop of `GeN-Foam.C` over `onePhase` + `diffusionNeutronics` + `legacyThermoMechanics`, 476 steps, every field of the three regions <= 2.5e-13 of the real binary at every step (the fluid solve residual gate missed: 1.1e-10 absolute). The point-kinetics transient (`neutro pointKinetics`) is gh:#1916 **UPDATED 2026-11-27 (gh:#1919, README round 60): the loop also runs the as-shipped diffusion transient (`RegionSolvers::restart_transient`); with `neutroRegion pointKinetics` it is still refused by name (gh:#1922)** ~~PK loop not ported~~ **UPDATED 2026-11-27 (gh:#1922, README round 61)**: the PK variant of the coupled loop (`onePhase` + `pointKinetics` + `legacyThermoMechanics`) runs from the port's own steady state, 551 steps, `dt` 2.1e-13, `power` 6.6e-14; controls differ (feedback off 0.22, mesh not moved 1.8e-2). |
 | 18 | `diffusionNeutronics` eigenvalue stage on a mesh that DEFORMS (`meshDeformation { neutroRegion { displacementField disp; } }`) in the per-step "solve each physics once" loop | needs | no | no | PART: `deformMesh`, `V0/V00/meshPhi` ported (rounds 26, 30); ~~the region solvers do not take the moving-mesh data (gh:#1856)~~ **CORRECTED 2026-11-27 (gh:#1856, README round 56)**: the neutronics region takes the moved geometry and `V0` (`rebind_mesh`), `empty` patches are ported in `volPointInterpolation`, and the region is bit-identical to the real coupled run on its deforming mesh with the real `disp` (points and `meshPhi` 0, `keff`/`power` 2e-15, 476 steps); the loop drives `deformMesh()` every iteration. Open: the fluid + neutronics + TM loop of the port (#1914 remainder), TH regions on a moving mesh |
 | 19 | `legacyThermoMechanics` region inside the coupled run | needs | no | no | ~~PART: the region alone is bit-identical (rounds 23-27); not wired (gh:#1846)~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE: wired in the three-region loop (2-D `empty` patches, `solutionD`, `fixedValue` `TStruct` ported); `disp`/`meshDisp`/`TStruct`/`fuelDisp` <= 1.5e-14 (fingerprints, 476 steps; `fuelDisp` 8e-13), solve order/count/iterations equal |
 | 20 | `meshToMesh` among three different meshes; fields `T.passiveStructure`, `T.fuelAvForNeutronics`, `powerDensity`, `meshDisp` | needs | 2 regions | no | ~~PART: `cell_overlap` exact (round 28); wiring gh:#1854~~ **CORRECTED 2026-11-27 (gh:#1915, README round 57)**: DONE: the three maps (fluid/neutro/TM, partial overlap, 2-D) run in `mapAllFields`; mapped `TStructFromTH`, `TFuel`, `powerDensityNeutronics`, `disp` agree to <= 1.9e-14 over 476 steps. `-initializeMappedFields` is not needed (the mapped fields are not read from `0/`) |
@@ -7614,3 +7614,93 @@ Real run: the shipped `Allrun` stages plus the one `regionSolvers.neutroRegion p
 | D5 | feedback-off control differs > 1e-6 | 90 % |
 | D6 | deformation-off control differs > 1e-6 | 75 % |
 | D7 | TM -> neutronics off does not differ | 85 % |
+
+## Round 61 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first: `9fc84b9a7`, BEFORE the first instrumented run and the first PK run; real binary 652b3da on ESI v2506; `tests/genfoam_fullcoupling_transient_vs_upstream.rs` now 9 tests, 33-38 s; `--nocapture` prints every table)
+
+### Part 1 (gh:#1925): the first `p_rgh` solve of step 1 of the restarted SH transient
+
+**Instruments.** An instrumented COPY of upstream's `thermalHydraulics` classes (`/home/user/upstream-build/gh1925`, deleted after extraction; patch kept in `upstream_driver/probe_r61/probe_r61_upstream.patch`, build `build.sh`; the shipped tree untouched) dumps, at 17 digits, the first three pressure-corrector entries of step 1 of the real restarted SH run (`pEqn_1p.H`; the case's `momentumMode` is the default `cellCentered`). The port side is a TEMPORARY edit of `one_phase_cc/flow.rs` (record only: `upstream_driver/probe_r61/port_probe_r61_rs.diff`; never in the source). Compared per name by `upstream_driver/probe_one_phase_fc/cmp.py`.
+
+**First corrector of step 1, port restarted from its OWN steady state against the real restart (worst absolute and relative differences)**
+
+| quantity (dump order) | worst abs | worst rel | note |
+|---|---|---|---|
+| `alpha`, `rho`, `gh`, `ghf`, `alphaf`, `UA`, `Udiag`, `rAU`, `alpharAUf`, `rAUf`, `phiSbyA` | 0 | 0 | bit-identical (the momentum matrix's diagonal and `A` are the same bits) |
+| `p` (read) | 8.3e-10 | 8.1e-15 | first differing quantity in dump order: the restart STATE |
+| `T` (read) | 2.5e-12 | 3.2e-15 | |
+| `U` (read) | 9.8e-14 | 9.8e-14 | the steady state's `U` (round 60: 9.8e-14 at `t = 100`) |
+| `phi`, `alphaPhi`, `alphaRhoPhi`, `UH`, `phiHbyA` | 3.5e-16, 1.7e-16, 1.7e-13, 4.9e-5, 1.7e-16 | 8.4e-14 (all) | follow `U` |
+| `contErr`, `div(alphaPhi)` | 7.3e-10, 7.3e-13 | **1.14e-6** | cancellation: these are the small residual of fluxes of 2e-3 |
+| interior `pEqn` source (cells 6-137) | | 1.8e-8 | |
+| first `p_rgh` initial residual | 3.1e-10 | **1.9e-7** | the round 60 miss |
+| `pdiag`, `psource` at the boundary cells | not comparable | | the port folds the boundary coefficients into `diag`/`source`, upstream keeps `internalCoeffs`/`boundaryCoeffs` apart (as round 58 recorded) |
+
+**Cause (translated from upstream, nothing to fix in the restart):** the restart emulation is EXACT; the difference is the port's steady-state `U` (9.8e-14 relative of the real written `U`, a round-off of the 476-step steady state) entering `phiHbyA = alphaf (flux(HbyA) + phiSbyA)` (`pEqn_1p.H`), whose divergence (`fvc::div(phiHbyA)`, `solveP_rgh_1p.H:2`) and `contErr` (`updateAlphaPhiAndInitControls_1p.H`, `correctContErr`) are 1e-10 residuals of fluxes of 2e-3: a 1e-13 input noise becomes 1e-6 to 1e-8 of the source and 1.9e-7 of the first initial residual. **Test of the cause:** the port restarted from upstream's own READ `U`, `p`, `T` (dump values; 17 digits = the written files): `alpha`, `rho`, `p`, `T`, `gh`, `contErr`, `div(alphaPhi)`, `U`, `phi`, `alphaf`, `alphaPhi`, `alphaRhoPhi`, `UA`, `Udiag`, `rAU`, `alpharAUf`, `rAUf`, `phiSbyA` are **bit-identical (0)**, `UH` 2.4e-16, `phiHbyA` 2.1e-16 relative (4e-19 absolute, one ulp of `H`), and the first `p_rgh` initial residual is **1.6414263835489089e-3 against upstream's 1.6414263835462879e-3 (1.6e-12 relative, 2.6e-15 absolute), 29 iterations both**; the second solve 1.6380e-8 against 1.6379e-8 (1.2e-12 absolute). This also answers the round 60 candidate list: no further lazily created old-time field and no read-back field (`alphaRhoMagU`, `Kd`) differs; `rho` and `psi` (Boussinesq: `psi = 0`) are bit-identical.
+
+**What was added (and why it is not a fix of a defect):** `OnePhaseCcSolver::adopt_written_state` and `RegionSolvers::adopt_written_fluid_state` put the READ fluid `U`, `p`, `T` of a written directory in before `restart_transient` (the restart then rebuilds `h`, `rho`, `phi`, `contErr`, `magU` from them as round 60). The fluid state of `t = 100` is taken from the reference's full fields (`fc_ss_adj_r60`). This is "restart from the written state", the form the real binary runs.
+
+**The 542-step SH transient restarted from the written fluid state (`the_transient_restarted_from_the_written_fluid_state_meets_the_solve_criterion`)**
+
+| quantity | own steady state (round 60) | written fluid state (now) |
+|---|---|---|
+| fluid solve initial residuals (gated: above 1e-10), worst absolute | 3.1e-10 (step 1) | **4.5e-12 (step 5): criterion 6 residual clause (1e-11) HELD** |
+| fluid solve iterations, worst `\|port - up\|` | 6 | **5** (an `h` solve at step 260: 15 against 10 iterations at an initial residual 5.77e-7 equal to 4e-15; `p_rgh` alone 4): **iteration clause (within 3) MISSED**, stopping-point flips at the absolute `1e-14` floor, not a difference of a matrix; pinned at the measured 5 (post-run, marked in the test) |
+| `p`, `p_rgh` fingerprints, worst | 4.9e-10, 4.6e-10 (step 1) | 8.6e-13, 8.1e-13 (step 5) |
+| `T`, `U`, neutronics, TM fingerprints | <= 4.7e-12 | <= 4.4e-12 (`powerDensityNeutronics`), `fuelDisp` 1.6e-12 |
+| first diverging fingerprint above 1e-9 | none | none |
+
+The own-state test keeps its round 60 post-run pins (3.2e-10, 6), with the cause now written in the test.
+
+### Part 2 (gh:#1922): the point-kinetics variant PK
+
+**Real run.** `scripts/make_fullcoupling_transient_case.sh` WITHOUT `SHIPPED` (one edit: `regionSolvers.neutroRegion pointKinetics`) from the steady state of `ADJ=1` (`t = 100`; the steady-state reference regenerated byte-identically, so the real runs are deterministic), `scripts/run_fullcoupling_transient.sh`: **551 steps**, exit 0, 21 s, final time 200.0937. Reference `refs/pk_r61.ref.txt.gz` (3.1 MB; refs submodule `46c6713`): per step `STEP`, the `pointKinetics:` block (`PK`: `totalPower`, fission, decay, `totalReactivity`, every term, the weighted averages), `PRGH`/`H`/`TM` solves, fingerprints of every written field of the three regions (the PK neutronics region writes `TStruct`, `rhoCool`, `oneGroupFlux`, no `disp`), full fields at steps 1-10, every 25th and the last; `scripts/extract_fullcoupling_transient.py pk`.
+
+**What was ported (upstream -> Rust).**
+
+| upstream (652b3da) | port |
+|---|---|
+| `pointKineticNeutronics.C:62-211, 285-290, 358-380` (`nuclearData_`, `reactorState_` initialisers) | `point_kinetics/case.rs::read_pk_config` (`promptGenerationTime`, `Beta`, `lambda`, `fastNeutrons`, 7 `feedbackCoeff*`, `absoluteDrivelineExpansionCoeff`, `controlRodReactivityMap`, `externalReactivityTimeProfile` (a one-row table is that constant), `boronReactivityTimeProfile`); refused by name: `*FeedbackZones`, a profile of `type` other than `constant`/`table`, `GEMReactivityMap` (unchanged) |
+| `pointKineticNeutronics.C:522-654` (flux files present: `fluxes_` READ, `oneGroupFlux_ = 0 + flux0 + flux1`) and `:657-690` (`prec_` read) | `PointKineticNeutronics::from_read_fields`; `initialOneGroupFluxByZone` is not consulted, as upstream |
+| `solvePointKinetics.H` after the solve: `precursori *= precursorPowers_[i]/precursorPowersOld_[i]` on the read `prec_` fields | `PointKineticNeutronics::prec` rescaled in `step` (empty for every earlier user: round 36/48 unchanged) |
+| `GeN-Foam.C` loop with `regionSolvers.neutroRegion pointKinetics`: `correctPhysics()` (`pTotOld_ = power_`, `solvePointKinetics.H`), `maxDeltaT()` | `RegionSolver::PointKinetics(PointKineticRegion)`, `RegionSolvers::restart_transient_point_kinetics` (moved neutronics mesh, maps rebuilt on it, fluid and TM restart as round 60), `correct_physics` arm (feedback fields from `mapAllFields`: `TFuel`, `TClad`, `TCool`, `rhoCool`, `TStruct`, `TStructMech`), `max_delta_t_of` arm; `powerDensity`, `secondaryPowerDensity` published to the mapper each step |
+
+**Result (`the_point_kinetics_transient_matches_the_real_binary_for_551_steps`, restarted from the port's own steady state; 551 against 551 steps, wall 7-20 s)**
+
+| quantity | worst difference | step |
+|---|---|---|
+| steps, final time | 551 / 8.5e-16 | |
+| `dt` sequence | 2.1e-13 | |
+| `totalPower`, fission power | 6.6e-14, 6.6e-14 | 100 |
+| `totalReactivity` | 2.4e-13 | 465 |
+| every other `pointKinetics:` term and average (`extReactivity`, Doppler, `TClad`, `TCool`, `rhoCool`, `TStruct`, `TStructMech`, driveline, boron terms; `TFuel`, `TClad`, `TCool`, `rhoCool`, `TStruct`, `TStructMech` averages) | <= 1.4e-13 | |
+| **`TFuel` reactivity term** | **1.3e-5 relative at step 2 (criterion 2 MISSED in relative terms); 8.1e-12 pcm absolute over the run** | 2 |
+| precursor powers | not in the log: through the `prec0..5` fingerprints <= 1.2e-13 | |
+| fluid `T`, `U`, `T.passiveStructure`, `T.fuel/cladAvForNeutronics` | 1.7e-13, 2.2e-13, 3.3e-14, 2.6e-13 (full fields <= 2.5e-11) | |
+| fluid `p`, `p_rgh` | 4.9e-10, 4.6e-10 (step 1; full fields 3.7e-10) | 1 |
+| neutronics `flux0/1`, `oneGroupFlux`, `powerDensity`, `prec0..5`, `TFuel`, `TClad`, `TCool`, `TStructMech` | <= 1.3e-13 (flux, power density), <= 1.2e-13 (`prec`), 4.2e-13, 2.9e-13, 2.8e-13, 5.7e-14 (full fields <= 2.5e-11) | |
+| TM `disp`, `meshDisp`, `TStruct`, `TStructFromTH`, `TFuel`, `fuelDisp` | 1.0e-13, 3.5e-13, 3.3e-14, 3.3e-14, 2.6e-13, 1.6e-12 (full fields <= 3.5e-12) | |
+| first diverging fingerprint above 1e-9 | none | |
+| solve counts (fluid `p_rgh`, `h`; TM) | equal at all 551 steps | |
+| TM initial residuals above 1e-10 / iterations | 2.1e-13 absolute / 0 | |
+| fluid solve initial residuals / iterations | **3.1e-10 absolute (the same first `p_rgh` solve of step 1 as the SH run: the cause of Part 1) / 4** (`p_rgh` step 43: 15 against 19 at an initial residual 2.4e-8) | criterion 4 MISSED, pinned post-run (3.2e-10, 4) |
+
+Restarted from the written fluid state (`..._restarted_from_the_written_fluid_state_meets_the_solve_criterion`): `dt` 1.9e-13, `totalPower` 6.3e-14, fluid residuals **4.5e-12 (held)**, iterations 4 (clause "within 3" MISSED by one; pinned at 4), no diverging fingerprint, `p`/`p_rgh` far below the own-state 4.9e-10: the same pattern as SH.
+
+**Controls (step 100; `each_point_kinetics_control_differs_from_the_real_run`)**: feedback off (`feedbackCoeffTFuel 0`) `power` differs **0.22** (held); neutronics mesh not moved (deformation off) `power` differs **1.8e-2** (held); no neutronics power into the fluid and the TM: fluid `T` sum differs **0.15** (held); no fluid temperatures into the TM: TM `disp` max differs **4.1e-2** (held); TM -> neutronics `TStructMech` mapping off: power differs 6.6e-14, i.e. it is NOT a control, as predicted (the coefficient is 0).
+
+### Predictions
+
+C1 **MISSED in the letter**: the first differing quantity in dump order is not in `pEqnComp` but the restart STATE (`p` 8.1e-15, `T` 3.2e-15, `U` 9.8e-14 relative; the momentum matrix's `A`, diagonal, `rAU`, `rAUf` are bit-identical, as C1 said), then `contErr` (1.1e-6) by cancellation. C2 **MISSED** (`rho` bit-identical; `p_rgh_in` 8.3e-10 is overwritten before it is used). C3 **held** (restart emulation exact; the difference is the steady state's round-off). C4 **MISSED**: residual clause held (4.5e-12) only from the written state; iteration clause missed (4 for `p_rgh`, 5 for `h`). C5 held. D1 **held** (all pieces ported, 551-step comparison), D2 held (6.6e-14 / 2.4e-13; the `TFuel` term itself 1.3e-5 relative is the cancellation miss above), D3 held (4.9e-10 worst), D4 held (551 against 542 +- 15), D5 held (0.22), D6 held (1.8e-2), D7 held.
+
+### Moved numbers
+
+None. Re-run after the changes (release, private target): `genfoam_fullcoupling_transient_vs_upstream` 9 (5 round 60 + 4 new), `genfoam_fullcoupling_fluid_vs_upstream` 5, `_neutronics_` 3, `_three_region_` 5, `genfoam_point_kinetics_vs_upstream` 5, `genfoam_liquid_fuel_pk_vs_upstream` 7 (+2 ignored), `genfoam_legacy_thermo_mechanics_vs_upstream` 5, `genfoam_pseudo_time_vs_upstream` 3, `genfoam_coupled_tutorials_requirements` 2, `--lib` `multi_region` / `point_kinetics` / `workflow` / `one_phase` 94 in all (incl. 2 new `read_pk_config` tests); `outram-foam-appbuilder-lib` checks on `x86_64-unknown-none` without `std`. Not run: `petir --test no_platform_libm` (petir untouched, no transcendental added), `genfoam_one_phase_vs_upstream`, the MSFR chain tests, the full suite; the generated `docs/outram-foam-appbuilder-lib-api.md` mirror was not regenerated (`kovan-cli api-docs`).
+
+### Not done (and why)
+
+* Point kinetics: feedback zones (`*FeedbackZones`), external source, decay power, GEM and liquid fuel are refused by name by the reader (none is in this case); `read` of a case that STARTS as point kinetics (a restart from files on disk is still emulated in memory).
+* The first `p_rgh` solve of the OWN-state restart stays at 3.1e-10: it is the steady state's `U` round-off (9.8e-14), a property of the 476-step steady state, not of the restart. Making it vanish needs a bit-identical steady-state `U` (the round 60 steady state agrees to 9.8e-14, inside its 1e-9 gate).
+
+### Reproduction
+
+Upstream probe: `bash upstream_driver/probe_r61/build.sh` after copying `classes/{common,thermalHydraulics/{src,solvers}}` to `gh1925/classes` and applying `probe_r61_upstream.patch`; run with `PROBE1925_FILE=... PROBE1925_MAXCORR=3` and `LD_LIBRARY_PATH=gh1925/libbin:...` set INSIDE `with-of.sh bash -c` (the OpenFOAM bashrc prepends its own library path). PK run: `bash scripts/make_fullcoupling_transient_case.sh <ss> <pk>; bash scripts/run_fullcoupling_transient.sh <pk>; python3 -I scripts/extract_fullcoupling_transient.py pk <pk> pk_r61.ref.txt; gzip -9 -n`; `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_transient_vs_upstream -- --nocapture`.

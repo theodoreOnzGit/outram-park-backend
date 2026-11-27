@@ -4,6 +4,7 @@ as-shipped DIFFUSION transient restarted from it (variant SH of README round 59)
 
 usage: extract_fullcoupling_transient.py ss <ss run dir> <out.txt>
        extract_fullcoupling_transient.py tr <tr run dir> <out.txt>
+       extract_fullcoupling_transient.py pk <pk run dir> <out.txt>      (gh:#1922 round 61: the POINT-KINETICS variant, `regionSolvers.neutroRegion pointKinetics`)
 (run dirs made by make_fullcoupling_coupled_case.sh (ADJ=1) / make_fullcoupling_transient_case.sh (SHIPPED=1), run by run_fullcoupling_coupled.sh /
 run_fullcoupling_transient.sh)
 
@@ -14,6 +15,8 @@ Text lines (numbers as the binary wrote them, 17 digits):
   FLUX <k> n ini1 it1 ini2 it2 ...                   neutron flux solves (fluxStar0/1, two solves each, in log order)
   PRGH <k> n ...   H <k> n ...   TM <k> n ...        as round 57
   FP   <k> <region> <field> <n> <sum> <max|.|> <sum of squares>      fingerprint of every field written at step k
+  PK   <k> <name> <value>                            (pk) every `name = value` line of the step's `pointKinetics:` block (spaces of the name as `_`; an arrow
+                                                      line `-> TFuel` is `arrow_TFuel`; `totalPower`, `fission`, `decay`, `totalReactivity`, the terms, the averages)
   V    <k> <region> <field> v1 v2 ...                full internalField at the kept steps (tr: 1-10, every 25th, the last; ss: the last)
   PTS  <k> x y z ...                                  moved neutronics points at the kept steps (tr: step 1 and the last)
 """
@@ -26,6 +29,8 @@ FIELDS = {
                      'prec0', 'prec1', 'prec2', 'prec3', 'prec4', 'prec5', 'secondaryPowerDensity'],
     'thermoMechanicalRegion': ['disp', 'meshDisp', 'TStruct', 'TStructFromTH', 'TFuel', 'powerDensityNeutronics', 'fuelDisp', 'CRDisp'],
 }
+PK_NEUTRO = ['powerDensity', 'flux0', 'flux1', 'TCool', 'TFuel', 'TClad', 'TStruct', 'TStructMech', 'rhoCool', 'oneGroupFlux',
+             'prec0', 'prec1', 'prec2', 'prec3', 'prec4', 'prec5', 'secondaryPowerDensity']
 NCELLS = {'fluidRegion': 144, 'neutroRegion': 432, 'thermoMechanicalRegion': 432}
 
 
@@ -39,8 +44,10 @@ def read_list(path):
     return n, body.replace('(', ' ').replace(')', ' ').split()
 
 
-def fields_of(run, tn, k, kept, o):
+def fields_of(run, tn, k, kept, o, mode='tr'):
     for region, names in FIELDS.items():
+        if mode == 'pk' and region == 'neutroRegion':
+            names = PK_NEUTRO
         for fld in names:
             p = os.path.join(run, tn, region, fld)
             if not os.path.exists(p):
@@ -90,6 +97,14 @@ def main():
             power = re.search(r'^power: (\S+)', body, re.M).group(1)
             ms = re.search(r'Max sigmaEq = (\S+)', body); sig = ms.group(1) if ms else '-'
             o.write(f'LOG {k} {prev} {keff} {power} {sig}\n')
+        elif mode == 'pk':
+            blk = body[body.index('pointKinetics:'):]
+            blk = blk[:blk.index('\n', blk.index('driveline (T, exp)'))]
+            for line in blk.splitlines()[1:]:
+                m = re.match(r'^\s+(->\s*)?(.*?)\s*=\s*(\S+)', line)
+                if m:
+                    nm = ('arrow_' if m.group(1) else '') + re.sub(r'[^A-Za-z0-9_]+', '_', m.group(2)).strip('_')
+                    o.write(f'PK {k} {nm} {m.group(3)}\n')
         else:
             power = re.search(r'^power: (\S+)', body, re.M).group(1)
             fin = re.search(r'Final neutroResidual at neutroIter no (\d+): (\S+)', body)
@@ -105,9 +120,9 @@ def main():
         o.write(f'PRGH {k} {len(pr)} ' + ' '.join(f'{a} {c}' for a, c in pr) + '\n')
         o.write(f'H {k} {len(hh)} ' + ' '.join(f'{a} {c}' for a, c in hh) + '\n')
         o.write(f'TM {k} {len(tm)} ' + ' '.join(f'{f} {a} {c}' for f, a, c in tm) + '\n')
-        if mode == 'tr':
+        if mode in ('tr', 'pk'):
             kept = k <= 10 or k % 25 == 0 or k == n
-            fields_of(run, tn, k, kept, o)
+            fields_of(run, tn, k, kept, o, mode)
             if k == 1 or k == n:
                 points(run, tn, k, o)
         elif k == n:
