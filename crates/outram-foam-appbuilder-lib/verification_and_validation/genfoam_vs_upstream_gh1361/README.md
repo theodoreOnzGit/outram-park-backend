@@ -6420,3 +6420,31 @@ None. Round 36's 504 solid-fuel tallies are still bit-identical (`genfoam_point_
 ### Reproduction
 
 `bash scripts/run_pk_lf_1882.sh` (builds `upstream_driver/pkRunLF1882` against `libNeutronicsSolvers`; the `flowall` variant is the 4-step all-group diagnostic with the mirror solves); `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_liquid_fuel_pk_vs_upstream -- --nocapture`; the two diagnostics `the_first_steps_in_detail`, `the_matrix_arrays_in_detail` (`--ignored`) print per-solve and per-array accounts.
+
+## Round 50 (gh:#1872): the hydrogen (`H2`) thermophysical properties against the real class (predictions and criteria written 2026-11-27 BEFORE any comparison of the port with the dump; committed first)
+
+### Read before any comparison (upstream `src/classes/thermalHydraulics/src/thermophysicalProperties/H2/{H2.H,H2.C,H2I.H}`, 652b3da)
+
+* Upstream's own application `tests/hydrogenThermophysicalProperties/Test-hydrogenThermophysicalProperties.C` only compares `x_H`, `rho`, `Ha`, `Cp`, `CpMCv`, `S`/`entropyH`, `mu`, `D` with tabulated literature values at a loose threshold and prints pass/fail: it dumps nothing, so it cannot be a bit-level reference. `upstream_driver/h2_dump/h2Dump.C` calls the SAME real class (unmodified `libFFSSrc2`, ESI v2506) on a grid and prints every public method at `%.17g`.
+* Grid: 48 temperatures (14 K .. 10 000 K, including the switch points 50 K, 298 K, 1000 K, the sigmoid centres 137.8745 / 1102.411 K, the tutorial inlet 83.3 K and the dissociation range) x 10 pressures (1 kPa .. 100 MPa, including 1 atm, 3.427 / 3.7 MPa of `3D_NTPfuelAssembly` and the 4500 psia of upstream's own test) = 480 points x 42 properties. The correlations are tabulated to 6000 K; 7000-10000 K and p = 100 MPa are extrapolation and are reported separately.
+* There is no `T(h)` inversion in the `H2` class: `heRhoThermo` inverts `h(T)` with OpenFOAM's `thermo::THE` Newton loop (which calls `Hs`/`Cp` of this class). The port has no such loop (it is OpenFOAM, not GeN-Foam); recorded in the results as a finding, not compared.
+* **Seen before the comparison (disclosed):** the driver's constant lines print `omega = -0.219` for the acentric factor (the constructor argument list is `W, Tc, Pc, Vc, Zc, Tt, Pt, Tb, dipm, omega, delta`); the port's `constants.rs` has `OMEGA = 0.305`, which is upstream's `Zc`. Prediction D1 below was written after I saw this line, not before; it is the only item informed by the dump.
+* Operation order read in the port against `H2I.H`: `sqr(x)` is `x*x` while the port has `a * t * t` (= `(a*t)*t`) where upstream has `a*sqr(T)`; upstream `pow(x, 3.0)` etc. is glibc `pow` (not the multiplication chain `r_powi`), `pow(W(),3.0)` likewise; `lambda_12` multiplies `15/4*R/W` before `2.6693e-4` where the port divides first; `n_` and `alpha0_` are `0.4754*sqr(omega)` / `0.42748*sqr(R*Tc)/Pc` where the port writes `0.4754*w*w` / `0.42748*(R*Tc)*(R*Tc)/Pc`; upstream's `pow(0.297, 3.0)` is folded at compile time (correctly rounded).
+
+### Criteria (fixed now)
+
+* Per property and per grid point: `to_bits` equal (NaN equal to NaN). The gate is bit-identity on EVERY ported property at EVERY point; a residual is allowed only below 1e-9 relative AND with an explained cause (petir's ARM `pow`/`exp`/`log` are the no-FMA form, glibc on an FMA CPU rounds differently: root `CLAUDE.md`, petir `AGENTS.md`, 1 ulp accepted, counted and pinned). Gates are never loosened; a miss is recorded at its measured size with its cause. Extrapolation points (T > 6000 K or p = 100 MPa) are tallied separately but under the same criterion.
+* Controls (each must fail): a 1-ulp perturbation of `p` or `T` is detected by the comparison on a fixed fraction of points (the instrument resolves the last bit); the first run of the unfixed port is recorded below as the detection of the defects it contained.
+
+### Predictions
+
+| id | claim | prediction |
+|---|---|---|
+| D1 | `OMEGA = 0.305` is a defect (upstream `-0.219`): every property that depends on the cubic EOS (`densityH2`, `rho`, `CpMCv`, `heatCapacityH2`, `Cp`, `specificEnthalpyH2`, `h`, `entropyH2`, `S`, `mu`, `kappa`, `alphah`, `Pr`) differs at the 1e-3..1e-1 level in the first run and not in `Kp`, `x_H`, `w_H`, `omega*`, `A_12`, `B_12`, `densityH`, `specificEnthalpyH`, `cpPerfectGasH2`, `heatCapacityH`, `viscosity0/1/H` | 95 % |
+| D2 | after fixing `OMEGA`, the operation-order and `pow` differences listed above leave 1-3 ulp residuals in the groups using them, and nothing larger than 1e-12 relative remains | 70 % |
+| D3 | after aligning operation order and `pow` (petir `r_powf`, `x*x` for `sqr`) every T-only property is bit-identical at all 48 T except points where petir's `exp`/`log`/`pow` differs from glibc by 1 ulp | 65 % (ulp-differing points under 5 % of any property) |
+| D4 | the p-dependent properties through the cubic (`densityH2` trigonometric and cbrt branches) are bit-identical at >= 90 % of points after the D2/D3 fixes | 55 % |
+| D5 | entropy, enthalpy and `Cp` of H2 involve `log((V+b)/V)` of the cubic root: bit-identical wherever `densityH2` is | 75 % conditional |
+| D6 | the omitted functions (`omega11_11`, `omega22_11`, `C_12`, `psi`, `diffusionH2`, `cvPerfectGasH2`, `Hc`) are not called by any GeN-Foam source outside the class itself and upstream's test driver (`omega11_11` only from `diffusionH2`) | 80 % |
+| D7 | the port's `Cv` (`Cp - CpMCv`) has no upstream counterpart: upstream `CpMCv` is the molecular-H2 EOS value only | 100 % (read) |
+| D8 | no grid point is NaN/inf in one and finite in the other | 60 % (the cubic's discriminant branch and 14 K corners are the risk) |

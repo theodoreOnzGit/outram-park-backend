@@ -1,0 +1,12 @@
+TH = $(GENFOAM_SRC)/src/classes/thermalHydraulics/src
+
+EXE_INC = \
+    -I$(TH)/lnInclude \
+    -I$(GENFOAM_SRC)/src/classes/common/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/thermophysicalProperties/lnInclude \
+    -I$(LIB_SRC)/thermophysicalModels/specie/lnInclude
+
+EXE_LIBS = \
+    -L$(FOAM_USER_LIBBIN) -lFFSSrc2 -lCommon \
+    -lspecie \
+    -lthermophysicalProperties
