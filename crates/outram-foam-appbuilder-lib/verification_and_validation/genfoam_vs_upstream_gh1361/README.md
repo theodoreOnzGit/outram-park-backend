@@ -9001,3 +9001,26 @@ Y1 **MISSED** (515 s, not 25-60 min). Y2 held (4.7e-5). Y3 **MISSED** (the first
 `INFLATE=1 bash scripts/make_esfr_coupled_case.sh <dir>` (inflated copy for the port; without `INFLATE` for the real binary; `TIGHT=0` for the as-shipped run; `END=<n>`), real: `run` as in `scripts/run_fullcoupling_coupled.sh` without `-initializeMappedFields` and `python3 -I scripts/extract_esfr_coupled_stream.py <dir> <prefix> 200` while it runs (a 3-D write is 28 MB a step; the extractor deletes each step directory after reading it); V1: `python3 -I scripts/make_esfr_coupled_variant_v1.py <dir>`; port: `ESFR_COUPLED_CASE=<inflated dir> ESFR_STEPS=200 ESFR_REF=tight|loose|v1 cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_coupled_vs_upstream esfr_coupled_steps -- --nocapture`.
 
 Issues filed from round 74: gh:#1948 (neutronics fvSolution tolerances on the eigenvalue path), gh:#1949 (step-2 meshDisp/fuelDisp/CRDisp and near-floor residual misses), gh:#1950 (3D_SmallESFR_old transient, decomposed run, baffle-less mesh writer); comments on #1944, #1911, #1941, #1846, #1783, #1910.
+
+## Round 76 (gh:#1947 under #1936/#1216; maintainer 2026-11-27: "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS; the correct form is the DEFAULT, deviations are named ablations): `CaseReadOptions::default().gamg` becomes `GamgPolicy::Native`; `AllrunEdits::default().gamg` stays `SubstitutePcgDic` (a PROTOCOL value) and gains a sibling `AllrunEdits::as_shipped_gamg()` (predictions and criteria written and committed BEFORE any run)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 75 (gh:#1948): keep both on merge.
+
+### Decision (maintainer, via the caller of this round)
+
+1. `CaseReadOptions::default().gamg`: ~~`GamgPolicy::Refuse`~~ **CHANGED 2026-11-27 (gh:#1947)** to `GamgPolicy::Native`. `Refuse` and `SubstitutePcgDic` stay as explicit, named ablations (a caller sets the field).
+2. `AllrunEdits` is a PROTOCOL: edits applied to BOTH the real and the port run. The committed MSFR references were produced by a real run whose script replaced `GAMG` by `PCG`/`DIC` textually, so `AllrunEdits::default().gamg = SubstitutePcgDic` DESCRIBES THAT PROTOCOL and is kept; changing it would make the port run a different protocol from the references and the comparison would stop being a comparison. The case as shipped (GAMG kept in both runs) is the new constructor `AllrunEdits::as_shipped_gamg()`.
+
+### What I checked before writing (search-before-building)
+
+`grep -rn "CaseReadOptions\|AllrunEdits\|OnePhaseCcCase::read("` over `src/` and `tests/` of every crate: only `outram-foam-appbuilder-lib` uses them. Callers of `CaseReadOptions::default()` (read from the source): `OnePhaseCcCase::read` (so `OnePhaseCcSolver::from_case_dir`), `genfoam_heat_exchanger_{cc,3d}_vs_upstream`, `genfoam_radial_power_wired_vs_upstream`, `genfoam_msfr_th_pimple_vs_upstream::run_perturbed`, and as the `..CaseReadOptions::default()` base in `workflow/allrun.rs` (which sets `gamg` itself), `multi_region/region_solvers.rs` (sets Native), `genfoam_{fftf_pieces,esfr_fluid,fullcoupling_fluid,msfr_allrun,coupled_tutorials_requirements}` (every one sets `gamg` explicitly).
+
+### Predictions (written before any run)
+
+* **P1. No recorded number moves.** `gamg` is consulted only when a `solvers.p_rgh` entry (or its `Final`) selects `GAMG`. A case that does not select it is read identically under any policy. A case that selects it was REFUSED by name under the old default, so no test could hold a recorded number for it through the default path. Every test that does run a GAMG case sets the policy explicitly and keeps its value. Prediction: every test of the list below passes unchanged, with the same printed numbers (bit-identical, the code path being identical).
+* **P2. The default tests.** (a) `CaseReadOptions::default().gamg == GamgPolicy::Native` and `GamgPolicy::default() == Native`; (b) the shipped 2D_MSFR rootCase read with `CaseReadOptions { check_region_solvers: false, ..default() }` is accepted (not refused) and holds a native `GAMG` agglomeration (`p_rgh_gamg.is_some()`, `!p_rgh_gamg_substituted`); (c) `AllrunEdits::default().gamg == SubstitutePcgDic` (protocol) and `AllrunEdits::as_shipped_gamg().gamg == Native`, with the staged shipped MSFR rootCase accepted by `steady_state_th(&as_shipped_gamg)`. If (b) is refused by name for a selection that is not ported, that is a finding to report, not a reason to edit the case.
+* **P3. If any test fails after the change**, the first hypothesis is that it relied on the old default silently; it then gets the old policy EXPLICITLY (never a loosened gate).
+
+### Tests to re-run (targeted, release, private target dir)
+
+`genfoam_coupled_tutorials_requirements`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_gamg_vs_upstream`, `genfoam_gamg_smoothers_vs_upstream`, `genfoam_one_phase_fc_vs_upstream` (the `GamgPolicy` test), `genfoam_heat_exchanger_{cc,3d}_vs_upstream`, `genfoam_radial_power_wired_vs_upstream`, `genfoam_msfr_th_pimple_vs_upstream`, the new `gamg_is_default` tests, and the lib check without default features for `x86_64-unknown-none`.
