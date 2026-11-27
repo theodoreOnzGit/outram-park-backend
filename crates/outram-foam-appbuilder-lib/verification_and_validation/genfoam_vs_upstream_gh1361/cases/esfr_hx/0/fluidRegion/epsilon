@@ -14,27 +14,22 @@ boundaryField
 {
     top
     {
-        type            epsilonWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     bottom
     {
-        type            epsilonWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     walls
     {
-        type            epsilonWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     baffle0
     {
-        type            epsilonWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     baffle1
     {
-        type            epsilonWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
 }

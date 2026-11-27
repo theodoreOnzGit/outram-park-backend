@@ -14,27 +14,22 @@ boundaryField
 {
     top
     {
-        type            kqRWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     bottom
     {
-        type            kqRWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     walls
     {
-        type            kqRWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     baffle0
     {
-        type            kqRWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
     baffle1
     {
-        type            kqRWallFunction;
-        value           uniform 0.1;
+        type            zeroGradient;
     }
 }

@@ -6806,3 +6806,64 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | C3 | control, secondary `htc*T` with `T.prevIter()` | `T.HX` differs by `>= 1e-9` at some step (round 44 K5 could not see it for a self-paired exchanger; here the sides differ by 100 K) | |
 | M1 | earlier numbers | `genfoam_heat_exchanger_cc_vs_upstream` (4), `genfoam_heat_exchanger_vs_upstream` (8), `genfoam_mesh_to_mesh_vs_upstream` pass with unchanged numbers (no port source edit expected; if one is made it is listed with old/new) | |
 | W1 | cost | upstream under 120 s; port under 5 min in release | |
+
+
+## Round 52 results (measured 2026-11-27, release, `CARGO_BUILD_JOBS=2`, PRIVATE target dir; the predictions above were committed first: `e3c0d5f0b`; real binary `scripts/run_esfr_hx_tight.sh` (6 s, exit 0), probe `scripts/build_and_run_hx_mapping_dump.sh` (3 s), references `refs/esfr_hx_r52.ref.txt.gz` (283 KB) and `refs/esfr_hx_r52_mapping.ref.txt.gz` (34 KB) in the refs submodule; `tests/genfoam_heat_exchanger_3d_vs_upstream.rs`, 3 tests, 88 s with `--test-threads=1`; `--nocapture` prints every row)
+
+**Case chosen and why.** The shipped `3D_SmallESFR` has no heat exchanger and the shipped zone pair that passes upstream's signed volume check (`outerCore` primary, `innerCore` secondary) has IDENTICAL centres of volume, so its translation is zero (checked, "Checked first" above); there is no shipped 3-D MSFR. So the documented variant `cases/esfr_hx` (ESFR mesh, core halves `hxA`/`hxB`, MSFR settings). The first split key `(x, y, z)` gave a genuinely fractional mapping, so the a-priori fallback keys were NOT used.
+
+### Mapping (E1-E3): upstream's weights and the port's
+
+| quantity | measured | predicted | held? |
+|---|---|---|---|
+| upstream runs the case, volume check passes, overlap | yes; two `Creating heatExchanger` lines; `Overlap volume` 4.9605711199184368 (ABHX) and 5.0680696089763613 (BAHX), both greater than 0; the probe prints the same two volumes | E1 | **held** |
+| translation `delta` (ABHX) | `(-1.0265326748955377, -0.046846165545375268, 3.3306690738754696e-15)` m: port, probe and the binary's log bit-identical; BAHX the negative | E3 | **held** |
+| primary cells of ABHX (3270): no entry / 1 / 2 / 3 or more | **90 / 570 / 870 / 1740: 79.8 % fractional** | E2 (>= 50 %) | **held** |
+| primary cells of BAHX (3270): no entry / 1 / 2 / 3 or more | **90 / 590 / 800 / 1790: 79.2 % fractional** | E2 | **held** |
+| weights of the 1636 sampled primary cells (every 4th of both exchangers; 6540 in the port) | entry counts identical, labels identical (0 differences), **weights bit-identical (4503 of 4503, worst relative difference 0)**; port weight sums within 4.4e-16 of 1 | E3 | **held** |
+
+So the weighted averaging is exercised with real fractional weights (0.807 / 0.193 for the cells the translation cuts into two, up to 3 or more sources), on both signs of the translation. The 90 cells of each exchanger with no source entry are primary cells at the edge of the core that the translated copy does not cover: both codes then use `HsOp = HTsOp = 0` there (`THX = HT/H`, no exchange); that case is the one round 46 found empty everywhere.
+
+### End to end against the real binary (3 steps, 5 outer iterations each)
+
+| field (sampled as in the reference) | worst `max|port - up|/max|up|` over steps 1-3 | gate | held? |
+|---|---|---|---|
+| outer iterations per step | 5, 5, 5 = upstream's | equal | **held** (E5) |
+| `U` (every 11th cell; `|U|` max 1.2e-4, 2.6e-4, 4.2e-4 m/s) | **7.1e-11** | 1e-9 | held |
+| `p_rgh` | 1.1e-12 | 1e-9 | held |
+| `T` (every 11th cell), core `T`, `hxA` and `hxB` separately | 8.8e-16; absolute `max|dT|` in K: hxA 5.7e-13, hxB 3.4e-13 (step 1), 8e-13 and 7e-13 (step 3) | 1e-9 | held |
+| `T.HX` (every 7th core cell) | **7.6e-16** | 1e-9 (expected 1e-11) | held (E7) |
+| `htc` | 0 (bit-identical) | 1e-9 | held |
+| exchanged heat `Q = iAHX H (THX - T)` per sampled cell; sampled sum in `hxA`, in `hxB` | 1.4e-14; 2.1e-16, 4.1e-16 | 1e-9 | held |
+| `p_rgh` and `h` solves | 105 solves, worst iteration difference 1 above the 1e-10 floor (0 solves below it); worst relative initial residual 4.8e-10 | counts within 1 | **held** |
+| first step above 1e-9 | none | | |
+| bit-identical sampled values | 8494 of 43035 (all of `htc`, many of `T`/`T.HX`); not claimed | | |
+
+The exchanged heat is real: `T` of `hxA` falls by 0.0394 K, 0.0868 K and 0.1435 K after steps 1-3 (min over the sampled cells) and of `hxB` rises by 0.0395, 0.0870, 0.1440 K; `THX` of a fully overlapped `hxA` cell is 858.3 K (my hand value 858.3 K). The small residual differences are the stopping of the PCG/DIC `p_rgh` solves and round-off of the sums, as in rounds 44 and 46; `U` is 1e-4 m/s so 7e-11 of its maximum is 1e-14 m/s absolute, at the floor of the 1e-14 solver tolerance. No 1e-9 allowance was needed.
+
+### Controls (each against the same references)
+
+| control | measured | predicted | held? |
+|---|---|---|---|
+| C1 exchangers off in the port | `T.HX` 100 % different (1.0); `h` initial residual relative difference 1.0 and `p_rgh` iteration count off by 58; **`T` (global sample) 1.6e-4 of `max T`, core `T` 1.6e-4** | `T >= 1e-3` of `max T` at step 3 | **MISSED** (the size: see E8) |
+| C2 nearest-cell mapping | `T.HX` **4.6e-2**, exchanged heat 1.0, `T` 1.6e-4; `h` residual 1.9e-2 | `T.HX >= 1e-4` | **held** (the fractional weights are tested, 460 x over the threshold) |
+| C3 secondary `htc*T` with `T.prevIter()` | `T.HX` **2.0e-8**, `Q` 4.2e-7, `U` 5.8e-8, `T` 6.6e-10 | `T.HX >= 1e-9` | **held** (round 44's K5 was undetectable; with a 100 K difference between sides it is detectable at 2e-8) |
+
+### Predictions: held and missed
+
+E1 held. E2 held (79-80 % against the 50 % gate; my 65 % was a correct direction). E3 held (bit-identical). **E4 MISSED:** the port refused the case by name on the first read (`T` has a `nonuniform` internal field, which `read_field` accepted for `alpha.<fluid>` only); a one-function change, no number moved: `case::read_field_bcs_only` (takes the BOUNDARY conditions of `T`; the internal field is read by `read_vol_scalar_field`, which already accepted `nonuniform`), used by `one_phase_cc/flow.rs`. E5 held. E6 held (7.1e-11 against 1e-9; expected 1e-12..1e-11: `U` is slightly above the expected range, by the round-off explained above). E7 held for `T.HX <= 1e-11` (7.6e-16), the bit-identical part (P 25 %) MISSED (not bit-identical; `htc` is). **E8 MISSED, by an arithmetic error of mine:** I predicted about -16 K per step; the source `250 x 1e4 x (858 - 900) = -1.05e8` W/m^3 times 1e-3 s over `alpha rho Cp = 0.4 x 4125 x 1600 = 2.64e6` J/(m^3 K) is **-0.040 K** per step (I divided by `rho Cp` and slipped three orders of magnitude). The case is therefore much weaker than I intended (0.04 K to 0.14 K of exchange against 100 K of driving difference); it still tests the mapping at the 1e-9 gate, because the weights enter `THX` (a 42 K signal in `T.HX`) and `Q`, and the nearest-cell control shows `T.HX` at 4.6e-2, but `T` itself discriminates only at 1.6e-4 (C1). A stronger exchange (a larger `volumetricArea` or `wallConductance`) was NOT tried: the inputs are the shipped 1D_HX values and were fixed before the run. C1 MISSED because of E8; C2, C3 held. M1 held (below). W1 held (upstream 6 s, port 18 s per run).
+
+### Deviations and things done after the first upstream run (stated, not hidden)
+
+* **The first upstream run aborted** (`Invalid wall function specification: Patch type for patch top must be wall`): the committed case had `nutkWallFunction` (`nut`), `kqRWallFunction` (`k`), `epsilonWallFunction` (`epsilon`) on the ESFR patches `top`, `bottom`, `walls` (type `patch`). Fixed BEFORE any reference was taken: `nut` `calculated` (value 0.1, as the MSFR files), `k` and `epsilon` `zeroGradient`. With `turbulence false` the wall functions do not act, so no number depends on it; this is a deviation from the MSFR files beyond those listed in the case description above, in `make_esfr_hx_case.py` (committed after the predictions).
+* The pump (`diagrid`, `momentumSource (0 0 3e5)`) drives a flow of only about 1e-4 m/s in 3 steps (Courant number about 1e-6): the baffled assemblies are closed and the forcing acts for 3.6 ms. The flow fields (`U`, `p_rgh`) are compared as committed (7.1e-11, 1.1e-12) but they are small; this is a weak test of the flow solver and a good one of the mapping.
+* `hxMappingDump` is not the instrumented binary (stated in the criteria); the binary's own mapping is validated through `T.HX`, `T` and `Q`, which depend on it and agree to 8e-16.
+* Not done: `secondaryRegion` (gh:#1904); a 3-D MSFR (not shipped); the shipped ESFR's own physics (polynomial thermo, `byRegime` Nusselt, open boundaries, `slip`, `nuclearFuelPinTest`) in `one_phase_cc`: refused by name, unchanged.
+
+### Moved numbers and reproduction
+
+None moved: the one source edit (`read_field_bcs_only`, used only by `one_phase_cc/flow.rs` for `T`) changes behaviour only for a case with a nonuniform `T`, which was refused before. Regression run (private target, release): see "Tests run" in the hand-off; results below. Reproduction: `python3 -I scripts/make_esfr_hx_case.py` (case), `bash scripts/run_esfr_hx_tight.sh r52`, `python3 -I scripts/extract_esfr_hx_reference.py <run> cases/esfr_hx/constant/fluidRegion/polyMesh/cellZones.gz <out>` + `scripts/extract_msfr_th_log.sh` appended, `bash scripts/build_and_run_hx_mapping_dump.sh <out>` (every 4th primary cell kept for the reference), `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_heat_exchanger_3d_vs_upstream -- --nocapture --test-threads=1`.
+
+### Tests run (private target dir, release, `CARGO_BUILD_JOBS=2`, 2026-11-27)
+
+`genfoam_heat_exchanger_3d_vs_upstream` 3 passed; `genfoam_heat_exchanger_vs_upstream` 8 passed, 2 ignored; `genfoam_heat_exchanger_cc_vs_upstream` 4 passed; `genfoam_one_phase_vs_upstream` 5 passed, 2 ignored; `genfoam_msfr_th_vs_upstream` 6 passed; `genfoam_msfr_th_nonorth_vs_upstream` 8 passed; `genfoam_mesh_to_mesh_vs_upstream` 5 passed; `--lib one_phase` 21, `--lib structure` 42, `--lib multi_region` 56 passed; `petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` exit 0. **Not run** (not on the path of the edit and slow): `genfoam_one_phase_fc_vs_upstream`, the other `msfr_th_*` files. `read_field_bcs_only` is reached by `esfr_hx_matches_the_real_binary` and the other two tests of the new file (call graph). No `kind = "review"` block exists under `src/` (checked), so no reviewed function was touched.

@@ -280,6 +280,15 @@ pub(super) fn read_alpha_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBui
     read_field_with(ctx, rel, true)
 }
 
+/// [`read_field`] for a field of which only the BOUNDARY conditions are taken from this file (the cell-centred region reads its
+/// internal field through `read_vol_scalar_field`, which accepts `nonuniform List<scalar>`): accepts a nonuniform internal field
+/// (gh:#1903, README round 52: `T` of the 3-D exchanger case starts at 900 K and 800 K). The returned `internal` is the first cell and
+/// must not be used.
+#[cfg(feature = "std")]
+pub(super) fn read_field_bcs_only(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderError> {
+    read_field_with(ctx, rel, true)
+}
+
 /// The cells of a `nonuniform List<scalar> N ( ... )` entry's tokens (`[nonuniform, List<scalar>, N, (...)]`), or `None`
 /// when the tokens are not that form. `N` must equal the list length.
 pub(super) fn nonuniform_scalar_list(tokens: &[FoamValue]) -> Option<Vec<f64>> {

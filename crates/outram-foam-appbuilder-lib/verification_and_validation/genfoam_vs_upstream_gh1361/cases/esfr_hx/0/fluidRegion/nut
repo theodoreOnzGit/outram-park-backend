@@ -14,27 +14,27 @@ boundaryField
 {
     top
     {
-        type            nutkWallFunction;
+        type            calculated;
         value           uniform 0.1;
     }
     bottom
     {
-        type            nutkWallFunction;
+        type            calculated;
         value           uniform 0.1;
     }
     walls
     {
-        type            nutkWallFunction;
+        type            calculated;
         value           uniform 0.1;
     }
     baffle0
     {
-        type            nutkWallFunction;
+        type            calculated;
         value           uniform 0.1;
     }
     baffle1
     {
-        type            nutkWallFunction;
+        type            calculated;
         value           uniform 0.1;
     }
 }

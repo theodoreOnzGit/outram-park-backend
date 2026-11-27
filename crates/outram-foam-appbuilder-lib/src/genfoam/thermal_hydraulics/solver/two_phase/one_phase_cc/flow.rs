@@ -65,7 +65,7 @@ use super::super::pcg::pcg_dic;
 use super::super::{dev2_div, PRghPcg};
 use super::OnePhaseCcSolver;
 #[cfg(feature = "std")]
-use super::super::case::{bool_entry, read_field, scalar, word, Ctx, FieldFile};
+use super::super::case::{bool_entry, read_field, read_field_bcs_only, scalar, word, Ctx, FieldFile};
 #[cfg(feature = "std")]
 use super::last_match;
 #[cfg(feature = "std")]
@@ -518,7 +518,7 @@ pub(super) fn read_flow_case(
             (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, wedge)", p.name))),
         });
     }
-    let tf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/T"))?;
+    let tf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/T"))?;
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         let (ty, _) = patch_bc(&tf, pi)?;
         if !matches!((ty.as_str(), p.kind), ("wedge", PatchKind::Wedge) | ("zeroGradient", _)) {
