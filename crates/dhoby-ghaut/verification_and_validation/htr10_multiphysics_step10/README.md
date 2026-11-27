@@ -16,6 +16,63 @@ This record has two parts.
 
 ## Headline (read this first)
 
+**UPDATED 2026-11-27 (gh:#1862, #1886): Step 7's neutronics mesh has fitted
+region boundaries, and Step 10's `k` fell by 11 000 pcm.** Maintainer:
+"always snap internal region boundaries", then "mesh each region
+separately, then combine them … using a AMI interface", then, on these
+numbers, "merge, record the finding". The 2026-10-06 headline below is kept;
+its numbers are superseded by this block.
+
+1. **The mesh.** Each region is meshed on its own, snapped onto the true
+   surfaces and joined by `cyclicAMI` interfaces
+   (`../workbench_steps_7_8/README.md`, 2026-11-27). Before, each cell took
+   its region by centroid. The default neutronics cell is now **20 cm**
+   (was 30), chosen by the maintainer on the study below.
+2. **Coupled run, 10 MW, same Step 8 case** (`step8_full_core_case`,
+   gh:#598 data). Converged in 14 Picard iterations, 3 min:
+   - `k_eff` ~~1.10560~~ **0.99314**;
+   - node peak/mean power ~~1.505~~ **1.352**, maximum **4.30 W/cm³**
+     (Gao & Shi initial core: 2.84);
+   - peak kernel ~~1079.0~~ **1175.7 °C**;
+   - vessel outlet 695.9 °C (unchanged; design 700 °C).
+   Files: `solved_fitted_2026-11-27/`.
+3. **Diffusion `k` against Monte Carlo `k`, isothermal:** ~~+3650 to +5830
+   pcm~~ **−4138 to −6556 pcm** (300 K: 1.08552 against 1.14617 ± 0.00678).
+4. **Where the neutrons go** (absorption share at 300 K; `isothermal_region_balance.csv`):
+
+   | region | old centroid mesh | fitted, AMI 20 cm | Monte Carlo |
+   |---|---|---|---|
+   | `pebble_bed` | 0.675 | 0.609 | 0.638 |
+   | `core_cavity` | 0.0025 | **0.0139** | 0.0028 |
+   | `bottom_structures` | 0.028 | **0.058** | 0.039 |
+   | `carbon_bricks` | 0.062 | 0.062 | 0.041 |
+
+   The production shares still match the Monte Carlo to a few tenths of a
+   percent, so every cell has its own region's constants. What changed is
+   the **void cavity** above the bed. It is now a sharp region, and
+   diffusion carries far too many neutrons through it: its fast flux is 4×
+   what the centroid mesh gave, and it absorbs 5× the Monte Carlo share.
+   On the centroid mesh the cells straddling the bed–cavity boundary
+   blurred the void. **The old agreement with the Monte Carlo was partly
+   that blur.** Open as gh:#1886 (hypothesis: diffusion with the
+   Monte-Carlo-collapsed cavity `D` in a near-void; not yet checked against
+   upstream).
+5. **What it is not:**
+   - not the AMI coupling: the conforming route gives 0.99056, 258 pcm
+     from AMI;
+   - not mesh resolution: 30 → 20 cm moves `k` by 44 pcm;
+   - not the solver on its own: the homogeneous bare cylinder is −765 pcm
+     at 20 cm (next section).
+6. **Two AMI defects were found on the way and fixed** (gh:#1860):
+   - the polyMesh reader coupled both halves of a seam, which counted it
+     twice;
+   - the laplacian's AMI stamp divided by `|Cf − C|` summed over both sides,
+     where upstream's `cyclicAMIFvPatch::delta()` divides by the
+     interpolated vector difference. The sum is never shorter, so every
+     seam conducted less.
+
+   The bare cylinder went from +12 662 to +3 791 pcm at 40 cm with these fixes.
+
 **UPDATED 2026-10-06 (gh:#598): Step 8's bed flux is fixed, and every
 result in Part 1 was re-run on the corrected constants.** The previous
 headline is kept below, struck through.
@@ -149,7 +206,7 @@ The inputs are those of Part 2, except for the rows below.
 |---|---|---|
 | Bed | 19 lattice layers: 192.2 cm high, 90 cm radius, 0.57 fuel / 0.43 moderator pebbles, filling 0.61 | preset recipe (Li, Yu & Wei 2014 Table 1; Şeker 2003 Table 3 inventory), layers 12 → 19 for this record |
 | Cross sections | Step 8, 2 groups (0.625 eV), states 300.15 / 600 / 900 / 1200 K, 2000 × (10 + 20) histories per pass, seed 20260917, 6 threads; delta-tracked bed tallied with the tentative-collision estimator (gh:#598) | `step8_full_core_case/` (`nuclearData`, `mgxs.csv`, `mgxs_set.toml`, `run.log`), re-run 2026-10-06; the pre-gh:#598 set is in `superseded_pre_598/step8_full_core_case/` |
-| Meshes | Step 7 defaults: neutronics 30 cm tet-dual (14 041 cells), TH 15 cm (12 888 cells) | `step8_full_core_case/meshes.csv` |
+| Meshes | Step 7 defaults: ~~neutronics 30 cm tet-dual (14 041 cells), TH 15 cm (12 888 cells)~~ **since 2026-11-27:** neutronics 20 cm, each region a TetGen dual joined by `cyclicAMI` (42 997 cells), TH 15 cm (6 423 cells, cavity layered) | ~~`step8_full_core_case/meshes.csv`~~ `solved_fitted_2026-11-27/console.txt` |
 | Thermal power | 10 MW | Step 9 (Li 2014 Table 1) |
 
 Reproduce:
@@ -168,12 +225,29 @@ Run them with `cargo test --release -p dhoby-ghaut --bin dhoby-ghaut spatial`.
 
 - **`bare_cylinder_k_on_the_neutronics_mesh_matches_the_analytic_value`.**
   - *Setup.* One homogeneous 2-group medium on the Step 7 neutronics mesh
-    (40 cm cells), with zero flux on the boundary. It goes through the whole
-    hand-off: polyMesh, cellZones, and a `nuclearData` from Step 8's writer.
+    (~~40 cm~~ **20 cm** cells since 2026-11-27), with zero flux on the
+    boundary. It goes through the whole hand-off: polyMesh, cellZones, and
+    a `nuclearData` from Step 8's writer.
   - *Reference.* The analytic bare cylinder
     `k = [νΣf1 (Σa2 + D2 B²) + νΣf2 Σ12] / [(Σr1 + D1 B²)(Σa2 + D2 B²)]`.
-    `R` is the radius of the circle with the inscribed 32-gon's area.
-  - *Result.* **−219 pcm** (gate 1 %).
+    `R` is ~~the radius of the circle with the inscribed 32-gon's area~~
+    the true outer radius: the mesh is snapped onto the true cylinder, so
+    the 32-gon radius put the reference 196 pcm low.
+  - *Result.* ~~**−219 pcm**~~ (the single-cylinder mesh, 32-gon reference).
+    **−765 pcm** at 20 cm on the fitted AMI mesh (gate 1 %).
+  - *Mesh study (2026-11-27, against the true-radius reference):*
+
+    | neutronics cell | AMI route | conforming route |
+    |---|---|---|
+    | 40 cm | +3590 pcm | +1330 pcm |
+    | 30 cm | +2132 pcm | +673 pcm |
+    | 20 cm | **−765 pcm** | −618 pcm |
+
+    The error crosses zero rather than vanishing. Step 10 uses
+    `uncorrected` Gauss (as GeN-Foam's cases do), which keeps an error on
+    skewed polyhedra. At coarse sizes the AMI seams cost more than the
+    conforming interfaces: the thin bands put small cells against large
+    ones across them. The maintainer chose AMI at a 20 cm default.
 - **`the_coupled_loop_conserves_power_across_the_maps_and_converges`.**
   Coarse Step 7 meshes, synthetic constants, 3 MW.
   - The neutronics power equals the requested power to 1e-12.

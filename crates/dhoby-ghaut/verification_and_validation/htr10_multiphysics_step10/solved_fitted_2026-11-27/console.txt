@@ -1,0 +1,105 @@
+[  0.0 s]   0 % meshing: Neutronics
+[ 10.8 s]   8 % drawing: Neutronics
+[ 11.0 s]  17 % meshing: Thermal-hydraulics
+[ 12.0 s]  25 % drawing: Thermal-hydraulics
+[ 12.0 s]  33 % meshing: Structural (FEM)
+[ 15.9 s]  42 % drawing: Structural (FEM)
+[ 16.0 s]  50 % mapping: Neutronics <-> Thermal-hydraulics
+[ 23.3 s]  67 % mapping: Neutronics <-> Structural (FEM)
+[ 63.3 s]  83 % mapping: Thermal-hydraulics <-> Structural (FEM)
+[ 64.0 s] 100 % done
+Step 10 coupled run, power SOLVED by diffusion (TENTATIVE; see the element list)
+  [in model] Helium energy balance: Exact enthalpy march per ring with the coolprop-port helium EOS ((p, h) flash).
+  [in model] Pebble-to-helium heat transfer: Wakao-Funazkri (1978) on local Re, Pr and k (tampines::pebble_bed::cht).
+  [in model] Pebble and TRISO conduction: Two-zone pebble + hottest TRISO at the pebble centre (tampines::pebble_bed::Pebble::htr10), fluence from Step 9.
+  [in model] Bed friction and flow split: KTA 3102.3 per node; rings share one plenum-to-plenum pressure drop (the coupling loop).
+  [simplified] Thermal-hydraulic mesh: Equal-area rings x axial nodes (r-z multi-channel). Step 7's tet-dual TH mesh carries power and temperature between the neutronics mesh and the rings but is not solved on (gh:#592).
+  [NOT in model] OUTRAM-Foam porous solver: outram-foam-appbuilder-lib's OnePhaseSolver has constant properties and one-cell tests only; not used (gh:#592).
+  [NOT in model] Radial conduction and radiation between rings: ZBS effective conductivity (tampines::pebble_bed::zbs) is not applied across rings (gh:#592).
+  [simplified] Side wall: Adiabatic: no heat to the side reflector or the RCCS (gh:#592).
+  [simplified] Reflector, plenums, bypass channels: Not modelled thermally; the bypass (total minus core flow) is mixed at the inlet temperature.
+  [in model] Power shape and k: Solved (gh:#591): GeN-Foam port multigroup diffusion k-eigenvalue on Step 7's neutronics mesh, Step 8's constants at each cell's TFuel (ln T, extrapolated linearly outside the state points as upstream), Marshak vacuum boundary, Picard-coupled to the march through Step 7's maps with relaxed power. Ablation: --prescribed-power (J0 x cosine with lumped feedback).
+  [simplified] Neutronics data: 2 groups by default, P0 scattering, D = 1/(3 Sigma_t), no discontinuity factors, no delayed neutrons (steady state only), Monte Carlo statistics of a short run (gh:#595). Step 8's bed constants are tallied with the delta-tracking tentative-collision estimator since gh:#598 (before it they were ~1/0.65 too large); diffusion k on the HTR-10 case is still +3650 to +5830 pcm above Step 8's Monte Carlo, not yet attributed (V&V record).
+  [simplified] Neutronics regions: Each region is meshed on its own (20 cm) and the regions joined by cyclicAMI interfaces, so region boundaries are fitted and snapped (2026-11-27; they were stair-stepped by centroid, gh:#594); borings are not explicit. Fission power landing outside the TH bed is reported and the bed power rescaled to the thermal power.
+  [simplified] Temperature feedback: One temperature per cell drives every material's constants: the fuel-pebble volume average in the bed (state points are isothermal, gh:#595); no separate moderator / coolant-density feedback.
+  [simplified] Reflector, conus, tube temperatures (for the cross sections): Held at the inlet helium temperature: no reflector heat balance (gh:#592).
+  [simplified] Neutronics -> ring grid transfer: Power: Step 7's volume-weighted map to the TH mesh, then each bed cell's power shared over the ring nodes its nearest-cell samples fall in (conservative). Temperature: TH cell takes its centroid's node, then Step 7's map to the neutronics mesh.
+  [NOT in model] Structural (farrer-park): farrer-park is FEM mechanics only (no heat conduction) and has no mapping from the TH mesh yet (gh:#593); not run.
+Step 9 adjusted: bed height: 197.0000 -> 123.5755 cm (the reactor Steps 1-8 built)
+Step 9 adjusted: fuel-pebble share: 1.0000 -> 0.5700  (the reactor Steps 1-8 built)
+meshes: neutronics 42997 cells (20 cm), TH 6423 cells (15 cm); 2 groups, state points [300.15, 600.0, 900.0, 1200.0] K, law log
+isothermal k (every neutronics cell at the state temperature), boundary: Marshak vacuum (albedo 1/2, face closure)
+   T [K]   k diffusion   k Monte Carlo (Step 8)       diff [pcm]     P/A diffusion  P/A Monte Carlo
+   300.15   1.08552       1.14617 ± 0.00678         -6065 (-8.9 σ)   1.08931        1.13785
+   600.00   1.04178       1.10254 ± 0.00734         -6076 (-8.3 σ)   1.04672        1.10692
+   900.00   1.00419       1.06975 ± 0.00627         -6556 (-10.5 σ)   1.00968        1.06708
+  1200.00   0.98604       1.02742 ± 0.00714         -4138 (-5.8 σ)   0.99129        1.02682
+region balance at 300.15 K (shares of production / absorption; flux per group scaled to the MC production):
+  region               prod D   prod MC   abs D    abs MC   flux D (fast, ...)          flux MC
+  pebble_bed            0.9656   0.9707    0.6086   0.6383   5.590e3 3.737e3            5.535e5 3.759e5
+  conus                 0.0172   0.0125    0.0160   0.0121   3.342e2 5.268e2            2.244e4 3.841e4
+  discharge_tube        0.0000   0.0000    0.0025   0.0016   8.596e0 5.797e1            5.475e2 3.670e3
+  core_cavity           0.0000   0.0000    0.0139   0.0027   7.470e2 1.643e3            2.180e4 3.090e4
+  top_reflector         0.0000   0.0000    0.0190   0.0224   3.944e1 3.603e2            9.492e3 4.015e4
+  cold_gas_plenum       0.0000   0.0000    0.0046   0.0166   5.277e0 6.615e1            3.743e3 2.191e4
+  side_reflector        0.0120   0.0125    0.1545   0.1696   7.527e2 3.698e3            7.497e4 3.889e5
+  control_rod_band      0.0025   0.0022    0.0377   0.0347   5.088e2 1.544e3            5.424e4 1.360e5
+  coolant_band          0.0000   0.0000    0.0098   0.0119   2.187e1 3.671e2            1.766e3 4.283e4
+  carbon_bricks         0.0000   0.0000    0.0623   0.0410   2.633e0 3.939e1            1.200e2 2.512e3
+  bottom_structures     0.0000   0.0000    0.0583   0.0386   5.155e1 7.233e2            2.929e3 4.591e4
+  conus_graphite        0.0027   0.0021    0.0130   0.0104   1.531e2 4.779e2            1.101e4 3.668e4
+isothermal 300.15 K shape at 10.0 MW: node peak/mean 1.362 (max 4.331 W/cm³ at ring 0 node 115 of 200), neutronics-cell peak 4.231 W/cm³; split bed/cavity/outside 0.966/0.000/0.034
+ iter  flow res.  max dT[K]  power res.  k_eff     |dk|      T_he,max [C]  T_kern,max [C]  P bed/cav/out      rescale  outers  extrap  t_n[s]
+note: neutronics boundary: Marshak vacuum (albedo 1/2, face closure)
+note: ring grid <- TH mesh: 512000 samples, 0 (0.00 %) outside every bed cell and given to the nearest one
+note: 1 of 2838 TH bed cells hold no node sample; each takes the temperature of the node at its centroid
+    1    6.54e-2  1386.3534    2.67e-1   1.05247       NaN        816.55        1113.20  0.966/0.000/0.034  1.0353    21      0    4.9
+    2    6.14e-2    55.7098    1.43e-1   0.99419    5.8e-2        855.29        1144.83  0.961/0.000/0.039  1.0401    22      0    4.5
+    3    3.91e-2    29.5912    6.67e-2   0.99370    4.9e-4        877.26        1162.36  0.961/0.000/0.039  1.0401    14     11    2.7
+    4    2.16e-2    14.7952    3.06e-2   0.99343    2.7e-4        888.60        1170.68  0.961/0.000/0.039  1.0401    13     22    2.2
+    5    1.10e-2     7.0916    1.39e-2   0.99328    1.5e-4        894.05        1174.16  0.961/0.000/0.039  1.0401    11     30    2.3
+    6    5.29e-3     3.2906    7.74e-3   0.99321    7.5e-5        896.53        1175.42  0.961/0.000/0.039  1.0402    10     31    1.9
+    7    2.45e-3     1.4902    4.38e-3   0.99317    3.6e-5        897.60        1175.79  0.961/0.000/0.039  1.0402    10     31    1.9
+    8    1.10e-3     0.6618    2.40e-3   0.99315    1.7e-5        898.05        1175.83  0.961/0.000/0.039  1.0402     9     31    1.5
+    9    4.80e-4     0.2922    1.27e-3   0.99315    8.1e-6        898.23        1175.79  0.961/0.000/0.039  1.0402     8     31    1.4
+   10    2.04e-4     0.1277    6.62e-4   0.99314    3.8e-6        898.30        1175.74  0.961/0.000/0.039  1.0402     7     31    1.1
+   11    8.45e-5     0.0554    3.37e-4   0.99314    1.8e-6        898.32        1175.70  0.961/0.000/0.039  1.0402     7     31    1.1
+   12    3.40e-5     0.0238    1.69e-4   0.99314    9.2e-7        898.33        1175.68  0.961/0.000/0.039  1.0402     2     31    0.4
+   13    1.34e-5     0.0136    8.32e-5   0.99314    2.9e-7        898.33        1175.66  0.961/0.000/0.039  1.0402     5     31    0.7
+   14    5.15e-6     0.0075    4.06e-5   0.99314    1.9e-7        898.33        1175.66  0.961/0.000/0.039  1.0402     2     31    0.3
+CONVERGED after 14 coupling iterations
+power shape SOLVED (diffusion): node peak/mean 1.3518, max node power density 4.299 W/cm³ (Gao & Shi: 2.57 max, 2.0 mean; the prescribed ablation: 2.57/2.0 = 1.285)
+bed exit (mixed) 760.9 °C; vessel outlet with bypass 695.9 °C
+max helium 898.3 °C; max fuel-pebble surface 1059.5 °C; max pebble centre 1152.5 °C
+max kernel (peak fuel) 1175.7 °C; power-weighted mean fuel pebble 719.8 °C
+bed pressure drop 0.320 kPa; superficial velocity at the inlet 0.54 m/s (interstitial 1.39), largest at a ring exit 1.15 m/s (interstitial 2.94)
+k_eff = 0.99314 (diffusion eigenvalue at the converged temperatures; power-weighted fuel-pebble T 629.5 °C)
+energy balance (heat to helium / power - 1) -2.55e-15
+particle Re 1637-3125; 0 nodes outside Wakao's 15-8500
+TENTATIVE comparison with Gao & Shi (2002), INITIAL core (the preset recipe is an initial-core loading; ours is nominal, theirs may include the §4.1 factors):
+  Max power density [W/cm³]          ours     4.30  published     2.84  diff    +1.46  (§4.2: at R = 0, Z = 90 cm (equilibrium core 2.57))
+  Mean fuel temperature [°C]         ours   719.83  published   605.70  diff  +114.13  (§4.3 average)
+  Max fuel centre [°C]               ours  1175.66  published   995.00  diff  +180.66  (§4.3 'about 995'; §5 says 1049 (unresolved, see the transcription))
+  Reactor outlet helium [°C]         ours   695.89  published   700.00  diff    -4.11  (Table 2 design value)
+TENTATIVE comparison with Gao & Shi (2002), equilibrium core, 100 %:
+  Reactor outlet helium [°C]         ours   695.89  published   700.00  diff    -4.11  (Table 2 (design value; mixed outlet))
+  Max coolant temperature [°C]       ours   898.33  published   818.00  diff   +80.33  (Table 2)
+  Max fuel temperature [°C]          ours  1175.66  published   918.70  diff  +256.96  (Table 2; includes the §4.1 uncertainty factors)
+  Max fuel surface temperature [°C]  ours  1059.55  published   876.70  diff  +182.85  (Table 2; includes the §4.1 uncertainty factors)
+  Core pressure drop [kPa]           ours     0.32  published     1.30  diff    -0.98  (Table 1/2: pebble bed AND bottom reflector)
+wall clock 93.1 s
+ABLATION on the same core (--prescribed-power): power shape and k prescribed
+  quantity                         solved     prescribed
+  node peak/mean power density           1.352      1.279
+  max node power density [W/cm3]         4.299      4.068
+  max kernel [C]                      1175.656   1179.927
+  max fuel-pebble surface [C]         1059.547   1059.477
+  max helium [C]                       898.330    892.202
+  vessel outlet [C]                    695.886    695.886
+  bed pressure drop [kPa]                0.320      0.320
+  power-weighted mean fuel pebble [C]   719.835    720.229
+wrote the fields, summary, isothermal_k.csv, neutronics_mesh_fields.csv and the PNGs into /tmp/claude-0/-home-user-outram-park-backend/5911e376-af40-56a7-8dc0-ec25b458915e/scratchpad/mp_ami_20
+
+real	2m59.036s
+user	5m19.276s
+sys	0m1.410s
