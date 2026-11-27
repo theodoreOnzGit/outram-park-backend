@@ -6,7 +6,108 @@
 
 Cargo workspace for **OUTRAM PARK** — Open-source Unified TRAnsient Multi-Physics Advanced Reactor simulation Kit.
 
-A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.
+~~A suite of Rust libraries for real-time thermal-hydraulics, reactor kinetics, steam-cycle thermodynamics, and compressible CFD simulation.~~ **CHANGED 2026-11-27 (maintainer: "it is not the simulations themselves, it is knowledge preservation and presentation"):** an open-source ecosystem that turns scientific and technical knowledge (nuclear data, Monte Carlo and deterministic transport, thermal-hydraulics, CFD, fuel and materials behaviour, dispersion and dose, and the literature behind them) into **inspectable source code, interactive simulations, visualisations and verification evidence** that people can study and challenge. It is 51 Rust crates, most of them translations of established open-source codes whose every routine can be read beside its upstream. The simulations are a means; the preserved, connected and challengeable knowledge is the point (see the vision below).
+
+## Vision: Scientific Knowledge That Can Be Studied and Challenged
+
+OUTRAM PARK is an open-source ecosystem dedicated to making vast amounts of scientific and technical knowledge **connectable, accessible, understandable, and explorable**.
+
+Generative AI is increasingly capable of summarising, organising, and presenting scientific information. OUTRAM PARK extends these capabilities by transforming scientific knowledge into **executable software, interactive simulations, visualisations, and inspectable computational artifacts**.
+
+The objective is not merely to generate scientific software, but to make the underlying science more accessible to human understanding, examination, and critical inquiry.
+
+### Scientific Software as a Knowledge Artifact
+
+Agentically generated scientific software is not treated as an authority to be trusted by default.
+
+Instead, the generated source code is itself a knowledge artifact that humans can **study and challenge**.
+
+Researchers, students, and engineers can examine implementations to understand how mathematical equations, numerical methods, physical models, and scientific assumptions are translated into computational procedures.
+
+They can challenge these implementations by questioning their assumptions, examining their algorithms, reproducing calculations, identifying errors, and comparing their behaviour against analytical solutions, established software, and experimental evidence.
+
+This process serves two complementary purposes:
+
+1. **Human capability development:** The examination and verification of scientific software provide opportunities to develop expertise in scientific computing, numerical methods, physics, and engineering.
+2. **Scientific software development:** Human review, verification, and validation progressively establish evidence for the correctness and applicability of the generated implementations.
+
+The software is therefore both an object of scientific investigation and a potential product of that investigation.
+
+### Visualising Scientific Phenomena
+
+OUTRAM PARK also aims to make scientific phenomena accessible through interactive simulations and visualisations.
+
+Scientific literature frequently describes physical behaviour through mathematical equations, numerical models, and experimental results. While these representations are essential, they can be difficult to interpret without specialised expertise.
+
+By implementing published mathematical models as interactive simulations, OUTRAM PARK allows users to explore physical phenomena, investigate parameter sensitivities, and develop intuition about the underlying science.
+
+These simulations can support:
+
+- Scientific literature review and exploration.
+- Nuclear science and engineering education.
+- Interactive presentations and public outreach.
+- Understanding of mathematical and numerical models.
+- Investigation of physical assumptions and model limitations.
+
+Educational simulations can provide value even before their implementations have completed verification and validation, provided their limitations are clearly communicated.
+
+However, **educational usefulness must not be confused with predictive engineering accuracy**. Unverified implementations may contain numerical or physical errors, and their behaviour must not be treated as authoritative without appropriate supporting evidence.
+
+### Connecting Scientific Knowledge
+
+OUTRAM PARK brings together multiple representations of scientific knowledge:
+
+| Knowledge artifact | Purpose |
+|---|---|
+| Scientific literature | Documents theories, mathematical models, experiments, and published findings. |
+| Mathematical equations | Expresses the governing relationships underlying scientific phenomena. |
+| Source code | Provides inspectable computational implementations of scientific models. |
+| Interactive simulations | Allows users to explore model behaviour and physical phenomena. |
+| Visualisations | Makes complex scientific concepts and relationships easier to understand. |
+| Verification and validation evidence | Documents the accuracy, limitations, and applicability of scientific implementations. |
+| Human reviews and corrections | Preserves critiques, discovered errors, explanations, and improvements. |
+
+These artifacts are intended to complement and connect with one another.
+
+A user may begin by reading a scientific paper, examine the corresponding numerical implementation, explore its behaviour through an interactive simulation, and inspect the verification evidence supporting its results.
+
+Discrepancies between literature, implementations, and simulation results become opportunities for further investigation rather than conclusions to be accepted without question.
+
+Knowledge-management components such as KOVAN support this process, but the vision applies to **the entire OUTRAM PARK ecosystem**, including its scientific libraries, simulation engines, educational applications, documentation, and verification infrastructure.
+
+### Preserving Knowledge Through Open-Source Development
+
+OUTRAM PARK seeks to preserve the scientific and technical knowledge accumulated throughout software development, literature review, simulation, and human verification.
+
+Even when individual implementations are superseded, corrected, or abandoned, the understanding gained from studying and challenging them can remain useful.
+
+By retaining source code, documentation, references, verification results, and human corrections in an open-source ecosystem, OUTRAM PARK aims to make this accumulated knowledge available for future researchers, educators, students, and contributors.
+
+The enduring outputs of OUTRAM PARK are therefore not limited to scientific software. They also include:
+
+1. **Human expertise** developed through studying, challenging, and verifying scientific implementations.
+2. **Accessible scientific knowledge** represented through interconnected literature, software, simulations, and visualisations.
+3. **Reusable scientific software** whose reliability can progressively improve through systematic human review and verification.
+
+### Human Judgement Remains Central
+
+Generative AI can accelerate the construction of scientific software and the presentation of scientific knowledge, but it does not replace scientific judgement.
+
+The responsibility for evaluating mathematical assumptions, numerical correctness, physical validity, and engineering applicability remains with humans.
+
+OUTRAM PARK therefore treats agentically generated artifacts as **starting points for human inquiry, not substitutes for human understanding**.
+
+Its broader purpose is to make scientific knowledge easier to access, explore, question, and preserve, while creating opportunities for people to develop the expertise needed to challenge that knowledge.
+
+**Scientific knowledge should not merely be presented or executed. It should be accessible for humans to study, question, test, and challenge.**
+
+---
+
+**Verification and responsible use:** Unless supported by specific documented verification and validation evidence, OUTRAM PARK implementations must be treated as unverified. Educational demonstrations are not suitable for nuclear facility operation, reactor control, safety-critical engineering, licensing, or emergency-response decisions.
+
+The same text is kept in [`VISION.md`](VISION.md). Each crate's README says, in its section **"Knowledge in this crate"**, which of these artifacts that crate holds: its literature and upstream sources, equations, source code, simulations and visualisations, V&V evidence, and human reviews and corrections.
+
+---
 
 **Code deep dives and API reference:** <https://theodoreonzgit.github.io/outram-park-backend/>
 (how each crate is built and why, beside its code; rebuilt from `develop` when it is merged into `web-deploy`
@@ -58,12 +159,12 @@ prices for reference (per 1M tokens):
 
 | Model | Input | Output | Cache write (5m / 1h) | Cache read |
 |---|---|---|---|---|
-| Opus 4.8 | $5.00 | $25.00 | $6.25 / $10.00 | $0.50 |
-| Sonnet 4.6 | $3.00 | $15.00 | $3.75 / $6.00 | $0.30 |
+| Opus 4.8 | \$5.00 | \$25.00 | \$6.25 / \$10.00 | \$0.50 |
+| Sonnet 4.6 | \$3.00 | \$15.00 | \$3.75 / \$6.00 | \$0.30 |
 
 Cache reads (0.1× input) dominate in practice because Claude Code caches
-aggressively, so a naive "all input × $5" overestimates by 3–10×. **Assume a
-conservative upper bound of ~$600** for the work above.
+aggressively, so a naive "all input × \$5" overestimates by 3–10×. **Assume a
+conservative upper bound of ~\$600** for the work above.
 
 ### Comparison to a human worker
 
@@ -71,11 +172,11 @@ The work needs a rare skill combination: production Rust **and** numerical
 methods **and** nuclear/chemical-engineering thermodynamics (IAPWS-IF97,
 two-phase critical flow, HEM, sound-speed behaviour at the bubble point) **and**
 an egui GUI migration. A specialist who can do all of this bills roughly
-**$120–250/hr** as a contractor (≈ $90–150/hr fully loaded as an employee). The
+**\$120–250/hr** as a contractor (≈ \$90–150/hr fully loaded as an employee). The
 output produced is plausibly **3–10 focused engineer-days** for such a person,
-i.e. **$2,400–$12,000**.
+i.e. **\$2,400–\$12,000**.
 
-So at a conservative $600, the AI-assisted cost is roughly **5–25% of the
+So at a conservative \$600, the AI-assisted cost is roughly **5–25% of the
 human-equivalent cost** for the same output, and compresses the calendar time
 from weeks to days.
 
@@ -87,13 +188,13 @@ made the key calls (e.g. the interpolation-vs-sonic-fix decision in the choked-
 flow work), supplied domain notes, and verified every result. The AI also
 thrashed on the hardest problem (the x ≈ 0 fix took several iterations and
 introduced regressions that had to be caught and undone). An unreviewed AI fix
-to a thermodynamics solver that is *subtly* wrong could cost far more than $600
+to a thermodynamics solver that is *subtly* wrong could cost far more than \$600
 downstream (bad simulation output, a wrong published number).
 
 **Verdict:** worthwhile for this mix of work — bounded-tedious migration (ideal
 AI territory) and exploratory debugging *with a checkable oracle* (the Zaloudek
 validation tests). It is **not** a safe substitute on work with no verification
-oracle, or if AI output is treated as correct-by-default. The $600 buys
+oracle, or if AI output is treated as correct-by-default. The \$600 buys
 specialist-grade output at a fraction of specialist cost **provided** the expert
 stays in the loop to verify it; the review is what makes the spend safe rather
 than risky.
@@ -162,7 +263,7 @@ for the BibTeX entry and the V&V records that reproduce it.
 
 ## Crates
 
-The workspace has 31 member crates, grouped by domain below.
+~~The workspace has 31 member crates, grouped by domain below.~~ **CORRECTED 2026-11-27:** the workspace has **51** member crates (counted from `crates/` and the root `Cargo.toml` members). The tables below listed 31; the 20 added since are in the last table, **"Added since the tables above were written"**. Each crate's README has a section **"Knowledge in this crate"** saying which knowledge artifacts it holds (see [Vision](#vision-scientific-knowledge-that-can-be-studied-and-challenged)), and the roster with maturity marks and dependency edges is [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md). The roles below are short summaries; **a crate's own README and `AGENTS.md` are the authority for its status**, and the older rows were not each re-checked against their crates here.
 
 **Thermal-hydraulics, fluid properties & process control**
 
@@ -229,6 +330,32 @@ The workspace has 31 member crates, grouped by domain below.
 | [`kovan-semantics`](crates/kovan-semantics) | Repo understanding — ripgrep-first, escalating to language servers | AGPLv3 |
 | [`kovan-codegen`](crates/kovan-codegen) | Deterministic code generation for known numerical methods | AGPLv3 |
 | [`kovan`](crates/kovan) (on crates.io: `knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan`) | CLI (agent-facing, binary `kovan`), TUI (`ratatui`, binary `kovan-tui`, CLI-redirect stub on Android) and GUI (binary `kovan-gui`, reuses `kovan-literature`'s digitiser window) — three front ends over the KOVAN knowledge layer | AGPLv3 |
+
+
+**Added since the tables above were written** (2026-11-27; roles summarised from each crate's own `Cargo.toml` description)
+
+| Crate | Role | License |
+|---|---|---|
+| [`bedok`](crates/bedok) | Systems-level multiphysics coupling: 3-D nodal-diffusion neutronics coupled to thermal-hydraulics; a Rust translation of Than Yan Ren's (SNRSI) MATLAB implementation | AGPLv3 |
+| [`bishan`](crates/bishan) | Level 2 PSA (in-plant severe-accident progression, containment and building response); first code a lumped HTR-10 reactor-building control volume, the rest not implemented | AGPLv3 |
+| [`buangkok`](crates/buangkok) | Radiation dose and biological effects: HTR-10 dose tables (Liu and Cao 2002) as reference data and a code-to-code verified port of pyDOSEIA (MIT) | AGPLv3 |
+| [`bugis`](crates/bugis) | The workspace's central GUI crate: Gruvbox theming, colour maps, egui widgets, the app scaffold and web-demo framework; `no_std` + `alloc` | AGPLv3 |
+| [`changi`](crates/changi) | Atmospheric dispersion, plume transport, deposition and ground contamination; pure-Rust port of FLEXPART | AGPLv3 |
+| [`dhoby-ghaut`](crates/dhoby-ghaut) | OUTRAM PARK's GUI home: the guided high-fidelity simulation workbench, meshing and Monte Carlo studios, and the tutorial web demos | AGPLv3 |
+| [`dover`](crates/dover) | Low-fidelity reactor models driven by TOML input decks, headless; first case steam methane reforming in a CSTR | AGPLv3 |
+| [`kaki-bukit`](crates/kaki-bukit) | `no_std` port of CYCLUS and CYCAMORE (agent-based nuclear fuel-cycle simulation); scaffold, no human V&V (not affiliated with the Cyclus project) | AGPLv3 |
+| [`kembangan`](crates/kembangan) | Materials damage under irradiation; first code the RustBCA binary-collision Monte Carlo, moved from boon-lay; dpa and property changes not implemented | AGPLv3 |
+| [`kovan-metrics`](crates/kovan-metrics) | KOVAN repository accounting: per-commit API-token trailers and historian reports | AGPLv3 |
+| [`kovan-web`](crates/kovan-web) | web-kovan: the read-only Code Review UI (code map, module trees, function rings, source panel, review bar), browser and native | AGPLv3 |
+| [`outram-park-fork-moltres`](crates/outram-park-fork-moltres) | MSR neutronics + thermal-hydraulics on the outram-foam FV layer, formulation from Moltres (LGPL); scaffold, no human V&V (not affiliated with Moltres/ARFC) | AGPLv3 |
+| [`outram-park-fork-onix`](crates/outram-park-fork-onix) | Port of ONIX (MIT): Bateman/CRAM depletion and fission-product inventory for the MSRE digital twin; scaffold, no human V&V | AGPLv3 |
+| [`outram-park-fork-thermochimica`](crates/outram-park-fork-thermochimica) | Port of ORNL Thermochimica (BSD-3): molten-salt Gibbs-energy minimisation thermochemistry for the MSRE digital twin; scaffold, no human V&V | AGPLv3 |
+| [`pasir-ris`](crates/pasir-ris) | Reserved home for an integrated risk and reliability GUI; placeholder, nothing implemented | AGPLv3 |
+| [`petir`](crates/petir) | Core numerics ported from the GNU Scientific Library (polynomials, equations, transforms, integration, roots, RNG, depletion maths); `no_std` | AGPLv3 |
+| [`punggol`](crates/punggol) | Radiation transport beyond neutrons: OpenMC photon samplers and decay-photon spectra, and the EGSnrc port (PEGS4, HATCH, interactions, transport loops); awaiting human V&V | AGPLv3 |
+| [`raffles`](crates/raffles) | Uncertainty quantification and risk analysis: port of RAVEN's core (Apache-2.0), plus Bayesian updating, ABC and imprecise probability; implemented in part, no human V&V | AGPLv3 |
+| [`redhill`](crates/redhill) | Groundwater and geological transport of radionuclides after deposition; placeholder, nothing implemented | AGPLv3 |
+| [`sembawang`](crates/sembawang) | Severe accident and source term, orchestrating the offsite chain to CHANGI; TRISO release via boon-lay, a reduced Fukushima Daiichi Unit 1 model, unvalidated | AGPLv3 |
 
 ## Build
 
