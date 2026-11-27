@@ -60,16 +60,30 @@
 //!
 //! ### Deferred (documented limitations)
 //!
-//! - **General 3-D polygon clipping.** True `AMIInterpolation` clips arbitrary
+//! - ~~**General 3-D polygon clipping.** True `AMIInterpolation` clips arbitrary
 //!   source polygons against each target polygon (Sutherland-Hodgman /
 //!   greatest-area walk). That is *not* implemented here; only the 1-D interval
 //!   overlap above is. Non-axis-aligned faces, skewed seams, and unstructured
-//!   transverse tilings are out of scope for this pass.
-//! - **Two transverse axes.** Only one transverse coordinate is overlapped; a
+//!   transverse tilings are out of scope for this pass.~~
+//!   **CORRECTED 2026-11-27 (gh:#1859):** the general 3-D weights now exist
+//!   beside this module, in
+//!   [`face_area_weight_ami`](crate::mesh::face_area_weight_ami): a port of
+//!   OpenFOAM ESI's `faceAreaWeightAMI` (advancing-front walk, and
+//!   `faceAreaIntersect`, which clips each source *triangle* by the three
+//!   planes through a target triangle's edges, not Sutherland-Hodgman). It
+//!   handles skewed, unstructured, 2-D tiled and curved seams;
+//!   [`FaceAreaWeightAmiResult::to_ami_couplings`](crate::mesh::face_area_weight_ami::FaceAreaWeightAmiResult::to_ami_couplings)
+//!   turns its weights into the [`AmiCoupling`]s below. [`overlap_weights_1d`]
+//!   is unchanged.
+//! - ~~**Two transverse axes.** Only one transverse coordinate is overlapped; a
 //!   fully 2-D tiled seam (subdivided in both in-plane directions) is not
-//!   handled.
-//! - **Non-planar / curved seams and per-face normal rotation** (`cyclicAMI`
-//!   with a rotational transform) are not handled.
+//!   handled.~~ Still true of [`overlap_weights_1d`]; handled by
+//!   `face_area_weight_ami` (2026-11-27).
+//! - **Per-face normal rotation** (`cyclicAMI` with a rotational transform) is
+//!   not handled: neither function applies a transform, so the caller must
+//!   map one half onto the other first. ~~**Non-planar / curved seams** are not
+//!   handled.~~ Curved seams are handled by `face_area_weight_ami`
+//!   (2026-11-27).
 //!
 //! These limits are acceptable for the verification cases this module ships
 //! (matching-mesh limit reproduces plain cyclic; a 2:1 non-conformal case is

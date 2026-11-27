@@ -44,6 +44,7 @@
 use crate::nostd_prelude::*;
 pub mod ami;
 pub mod error;
+pub mod face_area_weight_ami;
 pub mod fv_mesh;
 pub mod region_interface;
 

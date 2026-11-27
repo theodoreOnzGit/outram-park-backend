@@ -103,6 +103,11 @@ pub use crate::mesh::{
 
 // --- AMI (arbitrary mesh interface) overlap weighting ---
 pub use crate::mesh::ami::overlap_weights_1d;
+pub use crate::mesh::face_area_weight_ami::{
+    face_area_weight_ami, AmiAreaNormalisation, AmiError, AmiPatchGeometry, AmiPatchPlacement,
+    AmiPatchSide, AmiTriangulationMode, AmiWarning, FaceAreaWeightAmiOptions,
+    FaceAreaWeightAmiResult,
+};
 
 // --- Sparse linear system (Layer 2) ---
 pub use crate::ldu_matrix::{FvMatrix, FvVectorMatrix, LduMatrix, SolverPerformance, SolverSettings};
