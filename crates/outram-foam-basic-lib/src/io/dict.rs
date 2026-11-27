@@ -644,6 +644,22 @@ impl Parser {
     fn parse_value_sequence(&mut self) -> Result<FoamEntry, IoError> {
         let mut values = Vec::new();
         while !matches!(self.peek_text(), Some(";") | None) {
+            // OpenFOAM's uniform list `N{value}` (`List<scalar> 2{1}` = `2(1 1)`, `List::readList` /
+            // `UList` `count { value }`, used by GeN-Foam's `nuclearData`, gh:#1863): a whole number
+            // directly before `{` repeats the one value inside it N times.
+            if self.peek_text() == Some("{") {
+                if let Some(FoamValue::Scalar(n)) = values.last() {
+                    if *n >= 0.0 && n.fract() == 0.0 {
+                        let count = *n as usize;
+                        self.advance(); // `{`
+                        let leaf = self.parse_leaf()?;
+                        self.expect("}")?;
+                        values.pop();
+                        values.push(FoamValue::List(vec![leaf; count]));
+                        continue;
+                    }
+                }
+            }
             values.push(self.parse_leaf()?);
         }
         Ok(match values.len() {
@@ -680,7 +696,8 @@ impl Parser {
         }
         let text = t.text.clone();
         // Function-style word: fold glued trailing `( … )` groups.
-        if self.peek().is_some_and(|p| p.text == "(" && p.glued) {
+        // (not for a number: `List<scalar> 2(0.1 0.04)` is the count 2 and a list, gh:#1863)
+        if text.parse::<f64>().is_err() && self.peek().is_some_and(|p| p.text == "(" && p.glued) {
             let mut w = text;
             while matches!(self.peek(), Some(p) if p.text == "(" && p.glued) {
                 w.push_str(&self.fold_paren_text());
@@ -1069,6 +1086,23 @@ mod tests {
         assert_eq!(p_final.get_word("solver"), Some("PCG"));
         assert_eq!(solvers.get_dict("U").unwrap().get_scalar("relTol"), Some(0.05));
         assert!(FoamFile::parse("a { $missing; }").is_err());
+    }
+
+    /// gh:#1863: `List<scalar> 2{1}` is the uniform list `2(1 1)`.
+    #[test]
+    fn a_uniform_list_n_braces_value_repeats_the_value() {
+        let f = FoamFile::parse("a nonuniform List<scalar> 3{0.5}; b 2 (1 2);").unwrap();
+        match f.dict.get("a") {
+            Some(FoamEntry::Tokens(t)) => match t.last() {
+                Some(FoamValue::List(l)) => {
+                    assert_eq!(l.len(), 3);
+                    assert!(l.iter().all(|v| matches!(v, FoamValue::Scalar(x) if *x == 0.5)));
+                }
+                other => panic!("{other:?}"),
+            },
+            other => panic!("{other:?}"),
+        }
+        assert!(FoamFile::parse("a 2{1 2};").is_err());
     }
 
     #[test]

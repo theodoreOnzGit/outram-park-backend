@@ -4394,3 +4394,367 @@ None: rounds 3-17 gates re-run unchanged. `TwoPhaseCase::read` of a case with `s
 ### Reproduction
 
 `bash scripts/make_boiling_mules_variants.sh`; per variant `VARIANT=<name> EVERY_STEP=1 TIGHT=1 END_TIME=1.0 PRE_RUN=scripts/boiling_mules_variant_protocol.sh bash scripts/run_tutorial.sh featureCases/1D_boiling r34_<x>`; `EXTRA_FIELDS="alpha.liquid alphaPhi.vapour alphaPhi.liquid phi.vapour phi.liquid" bash scripts/extract_boiling_reference.sh r34_<x> <ref name> . 1 60` (a: `. 1 40` and `. 600 660`, END_TIME 7).
+
+## Round 32 (gh:#1863): the external neutron source of `diffusionNeutronics`, against `2D_externalSourceDiffusion`
+
+### What upstream does (read before any code or run; GeN-Foam 652b3da on ESI v2506)
+
+* `neutronics.C:256-283`: `externalSourceNeutronics_` is `lookupOrDefault("externalSourceNeutronics", false)` of `neutronicsProperties`; `constant/<region>/externalSource` is READ_IF_PRESENT and its key `externalSourceModulationTimeProfile` builds a `timeProfile` (invalid, so modulation 1, when the file or the key is absent).
+* `createNeutronicsFields.H:150-167`: `externalSourceFlux<i>` is READ_IF_PRESENT, copied from `defaultExternalSourceFlux` (READ_IF_PRESENT, default `uniform 0`, zeroGradient); AUTO_WRITE only when the source is on.
+* `createFluxMatrices.H`: `externalSourceModulation = profile.value(timeOutputValue)` (or 1), and each group matrix is `ddt(...) - laplacian - Sp(...) - externalSourceFlux[g]*externalSourceModulation*externalSourceNeutronics_`. The matrices are built ONCE per step, before the neutron iteration, so a `corrected` laplacian's explicit part is frozen at the step's start flux.
+* `solveNeutronics.H:131`: with the source on, `reactorState_.set("pTarget", pTot)` at the end of every step. `:100` has the loop test `!externalSourceNeutronics` commented out.
+* `fluxEq.H`, `precEq.H`: the term `(1-externalSourceNeutronics_)` appears only in comments; the source is not divided by `discFactor` and does not enter the eigenvalue branch's `keff_` update.
+* SP3 and SN: `grep -rn externalSource src/classes/neutronics/{SP3,SN}` finds nothing (the only hits are `diffusion/`, `neutronics.{C,H}` and `pointKinetics/`), so the source is a diffusion-only (and point-kinetics, gh:#1864) feature; SP3/SN ignore `externalSourceNeutronics` silently. The port REFUSES that combination by name rather than ignore it.
+* The tutorial case (`featureCases/2D_externalSourceDiffusion`): 150-cell wedge (10 x 1 x 15, 0.1 rad, a non-orthogonal trapezoid in r-z), two groups, six precursor groups, `laplacianSchemes Gauss linear corrected` (the MSFR neutronics regions use `uncorrected`), `ddtSchemes steadyState`, `eigenvalueNeutronics false`, `externalSourceNeutronics true`, `keff 1` in `reactorState`, `adjustTimeStep` with `maxPowerVariation 0.01`, `endTime 100`. `Alltest` sets the walls of `defaultFlux`, `defaultFlux2`, `defaultExternalSourceFlux` to `zeroGradient` (a closed medium); `rootCase` has `fixedValue 0` walls.
+
+### What the port had (searched before writing)
+
+`grep -ri externalSource crates/outram-foam-appbuilder-lib/src/genfoam` found nothing. The stationary-fuel diffusion model had the eigenvalue pseudo-time step (`pseudo_time.rs`) and the port-native `DiffusionNeutronics::step` (not a translation); `upstream_transient_step` is the `liquidFuel true` form only and needs the circulating-fuel transport. `fvm::laplacian_corrected` (upstream's `correctedSnGrad` translation, gh:#1362) and `fvc::grad` (Gauss linear) exist in basic-lib; `PseudoTimeClock`, `adjust_delta_t` and `neutronics_max_delta_t` are the whole time loop; `TimeProfile` is the `Function1` table. New code: the reader of the flag and the flux files, the `solveNeutronics.H` non-eigenvalue stationary-fuel step with its `ddt` scheme (`steadyState` or `Euler`) and the source, and the loop.
+
+### Cases (the port reads the same bytes upstream runs)
+
+| id | case |
+|---|---|
+| A | shipped `rootCase` (walls `fixedValue 0`), tight protocol |
+| B | `Alltest`'s form: walls `zeroGradient` on `defaultFlux`, `defaultFlux2`, `defaultExternalSourceFlux` (closed medium), tight protocol |
+| C | B with `ddtSchemes default Euler` (a real transient toward the same steady state; the shipped case never exercises `fvm::ddt`) |
+| D (control) | port B with `externalSourceNeutronics false` against upstream B (source on): must differ |
+| E (control) | port A with `uncorrected` against upstream A (`corrected`): must differ, because the mesh is non-orthogonal and A's flux is not uniform |
+
+### Predictions (written BEFORE any run of upstream or port in this round; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| Q1 | A, B, C: `power` of every step, port against upstream | <= 1e-9 relative at every step (not bit-identical: basic-lib's CG against `PCG`/`DIC`; round 1 gave 6e-13 on the flux). Odds 65 %. The alternative, for A only, is the wedge patches in the Gauss gradient that feeds the `corrected` laplacian: then step 1 differs at 1e-4 to 1e-3 and the first diverging quantity is the first group's first-solve residual |
+| Q2 | neutron iterations per step | equal at >= 95 % of the steps; a mismatch sits at a step whose final residual is within 1e-6 relative of the 1e-6 threshold (as round 6) |
+| Q3 | time sequence (`Time =`, `deltaT`) | equal to 1e-10 relative at every step; the number of steps equal. I cannot predict the number: with `steadyState` the step size only follows `maxPowerVariation 0.01`, and a large power change per step SHRINKS the step; I expect between 100 and 5000 |
+| Q4 | B final power, steady state | upstream's `Alltest` expects 53214.3 W, and the closed-form uniform solution of the two-group balance (derived in the test from the cross sections alone) gives it; port within 1e-9 of upstream. The approach is from BELOW (the start flux 1e3 is under the steady 6951 / 8951) |
+| Q5 | B analytic check | the discrete balance residuals `eq0`, `eq1` of `analysis.py` are <= 1e-9 of the flux scale; `N_tot = S/(1 - ksrc)` with `ksrc = 0.944142` (not the eigenvalue 0.9497: the source spectrum is not the fission spectrum) to 1e-9. `N_tot = S + sum nuSigmaF flux` is an identity once `ksrc` is defined that way, so the non-trivial content of the check is that `ksrc` equals the closed-form value |
+| Q6 | A: fixedValue walls | final power below B's (leakage), the flux not uniform; port against upstream as Q1 |
+| Q7 | `pTarget` written at the end | equals the final `power()` bit for bit in the port, and upstream's written `reactorState` agrees to 1e-9 |
+| Q8 | control D | step-1 power differs from upstream by > 10 % (no source: the start flux decays); at the end the port power is < 1e-3 of upstream's. Fails the gate: yes |
+| Q9 | control E | power differs from upstream at the end by between 1e-5 and 1e-2 relative, port above or below unknown. Fails the gate: yes |
+| Q10 | wall time | port < 60 s for the whole of A, B and C |
+
+### What was ported (new code; no function with a kovan review stamp was touched: no `kind = "review"` block exists in the folders involved)
+
+| upstream | port |
+|---|---|
+| `neutronics.C:256-283` (`externalSourceNeutronics_`, `externalSource_`, the time profile) | `diffusion/external_source_case.rs` (`parse_external_source_neutronics`, `ExternalSourceCase::read`); a `constant/<region>/externalSource` naming `externalSourceModulationTimeProfile` is refused by name, `ExternalSource::with_modulation` takes the profile in Rust |
+| `createNeutronicsFields.H:150-167` (`externalSourceFlux<i>`, `defaultExternalSourceFlux`) | `ExternalSourceCase::read` (file, else default, else 0) and `ExternalSource` |
+| `createFluxMatrices.H` (`... - externalSourceFlux*modulation*flag`, matrices built once per step) | `DiffusionNeutronics::stationary_group_matrix`; the `corrected` laplacian's gradient is taken once per step (`fvc::grad` + `fvm::laplacian_corrected`) |
+| `solveNeutronics.H`, `fluxEq.H`, `precEq.H` (`liquidFuel false`), `initialize*Source.H` | `DiffusionNeutronics::upstream_stationary_step` (`ddt` `steadyState` or `Euler`) |
+| `solveNeutronics.H:131` (`reactorState_.set("pTarget", pTot)`) | `StationaryStep::p_target` |
+| `GeN-Foam.C` main loop | `DiffusionNeutronics::run_stationary_transient` (the existing `PseudoTimeClock`) |
+| SP3/SN: no `externalSource` in upstream | `refuse_external_source_for_transport` refuses by name |
+
+Two defects of the existing reader, found because this case's `nuclearData` could not be read, fixed in `outram-foam-basic-lib/src/io/dict.rs` (both are OpenFOAM list syntax; the dictionary reader is not kovan-reviewed): `List<scalar> 2{1}` (the uniform list `N{value}`, used by `2D_externalSourceDiffusion`, `2D_fullCoupling`, `2D_onePhaseAndPointKineticsCoupling` and the FMU cases) failed with "unexpected end of input inside `{ ... }`", and a glued count `2(0.1 0.04)` was read as the function-style word `2(0.1 0.04)`. Every other reading test passed unchanged (`genfoam_neutronics_vs_upstream`, `genfoam_msfr_transient_vs_upstream`, `genfoam_msfr_chain_vs_upstream`, `genfoam_msfr_th_vs_upstream`, `--lib neutronics`, `--lib nuclear_data`).
+
+### Upstream facts measured (real binary, tight protocol, serial; scratch deleted after extraction)
+
+| variant | steps | neutron iterations | wall | final power |
+|---|---|---|---|---|
+| A (shipped, walls `fixedValue 0`) | 183 | 396 (many steps converge below 1e-6) | < 1 s | 18709.241363204968 W |
+| B (closed) | 180 | 9000 (the 50-iteration cap at every step) | 3 s | 53214.292175917675 W |
+| C (B, Euler) | 549 | 27450 (cap at every step) | 8 s | 53166.136153403524 W |
+| BO (B, source off) | 467 | 1920 | 1 s | -1.4e-36 W (round-off: the decay reaches the noise floor, upstream's own `power` goes negative) |
+
+### Round 32 results (measured 2026-11-27, release; `tests/genfoam_external_source_vs_upstream.rs`, 6 tests, 2 s; `--nocapture` prints every tally)
+
+| comparison | steps (port/upstream) | power, worst relative over all steps | iterations equal | flux at t = 100, worst / field max | `pTarget` |
+|---|---|---|---|---|---|
+| A, port against upstream | 183 / 183 | 4.8e-14 | 183 / 183 | 6.6e-14 | 4.8e-14 |
+| B | 180 / 180 | 1.5e-13 | 180 / 180 | 1.8e-13 | 1.5e-13 |
+| C | 549 / 549 | 2.4e-13 | 549 / 549 | 7.7e-14 | 2.3e-15 |
+
+* The `deltaT` printed after each step (17 digits) agrees EXACTLY (0 relative) in all three; no step diverges first. `Time =` of the log is `timeName()` with `timePrecision 8`, so it agrees to the print (3e-8 to 5e-8 relative); the port's own time is asserted to be the running sum of its steps.
+* The final `neutroResidual` of a step: A agrees to 2.95e-8 relative at every step where upstream's is above 1e-8 (gated at 1e-6). In B and C the whole solution is spatially uniform (closed medium, uniform start flux and source), so OpenFOAM's normalisation `sum(|Ax - A xRef| + |b - A xRef|)` divides a round-off remainder by a round-off remainder and the residual is noise (step 65 of B: upstream 0.052, port 0.564, power equal to 1e-13); it is reported, not gated. A, whose flux is not uniform, is the case where it is a number.
+* `pTarget` of the port is the final `power()` bit for bit, and upstream's written `reactorState` agrees to 4.8e-14 (A), 1.5e-13 (B).
+* Not bit-identical: basic-lib's CG against `PCG`/`DIC`, differences at the 1e-13 level, no iteration-count flips (all 912 steps agree), well inside the 1e-9 allowance and under it by four orders. First diverging quantity: none above 1e-9.
+
+**Controls (the comparison can fail).** D: port B with `externalSourceNeutronics false` against upstream B: step-1 power differs by 1.0 (relative; no source, the start flux just decays), the final port power is 3.3e-58 of upstream's, 467 steps against 180; PASSES the "differs" test. D2: the same source-off port against upstream's own source-off run BO agrees to 1.9e-14 on every step whose upstream power exceeds 1e-12 W (467 / 467 steps; below that both codes are round-off, upstream's power is negative at 1e-36 W), so the source term is the only difference between B and BO. E: port A with `uncorrected` against upstream A (`corrected`): 171 against 183 steps, step-1 power already differs, the final power differs by 7.2e-2 relative (flux 7.0e-2 of the field maximum): the non-orthogonal correction matters on this mesh and the port applies it.
+
+**Analytic check (case B), independent of the solver.** The closed form of the uniform two-group balance with the source, from the case's cross sections alone (`chi_g = (1-beta) chiP_g + beta chiD_g`, 2 x 2 solve, V = 3.34628 m^3): power 5.321429217592e4 W; the port's final power 5.321429217591e4 (relative 1.55e-13); upstream's `Alltest` expects 53214.3 and its own final value is 53214.292175917675. `analysis.py`'s quantities from the port's final integrals: `S0 = S1 = 3346.280275`, `ksrc = NprodFiss/(NprodFiss + Nsrc) = 0.944141944984` (closed form 0.944141944984), balance `keff = NprodFiss/(Nabs - NprodScatt) = 0.944141944984`, residuals `eq0 = 8.9e-10`, `eq1 = 5.6e-11` against a flux scale of 5.3e4 (1.7e-14 relative), `N_tot = S + sum nuSigmaF flux = 1.198137055e5 = S/(1 - ksrc)` (to 1e-9, gated). The tutorial's "k_eff" here is the SOURCE multiplication `ksrc = 0.9441`, not the eigenvalue 0.9497 (the source spectrum is half thermal, the fission spectrum is fast): `N_tot = S + sum nuSigmaF flux` is an identity once `ksrc` is so defined, so what the check does test is that the converged flux equals the closed form, and it does, to 1.5e-13 (the approach is from below: step-1 power 51110 W against 53214 W, asserted).
+
+### Predictions: held and missed
+
+* Q1 held (65 % odds): 4.8e-14 to 2.4e-13, bit-identity not reached (CG against DIC-PCG); the wedge patches in the Gauss gradient were NOT a problem (step 1 of A agrees).
+* Q2 held (100 % of 912 steps; B and C trivially, every step hits the 50-iteration cap; A's 183 steps are the non-trivial ones, many converge by the threshold).
+* Q3 held: time sequence equal, the step counts 183 / 180 / 549 are inside 100 to 5000.
+* Q4 held (53214.29 against 53214.3; from below). Q5 held (eq0, eq1 1.7e-14 relative; `ksrc` 0.944142 as predicted). Q7 held. Q10 held (2 s).
+* Q6 missed in one detail: A's final power (18709 W) is far below B's (53214 W), as predicted in sign, and the flux is not uniform; I did not predict the size.
+* Q8 held: step-1 difference 1.0 (> 0.1), the end ratio 3.3e-58 (< 1e-3).
+* Q9 missed in magnitude: predicted 1e-5 to 1e-2, measured 7.2e-2 on the final power (the correction matters more than I thought on this 150-cell trapezoid at 10 x 15).
+
+### Not ported (refused by name)
+
+* ~~`externalSourceModulationTimeProfile` from a `constant/<region>/externalSource` dictionary (the `Function1` dictionary reader): the reader refuses the case; the modulation itself works (`ExternalSource::with_modulation`, unit-tested with a constant profile, not compared with upstream).~~ **CORRECTED 2026-11-27 (round 32b below):** read for `type table` and compared with the real binary; only `fmi` and the other `Function1` types stay refused.
+* `externalSourceNeutronics true` with `liquidFuel true` (`upstream_transient_step` refuses it), with `eigenvalueNeutronics true` (the reader refuses), and with SP3/SN (upstream ignores the flag; the port refuses).
+* `limited corrected`, `orthogonal` and other `laplacianSchemes`, `ddtSchemes` other than `steadyState`/`Euler`, `integralPredictor`, `implicitPredictor`, `aitkenAcceleration` true: refused by the reader.
+* The point-kinetics half of the source (`externalSourceMode`, `nuSource`, `beamEnergy`): gh:#1864.
+
+## Round 32b (gh:#1863, time profile): `externalSourceModulationTimeProfile` of `constant/<region>/externalSource`
+
+### What upstream does (read before any code or run; GeN-Foam 652b3da on ESI v2506)
+
+* `neutronics.C:265-281` (the initialiser list): `externalSource_` is an `IOdictionary` of `constant/<region>/externalSource` (READ_IF_PRESENT) and `externalSourceModulationTimeProfile_` is `timeProfile(externalSource_, "externalSourceModulationTimeProfile", time)`.
+* `common/timeProfile/timeProfile.C:100-137` (the `(IOdictionary, name, Time)` constructor): when the key is found, `dict_ = subDict(name)`, `type_ = dict_.get<word>("type")` (mandatory), `startTime_ = lookupOrDefault("startTime", 0)`, and for `type_ != "fmi"` `Function1<scalar>::New(type_, dict_, type_)`; `fmi` needs the `commDataLayer` (live co-simulation, out of scope by `RESPONSIBLE_USE.md`). `valid()` (`:181`) is false without the key; `value(t)` (`:194-223`) is `functionPtr_->value(t - startTime_)`.
+* `diffusion/include/createFluxMatrices.H:3-10`: once per step, `externalSourceModulation = profile.value(mesh_.time().timeOutputValue())` (the time AFTER the increment) when valid, else 1; the group source is `externalSourceFlux[g] * externalSourceModulation * externalSourceNeutronics_`.
+* `Function1Types::Table` (`OpenFOAM-v2506/src/OpenFOAM/primitives/functions/Function1/Table/Table.C:34-76`): the entry named `table` as a stream (`table table ((t v) ...)`, the leading word `table` discarded; the form of the shipped point-kinetics tutorials), else `file`, else `values ((t v) ...)`. `TableBase`: `outOfBounds` default `clamp`, `interpolationScheme` default `linear`.
+* Shipped use: only `featureCases/2D_onePhaseAndSubcriticalPointKineticsCoupling` and the `fmuCases/2D_LFRpowerPlant` cases (point kinetics, `type table` with `startTime 1500000000`, and `type fmi`); no shipped diffusion case has the file.
+
+### Searched before writing (reuse)
+
+`TimeProfile` (`genfoam/common/time_profile.rs`: ESI table value, `start_time`) and `ExternalSource::with_modulation` / `modulation_at` exist. `thermal_hydraulics/solver/two_phase/case.rs::read_table_time_profile` reads `type table` / `startTime` / `table` from a `FoamDict` but is `pub(super)` in another module tree (other agents work there; not touched), takes a TH `Ctx`, and does not know the `values` form: the diffusion reader gets its own reader beside `ExternalSourceCase` and cites it.
+
+### Cases (the port reads the same bytes upstream runs; `cases/external_source_profile/`, `scripts/run_external_source_profile.sh`)
+
+| id | case |
+|---|---|
+| F | round 32's B (closed medium) with `ddtSchemes Euler` and `externalSource_F`: inline `table table (...)`, `startTime 5`, knots (0 1) (15 1) (35 3) (55 3) (75 0.5), i.e. real times 1 until t = 20, ramp to 3 at 40, hold to 60, down to 0.5 at 80, hold |
+| G | round 32's A (shipped walls `fixedValue 0`, a non-uniform flux, `corrected` laplacian) with `ddtSchemes Euler` and `externalSource_G`: the `values (...)` form, no `startTime`, knots (0 1) (10 1) (30 2.5) (50 0.5) |
+| H (control 1) | port F with the file ignored (modulation 1) against upstream F: must differ |
+| I (control 2) | port F with `startTime` ignored (0) against upstream F: must differ |
+
+### Predictions (written BEFORE any upstream run of F or G and BEFORE any port code of this round; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| R1 | F, G: `power` of every step, port against upstream | <= 1e-9 relative at every step, typically 1e-13 to 1e-12 (CG against DIC-PCG, as round 32); NOT bit-identical. Odds 80 % |
+| R2 | neutron iterations per step | equal at every step of F and G (F: the 50-iteration cap every step, trivially; G: non-trivial); odds 85 % |
+| R3 | `deltaT` sequence and number of steps | `deltaT` equal to 1e-10 relative; steps equal; between 200 and 5000 for each (the profile moves the power by a factor 3, which shrinks `adjustTimeStep` steps) |
+| R4 | modulation is read at the time AFTER the increment, and the profile is silent before it starts | upstream F and upstream C (round 32 ref) agree BIT FOR BIT on `power` at every step whose `Time` is <= 20, and differ (> 1e-6 relative) at the first step with `Time` > 20 (an exactly flat profile: `w0*1 + w1*1` may differ from 1 by 1 ulp in the interior of the flat segment: if it does, R4 holds at 1e-15, not bit for bit) |
+| R5 | F final power | modulation 0.5 held from t = 80 to 100 and the system linear in the source: ratio of the final power to round 32's B steady 53214.292 W in [0.49, 0.52]; maximum power of F in [1.45e5, 1.65e5] W (3 x 53214 = 1.6e5, minus the time to follow the ramp) |
+| R6 | G final power | ratio to round 32's A final 18709.241 W in [0.49, 0.52] |
+| R7 | flux at t = 100, port against upstream | <= 1e-9 of the field maximum per group |
+| R8 | control H (profile ignored) | step counts or powers differ: first step with relative power difference > 1e-6 is the first with `Time` > 20; the final power differs by more than 0.5 relative (port at 53166 W against upstream near 26600 W). Fails the gate: yes |
+| R9 | control I (`startTime` ignored) | first step with relative power difference > 1e-6 is the first with `Time` > 15, before the true ramp (20); the final power agrees to < 1e-2 (both hold 0.5 long enough), the trajectory does not. Fails the gate: yes |
+| R10 | refusals | `type fmi`, `type sine`, `outOfBounds repeat`, `interpolationScheme` other than `linear`, `file`, an unknown key, a missing `type`, and a malformed table are each refused by name |
+| R11 | wall time | port < 60 s for F and G together |
+
+### Upstream facts measured (real binary, tight protocol, serial; scratch deleted after extraction)
+
+| variant | steps | wall | final power | max power |
+|---|---|---|---|---|
+| F (closed, Euler, inline table, `startTime 5`) | 795 | 12 s | 27103.09 W (0.50932 x B steady 53214.29) | 158925.1 W |
+| G (shipped walls, Euler, `values`, no `startTime`) | 678 | 4 s | 9368.708 W (0.50075 x A steady 18709.24) | |
+
+### What was ported (new code; no function with a kovan review stamp was touched: no `kind = "review"` block exists in the folders involved)
+
+| upstream | port |
+|---|---|
+| `timeProfile.C:100-137`, `Function1Types::Table` (`Table.C:34-76`) | `external_source_case::parse_external_source_time_profile` (`type table`; `table table (...)`, `table (...)` or `values (...)`; `startTime`; written defaults `outOfBounds clamp` / `interpolationScheme linear` accepted) onto the existing `TimeProfile` |
+| `neutronics.C:265-281` (`externalSource` READ_IF_PRESENT) | `ExternalSourceCase::read`: file present and key present gives `ExternalSource::with_modulation`; the round 32 refusal is removed |
+| `createFluxMatrices.H:3-10` | unchanged since round 32 (`modulation_at(time after increment)`), now compared |
+
+### Round 32b results (measured 2026-11-27, release, PRIVATE cargo target dir; `tests/genfoam_external_source_vs_upstream.rs`, 11 tests, 12 s)
+
+| comparison | steps (port/upstream) | power, worst relative over all steps | iterations equal | `deltaT` | flux at t = 100, worst / field max | `pTarget` |
+|---|---|---|---|---|---|---|
+| F, port against upstream | 795 / 795 | 2.35e-13 | 795 / 795 | exact | 3.6e-14 | 2.2e-15 |
+| G | 678 / 678 | 2.07e-14 | 678 / 678 | exact | 1.5e-15 | 1.9e-16 |
+
+* Not bit-identical (basic-lib's CG against `PCG`/`DIC`), four orders under the 1e-9 allowance; no step diverges first; the rounds 1-32 gates (A, B, C, D, E, SP3/SN) pass unchanged in the same run (A 4.8e-14, B 1.5e-13, C 2.4e-13).
+* G's final `neutroResidual` agrees to 1.3e-8 relative at the steps above 1e-8 (non-uniform flux, the residual is a number); F's is noise as in round 32's B and C (uniform solution), reported, not gated.
+* R4, upstream against upstream (no port involved): F and round 32's C agree BIT FOR BIT (0 relative) on `power` at every step whose `Time` is below 20, and F first leaves C by more than 1e-6 at the first step beyond 20 (step 470, `Time = 21`), which is both the `startTime` shift (5 + 15) and the evaluation at the time after the increment.
+* **Controls (the comparison can fail).** H, port with the file ignored against upstream F: 549 against 795 steps, first power difference over 1e-6 at step 470 (`Time = 21`, the first step beyond 20), final power differs by 0.962 relative. I, port with `startTime 0` against upstream F: 795 / 795 steps but the first power difference over 1e-6 at step 465 (`Time = 16`, the first step beyond 15), worst 0.134 relative, final power differs by only 3.1e-3 (both hold 0.5 by then).
+* Refusals by name, tested through `ExternalSourceCase::read`: `type fmi`, `type sine`, `outOfBounds repeat`; and in unit tests `interpolationScheme splineLinear`, `file`, a missing `type`, a table without `table`/`values`, a malformed row, non-ascending times, a single row, a non-dictionary key.
+
+### Predictions: held and missed (R1-R11)
+
+* R1 held (2.35e-13, 2.07e-14; not bit-identical). R2 held (795/795, 678/678). R3 held (`deltaT` exact; 795 and 678 steps, inside 200-5000). R4 held in its strong form (0, bit for bit, not the 1e-15 fallback). R5 held (0.50932 in [0.49, 0.52]; max 1.589e5 in [1.45e5, 1.65e5]). R6 held (0.50075). R7 held (3.6e-14, 1.5e-15). R9 held (first difference at the first step beyond 15; final 3.1e-3 < 1e-2). R10 held. R11 held (3 s for F, the whole file 12 s).
+* R8 held, with one imprecision of mine: the first-difference step is the first with `Time` beyond 20 (`Time = 21`), as predicted; my first version of the test bounded it to (20, 21) by value, which failed on the equality at 21, so the test now asserts the index of the first step beyond 20 exactly (`first_step_after`), a sharper statement rather than a looser one.
+* Process note: the first run (shared cargo target dir, taken before the coordinator's instruction to use a private one) gave the same F, G and control numbers, and a later build from that dir failed with `unresolved import` because sibling worktrees overwrite each other's `outram-foam-appbuilder-lib` rlib. Every result in this section was re-run and read from a private target dir.
+
+### Still not ported (refused by name)
+
+`type fmi` (live co-simulation coupling, out of scope), every `Function1` other than `table` (`constant`, `sine`, `linearRamp`, ...), a table `file`, `outOfBounds` other than `clamp`, `interpolationScheme` other than `linear`, a table with fewer than two rows (OpenFOAM allows one). Only `table`, the form the shipped point-kinetics tutorials use, was compared; the other `Function1` types were not run against upstream.
+
+### Reproduction
+
+`GENFOAM_UPSTREAM=/home/user/upstream-build/GeN-Foam-src /home/user/upstream-build/scripts/with-of.sh bash scripts/run_external_source_profile.sh F` (and `G`), then `scripts/extract_external_source_profile.sh`; port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_external_source_vs_upstream -- --nocapture`.
+
+## Round 33 (gh:#1866): onePhase `nNonOrthogonalCorrectors`, the pressure reference cell and Boussinesq, in the cell-centred and the face-centred region
+
+Epic #1216 ("Port genfoam exhaustively", maintainer 2026-11-27). Upstream: GeN-Foam `652b3da`, `thermalHydraulics/solvers/onePhase/include/equations/{pEqn_1p.H, pEqnf_1p.H, pEqnRoutines/{solveP_rgh_1p,updatePP_rghRho_1p,calcrAUfSetSnGradCalcComp_1p,calcPhiSbyA_1p}.H}`, `customPimpleControl` (`correct(bool)`, `updateFirstPISOPrevPIMPLE`) and OpenFOAM-ESI v2506 `pimpleControl::finalInnerIter`, `solutionControl::{correctNonOrthogonal,finalNonOrthogonalIter}`.
+
+### What upstream does (read before any code)
+
+* `pEqn_1p.H` (cell-centred) and `pEqnf_1p.H` (face-centred) wrap the pressure solve in `while (pimple_.correctNonOrthogonal())`: `nNonOrthogonalCorrectors + 1` passes. Each pass is `solveP_rgh_1p.H`: `pEqnIncomp = div(phiHbyA) - laplacian(rAUf, p_rgh)`, `pEqn = pEqnComp + pEqnIncomp`, `pEqn.setReference(pRefCell, compressible ? getRefCellValue(p_rgh, pRefCell) : pRefValue, forcePRef)` (ESI `fvMatrix::setReference` does nothing unless `psi.needReference()`: no fixed-value patch), a solve with `mesh.solver(p_rgh.select(pimple.finalInnerIter()))`, `if (corrNonOrtho == 1) convergedPISO = converged` and `updateFirstPISOPrevPIMPLE()`. Only the FINAL pass (`finalNonOrthogonalIter()`) assigns `phi_`, `phi`, `dgdt`, runs `p_rgh.relax()` and reconstructs `U`. `updatePP_rghRho_1p.H` (`p = max(p_rgh + rho gh, pMin)`, the closed-volume mass correction, `rho += psi (p_rgh - p_rgh_0)`, `p_rgh = p - rho gh`) runs ONCE after the loop.
+* `pimpleControl::finalInnerIter()` (v2506 `pimpleControlI.H:98`) is `corrPISO == nCorrPISO && corrNonOrtho == nNonOrthCorr + 1` (and `finalIter()` with `finalOnLastPimpleIterOnly`): `p_rghFinal` is used by the LAST pass of the last corrector, not by the first pass.
+* `compressible = (integral psi / V >= 1e-8)` (`updateAlphaPhiAndInitControls_1p.H`): a Boussinesq fluid has `psi = 0`, so `setReference` takes `pRefValue` and the closed-volume mass correction is skipped (`!fluid_.Boussinesq()`). The compressible closed-volume branch (`getRefCellValue`, `deltaMass/compressibility`) needs an equation of state with `psi > 0`.
+* With `laplacianSchemes ... uncorrected` (the only scheme the port's `fv` module implements) the matrix of every pass is the same, so the passes after the first restart a PCG from a solved field.
+
+### Which tutorial needs which branch (read from the shipped files; to be confirmed by the runs)
+
+| tutorial | momentumMode | `nNonOrthogonalCorrectors` | closed volume (reference cell) | Boussinesq | other needs |
+|---|---|---|---|---|---|
+| `featureCases/2D_cavityBoussinesq` | faceCentered | 0 | yes (`fixedFluxPressure` on every wall; `pRefCell 780`, `pRefValue 1e5`) | yes (`rho0 897`, `beta 2.42e-4`, `T0 500`) | `noSlip` U, `empty` patches, `fixedValue` T walls, GAMG `p_rgh` |
+| `testing/2D_MSFR_ULOF_diffusion_and_pk` | cellCentered | 1 | yes (`fixedFluxPressure` + wedge) | yes | nothing else beyond the existing cell-centred port |
+| `reactorCases/3D_HTR-10` | faceCentered | 1 | **no** (`p_rgh` has a `fixedValue` patch: `setReference` is inert) | **no** (`perfectGas`, `hPolynomial`) | compressible thermo, `fixedFluxExtrapolatedPressure`, 3D |
+
+### Predictions (written BEFORE any run of these variants and BEFORE any Round 33 port code; committed first)
+
+Variants (overlays over `cases/msfr_th`, turbulence on, tight, three steps, `scripts/make_msfr_th_nonorth_variants.sh`): `no_1` (`nNonOrthogonalCorrectors 1`), `no_2` (2), `no_1_final` (`no_1` + a loose `p_rghFinal`, `relTol 0.05`), `no_rc_p` (`no_1` + `residualControl` with `h` always met and `p_rgh` `0.004` `useFirstPISOInitialResidual`, distinct Final entries), `no_1_fld_p` (`no_1` + `fields { p_rgh 0.7; }`), `no_ulof` (the `PIMPLE` block of the `2D_MSFR_ULOF_diffusion_and_pk` tutorial: `nCorrectors 6`, `nNonOrthogonalCorrectors 1`, `nOuterCorrectors 1`, no `correctUntilConvergence`).
+
+* **P1 (counts).** Every corrector logs `nNonOrthogonalCorrectors + 1` `p_rgh` solves (2 in `no_1`, 3 in `no_2`); the outer-iteration counts of `no_1`, `no_2`, `no_1_final`, `no_1_fld_p` are 5, 5, 5 as in the base; `no_ulof` has 1 outer iteration per step and 12 `p_rgh` solves per step.
+* **P2 (the extra passes).** Pass 1 of each corrector is the base solve (same iteration count, 1e-12 residual agreement as rounds 29-31). Passes 2 and 3 restart from a solved field: initial residual below 1e-12 (normalised) and 0 to 3 iterations; upstream and the port agree on the count to within one iteration. Sign: the pass-2 residual is not exactly zero (the solved residual is at 1e-14 to 1e-15 and the true residual a few times larger).
+* **P3 (fields).** Port against the real binary at the 1e-12 level of rounds 20-31 (`U k epsilon p_rgh T`), no step diverging; bit identity is NOT expected (the base already differs at 1e-12). The port's `no_1` fields differ from the port's own `nNonOrthogonalCorrectors 0` fields by at most 1e-10: with `uncorrected` Laplacians the extra pass changes the log, not the answer.
+* **P4 (where the select matters).** In `no_1_final` upstream's last corrector solves pass 1 with `p_rgh` (a hundred or more PCG iterations) and pass 2 with the LOOSE `p_rghFinal` for 0 iterations (initial residual under 1e-12). The control (port with the passes ablated, so that the single pass takes `p_rghFinal`) must differ: the last corrector's iteration counts and `U` by 1e-8 to 1e-5 (round 31's `fin_prgh` control was 3.8e-6).
+* **P5 (`updateFirstPISOPrevPIMPLE` per pass).** In `no_rc_p` the pass-2 residual of corrector 1 (below 1e-12) replaces the pass-1 residual as `previousPIMPLEFirstPISORes_[1]`, so upstream flags the criteria at the start of outer iteration 2: **2 outer iterations in every step**. The control (update only after pass 1, 0.98 at outer 1) must give more (4 or 5) and differ by more than 1e-3 in `U`.
+* **P6 (`p_rgh.relax()` once).** `no_1_fld_p` agrees with upstream at 1e-12; relaxing after every pass would not (not offered as a control: a different algorithm).
+* **P7 (nothing moves).** `genfoam_msfr_th_vs_upstream` (6), `genfoam_msfr_th_options_vs_upstream` (15) and `genfoam_msfr_th_pimple_vs_upstream` (14) pass unchanged at their own gates: with `nNonOrthogonalCorrectors 0` the new loop is one pass, bit for bit what it was.
+* **P8 (cavity).** `2D_cavityBoussinesq` needs, in the port, the closed-volume `setReference` (value branch), the Boussinesq thermo, `noSlip` and `empty` patches in the face-centred region; it is attempted after the cell-centred branch and, if not complete, filed.
+
+## Round 33 results (2026-11-27, release, shared machine; `tests/genfoam_msfr_th_nonorth_vs_upstream.rs`, 8 tests, ~25 s; `--nocapture --test-threads=1` prints every table)
+
+Upstream = the real unmodified binary, serial, tight; 1 to 6 s per variant. References `refs/msfr_th_r33_<variant>.ref.txt.gz` (140-153 KB each, in the `refs` submodule).
+
+### Upstream -> Rust mapping
+
+| upstream | Rust (`one_phase_cc/flow.rs` unless noted) |
+|---|---|
+| `pEqn_1p.H` `while (pimple_.correctNonOrthogonal())` | `for pass in 1..=nNonOrthogonalCorrectors + 1` in the corrector loop; the matrix is built once (`uncorrected`: identical in every pass) |
+| `solveP_rgh_1p.H` `p_rgh_.select(pimple_.finalInnerIter())` | `PimpleState::final_inner_iter(corr_piso, pass, ctl)` (`pimple.rs`; `corrNonOrtho == nNonOrthCorr + 1`) |
+| `if (pimple_.corrNonOrtho() == 1) convergedPISO = converged` | `if pass == 1 { converged_piso = ... }` |
+| `pimple_.updateFirstPISOPrevPIMPLE()` (inside `solveP_rgh_1p.H`) | `update_first_piso_prev_pimple` after EVERY pass (control: `with_first_piso_residual_of_first_pass_only`) |
+| `if (pimple_.finalNonOrthogonalIter()) { phi_, phi, p_rgh_.relax(), U = ... }` | the code after the pass loop (final pass only) |
+| `updatePP_rghRho_1p.H` after the loop | unchanged, once per corrector |
+| `setReference(pRefCell, compressible ? getRefCellValue : pRefValue, forcePRef)` | already present since round 19 (value branch; a Boussinesq fluid has `psi = 0`, every patch is `fixedFluxPressure`/wedge so `needReference()` holds); the compressible branch is refused with the thermo (only hConst/Boussinesq is read) |
+| `laplacianSchemes`/`snGradSchemes` `corrected` | refused by name in `read_flow_case` (new): only `uncorrected` is implemented |
+
+### Results (port against the real binary; fields `U k epsilon p_rgh T`, max-norm relative)
+
+| variant | outer iterations port = upstream | pass-1 iteration counts (within 1) | restart passes (2, 3): worst initial residual port / upstream, mean iterations port / upstream | worst field difference | first diverging step |
+|---|---|---|---|---|---|
+| `no_1` | 5, 5, 5 | 9 of 225 solves differ, all by 1 | 3.22e-12 / 3.24e-12 (90), 101.1 / 108.3 | 1.97e-12 | none |
+| `no_2` | 5, 5, 5 | 5 of 315 by 1 | 3.21e-12 / 3.24e-12 (180), 101.3 / 107.4 | 1.55e-12 | none |
+| `no_1_final` | 5, 5, 5 | 7 of 225 by 1 | 3.24e-12 / 3.19e-12 (90), 89.6 / 85.1 | 1.47e-12 | none |
+| `no_rc_p` | **2, 2, 2** | 4 of 90 by 1 | 3.09e-12 / 3.07e-12 (36), 104.1 / 102.6 | 1.24e-12 | none |
+| `no_1_fld_p` | 5, 5, 5 | 5 of 225 by 1 | 3.07e-12 / 3.03e-12 (90), 100.8 / 97.0 | 1.59e-12 | none |
+| `no_ulof` (tutorial PIMPLE block) | 1, 1, 1 | 2 of 45 by 1 | 3.30e-12 / 3.28e-12 (18), 108.6 / 104.3 | 2.28e-12 | none |
+
+Bit-identity is not reached (1219 of 16422 sampled values equal in `no_1`); the difference is the 1e-12 round-off of rounds 20-31 (no new cause: the same base, the same solvers). The 1e-9 allowance is not invoked: 1e-12 is two orders inside it and within the round-20 gate. Port against its own `nNonOrthogonalCorrectors 0`: `U` 1.55e-12 after one step.
+
+### Controls (each fails the same comparison)
+
+| control | against | result |
+|---|---|---|
+| `without_non_orthogonal_correctors` | `no_1`, `no_2`, `no_1_fld_p`, `no_ulof` | solve log differs (72/135, 76/135, 60/135, 16/27 solves); fields do NOT differ (1.1e-12 to 1.5e-12): the branch changes the log, not the answer, as predicted (P3) |
+| `without_non_orthogonal_correctors` | `no_1_final` | U **4.2e-6**, k 6.1e-8, epsilon 6.8e-8, p_rgh 1.5e-7, from step 1: the single pass takes the loose `p_rghFinal` |
+| `with_first_piso_residual_of_first_pass_only` | `no_rc_p` | outer iterations 4, 3, 3 against 2, 2, 2; U 2.2e-1 |
+| a `corrected` Laplacian | any | refused by name (test) |
+
+### Predictions: held / missed
+
+* P1 held (counts: 2 / 3 solves per corrector, outer 5, 5, 5; `no_ulof` 1, 1, 1 with 12 `p_rgh` solves per step).
+* **P2 missed, and the miss is the finding.** I predicted the extra passes take 0 to 3 iterations from an initial residual under 1e-12. Upstream's log shows initial residuals of 1e-12 to 3.3e-12 and **30 to 135 iterations (mean about 100)** for every pass after the first: the solved system's TRUE residual sits a few times above the 1e-14 stopping threshold the recurrence reached, and re-solving to an absolute 1e-14 from 1e-12 is a full noise-level PCG run. The count follows the round-off pattern: of 180 restart passes the port and upstream counts differ by up to 94, while the fields agree to 1e-12, the initial residuals to 3.3e-12 against 3.2e-12 and the mean counts to 5 %. The restart passes are therefore compared as residual-level pairs (port worst <= 10 times upstream's worst and <= 1e-10) and NOT by count; pass 1 is gated to within one iteration as in rounds 20-31. This is an explained cause (an absolute tolerance at the round-off floor), not a loosened gate: counts of pass 1, outer iterations, solver entry and fields keep their gates.
+* P3 held (fields 1.2e-12 to 2.3e-12; port `nNonOrth 1` against `0`: U 1.55e-12 <= 1e-10).
+* P4 held in direction and size: the control moves U by 4.2e-6 (predicted 1e-8 to 1e-5). The detail "pass 2 takes 0 iterations" missed for the reason of P2 (upstream's last-corrector pass 2 with the loose `p_rghFinal` took 1 to 2 iterations, relTol 0.05 from 1e-12).
+* P5 held exactly (2, 2, 2; control 4, 3, 3, predicted 4 or 5: slightly low in steps 2-3).
+* P6 held (1.59e-12). P7 held: `genfoam_msfr_th_vs_upstream` 6, `..._options_...` 15, `..._pimple_...` 14 tests pass unchanged (their numbers did not move).
+* P8: not reached; see below.
+
+### Which tutorial needs which branch (confirmed from the shipped files; only the MSFR column was run)
+
+* `2D_MSFR_ULOF_diffusion_and_pk` (cellCentered): `nNonOrthogonalCorrectors` (ported, PD by `no_ulof`) + the closed-volume reference cell (present) + Boussinesq (present).
+* `2D_cavityBoussinesq` (faceCentered, `nNonOrthogonalCorrectors 0`): closed-volume reference cell + Boussinesq in `one_phase_fc`, `noSlip` U and `empty` patches, GAMG `p_rgh`. NOT ported in the face-centred region; not run.
+* `3D_HTR-10` (faceCentered, `nNonOrthogonalCorrectors 1`): the non-orthogonal loop in `pEqnf_1p.H`; NOT a closed volume (a `fixedValue` `p_rgh` patch: `setReference` is inert), NOT Boussinesq (`perfectGas`, `hPolynomial`); also `fixedFluxExtrapolatedPressure`, 3-D. Not ported in `one_phase_fc`; not run.
+
+### Not done, and what it is
+
+* The face-centred region (`one_phase_fc`): the `nNonOrthogonalCorrectors` loop, the closed-volume reference cell (and the compressible `getRefCellValue`/`deltaMass` branch), Boussinesq thermo, `noSlip`/`empty` patches: refused by name as before (`one_phase_fc.rs` module doc and `OnePhaseFcCase::read`). `one_phase_fc` is the round-4 solver (`solve_krylov`, not the bit-identical PCG/DIC of the cell-centred one), so it first needs the tight-protocol treatment of rounds 19-21; filed.
+* The compressible closed-volume branch of the cell-centred region (`psi > 0`): needs a compressible thermo in `one_phase_cc` (only hConst/Boussinesq is read).
+* A `corrected` Laplacian (explicit non-orthogonal correction): refused by name.
+
+# Round 35 (gh:#1230, child of #1216): the radial-conduction structure power models `lumpedNuclearStructure`, `heatedPin`, `nuclearFuelPin`, `interpolatedNuclearFuelPin`
+
+## What upstream does (read before any code; GeN-Foam 652b3da, OpenFOAM-ESI v2506; `powerModels/{lumpedNuclearStructure,heatedPin,nuclearFuelPin,interpolatedNuclearFuelPin}/*.{C,H}`, `structure.C`, `IOFieldField.C`, `OpenFOAM/matrices/scalarMatrices/scalarMatricesTemplates.C`)
+
+* Each model keeps a per-cell 1-D state (`IOFieldField<Field,scalar> T_/Trad_`) and in `correct(HT, H)` rebuilds, per cell, a small dense matrix and solves it with `Foam::solve(Field&, SquareMatrix, List)`. That is **Gaussian elimination with partial pivoting and a `1e-20` singularity test, NOT `LUDecompose`** (the workspace's `SquareMatrix::lu_decompose` is a different operation order and is not used).
+* The old-time field (`Trad_.oldTime()[celli]`) is `IOFieldField::oldTime()`: the first call creates `field0` as a copy and does NOT set `timeIndex_`; the next call (the next cell) copies `*this` into `field0` once per time index. Consequence, from the source and not yet measured: when `correct` runs twice in the first time step (two outer iterations), the FIRST cell of the cell list reads, in its second call, the state it had after its own first update, not the start-of-step one.
+* `nuclearFuelPin` computes its ring areas `dA` with two defects visible in the source: the cladding inner node uses `drf/2` (the fuel step) and the cladding bulk loop `for(i = 1; i < cladMeshSize-1; ++i)` uses `r[i]` (a FUEL node radius) with `drc`. Upstream is the specification: the port reproduces both, and a named control (`with_corrected_ring_areas`) shows they matter. Reported to the maintainer, not fixed.
+* `lumpedNuclearStructure` takes `laplacianTmatrix_ = fvc::laplacian(Tmatrix_)` (a mesh operator) at the start of `correct`; the port's model takes that field as an input from its caller (the region solver owns the mesh), and the test feeds it upstream's own dumped value so the model is compared alone.
+* `interpolatedNuclearFuelPin` is algebraic: `T = (interpolatedHeatFlux + HT)/H`; its heat flux is an external field.
+
+## Searched before writing (reuse; HARD RULE)
+
+`outram-foam-basic-lib` has `SquareMatrix::{lu_decompose,lu_back_substitute,solve}` (OpenFOAM `LUDecompose`), no `Foam::solve` Gaussian form; `nuclear_steady_state_pebble` is a closed-form chain (no matrix); `outram-park-fork-offbeat`, `bedok`, `nee_soon`, `tampines` have 1-D radial solvers of their own schemes (not GeN-Foam's ghost-half-cell finite volume with `dA` rings): not translations of this scheme, so a new `radial` solver module under `structure/` is justified. Checked and rejected for reuse; the `PowerModel` enum (`FixedPower`, `FixedTemperature`) is extended rather than replaced.
+
+## Predictions (written BEFORE any upstream run of the new driver and BEFORE any port code; committed first)
+
+Driver: `upstream_driver/power_model_dump` constructs the real `structure` + `powerModel` of GeN-Foam on a 7-cell 1-D mesh with two cell zones, imposes closed-form (`+ - * /` only) `powerDensityNeutronics`, `H`, `HT` per step, calls `structure::correct`, and prints every state at 17 digits.
+
+* **P1 (bit identity).** All four models: every dumped quantity of every step (radial profiles, `Ti/To/Tav`, `Tfi/Tfo/Tci/Tco/Tfav/Tcav`, `Tmax/Tsurface`, `Tact`, `TFuelAv`, `TCladAv`, `heatFlux`, the `Tavav/Tmax/Tmin` dictionary entries) is **0 ulp** from the port. Basis: same IEEE operations in the same order on x86_64 without FMA (no `-march`), Gaussian elimination transcribed line for line, no transcendental in `correct`. Risk (the one that would break it): a different order of `a*b/c` in the elimination, or `sqr(x)` versus `x*x` (identical); if a difference appears the cause is named, not allowed through at 1e-9.
+* **P2 (old-time quirk).** With two `correct` calls in step 1 (`nOuter 2`), upstream's first cell of the cell list differs from a port that uses the start-of-step old time; the other cells and every later step do not. Without the quirk the difference in the radial profile of that cell is of the size of one outer-iteration temperature change: 1e-6 to 1e-2 relative.
+* **P3 (ring-area quirk).** `nuclearFuelPin` with the corrected ring areas (named control) differs from upstream in the cladding temperatures by 1e-4 to 1e-1 relative in a strong transient (the cladding heat capacity per ring is wrong in upstream), by < 1e-12 in the steady state (`dA` only multiplies the storage term in the cladding).
+* **P4 (analytic, `heatedPin`, solid cylinder, uniform `q`, steady: `dt` = 1e12).** (a) the global energy balance `2 pi ro (H To - HT) = q pi (ro^2 - ri^2)` holds to 1e-12 relative for ANY mesh size (the matrix is conservative and the ring areas telescope to `pi (ro^2 - ri^2)`); (b) the centre-to-surface rise `q ro^2/(4 k)` is reproduced with a relative error that falls as the square of the mesh size: ratio between 3 and 5 on doubling the intervals, and below 1e-2 at 21 nodes. If (b) misses, the cause (ghost-half-cell treatment of the first node) is derived, not tuned.
+* **P5 (controls; each must FAIL its comparison).** (a) the Gaussian `solve` replaced by the workspace's `lu_decompose` solve: not bit-identical (some ulps, 1e-16 to 1e-13 relative), so the port could not claim bit identity by accident; (b) the old-time quirk and the corrected ring areas as in P2/P3; (c) a perturbed input (`gapH` by 1e-9 relative) is detected above 1e-12.
+* **P6 (cost).** Upstream driver run: seconds; each reference < 0.4 MB gzipped. Build of the driver against the existing `libFFSSrc2`/`libCommon`: minutes at 2 jobs.
+* **P7 (what is NOT covered; stated now so it cannot be quietly dropped).** Wiring into the cell-centred `onePhase` solver (only `fixedTemperature` is dispatched there today), `nuclearFuelPinTest` (gh:#1787), the `foundBoundaryTemperatures` reconstruction path (reads `Tfi/Tfo/Tci/Tco` files), the `gapHPowerDensity` table (needs the `Function1` `table` reader; covered only if the port's table reader matches, otherwise refused by name), and the FMU variants.
+
+## Round 35 results (2026-11-27, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_radial_power_models_vs_upstream.rs`, 8 tests, 0.01 s; `--nocapture` prints every tally)
+
+Upstream: the real `structure` + `powerModel` of GeN-Foam 652b3da (`libFFSSrc2`, unmodified), driver `upstream_driver/power_model_dump`, case `scripts/make_power_model_case.sh` (8 cells, 3 zones + 1 unzoned, `deltaT` 0.5; every model run for 12 steps x 1 outer iteration and 3 steps x 2). References `refs/pmd_<model>_o{1,2}.ref.txt.gz` (55 KB in all; submodule commit 1079606).
+
+### Upstream -> Rust mapping
+
+| upstream | Rust (`structure/`) |
+|---|---|
+| `Foam::solve(Field&, SquareMatrix, List)` (Gaussian elimination, partial pivoting, `1e-20` test) | `radial_solve::foam_solve` |
+| `IOFieldField::oldTime()` / `storeOldTime()` | `radial_solve::OldTimeFieldField` |
+| `updateLocalAvgGlobalMinMaxT` | `radial_solve::update_average_and_extrema` |
+| `heatedPin` (ctor, `setInterfacialArea`, `updateLocalTemperatureProfile`, `correct`, `correctT`, `powerOff`) | `heated_pin::HeatedPin` |
+| `nuclearFuelPin` (same set; `gapHPowerDensity` `Function1` table) | `nuclear_fuel_pin::{NuclearFuelPin, GapConductance}` (table through `TimeProfile::table`, the ESI `Function1` form already ported) |
+| `lumpedNuclearStructure` | `lumped_nuclear_structure::LumpedNuclearStructure` (`fvc::laplacian(Tmatrix)` an input) |
+| `interpolatedNuclearFuelPin` | `interpolated_nuclear_fuel_pin::InterpolatedNuclearFuelPin` |
+| `powerModel::New` selection, `structure::correct` heat flux `H Twall - HT` | `radial_power_model::{RadialPowerModel, StepInputs, structure_heat_flux}` |
+
+### Results (port against the real binary; "values" = every compared number: `Tact`, `Twall`, `heatFlux`, `TFuelAv`, `TCladAv`, `iA`, the radial/nodal profiles, `Ti/To/Tav`, `Tfi/Tfo/Tci/Tco/Tfav/Tcav`, `Tmax/Tsurface/Tmatrix`, and the dictionary `Tavav/Tmax/Tmin/Tfavav/...`)
+
+| model | steps x outer | values | bit-identical | worst relative | first diverging step |
+|---|---|---|---|---|---|
+| `lumpedNuclearStructure` (3 zones: 3 nodes + matrix diffusion, 1 node + diffusion, 2 nodes) | 12 x 1 / 3 x 2 | 948 / 474 | all / all | 0 / 0 | none |
+| `heatedPin` (solid + hollow, `volumeFraction` override) | 12 x 1 / 3 x 2 | 1,224 / 612 | all / all | 0 / 0 | none |
+| `nuclearFuelPin` (FFTF solid fuel; hollow fuel with `fractionOfPowerFromNeutronics`; table `gapHPowerDensity`) | 12 x 1 / 3 x 2 | 2,364 / 1,182 | all / all | 0 / 0 | none |
+| `interpolatedNuclearFuelPin` | 12 x 1 | 480 | all | 0 | none |
+
+**0 ulp everywhere: no use of the 1e-9 allowance.** The `Foam::solve` elimination, the `a*b/c` order of the reduction and the `oldTime()` behaviour were all transcribed, none "equivalent".
+
+### Analytic checks (`heated_pin.rs` unit tests, `dt = 1e12`)
+
+* Global energy balance `2 pi ro (H To - HT) = q pi (ro^2 - ri^2)`: holds to 1e-12 at 11, 21, 41 nodes (the matrix is conservative; the ring areas telescope).
+* **Solid pin, uniform `q`: the scheme is exact for the parabola**, error 1.2e-14 / 1.8e-14 / 8.9e-14 of the centre rise `q ro^2/(4k)` = 93.75 K at 11 / 21 / 41 nodes. **Prediction P4(b) MISSED** (it expected second-order convergence): the face fluxes use the exact face radius `r +- dr/2` and the sources the exact ring areas, so a temperature quadratic in `r` is represented exactly; the error is round-off.
+* **Hollow pin** (adiabatic inner surface; `T = To + q (ro^2 - r^2)/(4k) + q ri^2/(2k) ln(r/ro)`): inner-outer rise error 6.0e-4 / 1.5e-4 / 3.8e-5 at 11 / 21 / 41 nodes, ratios 3.9 and 4.0: second order, as P4(b) said for a profile with a logarithm.
+* `nuclearFuelPin` steady state: linear power `2 pi rco (H Tco - HT)` equals `q pi (rfo^2 - rfi^2)` to 1e-11; the ring-area slips change nothing in steady state (< 1e-11), as P3 said.
+
+### Controls (each fails its comparison, as predicted unless noted)
+
+| control | result |
+|---|---|
+| `lu_decompose` instead of `Foam::solve` | `heatedPin` 235 of 1,224 values bit-identical, worst temperature/profile relative 3.9e-15 (heat flux 3.5e-14); `nuclearFuelPin` 434 of 2,364, 3.0e-15 (heat flux 3.2e-12). P5(a) (1e-16 to 1e-13): held for temperatures; the heat flux, a difference of near-equal numbers, amplifies it to 3e-12. |
+| start-of-step old time, ONE outer iteration | bit-identical (the quirk needs two calls in the first step) |
+| start-of-step old time, TWO outer iterations | first difference exactly at step 1, outer 1, cell 0, for `heatedPin`, `nuclearFuelPin` and `lumpedNuclearStructure`; worst temperature/profile relative 4.2e-2 / 5.7e-2 / 1.6e-1. **P2 (1e-6 to 1e-2): missed high** (one outer iteration changes a cell's temperature by percent at these `dt`). |
+| corrected ring areas (`nuclearFuelPin`) | 84 of 2,364 bit-identical, worst temperature/profile relative 4.0e-3 (heat flux 4.6). P3 (1e-4 to 1e-1): held. |
+| `gapH` x (1 + 1e-9) | 615 of 2,364 bit-identical, worst temperature 1.6e-10, heat flux 3.7e-9: seen above 1e-12 (P5(c) held) |
+
+### Predictions: held / missed
+
+P1 held (0 ulp, all four). P2: the where and when held (cell 0 of the first cell list, second outer iteration of step 1, nothing else), the size missed high. P3 held. P4(a) held; P4(b) missed (exact, not second order, for the solid pin; second order for the hollow pin). P5 held (a, c) with the heat-flux amplification noted. P6: the driver builds in ~2 minutes and a run takes < 1 s; refs 55 KB. P7: stated limits stand.
+
+### Findings
+
+1. **The real binary aborts on `interpolatedNuclearFuelPin` whenever the mesh has a cell outside every structure**: `correct` forms `interpolatedHeatFlux*iA/alpha` over the whole mesh, `0/0` in such a cell, and `trapFpe 1` (the OpenFOAM default) raises SIGFPE. The reference was made with `FOAM_SIGFPE=false`; the port evaluates only the model's own cells. No shipped tutorial selects the class, so this has never been seen.
+2. **`nuclearFuelPin` ring areas: two slips in upstream** (cladding inner node uses `drf`; the cladding bulk loop evaluates the FUEL radii `r[i]`, `i < cladMeshSize-1`). They only matter in transients (4e-3 relative in the cladding profile here). Reproduced ("follow upstream"); `with_corrected_ring_areas` is the control. Reported for the maintainer; not fixed.
+3. **`IOFieldField::oldTime()` first-call behaviour** gives the first cell of the cell list a polluted old time in the second outer iteration of the FIRST time step (not later ones). Reproduced.
+4. `lumpedNuclearStructure` appends the region name twice to `regionIndexToRegionName_` (unused); `nuclearFuelPin` initialises `Tcavav` at `1e69` (an initial dictionary value only). Both harmless; the second is reproduced in the constructor state.
+
+### Not done (stated in P7, unchanged)
+
+* **No wiring into a region solver**: `solver/two_phase/one_phase_cc` dispatches only `fixedTemperature` (its `T.fixedTemperature` field, `Tact` and the `EEqn_1p` coupling are hard-wired); `two_phase/mod.rs` is `Vec<Option<FixedPower>>`. Putting a `RadialPowerModel` there touches `two_phase/{mod,case}.rs` (another stream's files, gh:#1799) and needs the `fvc::laplacian(Tmatrix)` call of the lumped model and the structure-level `TFuelAv/TCladAv` hand-over to the neutronics. Filed as a follow-up.
+* No shipped-tutorial run (2D_MSFR_ULOF, ESFR, FFTF): each needs the wiring above. `nuclearFuelPinTest` (gh:#1787), the FMU variants, the `Ti/To/Tfi...` file reconstruction of the initial profile and the `Trad`/`T` time-directory reads are refused by name (module docs).
+* A powerModel read from a case dictionary (`TwoPhaseCase::read`-style reader) is not written: the models take their regions as Rust structs; the test repeats the case script's numbers.
+
+### Gates run (2026-11-27, release, `CARGO_BUILD_JOBS=2`, own target dir because the shared one is clobbered by a sibling worktree of the same package hash)
+
+`--lib structure::` 40 passed; `--test genfoam_radial_power_models_vs_upstream` 8 passed; `--test genfoam_refs_submodule_present` 1 passed; `cargo check --no-default-features --target x86_64-unknown-none --lib` clean; `petir --test no_platform_libm` 4 passed. Not run: the full suites.
