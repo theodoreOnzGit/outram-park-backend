@@ -30,6 +30,13 @@
 //! [`crate::genfoam::thermal_hydraulics::solver::one_phase::OnePhaseSolver`] (constant properties,
 //! no thermo package), which is left exactly as it was.
 //!
+//! **Which port a `faceCentered` case uses (gh:#1939, README round 73).** Upstream has ONE `onePhase` class with `momentumMode` as branches inside
+//! it. The `faceCentered` branch of the FULL `onePhase` now lives in [`super::one_phase_cc::OnePhaseCcSolver`] (`one_phase_cc/face_centered.rs`: `UEqn_1p.H`
+//! without `ddt`, `pEqnf_1p.H`, `reconstructU_1p.H`), which carries every thermo, structure (`passiveProperties`, the radial power models),
+//! closure (`byRegime`), boundary condition (`slip`, `fixedFluxExtrapolatedPressure`, `zeroGradient` `p_rgh`) and solver (native `GAMG`) of the
+//! cell-centred port. **The shipped `3D_SmallESFR` fluid region uses that one.** This module stays as the earlier, self-contained port (rounds
+//! 4, 38, 45, 46) with its tests, and is untouched by round 73.
+//!
 //! The equations, in upstream's order within one PIMPLE outer iteration:
 //!
 //! 1. `FSPair::correct`: `Re`, the fluid-structure drag `Kd` and heat-transfer coefficient `Hs`.
