@@ -4318,3 +4318,35 @@ The outer-iteration counts, which steps are skipped by the stale flag, and which
 | Q8 | control D | step-1 power differs from upstream by > 10 % (no source: the start flux decays); at the end the port power is < 1e-3 of upstream's. Fails the gate: yes |
 | Q9 | control E | power differs from upstream at the end by between 1e-5 and 1e-2 relative, port above or below unknown. Fails the gate: yes |
 | Q10 | wall time | port < 60 s for the whole of A, B and C |
+
+## Round 33 (gh:#1866): onePhase `nNonOrthogonalCorrectors`, the pressure reference cell and Boussinesq, in the cell-centred and the face-centred region
+
+Epic #1216 ("Port genfoam exhaustively", maintainer 2026-11-27). Upstream: GeN-Foam `652b3da`, `thermalHydraulics/solvers/onePhase/include/equations/{pEqn_1p.H, pEqnf_1p.H, pEqnRoutines/{solveP_rgh_1p,updatePP_rghRho_1p,calcrAUfSetSnGradCalcComp_1p,calcPhiSbyA_1p}.H}`, `customPimpleControl` (`correct(bool)`, `updateFirstPISOPrevPIMPLE`) and OpenFOAM-ESI v2506 `pimpleControl::finalInnerIter`, `solutionControl::{correctNonOrthogonal,finalNonOrthogonalIter}`.
+
+### What upstream does (read before any code)
+
+* `pEqn_1p.H` (cell-centred) and `pEqnf_1p.H` (face-centred) wrap the pressure solve in `while (pimple_.correctNonOrthogonal())`: `nNonOrthogonalCorrectors + 1` passes. Each pass is `solveP_rgh_1p.H`: `pEqnIncomp = div(phiHbyA) - laplacian(rAUf, p_rgh)`, `pEqn = pEqnComp + pEqnIncomp`, `pEqn.setReference(pRefCell, compressible ? getRefCellValue(p_rgh, pRefCell) : pRefValue, forcePRef)` (ESI `fvMatrix::setReference` does nothing unless `psi.needReference()`: no fixed-value patch), a solve with `mesh.solver(p_rgh.select(pimple.finalInnerIter()))`, `if (corrNonOrtho == 1) convergedPISO = converged` and `updateFirstPISOPrevPIMPLE()`. Only the FINAL pass (`finalNonOrthogonalIter()`) assigns `phi_`, `phi`, `dgdt`, runs `p_rgh.relax()` and reconstructs `U`. `updatePP_rghRho_1p.H` (`p = max(p_rgh + rho gh, pMin)`, the closed-volume mass correction, `rho += psi (p_rgh - p_rgh_0)`, `p_rgh = p - rho gh`) runs ONCE after the loop.
+* `pimpleControl::finalInnerIter()` (v2506 `pimpleControlI.H:98`) is `corrPISO == nCorrPISO && corrNonOrtho == nNonOrthCorr + 1` (and `finalIter()` with `finalOnLastPimpleIterOnly`): `p_rghFinal` is used by the LAST pass of the last corrector, not by the first pass.
+* `compressible = (integral psi / V >= 1e-8)` (`updateAlphaPhiAndInitControls_1p.H`): a Boussinesq fluid has `psi = 0`, so `setReference` takes `pRefValue` and the closed-volume mass correction is skipped (`!fluid_.Boussinesq()`). The compressible closed-volume branch (`getRefCellValue`, `deltaMass/compressibility`) needs an equation of state with `psi > 0`.
+* With `laplacianSchemes ... uncorrected` (the only scheme the port's `fv` module implements) the matrix of every pass is the same, so the passes after the first restart a PCG from a solved field.
+
+### Which tutorial needs which branch (read from the shipped files; to be confirmed by the runs)
+
+| tutorial | momentumMode | `nNonOrthogonalCorrectors` | closed volume (reference cell) | Boussinesq | other needs |
+|---|---|---|---|---|---|
+| `featureCases/2D_cavityBoussinesq` | faceCentered | 0 | yes (`fixedFluxPressure` on every wall; `pRefCell 780`, `pRefValue 1e5`) | yes (`rho0 897`, `beta 2.42e-4`, `T0 500`) | `noSlip` U, `empty` patches, `fixedValue` T walls, GAMG `p_rgh` |
+| `testing/2D_MSFR_ULOF_diffusion_and_pk` | cellCentered | 1 | yes (`fixedFluxPressure` + wedge) | yes | nothing else beyond the existing cell-centred port |
+| `reactorCases/3D_HTR-10` | faceCentered | 1 | **no** (`p_rgh` has a `fixedValue` patch: `setReference` is inert) | **no** (`perfectGas`, `hPolynomial`) | compressible thermo, `fixedFluxExtrapolatedPressure`, 3D |
+
+### Predictions (written BEFORE any run of these variants and BEFORE any Round 33 port code; committed first)
+
+Variants (overlays over `cases/msfr_th`, turbulence on, tight, three steps, `scripts/make_msfr_th_nonorth_variants.sh`): `no_1` (`nNonOrthogonalCorrectors 1`), `no_2` (2), `no_1_final` (`no_1` + a loose `p_rghFinal`, `relTol 0.05`), `no_rc_p` (`no_1` + `residualControl` with `h` always met and `p_rgh` `0.004` `useFirstPISOInitialResidual`, distinct Final entries), `no_1_fld_p` (`no_1` + `fields { p_rgh 0.7; }`), `no_ulof` (the `PIMPLE` block of the `2D_MSFR_ULOF_diffusion_and_pk` tutorial: `nCorrectors 6`, `nNonOrthogonalCorrectors 1`, `nOuterCorrectors 1`, no `correctUntilConvergence`).
+
+* **P1 (counts).** Every corrector logs `nNonOrthogonalCorrectors + 1` `p_rgh` solves (2 in `no_1`, 3 in `no_2`); the outer-iteration counts of `no_1`, `no_2`, `no_1_final`, `no_1_fld_p` are 5, 5, 5 as in the base; `no_ulof` has 1 outer iteration per step and 12 `p_rgh` solves per step.
+* **P2 (the extra passes).** Pass 1 of each corrector is the base solve (same iteration count, 1e-12 residual agreement as rounds 29-31). Passes 2 and 3 restart from a solved field: initial residual below 1e-12 (normalised) and 0 to 3 iterations; upstream and the port agree on the count to within one iteration. Sign: the pass-2 residual is not exactly zero (the solved residual is at 1e-14 to 1e-15 and the true residual a few times larger).
+* **P3 (fields).** Port against the real binary at the 1e-12 level of rounds 20-31 (`U k epsilon p_rgh T`), no step diverging; bit identity is NOT expected (the base already differs at 1e-12). The port's `no_1` fields differ from the port's own `nNonOrthogonalCorrectors 0` fields by at most 1e-10: with `uncorrected` Laplacians the extra pass changes the log, not the answer.
+* **P4 (where the select matters).** In `no_1_final` upstream's last corrector solves pass 1 with `p_rgh` (a hundred or more PCG iterations) and pass 2 with the LOOSE `p_rghFinal` for 0 iterations (initial residual under 1e-12). The control (port with the passes ablated, so that the single pass takes `p_rghFinal`) must differ: the last corrector's iteration counts and `U` by 1e-8 to 1e-5 (round 31's `fin_prgh` control was 3.8e-6).
+* **P5 (`updateFirstPISOPrevPIMPLE` per pass).** In `no_rc_p` the pass-2 residual of corrector 1 (below 1e-12) replaces the pass-1 residual as `previousPIMPLEFirstPISORes_[1]`, so upstream flags the criteria at the start of outer iteration 2: **2 outer iterations in every step**. The control (update only after pass 1, 0.98 at outer 1) must give more (4 or 5) and differ by more than 1e-3 in `U`.
+* **P6 (`p_rgh.relax()` once).** `no_1_fld_p` agrees with upstream at 1e-12; relaxing after every pass would not (not offered as a control: a different algorithm).
+* **P7 (nothing moves).** `genfoam_msfr_th_vs_upstream` (6), `genfoam_msfr_th_options_vs_upstream` (15) and `genfoam_msfr_th_pimple_vs_upstream` (14) pass unchanged at their own gates: with `nNonOrthogonalCorrectors 0` the new loop is one pass, bit for bit what it was.
+* **P8 (cavity).** `2D_cavityBoussinesq` needs, in the port, the closed-volume `setReference` (value branch), the Boussinesq thermo, `noSlip` and `empty` patches in the face-centred region; it is attempted after the cell-centred branch and, if not complete, filed.
