@@ -1,7 +1,7 @@
 #!/bin/bash
 # gh:#1812 / gh:#1361 round 18: the 2D_MSFR `steadyStateTH` stage (onePhase, cellCentered, solveFluidMechanics true),
 # run with the REAL unmodified GeN-Foam binary at tight settings, for the first steps only.
-# Usage: run_msfr_th_tight.sh <name> [RUN_ROOT]    env: END_TIME (default 0.06), TURB=on|off, PSOLVER=pcg|gamg, WRITE=step|adjustable, TOLERANCE=tight|shipped
+# Usage: run_msfr_th_tight.sh <name> [RUN_ROOT]    env: END_TIME (default 0.06), TURB=on|off, PSOLVER=pcg|gamg, WRITE=step|adjustable, TOLERANCE=tight|shipped, VARIANT=<cases/msfr_th_variants name> with VARIANT_DIR (gh:#1842)
 # Allrun's setSteadyStateTH is replayed with sed/perl (foamDictionary is not built here). The ONLY edits beyond
 # Allrun's: every linear-solver tolerance 1e-14 / relTol 0; p_rgh GAMG -> PCG/DIC (GAMG does not reach 1e-14: a
 # solver-only change, as in round 16); write every step (writeControl timeStep) at writePrecision 17 (set in the
@@ -26,6 +26,10 @@ if [ "${PSOLVER:-pcg}" = pcg ]; then
 fi
 if [ "${TURB:-on}" = off ]; then
   sed -i 's/^\( *\)turbulence .*true;/\1turbulence      false;/' $C/constant/fluidRegion/turbulenceProperties
+fi
+if [ -n "${VARIANT:-}" ]; then   # gh:#1842 round 29: overlay cases/msfr_th_variants/<VARIANT>/ (made by make_msfr_th_variants.sh) AFTER the edits above
+  VD=${VARIANT_DIR:?set VARIANT_DIR to cases/msfr_th_variants}
+  cp -r "$VD/$VARIANT"/. "$C"/
 fi
 S=$(date +%s)
 GeN-Foam -case $C > $C/log.GeN-Foam 2>&1

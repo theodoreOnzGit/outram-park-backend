@@ -48,7 +48,7 @@
 //! | Godiva HEU | `bounding` (union grid) | 346 988 | **0.9091** | 20 MeV | 3 019 956 |
 //! | Godiva HEU | ablation, pre-#585 | 4 001 | 0.9678 | 17.02 keV (URR) | 3 019 956 |
 //! | HTR-10 kernel + matrix | `from_materials`, 4096 log points + breakpoints, margin 0.3 (#589) | 240 874 | **0.7693** | 9.863e-5 eV, kernel | 2 947 800 |
-//! | HTR-10 kernel + matrix | ablation `from_materials_without_breakpoints` (pre-#589, nee_soon `bed_majorant`) | 4 096 | **14.1820** | 661.2 eV, kernel | 2 947 800 |
+//! | HTR-10 kernel + matrix | ablation `from_materials_without_breakpoints` (pre-#589, nee_soon `bed_majorant`; **removed 2026-11-26 (gh:#1819)**, see below) | 4 096 | **14.1820** | 661.2 eV, kernel | 2 947 800 |
 //! | TRISO notebook (LOW) | `bounding`, ~~133 808 nodes, 0.9436 at 15.05 keV~~ with WMP pole nodes (2026-10-05, second commit) | 143 266 | 0.9250 | 10.88 keV | 465 164 |
 //! | TRISO notebook (LOW) | `bounding` at 1024 x 16 (the TUI preset; 1.62 without pole nodes) | 31 650 | 0.9575 | 513 eV | 465 164 |
 //!
@@ -61,6 +61,16 @@
 //! records were not measured on an under-bound majorant. The never-below
 //! check passes at 400 001 energies, so the new majorant is at least the old
 //! one everywhere.
+//!
+//! **The pre-#589 ablation was removed on 2026-11-26 (gh:#1819)** (maintainer: "it's
+//! wasting space"), with `Majorant::from_materials_without_breakpoints`,
+//! `over_indices_without_breakpoints` and `nee_soon`'s
+//! `OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS` control. It existed only to
+//! reproduce records taken before #589. Its 14.1820 row above is kept as the
+//! record, measured 2026-10-05 and no longer re-runnable on this code; check
+//! out a commit before the removal to rerun it. `from_materials` itself is
+//! still audited below, and the pre-#585 ablation still shows the instrument
+//! can see an under-bound.
 //!
 //! Cost: 391 s for the file, dominated by the U-235/U-238 reconstructions with
 //! URR tables (~70 s each) and the 3 M-energy audits. The two ENDF tests are
@@ -215,19 +225,11 @@ fn htr10_kernel_and_matrix_are_bounded_on_endf() {
     let fm = Majorant::from_materials(&mats, &nuclides, &log_grid, 0.3);
     let a_fm = fm.audit(&mats, &nuclides, AUDIT_LO, AUDIT_HI, AUDIT_N);
     report("HTR-10 from_materials (log grid + breakpoints)", &fm, &a_fm, &mats);
-    let fm_old = Majorant::from_materials_without_breakpoints(&mats, &nuclides, &log_grid, 0.3);
-    let a_fm_old = fm_old.audit(&mats, &nuclides, AUDIT_LO, AUDIT_HI, AUDIT_N);
-    report("HTR-10 ABLATION from_materials_without_breakpoints", &fm_old, &a_fm_old, &mats);
     assert!(
         a_fm.worst_ratio <= 1.0,
         "Majorant::from_materials UNDER-BOUNDS Sigma_t by {:.3} % at {:.5e} eV",
         (a_fm.worst_ratio - 1.0) * 100.0,
         a_fm.energy_ev
-    );
-    assert!(
-        a_fm_old.worst_ratio > 1.0,
-        "the audit no longer sees the pre-#589 under-bound ({:.4})",
-        a_fm_old.worst_ratio
     );
 }
 

@@ -37,12 +37,15 @@
 //!    `(1 - isPorous)*(fvm::ddt(rho C, T) - fvm::laplacian(rhoK, T) - powerDensityNeutronics) ==
 //!    fvm::Sp(isPorous, T) - TStructFromTH*isPorous`, solved asymmetrically (the row scaling breaks the
 //!    symmetry; see [`pbicg`]).
-//! 2. The displacement loop (if `mechanicsSolver`), `compactNormalStress yes`, `steadyState` `d2dt2`:
+//! 2. The displacement loop (if `mechanicsSolver`):
 //!    `DEqn: fvm::d2dt2(D) == fvm::laplacian(2 mu + lambda, D, "laplacian(DD,D)") + divSigmaExp`,
 //!    `DEqn += fvc::grad(threeKalpha (T - TRef))`, solved component by component, then
-//!    `gradD`, `sigmaD = mu twoSymm(gradD) + lambda I tr(gradD)`,
-//!    `divSigmaExp = fvc::div(sigmaD - (2 mu + lambda) gradD, "div(sigmaD)")`, repeated while
-//!    `initialResidual > D && ++iCorr < nCorrectors`.
+//!    `gradD`, `sigmaD = mu twoSymm(gradD) + lambda I tr(gradD)`, and the explicit term for the next corrector:
+//!    `compactNormalStress yes`: `divSigmaExp = fvc::div(sigmaD - (2 mu + lambda) gradD, "div(sigmaD)")`;
+//!    `compactNormalStress no` (gh:#1845, round 27): `divSigmaExp = fvc::div(DEqn.flux())` straight after the solve and
+//!    `divSigmaExp += fvc::div(sigmaD)` after `gradD` (see [`LegacyFvmThermoMechanics::flux_divergence`]);
+//!    repeated while `initialResidual > D && ++iCorr < nCorrectors`. `d2dt2` is `steadyState` (an empty matrix) or,
+//!    since round 27, `Euler` ([`D2dt2Scheme`], [`LegacyFvmThermoMechanics::with_d2dt2`]).
 //! 3. `calculateStress.H` (`sigma`, `sigmaEq`, the logged maximum), then the axial expansions
 //!    `fvm::div(fuelOrientation & Sf, fuelDisp, "div(fuelDisp)") == alphaFuel (TFuel - TFuelRef)` and
 //!    `fvm::div(-fuelOrientation & Sf, CRDisp, "div(CRDisp)") == -alphaCR (TStruct - TCRRef)`, and
@@ -57,7 +60,9 @@
 //!
 //! ## Deliberate omissions, each refused by name (children of gh:#1781)
 //!
-//! `compactNormalStress no` (needs `fvMatrix::flux()`), transient `d2dt2`, ~~the `GFTractionDisplacement` and
+//! ~~`compactNormalStress no` (needs `fvMatrix::flux()`), transient `d2dt2`~~ **CORRECTED 2026-11-26 (gh:#1845, round 27)**:
+//! both ported (`d2dt2` `Euler`; ESI v2506 has no other transient `d2dt2` scheme, so `backward` is refused by name in
+//! [`case::LegacyFvmCase`]), ~~the `GFTractionDisplacement` and
 //! `gapContact` patch types~~ **CORRECTED 2026-11-26 (gh:#1235)**: `GFTractionDisplacement` is ported ([`traction`], default form of
 //! `disp` patches, bit-identical to the real class); `gapContact` (needs the `regionCoupled` coupling, gh:#1846) is refused by
 //! name in [`case::LegacyFvmCase`] and only its arithmetic is ported; `Gauss linear` gradients with a traction patch,
@@ -214,6 +219,19 @@ pub enum TStructSolver {
     GamgSubstitutedByPbicgDilu,
 }
 
+/// `fvSchemes.d2dt2Schemes.default` (gh:#1845, round 27). ESI v2506 has exactly these two (`d2dt2Schemes/`:
+/// `steadyStateD2dt2Scheme`, `EulerD2dt2Scheme`); there is NO `backward` d2dt2 scheme to port.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum D2dt2Scheme {
+    /// `steadyStateD2dt2Scheme`: `fvm::d2dt2` is an empty matrix and never touches `oldTime()`.
+    #[default]
+    SteadyState,
+    /// `EulerD2dt2Scheme` (non-moving mesh): `coefft = (dt+dt0)/(2 dt)`, `coefft00 = (dt+dt0)/(2 dt0)`,
+    /// `diag = (coefft rDeltaT2) V`, `source = rDeltaT2 V (coefft0 old - coefft00 oldold)`.
+    Euler,
+}
+
 /// The `fvSchemes`, `fvSolution` and `thermoMechanicalProperties` switches `legacyThermoMechanics` reads.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LegacyFvmSettings {
@@ -229,7 +247,7 @@ pub struct LegacyFvmSettings {
     pub n_correctors: usize,
     /// `stressAnalysis.D`: the convergence tolerance on the maximum initial residual.
     pub convergence_tolerance: f64,
-    /// `stressAnalysis.compactNormalStress`. Only `true` is implemented.
+    /// `stressAnalysis.compactNormalStress`: `true` is the compact form, `false` the `fvMatrix::flux` form (round 27).
     pub compact_normal_stress: bool,
     /// `gradSchemes` for `grad(disp)`, `grad(TStruct)` and the gradients inside the Laplacian corrections.
     pub grad: GradScheme,
@@ -329,6 +347,11 @@ fn sigma_d_of(g: &Tensor, mu: f64, lambda: f64) -> SymmTensor {
     }
 }
 
+/// `gamma*gradD`, a `scalar*tensor` (each component multiplied).
+fn gamma_times_grad(g: &Tensor, gamma: f64) -> Tensor {
+    Tensor::new(gamma * g.xx, gamma * g.xy, gamma * g.xz, gamma * g.yx, gamma * g.yy, gamma * g.yz, gamma * g.zx, gamma * g.zy, gamma * g.zz)
+}
+
 /// `sigmaD - gamma*gradD`, a `symmTensor - tensor`.
 fn sigma_minus_gamma_grad(s: &SymmTensor, g: &Tensor, gamma: f64) -> Tensor {
     Tensor::new(
@@ -412,6 +435,15 @@ pub struct LegacyFvmThermoMechanics {
     settings: LegacyFvmSettings,
     geo: FaceGeometry,
     delta_t: f64,
+    /// `Time::deltaT0()`: the previous step's `deltaT` (the first step's is the initial `deltaT`).
+    delta_t0: f64,
+    /// `Time::deltaTSave_`: what the next step's `deltaT0` will be.
+    delta_t_saved: f64,
+    d2dt2: D2dt2Scheme,
+    /// `disp.oldTime()` and `disp.oldTime().oldTime()`, once an `Euler` `fvm::d2dt2` has created them.
+    disp_old: Vec<Vector3>,
+    disp_old_old: Vec<Vector3>,
+    old_times_exist: bool,
     gamg_substituted: bool,
     // per-cell material fields (`zeroGradient` volScalarFields)
     rho: Vec<f64>,
@@ -457,8 +489,7 @@ impl LegacyFvmThermoMechanics {
     /// `TStruct` per cell (`READ_IF_PRESENT`; upstream's default is 0).
     ///
     /// # Errors
-    /// [`AppBuilderError::UnsupportedScheme`] for `compactNormalStress no`, a `Limited` laplacian, `fourth` or
-    /// `cellLimited` gradient; [`AppBuilderError::Case`] for a card without a `cellZone`, a patch list that does
+    /// [`AppBuilderError::UnsupportedScheme`] for a `Limited` laplacian, `fourth` or `cellLimited` gradient; [`AppBuilderError::Case`] for a card without a `cellZone`, a patch list that does
     /// not match the mesh, or an `empty` patch.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -472,13 +503,6 @@ impl LegacyFvmThermoMechanics {
         t_struct0: Vec<f64>,
         delta_t: f64,
     ) -> Result<Self, AppBuilderError> {
-        if !settings.compact_normal_stress {
-            return Err(AppBuilderError::UnsupportedScheme {
-                family: "stressAnalysis",
-                scheme: "compactNormalStress no".to_string(),
-                reason: "needs fvMatrix::flux() for divSigmaExp = fvc::div(DEqn.flux()); not ported",
-            });
-        }
         match settings.grad {
             GradScheme::GaussLinear | GradScheme::LeastSquares => {}
             _ => {
@@ -593,6 +617,12 @@ impl LegacyFvmThermoMechanics {
         let mut s = Self {
             geo,
             delta_t,
+            delta_t0: delta_t,
+            delta_t_saved: delta_t,
+            d2dt2: D2dt2Scheme::SteadyState,
+            disp_old: Vec::new(),
+            disp_old_old: Vec::new(),
+            old_times_exist: false,
             gamg_substituted,
             rho,
             rho_e,
@@ -700,6 +730,87 @@ impl LegacyFvmThermoMechanics {
     /// Set the step length `deltaT` of the `Euler` `ddt` of `TStruct`.
     pub fn set_delta_t(&mut self, delta_t: f64) {
         self.delta_t = delta_t;
+    }
+
+    /// Select the `d2dt2` scheme (gh:#1845, round 27); the default is [`D2dt2Scheme::SteadyState`], upstream's
+    /// shipped selection. Builder style so that [`LegacyFvmSettings`] and its struct literals are untouched.
+    #[must_use]
+    pub fn with_d2dt2(mut self, scheme: D2dt2Scheme) -> Self {
+        self.d2dt2 = scheme;
+        self
+    }
+
+    /// The selected `d2dt2` scheme.
+    pub fn d2dt2_scheme(&self) -> D2dt2Scheme {
+        self.d2dt2
+    }
+
+    /// `Time::deltaT0()` as the next step will see it: the previous step's `deltaT` (initially the `deltaT` the solver
+    /// was built with).
+    pub fn delta_t0(&self) -> f64 {
+        self.delta_t_saved
+    }
+
+    /// `Time::operator++`: `deltaT0 = deltaTSave; deltaTSave = deltaT`. Called once at the start of every
+    /// [`Self::correct_physics`], with the current `deltaT` ([`Self::set_delta_t`] before it, as a run sets the step
+    /// before `runTime++`).
+    fn advance_time_levels(&mut self) {
+        self.delta_t0 = self.delta_t_saved;
+        self.delta_t_saved = self.delta_t;
+    }
+
+    /// `GeometricField::storeOldTimes()` for `disp`, as the first `fvm::d2dt2` of a time step triggers it.
+    ///
+    /// `vf.oldTime().oldTime()` is created lazily by the FIRST `Euler` `fvm::d2dt2` and both levels are then COPIES OF
+    /// THE CURRENT FIELD, so at the first step `old = oldold = disp`; afterwards the levels shift once per time step
+    /// (`oldold <- old <- disp`), NOT once per corrector (`timeIndex_` equals the time index from the second
+    /// corrector on). The `steadyState` scheme never calls `oldTime()`, so nothing is stored for it.
+    fn store_old_displacements(&mut self) {
+        if self.d2dt2 != D2dt2Scheme::Euler {
+            return;
+        }
+        if self.old_times_exist {
+            self.disp_old_old = core::mem::take(&mut self.disp_old);
+            self.disp_old = self.disp.clone();
+        } else {
+            self.disp_old = self.disp.clone();
+            self.disp_old_old = self.disp.clone();
+            self.old_times_exist = true;
+        }
+    }
+
+    /// `fvm::d2dt2(disp)`: the diagonal and the vector source of the `d2dt2` matrix (`EulerD2dt2Scheme::fvmD2dt2`,
+    /// `mesh().moving()` false: this mesh is static). For `steadyState` both are zero (an empty matrix; `0.0 - x` is then
+    /// exactly what `A - B` of an empty `A` gives, so one code path serves both).
+    fn d2dt2_terms(&self) -> (Vec<f64>, Vec<Vector3>) {
+        let n = self.mesh.n_cells;
+        if self.d2dt2 == D2dt2Scheme::SteadyState {
+            return (vec![0.0; n], vec![Vector3::ZERO; n]);
+        }
+        let (dt, dt0) = (self.delta_t, self.delta_t0);
+        // scalar coefft = (deltaT + deltaT0)/(2*deltaT); coefft00 = (deltaT + deltaT0)/(2*deltaT0); coefft0 = coefft + coefft00;
+        // scalar rDeltaT2 = 4.0/sqr(deltaT + deltaT0);
+        let coefft = (dt + dt0) / (2.0 * dt);
+        let coefft00 = (dt + dt0) / (2.0 * dt0);
+        let coefft0 = coefft + coefft00;
+        let sum = dt + dt0;
+        let r_delta_t2 = 4.0 / (sum * sum);
+        let v = &self.mesh.cell_volumes;
+        // fvm.diag() = (coefft*rDeltaT2)*mesh().V();
+        let diag: Vec<f64> = (0..n).map(|c| (coefft * r_delta_t2) * v[c]).collect();
+        // fvm.source() = rDeltaT2*mesh().V()*(coefft0*old - coefft00*oldold);
+        let source: Vec<Vector3> = (0..n)
+            .map(|c| {
+                let (o, oo) = (self.disp_old[c], self.disp_old_old[c]);
+                let rv = r_delta_t2 * v[c];
+                Vector3::new(
+                    rv * (coefft0 * o.x - coefft00 * oo.x),
+                    rv * (coefft0 * o.y - coefft00 * oo.y),
+                    rv * (coefft0 * o.z - coefft00 * oo.z),
+                )
+            })
+            .collect();
+        (diag, source)
     }
 
     // ---------------------------------------------------------------------------------------------------------
@@ -982,8 +1093,27 @@ impl LegacyFvmThermoMechanics {
         let gd = self.grad_disp();
         let (sc, sb) = self.sigma_d_fields(&gd);
         let div = self.div_sigma_d(&sc, &sb);
-        let lap = self.fvc_laplacian_disp();
-        self.div_sigma_exp = (0..self.mesh.n_cells).map(|c| div[c] - lap[c]).collect();
+        if self.settings.compact_normal_stress {
+            let lap = self.fvc_laplacian_disp();
+            self.div_sigma_exp = (0..self.mesh.n_cells).map(|c| div[c] - lap[c]).collect();
+        } else {
+            // `divSigmaExp_ -= fvc::div((2*mu_ + lambda_)*fvc::grad(disp_), "div(sigmaD)")`
+            let n = self.mesh.n_cells;
+            let cells: Vec<Tensor> = (0..n).map(|c| gamma_times_grad(&gd.internal[c], self.two_mu_lambda[c])).collect();
+            let bnd: Vec<Vec<Tensor>> = self
+                .mesh
+                .patches
+                .iter()
+                .enumerate()
+                .map(|(pi, p)| {
+                    (0..p.size)
+                        .map(|fi| gamma_times_grad(&gd.boundary[pi].values[fi], self.two_mu_lambda[self.mesh.owner[p.start + fi]]))
+                        .collect()
+                })
+                .collect();
+            let d2 = div_tensor_field(&self.mesh, &calculated_tensor(&self.mesh, "gamma*grad(disp)", cells, bnd));
+            self.div_sigma_exp = (0..n).map(|c| div[c] - d2[c]).collect();
+        }
         self.sigma_d = sc;
         self.sigma_d_b = sb;
     }
@@ -1114,9 +1244,13 @@ impl LegacyFvmThermoMechanics {
         // `fvm::d2dt2(disp_)` constructs an fvMatrix of `disp`: `updateCoeffs()` of every patch
         self.update_disp_coeffs();
         let lap = self.laplacian_parts(&self.two_mu_lambda);
+        // `fvm::d2dt2(disp_)` (`Euler`: diag and source from the old and old-old displacements; `steadyState`: zeros)
+        let (d2_diag, d2_src) = self.d2dt2_terms();
         // B = fvm::laplacian(...) + divSigmaExp_ : source = (0 - V div(gammaMagSf corr)) - V divSigmaExp
         let mut b_source = vec![Vector3::ZERO; n];
-        if let Some(corr) = self.vector_correction() {
+        // `gammaMagSf*correction(disp)`: also stored as the matrix's `faceFluxCorrection` when `fluxRequired(disp)`
+        let corr_opt = self.vector_correction();
+        if let Some(corr) = &corr_opt {
             let flux: Vec<Vector3> = (0..n_if).map(|f| vscale(lap.gamma_mag_sf_internal[f], corr[f])).collect();
             let zero_b: Vec<Vec<Vector3>> = mesh.patches.iter().map(|p| vec![Vector3::ZERO; p.size]).collect();
             let div = surface_integrate(&mesh, &flux, &zero_b);
@@ -1129,17 +1263,18 @@ impl LegacyFvmThermoMechanics {
             let vd = vscale(mesh.cell_volumes[c], self.div_sigma_exp[c]);
             b_source[c] = Vector3::new(b_source[c].x - vd.x, b_source[c].y - vd.y, b_source[c].z - vd.z);
         }
-        // A == B with A the empty steadyState d2dt2 matrix: diag = 0 - B.diag, upper = lower = 0 - B.upper, source = 0 - B.source
+        // A == B with A the d2dt2 matrix (empty for steadyState): diag = A.diag - B.diag, upper = lower = 0 - B.upper,
+        // source = A.source - B.source
         let mut a = LduMatrix::new(n, mesh.owner[..n_if].to_vec(), mesh.neighbour[..n_if].to_vec());
         for c in 0..n {
-            a.diag[c] = 0.0 - lap.diag[c];
+            a.diag[c] = d2_diag[c] - lap.diag[c];
         }
         for f in 0..n_if {
             a.upper[f] = 0.0 - lap.upper[f];
             a.lower[f] = 0.0 - lap.upper[f];
         }
         let mut src: Vec<Vector3> =
-            b_source.iter().map(|b| Vector3::new(0.0 - b.x, 0.0 - b.y, 0.0 - b.z)).collect();
+            (0..n).map(|c| Vector3::new(d2_src[c].x - b_source[c].x, d2_src[c].y - b_source[c].y, d2_src[c].z - b_source[c].z)).collect();
         // DEqn += fvc::grad(threeKalpha*(T - TRef)): source -= V*grad
         let gt = self.grad_thermal_load();
         for c in 0..n {
@@ -1148,6 +1283,9 @@ impl LegacyFvmThermoMechanics {
         }
         // fvMatrix::solveSegregated: diag += internalCoeffs, source += boundaryCoeffs (patch by patch)
         let mut bnd_src = src.clone();
+        // `internalCoeffs`/`boundaryCoeffs` of `DEqn` per boundary face, as `fvMatrix::flux()` reads them
+        let mut flux_int: Vec<Vec<f64>> = mesh.patches.iter().map(|p| vec![0.0; p.size]).collect();
+        let mut flux_bnd: Vec<Vec<Vector3>> = mesh.patches.iter().map(|p| vec![Vector3::ZERO; p.size]).collect();
         for (pi, p) in mesh.patches.iter().enumerate() {
             match &self.disp_patches[pi] {
                 DispPatch::FixedValue(v) => {
@@ -1162,6 +1300,8 @@ impl LegacyFvmThermoMechanics {
                             bnd_src[cell].y + g_mag_sf * (dc * v.y),
                             bnd_src[cell].z + g_mag_sf * (dc * v.z),
                         );
+                        flux_int[pi][fi] = g_mag_sf * dc;
+                        flux_bnd[pi][fi] = Vector3::new(g_mag_sf * (dc * v.x), g_mag_sf * (dc * v.y), g_mag_sf * (dc * v.z));
                     }
                 }
                 // fixedGradient: internalCoeffs 0 (nothing added to the diagonal), boundaryCoeffs of `A == B`:
@@ -1176,6 +1316,8 @@ impl LegacyFvmThermoMechanics {
                             bnd_src[cell].y + g_mag_sf * g.y,
                             bnd_src[cell].z + g_mag_sf * g.z,
                         );
+                        // internalCoeffs 0 (gradientInternalCoeffs of a fixedGradient patch), boundaryCoeffs `0 - (-gMagSf*gradient)`
+                        flux_bnd[pi][fi] = Vector3::new(g_mag_sf * g.x, g_mag_sf * g.y, g_mag_sf * g.z);
                     }
                 }
                 DispPatch::ZeroGradient => {}
@@ -1201,29 +1343,85 @@ impl LegacyFvmThermoMechanics {
         for c in 0..n {
             self.disp[c] = Vector3::new(comps[0][c], comps[1][c], comps[2][c]);
         }
+        // `if (!compactNormalStress_) divSigmaExp_ = fvc::div(DEqn.flux());` straight after the solve, with the
+        // coefficients stored when `DEqn` was built (before `correctBoundaryConditions()` recomputes a traction gradient)
+        let flux_div = if self.settings.compact_normal_stress {
+            None
+        } else {
+            Some(self.flux_divergence(&lap, corr_opt.as_deref(), &flux_int, &flux_bnd))
+        };
         self.correct_disp_boundary();
         // volTensorField gradD(fvc::grad(disp_)); sigmaD_ = ...; divSigmaExp_ = fvc::div(sigmaD_ - (2 mu + lambda) gradD, "div(sigmaD)")
         let gd = self.grad_disp();
         let (sc, sb) = self.sigma_d_fields(&gd);
-        let cells: Vec<Tensor> =
-            (0..n).map(|c| sigma_minus_gamma_grad(&sc[c], &gd.internal[c], self.two_mu_lambda[c])).collect();
-        let bnd: Vec<Vec<Tensor>> = mesh
+        if let Some(fd) = flux_div {
+            // `divSigmaExp_ += fvc::div(sigmaD_)`
+            let ds = self.div_sigma_d(&sc, &sb);
+            self.div_sigma_exp = (0..n).map(|c| fd[c] + ds[c]).collect();
+        } else {
+            let cells: Vec<Tensor> =
+                (0..n).map(|c| sigma_minus_gamma_grad(&sc[c], &gd.internal[c], self.two_mu_lambda[c])).collect();
+            let bnd: Vec<Vec<Tensor>> = mesh
+                .patches
+                .iter()
+                .enumerate()
+                .map(|(pi, p)| {
+                    (0..p.size)
+                        .map(|fi| {
+                            let o = mesh.owner[p.start + fi];
+                            sigma_minus_gamma_grad(&sb[pi][fi], &gd.boundary[pi].values[fi], self.two_mu_lambda[o])
+                        })
+                        .collect()
+                })
+                .collect();
+            self.div_sigma_exp = div_tensor_field(&mesh, &calculated_tensor(&mesh, "sigmaD-gammagradD", cells, bnd));
+        }
+        self.sigma_d = sc;
+        self.sigma_d_b = sb;
+        max_initial
+    }
+
+    /// `fvc::div(DEqn.flux())` of the displacement equation just solved (`compactNormalStress no`), gh:#1845.
+    ///
+    /// `fvMatrix::flux()` (ESI v2506 `fvMatrix.C:1422`): internal faces `lduMatrix::faceH(psi)` =
+    /// `Upper[f]*psi[u] - Lower[f]*psi[l]` (`Upper = Lower = 0 - B.upper`: the matrix is `A - B`, `A` the d2dt2 matrix,
+    /// diagonal only); boundary faces `cmptMultiply(internalCoeffs, psi[owner]) - boundaryCoeffs`; then
+    /// `+= *faceFluxCorrectionPtr_`, which for `A - B` is `-(gammaMagSf*correction(psi))` (`fvMatrix::operator-=` negates
+    /// `B`'s), stored when `DEqn` was built, so computed from the displacement BEFORE the solve (`corr`). `psi` here is the
+    /// displacement after the solve. The sum over a cell's faces and the division by `V` are `fvc::surfaceIntegrate`.
+    fn flux_divergence(
+        &self,
+        lap: &LaplacianParts,
+        corr: Option<&[Vector3]>,
+        flux_int: &[Vec<f64>],
+        flux_bnd: &[Vec<Vector3>],
+    ) -> Vec<Vector3> {
+        let mesh = &self.mesh;
+        let internal: Vec<Vector3> = (0..mesh.n_internal_faces)
+            .map(|f| {
+                let u = 0.0 - lap.upper[f];
+                let (own, nb) = (mesh.owner[f], mesh.neighbour[f]);
+                let h = vscale(u, self.disp[nb]) - vscale(u, self.disp[own]);
+                match corr {
+                    Some(c) => {
+                        let g = vscale(lap.gamma_mag_sf_internal[f], c[f]);
+                        h + Vector3::new(-g.x, -g.y, -g.z)
+                    }
+                    None => h,
+                }
+            })
+            .collect();
+        let boundary: Vec<Vec<Vector3>> = mesh
             .patches
             .iter()
             .enumerate()
             .map(|(pi, p)| {
                 (0..p.size)
-                    .map(|fi| {
-                        let o = mesh.owner[p.start + fi];
-                        sigma_minus_gamma_grad(&sb[pi][fi], &gd.boundary[pi].values[fi], self.two_mu_lambda[o])
-                    })
+                    .map(|fi| vscale(flux_int[pi][fi], self.disp[mesh.owner[p.start + fi]]) - flux_bnd[pi][fi])
                     .collect()
             })
             .collect();
-        self.div_sigma_exp = div_tensor_field(&mesh, &calculated_tensor(&mesh, "sigmaD-gammagradD", cells, bnd));
-        self.sigma_d = sc;
-        self.sigma_d_b = sb;
-        max_initial
+        surface_integrate(mesh, &internal, &boundary)
     }
 
     /// `calculateStress.H`: the maximum of `sigmaEq = sqrt((3/2) magSqr(dev(sigma)))` over cells and boundary faces,
@@ -1364,11 +1562,13 @@ impl LegacyFvmThermoMechanics {
     pub fn correct_physics(&mut self) -> PhysicsLog {
         let mut log = PhysicsLog::default();
         let mut residual = 0.0_f64;
+        self.advance_time_levels();
         if self.settings.solve_thermo {
             let r = self.solve_temperature(&mut log);
             residual = residual.max(r);
         }
         if self.settings.solve_displacement {
+            self.store_old_displacements();
             let mut i_corr = 0usize;
             let mut initial;
             loop {

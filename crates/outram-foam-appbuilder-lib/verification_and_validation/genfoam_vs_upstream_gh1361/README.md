@@ -7,6 +7,16 @@ full GeN-Foam binary) are not started.~~ **UPDATED 2026-11-12:** round 3 built t
 libraries and the full binary (without `thermoTools`, which no case run needs) and compares `1D_boiling`,
 PSBT Ex1 and gFHR: see "Round 3" below.
 
+**Where the references are (2026-11-27, maintainer decision).** Every
+`refs/*.ref.txt.gz` named below is in the `refs/` **git submodule**, the
+`genfoam-vs-upstream-refs` branch of `theodoreOnzGit/C-_YouTube_OpenFoam`; it
+is no longer tracked in this repository (the 104 files, ~78 MB, were moved
+byte for byte). Fetch it with
+`git submodule update --init crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/refs`;
+`tests/genfoam_refs_submodule_present.rs` fails with that command when it is
+missing. A new reference is written into `refs/` as before, then committed and
+pushed in the submodule, and the submodule pointer is bumped here.
+
 Upstream: GeN-Foam `652b3da0cc55` on OpenFOAM-ESI **v2506** (the version
 GeN-Foam declares, `README.md:34`), partial build with dummy Pstream, gcc 13.3,
 `-O3`, double precision, 32-bit labels. Upstream sources are unmodified; the only
@@ -1114,7 +1124,7 @@ Searched `src/genfoam` for `msfr`, `transient`, `pointKinetics`, `precursor`, `l
 |---|---|---|
 | diffusion flux + precursor transient with circulating fuel | `diffusionNeutronics::correctPhysics`, `solveNeutronics.H`, `fluxEq.H`, `precEq.H` (`eigenvalueNeutronics false`, `liquidFuel true`) | `DiffusionNeutronics::step`: single pass, stationary-fuel precursors, `k_eff` fixed, no transport, no neutron iteration; **not a translation**. `precursor_drift` is the steady (`ddt` dropped) equation only. |
 | TH region `onePhase`, `momentumMode cellCentered`, `solveFluidMechanics false`, `porousKEpsilon`, Boussinesq `heRhoThermo`, `fixedTemperature` powerModel, `ReynoldsPower` | `solvers/onePhase`, `EEqn_1p`, cellCentered `pEqn`, `libFFSSrc2` closures | `OnePhaseFcSolver` (round 4) is a translation of the **faceCentered** path only, without turbulence; `solver::one_phase::OnePhaseSolver` is a constant-property stand-in. The coupled loop (`multi_region`) runs the lumped `MeshThermalHydraulics` (#1475). |
-| `meshToMesh cellVolumeWeight` between the two (identical) 8595-cell meshes | `meshHandler::mapTheseFields` | approximate (nearest cell + global rescale; #651) |
+| `meshToMesh cellVolumeWeight` between the two (identical) 8595-cell meshes | `meshHandler::mapTheseFields` | ~~approximate (nearest cell + global rescale; #651)~~ **CORRECTED 2026-11-26 (gh:#651, round 28):** exact and bit-identical to ESI (`multi_region::cell_overlap`, README Round 28); the old form is the deprecated `NearestCellGlobalRescale` |
 | `multiPhysicsSolver::correctPhysics` Picard loop | as named | `MultiPhysicsSolver` (generic, enum-dispatched), not wired to a case reader |
 | adaptive `deltaT` (Courant from TH, `maxPowerVariation` from neutronics) | `setDeltaT.C`, `maxDeltaT` | `PseudoTimeClock`/`neutronics_max_delta_t` (neutronics half only) |
 
@@ -2548,9 +2558,9 @@ every `solvers` tolerance 1e-14, `relTol 0`), first steps. Fields compared per s
 | X1 | the three shipped directories read | succeed with empty `deviations` once `symmetry` is ported; `DhStruct`, `LaheyKEpsilon`/`kEpsilon`/`porousKEpsilon`/`mixtureKEpsilon`, wall-function BCs refused by name | a key or BC type not read |
 | X2 | steps 1-8, single phase: `k`, `epsilon` | <= 1e-9 of the field maximum (same algorithm, same matrix, solves to 1e-14); NOT bit-identical (a different association of the source terms) | an association of the sources, or `relax` |
 | X3 | same steps: `nut`, `alphat` | <= 1e-8 (`nut = Cmu k^2/eps` doubles the relative error of `k`); `alphat/nut` = `rho` exactly (`Prt` 1) | `Prt` or `rho` boundary |
-| X4 | same steps: `p`, `T.*`, `U.*`, `dt` | at round 12's through-flow level (`p` <= 1.4e-11, `T` <= 2e-11, `U` <= 4e-10, `dt` equal), i.e. the turbulence adds nothing measurable | `nuEff` arithmetic (`alpha rho (nut + mu/rho)` vs `alpha mu`), the `symmetry` patch of `U`/`p_rgh` |
+| X4 | E: `disp` port vs real class, 4 steps | **bit-identical (65 %)**; same fallback and cause list as X1. At step 1 `old = oldold = 0`, so a wrong old-old shift cannot show before step 2 (first step with `disp(1) != 0`) and step 3 (first with a shifted `oldold`); if there is a divergence it starts there. |
 | X5 | `bound()` | never triggers in steps 1-8 (`k`, `epsilon` stay above 1e-15) | n/a |
-| X6 | first step above the 1e-9 round-off allowance | the first nucleate-boiling evaluation of the wall (gh:#1803/#1816, `htc.liquid.structure` ~4e-9), NOT a turbulence quantity | a turbulence field first |
+| X6 | E: old-old handling | no separate control (it would need API only a test uses); the decisive evidence for the shift is X4 at steps 3 and 4: a wrong shift (`oldold` not advanced, or advanced per corrector) cannot be bit-identical there |
 | X7 | ablation: `relax(1)` omitted | `k`, `epsilon` move by <= 1e-12 where the matrix is already diagonally dominant; larger where `div(alphaRhoPhi) < -ddt` (net convergence) | n/a |
 | X8 | ablation: laminar `nuEff` (turbulence off) | `U.liquid` changes at the 1e-2 level or more within 10 steps (initial `nut = 0.09 m^2/s` from `k = 0.1`, `epsilon = 0.01`, five orders above `nu`) | n/a |
 | X9 | `regressionResults` (Ex1 at t = 5 s: `alpha.vapour` 0.123835, `T.fixedPower` 620.178) | the port reaches 5 s and lands within 5 % of both (a quasi-steady state is less sensitive than round 12's step-51 separation) OR does not reach 5 s in the allowed wall time (reported as such, not as a miss) | the Phase_Ex1_12223 separation mechanism (#1820) |
@@ -3648,3 +3658,622 @@ was verified against closed forms and manufactured solutions only, never run aga
 Nodal (continuous) temperature input, mixed-element meshes, reduced-integration or B-bar `Hex8` for nearly incompressible
 zones, `GFTractionDisplacement`/`gapContact` in the finite-element branch (gh:#1235), transient inertia (gh:#1845), a
 traction-free-versus-`zeroGradient` investigation of the finite-volume side (above), the Tet4 shortfall in P2.
+
+## Round 26 (gh:#1784): `deformMesh` = `volPointInterpolation` + `fvMesh::movePoints`, against GeN-Foam's own code
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26, **predictions committed BEFORE the first port run**.
+
+### What upstream actually has (read before any code; this corrects the issue text)
+
+`multiRegion/meshHandler/meshHandler.{C,H}` + `meshHandlerTemplates.C` (1,194 lines) contain **no `movePoints` at all**: they hold the region meshes, the `meshToMesh` objects (`imCellVolumeWeight`, `pmAABB`), `mapAllFields`/`mapTheseFields`/`initializeMappedFields`, `createBaffleLessMeshes`/`createCouplingFields`/`returnMesh`. The mesh deformation is `deformMesh()` of each REGION SOLVER (`neutronics.C:363`, `thermalHydraulicsModel.C:380`, `thermoMechanics.C:353`; `extendedThermoMechanics` overrides it with `{}`), called from `multiPhysicsSolver::deformMesh` / the time loop. All three are the same five lines: `volPointInterpolation::New(mesh_).interpolate(<displacementField>)`, then `mesh_.movePoints(originalPoints_ + pointDisp.internalField())`, only for a region named in `multiRegionCouplingDict/meshDeformation { <region> { displacementField <name>; } }`. In the shipped `3D_SmallESFR_NewSolverVerification/legacySolver` only `neutroRegion` is listed (field `disp`, mapped from the mechanics region's `meshDisp` by `meshToMesh`). So "port `meshHandler`'s `movePoints`" is: port `volPointInterpolation` (ESI v2506 `volPointInterpolation.C`, `volPointInterpolate.C`) and the geometry `fvMesh::movePoints` leaves, and the dictionary that selects regions. `meshToMesh` `cellVolumeWeight` between the DIFFERENT mechanics (23340 cells) and neutronics (23322 cells) meshes is the supermesh intersection of gh:#651 and is NOT part of this round.
+
+### What was searched before writing anything
+
+* `outram-foam-basic-lib::io::{face_centre_and_area, cell_geometry_from_faces}` (bit-identical to ESI `makeFaceCentresAndAreas`/`makeCellCentresAndVols`, gh:#1489, gh:#1363) and the appbuilder's `io::poly_mesh::{parse_points, parse_faces, parse_index_list, parse_boundary, compute_face_geometry, compute_cell_geometry}`: RE-USED for the geometry `movePoints` leaves (ESI's `basicFvGeometryScheme::movePoints` calls `primitiveMesh::updateGeom`, the same routines as at construction).
+* `outram-foam-mesh::dynamic_mesh::esi_geometry` / `SolidBodyMeshMotion`: the same geometry on its own `SnapMesh` type; not used (it needs a crate edge `appbuilder -> outram-foam-mesh` that does not exist, and the basic-lib routines are the ones the appbuilder's readers already share).
+* `volPointInterpolation`: no port anywhere in the workspace (grep `volPointInterpolation|vol_point` finds docs only). New: `genfoam::multi_region::mesh_deformation`.
+* `multi_region/{coupling_fields,mesh_to_mesh,rbf_mapping}.rs`: no point motion; `mod.rs` says so ("`deformMesh`/`movePoints` ... needs mutable mesh-point geometry on `FvMesh`"). No kovan-reviewed function is edited (`multi_region/review.md` has no `kind = "review"` block).
+
+### The instrument
+
+`upstream_driver/mesh_deform_dump/meshDeformDump.C` (NOT part of GeN-Foam). For each region listed on the command line it constructs an `fvMesh` exactly as `meshHandler` does, creates the `disp` field (internal field a closed-form function of the ORIGINAL cell centre and of the step number, `+ - * /` only; boundary conditions read from `0/<region>/disp`), and applies upstream's `deformMesh` body for steps 1 and 2 (step 2 re-evaluates the field and moves from `originalPoints_` again, so `volPointInterpolation::movePoints()` re-weighting on the moved mesh is exercised). `thermoMechanicalRegion` goes through the REAL compiled `solvers::legacyThermoMechanics::deformMesh()` (`libThermoMechanicsSolvers`, round 23's build); `neutroRegion` and `fluidRegion` through the five upstream lines transcribed verbatim from `neutronics.C`/`thermalHydraulicsModel.C` (their solver classes need the neutronics and TH libraries; the mechanics region is the check that the transcription equals the real method). Dumped at 17 digits per step: `pointCells` (the ORDER of the weights' sum), the interpolated point displacement, the moved points, face centres, face area vectors, cell centres, cell volumes.
+
+### Predictions (written BEFORE the first port run; committed first)
+
+* **R1** (`pointCells` order): ESI builds `pointCells` three ways depending on what is cached (invert `cellPoints`; walk `pointFaces`; sweep the cells). Prediction: on a freshly read `fvMesh` with `pointMesh` constructed, the driver gets the cell-sweep order (ascending cell index per point); the port's `PointCellsOrder::CellAscending` matches exactly. A miss means the sum order differs and R2 can fail at the last bit. The real coupled run may have a different cache state; the driver prints which of `hasCellPoints`/`hasPointFaces` held, and the port keeps the other order as a named option.
+* **R2** (`volPointInterpolation`, step 1): the interpolated point displacement is **bit-identical** in every point of all three meshes. The operations are `1/mag(p - c)` (exactly rounded `sqrt`), a sum in `pointCells` order, a division by the sum, and a weighted sum; no libm transcendental, no FMA in the upstream build (`-O3`, no `-march`). A miss, if any, is 1 ulp from the summation order (R1) or contraction, below 1e-15 relative to `max |pointDisp|`.
+* **R3** (moved points): bit-identical wherever R2 is (one addition per component).
+* **R4** (moved geometry: face centres, face area vectors, cell centres, cell volumes): bit-identical on all three meshes, both steps, because the same two routines are bit-identical on the unmoved meshes (gh:#1489) and `movePoints` calls the same routines. The least certain item: the deformed hexahedra have warped (non-planar) faces, which take the polygon branch of `makeFaceCentresAndAreas` with non-zero `sumA`; if they differ, the first diverging item is a face centre on a warped quad at the 1e-16 level, and a cell volume follows.
+* **R5** (step 2, re-weighting): bit-identical. Control: weights built from the ORIGINAL geometry (what a port that forgot the mesh object's `movePoints()` would do) must NOT reproduce step 2: predicted relative difference of the point displacement of order the geometry change, `1e-3` of `max |pointDisp|`, with most interior points differing.
+* **R6** (real class vs transcription): on the mechanics region the real `legacyThermoMechanics::deformMesh()` and the port agree bit for bit, so the transcription used for `neutroRegion`/`fluidRegion` is the same operation.
+* **R7** (magnitude and sign, from the closed form `dz = 2e-3 n s (1 + 0.3 r^2)`, `dx = 1e-3 n (x s + 0.05 y (1 - s))`, `s = (z + 0.2)/2.51`): `max |pointDisp|` about `4e-3 m` at step 1 and twice that at step 2 (the field is `n` times a fixed shape and the points are `original + interpolated`, not cumulative); the relative cell-volume change is positive on average (the divergence of the field is positive) with a maximum of order `3e-3` at step 1 and `6e-3` at step 2. A negative mean volume change would mean a sign error.
+* **R8** (refusals): `symmetry`/`symmetryPlane`/`wedge`/`empty`/`cyclic*`/`processor` patches, a displacement patch condition other than `zeroGradient` or `fixedValue`, any key but `displacementField` in a `meshDeformation` entry, and `removeBaffles` on a deformed region are refused by name. `meshPhi` and the old-time volumes `V0`/`V00` that `fvMesh::movePoints` also sets (consumed by `ddt` on a moving mesh in the TH solver) are NOT ported: recorded on gh:#1846.
+
+---
+
+# Round 27 (gh:#1845, child of #1781): `compactNormalStress no` (`fvMatrix::flux`) and the transient `d2dt2` of `legacyThermoMechanics`
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26; **predictions committed BEFORE the first upstream run and BEFORE any port code**.
+
+## What was read before any code (upstream = GeN-Foam 652b3da on ESI v2506)
+
+* `solveThermalMechanics.H`: with `compactNormalStress no` the loop is `DEqn.solve(); divSigmaExp_ = fvc::div(DEqn.flux());` and then, after `gradD`/`sigmaD_`, `divSigmaExp_ += fvc::div(sigmaD_)`. The constructor takes the other branch too: `divSigmaExp_ = fvc::div(sigmaD_); divSigmaExp_ -= fvc::div((2*mu_ + lambda_)*fvc::grad(disp_), "div(sigmaD)")` (not the Laplacian), and ends with `mesh_.setFluxRequired(disp_.name())`, which is what makes `fvm::laplacian` store the `faceFluxCorrection`.
+* `fvMatrix::flux()` (`fvMatrix.C:1422`): internal faces `lduMatrix::faceH(psi)` = `Upper[f]*psi[u] - Lower[f]*psi[l]`, boundary faces `cmptMultiply(internalCoeffs, patchInternalField) - boundaryCoeffs`, then `+= *faceFluxCorrectionPtr_`. For `DEqn = d2dt2 == laplacian + divSigmaExp` (`A - B`, `fvMatrix::operator-=`) the matrix carries `0 - B` coefficients and the correction `-(gammaMagSf*correction(disp))` (`operator-=` negates it). Consequently `div(DEqn.flux())` is MINUS the face-form Laplacian of the solved displacement (with the non-orthogonal part), and `+ div(sigmaD)` completes it: the lagged term differs from the compact form's `div(sigmaD - (2mu+lambda) gradD)` only in how `div(gradD)` is discretised.
+* The coefficients the flux uses are the ones STORED when `DEqn` was built (the `GFTractionDisplacement` gradient of that moment), not those after `correctBoundaryConditions()` recomputes the gradient.
+* `d2dt2` schemes in ESI v2506: **only `steadyState` and `Euler` exist** (`src/finiteVolume/finiteVolume/d2dt2Schemes/`: `EulerD2dt2Scheme`, `steadyStateD2dt2Scheme`). **There is no `backward` d2dt2 scheme in v2506**; the issue's "Euler and backward" is therefore Euler only, and `backward` is refused by name (it would be rejected by upstream too).
+* `EulerD2dt2Scheme::fvmD2dt2` (non-moving branch): `coefft = (dt+dt0)/(2 dt)`, `coefft00 = (dt+dt0)/(2 dt0)`, `coefft0 = coefft + coefft00`, `rDeltaT2 = 4/sqr(dt+dt0)`, `diag = (coefft*rDeltaT2)*V`, `source = rDeltaT2*V*(coefft0*old - coefft00*oldold)`. `vf.oldTime().oldTime()` is created lazily: on the FIRST evaluation of an Euler `d2dt2` both are copies of the current field (so at step 1 `old = oldold = disp(0)`), and `storeOldTimes()` shifts them once per time index afterwards (`oldold <- old <- disp`), not once per corrector. `Time::operator++` sets `deltaT0 = deltaTSave` (the previous step's length; the first step's `deltaT0 = deltaT`).
+* `steadyStateD2dt2Scheme::fvmD2dt2` never touches `oldTime()`: with `steadyState` no old field is ever created.
+
+## What the workspace already had (searched before writing; reuse, rejected, new)
+
+* `outram_foam_basic_lib::fv_operators::fvm::d2dt2` (`d2dt2.rs`): constant step only, `V*(1/(dt*dt))` instead of upstream's `(coefft*rDeltaT2)*V` with `rDeltaT2 = 4/sqr(dt+dt0)` (not the same rounding), no `deltaT0`, builds a different matrix type: **checked and rejected** (no bit-identity, no variable step). `solid_displacement_foam` is `steadyState` only; `outram-foam-cli` `mechanics_code_to_code.rs` compares against a different code. `solvers::non_orthogonal` stores a SCALAR `faceFluxCorrection` for the pressure equation: not the vector one. No `fvMatrix::flux` for a vector matrix exists in the workspace.
+* Re-used: every operator of round 23/24 (`vector_correction`, `div_tensor_field`, `div_sigma_d`, `surface_integrate`, `laplacian_parts`, `pcg_dic`).
+* New, in `legacy_fvm/mod.rs` (no kovan-reviewed function exists in that folder; `review.md` has no `kind = "review"` block): a `D2dt2Scheme` enum (`SteadyState` default, `Euler`), `LegacyFvmThermoMechanics::with_d2dt2`, the old-time store, the `fvMatrix::flux` assembly, the non-compact constructor branch; `LegacyFvmCase` reads `d2dt2Schemes.default` (`steadyState`/`Euler`) and `compactNormalStress` (both). `LegacyFvmSettings` is NOT changed (`d2dt2` is a builder, so the three struct literals elsewhere are untouched).
+
+## The cases (staged by `scripts/make_legacy_tm_case.sh`, new options `COMPACT=no`, `D2DT2=Euler`, `DELTAT=`; the round-23 case otherwise: 23340 cells, tight protocol 1e-14 / relTol 0, `writePrecision 17`)
+
+| case | compactNormalStress | d2dt2 | deltaT | steps |
+|---|---|---|---|---|
+| F (flux) | no | steadyState | 1 s | 3 |
+| E (Euler) | yes | Euler | 1e-3 s, constant | 4 |
+| FE (both, variable step) | no | Euler | 1e-3 s, then x1.3 per step (`LEGACY_TM_DT_RATIO` in the driver, `Time::setDeltaT` before `runTime++`, as a CFL-controlled run does) | 4 |
+
+Why `deltaT 1e-3`: with `rho = 800..1500`, `E = 0.5..2 GPa` the wave speed is about 1 km/s and the region is 2.5 m tall, so `dt = 1 s` is quasi-static (inertia changes `disp` by ~1e-9 relative: a weak test) while `dt = 1e-3 s` puts the global mode in the inertial regime (`L/(c dt) ~ 2.5`). The reference stores `disp` at every step and every field at the last step (the other fields are not touched by the new code; they are compared at the last step), plus the full solver log.
+
+## Predictions (written BEFORE the first run of upstream or port; committed first)
+
+| id | quantity | prediction |
+|---|---|---|
+| X1 | F: `disp` port vs real class, all 3 steps | **bit-identical (65 %)**: the new chain is `faceH`, a boundary `int*P - bnd`, `+ (-(gmsf*corr))`, `surface_integrate`, `+ div(sigmaD)`, each a plain translation of operations the port already reproduces. If not bit-identical, the first divergence is at step 1 corrector 2 (the first use of the flux) with a worst relative difference between 1e-16 and 1e-12 of `max|disp|`, and the likeliest cause is an operand order in the boundary term (`int*P - bnd` vs `-(bnd - int*P)`) or in `0 - B.upper`. |
+| X2 | F: solver counts | all linear-solve iteration counts equal, initial residuals bit-identical (same condition as X1) |
+| X3 | F control: the same case with `compactNormalStress yes` (port) against the `no` reference | differs: `disp` by 1e-4 to 1e-1 of `max|disp|` (the two forms discretise `div(grad D)` differently and the 3 correctors per step are not converged to the discretisation difference); if it is below 1e-9 the case cannot tell the forms apart and is a weak test |
+| X4 | E: `disp` port vs real class, 4 steps | **bit-identical (65 %)**; same fallback and cause list as X1 with the first divergence at step 2 (the first step with `old != oldold` in the SECOND slot... step 1 has `old = oldold = 0`) |
+| X5 | E control: port with `steadyState` against the Euler reference | `disp` differs by more than 10 % of `max|disp|` at step 1 (the inertial regime), proving the term is live; and the Euler `disp` at step 1 has a smaller maximum than the steady one |
+| X6 | E control: old-old handling: the port with `oldold` replaced by `old` at every step (test-only variant, via two `with_d2dt2` runs is not possible; done by comparing step 3 of the port against a port run whose step-2 old-old is not shifted) | not run if it needs new API; the decisive evidence for the shift is X4 at steps 3 and 4 (a wrong shift cannot be bit-identical there) |
+| X7 | FE: `disp` port vs real class, 4 steps with `dt0 != dt` from step 2 | **bit-identical (55 %)**: the coefficient expressions are transcribed with the same operation order; the least certain item is `deltaT0` at step 1 (`deltaT0 = deltaT`) and the `2*deltaT0` of `coefft00` |
+| X8 | FE control: port that ignores the schedule (constant `dt`, so `dt0 = dt` and `coefft = coefft00 = 1`) against the FE reference | `disp` differs by more than 1e-3 of `max|disp|` from step 2 on |
+| X9 | all: `TStruct`, `fuelDisp`, `CRDisp` at the last step | bit-identical (the new code does not touch them; with `dt` varying the `ddt` of `TStruct` takes the current `deltaT`, as round 23) |
+| X10 | `Max sigmaEq`, `residual_` | equal to all printed digits when `disp` is bit-identical |
+| X11 | cost | port, release: F about 4 s, E about 4 s, FE about 4 s (round 23: 3 steps in ~1.2 s each test) |
+| X12 | stability | no case diverges; the lagged explicit term is stabilised by the inertia diagonal in E and FE, and `nCorrectors 3` is kept |
+
+## Round 26 results (2026-11-26, release, shared 4-core machine; `tests/genfoam_mesh_deformation_vs_upstream.rs`, 6 tests, 1.4 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust)
+
+| upstream (GeN-Foam 652b3da, OpenFOAM-ESI v2506) | port (`genfoam::multi_region::mesh_deformation`) |
+|---|---|
+| `neutronics.C:363`, `thermalHydraulicsModel.C:380`, `thermoMechanics.C:353` `deformMesh()` | `DeformableMesh::deform_mesh` |
+| `multiRegionCouplingDict/meshDeformation` | `MeshDeformationDict::from_coupling_dict` (+ `without_deformation()` ablation) |
+| `volPointInterpolation::makeInternalWeights`, `makeBoundaryWeights`, normalisation (`makeWeights`) | `VolPointInterpolation::build` |
+| `volPointInterpolation::interpolateInternalField`, `interpolateBoundaryField`, `flatBoundaryField` | `VolPointInterpolation::interpolate` |
+| `primitiveMesh::calcPointCells` (cell sweep; `pointFaces` walk) | `PointCellsOrder::{CellAscending, PointFaceWalk}` |
+| `PrimitivePatch::calcPointFaces`, `meshPoints` of the boundary | `MeshTopology` (`boundary_points`, `boundary_point_faces`) |
+| `fvMesh::movePoints` -> `basicFvGeometryScheme::movePoints` -> `primitiveMesh::updateGeom` | `DeformableMesh::move_points`, re-using `io::poly_mesh::{compute_face_geometry, compute_cell_geometry}` (basic-lib's bit-identical `face_centre_and_area`, `cell_geometry_from_faces`) |
+| the `disp` `volVectorField`, `correctBoundaryConditions()` of `zeroGradient`/`fixedValue` | `VolDisplacement::from_cells`, `parse_disp_patch_conditions` |
+| unported (refused by name) | symmetry/wedge/empty/cyclic/processor patches, other displacement patch types, extra `meshDeformation` keys; not ported and not refused (a different feature): `meshPhi`, `V0`/`V00`, `removeBaffles` copies |
+
+### Comparisons (upstream = real `volPointInterpolation` and `movePoints`; the mechanics region goes through the REAL compiled `legacyThermoMechanics::deformMesh()`)
+
+Closed-form displacement `n x` (shape above), steps `n = 1, 2`, original cell centres, bit-exact `+ - * /`. Every number is a tally of values bit-equal to upstream's 17-digit output (`exact == compared`; `+0 == -0`).
+
+| region (cells, points) | quantity | full dump compared (both steps) | worst relative difference |
+|---|---|---|---|
+| `neutroRegion` (23322, 13272) | pointDisp, points, Cf, Sf, C, V | 39816 / 39816 / 181062 / 181062 / 69966 / 23322 values per step, **all exact** | **0** |
+| `fluidRegion` (23322, 13272; `fixedValue` on `bottom`, `mappedWall` baffle patches) | the same | 39816 / 39816 / 212940 / 212940 / 69966 / 23322, **all exact** | **0** |
+| `thermoMechanicalRegion` (23340, 13293; real class method; `fixedValue 0` on three patches) | the same | 39879 / 39879 / 181224 / 181224 / 70020 / 23340, **all exact** | **0** |
+| all three | `pointCells` (whole lists, 13272 / 13272 / 13293 points) | identical lists; cache state before first use `hasCellPoints=0 hasPointFaces=0 hasPointCells=0 hasCells=0` | n/a |
+
+3,338,820 values compared in all (both steps, three regions); first diverging item: none. The committed reference (`refs/mesh_deform_esfr.ref.txt.gz`, 3.3 MB) holds every 13th item (plus the last) of each field and the whole `pointCells`; the test compares that alone when the full 73 MB dump is absent, and everything when `GENFOAM_MESH_DEFORM_DUMP` names it (`scripts/build_and_run_mesh_deform_dump.sh 2 <file>`). **The numbers above are from the full dump.** No round-off allowance was needed or claimed; nothing is flagged for the maintainer under the 1e-9 rule.
+
+### Controls (the comparison can fail)
+
+* **A, one ulp**: a single reference cell volume (cell 91) changed by one unit in the last place is found, and only it (1 of 1795 values differs; worst relative 1.5e-16), at the right index.
+* **B, stale weights** (weights of the ORIGINAL geometry applied at step 2, what a port that forgot the mesh object's `movePoints()` would do): **1 of 3066** sampled point displacements equals upstream's, the worst differs by `9.3e-6` of `max |pointDisp|`. The weights of the moved geometry reproduce all 3066. So the second-step re-weighting is real and is what upstream does.
+* **C, `pointCells` order**: the `PointFaceWalk` order is a different list from ESI's on all three meshes (asserted); the two orders agree to under 1e-15 on a small block (unit test), so a different cache state upstream would move the last bit, not more.
+
+### Predictions: held and missed
+
+* **R1 held**: ESI's `pointCells` is the cell-sweep order on a freshly read `fvMesh` (no `cellPoints`, no `pointFaces` cached).
+* **R2, R3, R4 held**: point displacement, points, face centres, face area vectors, cell centres and cell volumes are bit-identical on all three meshes and both steps, including the warped quad faces (the polygon branch with non-zero `sumA`).
+* **R5 held in kind, MISSED in size**: step 2 is bit-identical and stale weights do not reproduce it; but I predicted a stale-weight error "of order 1e-3 of `max |pointDisp|`", and it is `9.3e-6` (about 100 times smaller): the geometry change is 3e-3 relative, and the displacement field varies slowly over a cell, so the weights' change feeds through at a much smaller factor than the geometry's.
+* **R6 held**: the real `legacyThermoMechanics::deformMesh()` and the port agree bit for bit, so the transcription used for the other two regions is the same operation.
+* **R7 held**: `max |pointDisp|` 3.67e-3 m at step 1 (predicted about 4e-3) and 7.34e-3 m at step 2 (twice, not cumulative); mean cell-volume change +2.05e-3 (step 1), +4.11e-3 (step 2); max +3.18e-3 and +6.36e-3 (predicted of order 3e-3 and 6e-3); positive mean (dilatation).
+* **R8 held**: refusals by name are tested (`refuses_constraint_patches_by_name`, `patch_conditions_are_read_and_unported_ones_refused`, `dictionary_reader_and_ablation`, `unported_patch_types_are_refused_by_name`).
+
+### Deviations from upstream and what is not covered
+
+* `neutroRegion` and `fluidRegion` are driven by the five upstream lines transcribed into the driver, not by `solvers::neutronics`/`thermalHydraulicsModel` (their libraries are not part of this build); the mechanics region, through the real method, agrees bit for bit with the same transcription.
+* The displacement is closed-form on each mesh, not the mapped `meshDisp`: in the shipped case `neutroRegion/disp` is `meshToMesh` (`cellVolumeWeight`) of the mechanics region's `meshDisp`, and the two meshes differ (23340 vs 23322 cells). That mapping is the supermesh of gh:#651, NOT done here. Round 24's `disp`/`meshDisp` references live on the mechanics mesh only.
+* `deformMesh` is not yet called from the coupled loop (`multi_region::outer_iteration`'s regions own no mesh, and the displacement mapping above is missing); `fvMesh::movePoints` also sets `meshPhi` and the old-time volumes `V0`/`V00`, which `ddt` of a moving mesh uses in the TH solver: not ported (gh:#1846). `removeBaffles` copies (`createBaffleLessMeshes`) are not moved by upstream and are not modelled.
+* Meshes: all-hexahedral (the polygon branch is exercised by the warped faces), serial, plain/wall/`mappedWall` patches, two steps; `symmetryPlane`, `wedge`, `empty`, `cyclic*` and `processor` patches (the point constraints and coupled-boundary normalisation of `volPointInterpolation`) are refused, not tested against upstream.
+* The committed reference is a 1-in-13 sample; the full comparison needs the dump (73 MB, regenerated in 2 s once the upstream libraries exist).
+
+### Moved numbers
+
+None. No pin, gate or tolerance of an existing test changed; no function of `legacy_fvm` or of any reviewed code was edited (`mod.rs` of `multi_region` gained one `pub mod` line, one re-export line and corrected docs).
+
+### Reproduction
+
+`scripts/build_and_run_legacy_tm_dump.sh 1 /dev/null` first (builds round 23's `libThermoMechanicsSolvers`), then `scripts/build_and_run_mesh_deform_dump.sh 2 <dump.txt>` (builds `upstream_driver/mesh_deform_dump/meshDeformDump.C`, stages the case with `scripts/make_mesh_deform_case.sh`, runs 2 steps in 2 s), `scripts/subsample_mesh_deform_dump.py <dump> refs/mesh_deform_esfr.ref.txt.gz 13`. The case files committed under `cases/mesh_deform_esfr` are the neutro and fluid `polyMesh` (points, faces, owner, neighbour, boundary; 1.3 MB) and their `disp` fields; the mechanics region reuses `cases/legacy_tm_esfr`.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--lib mesh_deformation` 8 passed; `--test genfoam_mesh_deformation_vs_upstream` 6 passed (1.4 s, with the full dump); `-p petir --test no_platform_libm` 4 passed; the `check-nostd.sh` command for this crate (`cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`) compiles (the script itself, which loops over every converted crate, was not run in full: disk). Not run: the other suites of the crate and the workspace (the parent's integration run covers them); the generated `docs/outram-foam-appbuilder-lib-api.md` mirror was not regenerated.
+
+---
+
+# Round 28 (gh:#651, child of #1216; unblocks #1852 and #1846): `meshToMesh` `imCellVolumeWeight` as upstream builds and maps it
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26, **predictions committed BEFORE the first run of upstream or port**.
+
+## What upstream does (read before any code; OpenFOAM-ESI v2506 under `/home/user/upstream-build`)
+
+* GeN-Foam `meshHandler.C:192-201` calls the **5-argument** constructor `meshToMesh(src, tgt, imCellVolumeWeight, pmAABB, false)`. The `false` is `interpAllPatches`; `normalise` is not passed and defaults to `true` through `constructNoCuttingPatches` -> `calculate(methodName, true)` (`meshToMesh.C:~760`). **CORRECTION of round 9's comment** (`dump_mesh_to_mesh/dumpMeshToMesh.C`, README line 1591: "`normalise = false`"): that reading was wrong, the weights ARE normalised by their per-cell sum. Round 9's identical-mesh result (weight exactly 1.0) is unaffected.
+* Which object maps which way (`meshHandler.C:219-270`, `meshHandlerTemplates.C:85,133`): `mappings { A { B { sourceFields f; targetFields g; } } }` builds `mappingList_[A][B] = meshToMesh(src = A, tgt = B)` and moves `f` (on B) onto `g` (on A) with `mappingList_[A][B].mapTgtToSrc(f, plusEqOp, g)`. So the object is the one whose SOURCE is the region RECEIVING the field, and the weights used are `srcToTgtCellWght_`, normalised by the sum over the tgt cells overlapping each src cell. Shipped `3D_SmallESFR` dictionary: five objects, `(fluid,neutro)`, `(neutro,fluid)`, `(neutro,thermoMechanical)`, `(thermoMechanical,fluid)`, `(thermoMechanical,neutro)`.
+* `cellVolumeWeightMethod::calculate` (an advancing front, `cellVolumeWeightMethod.C`), `meshToMeshMethod::{maskCells,intersect,interVol,appendNbrCells}`, `tetOverlapVolume::{tetTetOverlap,cellCellOverlapMinDecomp}` (`tetOverlapVolume.C`, `...Templates.C`), `tetrahedron::tetSliceWithPlane` (`tetrahedronI.H:660-1110`), `meshToMesh::normaliseWeights` (`meshToMesh.C:377`), `meshToMesh::mapTgtToSrc` (`meshToMeshTemplates.C:261`): `result *= (1 - sum w); result += w * value` per weight, only for cells that have addresses; uncovered cells keep their value. There is NO global rescale.
+* ESI's tet decomposition is the base-point fan of each face (`tetBasePt = f[0]`, centre `cellCentres`), not outram-blender's face-centre fan; and its `sliceWithPlane` stores/decomposes tets differently from outram-blender's `slice_inside`. Both differ from ESI in the order of floating-point operations, so `outram_blender::unstructured::overlap` cannot be bit-identical to ESI and is NOT used for the port (it also needs `std`/`rayon`/`UnstructuredMesh`, and outram-blender is read-only for this work). It is the independent cross-check of the unit tests instead.
+
+## Predictions (written BEFORE any run; committed first)
+
+* **P1 (addressing, order included)**: for all five objects, the four lists (`srcToTgtCellAddr`, `tgtToSrcCellAddr`, and their weights) have the same lengths and the same ENTRY ORDER as ESI in every cell. The order is set by the advancing front (LIFO on the target cells, source cells in seed order). The one part I do not port exactly is the octree `findInside` of the FIRST seed (replaced by the lowest-index target cell containing the point); I expect it to give the same seed because every candidate has an overlapping cell. **Risk 25 %**: if it misses, only the entries of cells near the first seed's front differ in ORDER and the weights differ by at most 1 ulp.
+* **P2 (weights)**: bit-identical (worst relative difference 0) on all 20 lists. Reason: the arithmetic is `+ - * /` and exactly-rounded `sqrt` in the same order; upstream's build has no `-march`, so no FMA (as in rounds 26 and 23). Allowance 1e-9 only with an explained cause; none expected.
+* **P3 (mapped field)**: bit-identical in both directions on all five objects for the closed-form field `f = 300 + 100 x - 40 y + 25 z + 10 x y z` (`+ - * /` only, evaluated on the SOURCE cell centres), and for the partially covered target cells, where `(1 - sum w)` is an ulp-level non-zero number multiplying the old value (that value is set to a different closed form so the term is visible).
+* **P4 (mesh facts that make the test non-trivial)**: `(neutro,fluid)` and `(fluid,neutro)` are between meshes with the same cell count (23322); if they are the same mesh every weight is exactly 1.0 with identity addressing (round 9 found this for 2D_MSFR). The two pairs with `thermoMechanicalRegion` (23340 cells) are the partial-overlap ones: I expect between 18 and a few hundred cells with more than one overlap entry, and total overlap volume equal to the smaller mesh's volume within 1e-9. Not stated more sharply because I have not looked at the meshes.
+* **P5 (control: the old form fails)**: nearest-cell + global rescale vs upstream's mapped field on the thermoMechanical pairs: relative difference per cell of order `1e-3` or larger in many cells (the field varies by about 10 % over a cell), `O(1)` nowhere because the extents nearly agree. Sign: the old form's global factor is `I_src / I_tgt`, within `1e-3` of 1 for nearly equal meshes. On the identical-mesh pairs the old form is exact (control that the control is not trivially failing everywhere).
+* **P6 (slabs, the #651 cases)**: source 10 cells on [0,1] at 900 K, target 10 cells on [0,2]: upstream's formula gives 900 K on target cells 0-4, and the original target value (unchanged) on cells 5-9; the old form gives 450 K everywhere (as in the issue). Same-extent linear field `600 + 600 x`, 10 -> 3 cells: exact cell means 700 / 900 / 1100 (cells 3 and 7-ish straddle, so the target cell values are volume-weighted means of whole and partial source cells: a linear field averaged over a cell is its value at the cell centre, so the 3-cell result is 700 / 900 / 1100 to round-off); the old form gives 697.8 / 879.8 / 1122.5.
+* **P7 (cost)**: the five upstream constructions take under 10 minutes in total; the port takes under 10 minutes per object in release on a shared 2-job machine. A miss means the AABB culling is not as effective as ESI's and is a performance finding, not a correctness one.
+
+
+### Amendment 1 (2026-11-26, after the FIRST upstream run of the five shipped objects, before any port code and before the second upstream run)
+
+* **P4 MISSED.** The first upstream run (21 s for the five objects, scratch `gh651`) shows the shipped ESFR meshes are NOT partially overlapping: for every one of the five objects every cell that overlaps anything overlaps exactly ONE cell (identical cells, possibly renumbered), and the normalised weight is exactly 1. The 18 extra cells of `thermoMechanicalRegion` (23340 vs 23322) overlap nothing: they stay uncovered and keep their value. So the shipped pairs test the ADDRESSING (which cell is matched), the keep-value rule, and `V()`, but not weighted averaging. (`V` differs between the objects at the 1e-14 level, e.g. 15.024604045610079 vs 15.024604045610335: the sum order of the advancing front, which the port must reproduce.)
+* To test genuine partial overlap on REAL 3D_SmallESFR geometry the driver now also (a) builds each object with `normalise = false` (raw overlap volumes, the 7-argument constructor) and (b) builds two more objects between `neutroRegion` and a copy moved by the closed-form point displacement `p' = p + (0.03 (1 + 0.5 y z - 0.2 x), 0.025 (1 - 0.4 x z + 0.3 y), 0.02 (1 + 0.3 x y - 0.1 z))` through ESI's `fvMesh::movePoints` (cells are about 8.6 cm across, so the shift is 0.2 to 0.8 of a cell: each cell overlaps several moved cells with warped faces). This is the use-case of #1852 (a deformed neutronics mesh against an undeformed mechanics mesh).
+* **P8 (moved pair, written before its first run)**: in the original/moved objects most cells overlap 8 cells (a shift smaller than a cell in each of three directions gives 2 x 2 x 2), between 4 and 27 everywhere; the raw weights of a source cell sum to its volume within 1e-12 relative where the moved mesh covers it, and fall short at the boundary (shifted out of the domain); `V` is below the mesh volume 15.0246 m^3 by roughly shift x boundary area, i.e. between 14.0 and 14.9. Port vs upstream: raw volumes bit-identical on at least 99 % of the entries and within 1e-12 relative on all (85 % confidence that ALL are bit-identical; the deformed cells have warped faces, which exercise `sliceWithPlane` on many tets, and the summation order inside `tetTetOverlap` must be reproduced exactly); mapped fields bit-identical wherever the weights are (the same `*=`/`+=` sequence).
+
+## Round 28 results (2026-11-26, release, shared 2-job machine; `tests/genfoam_mesh_to_mesh_vs_upstream.rs`, 5 tests, 38 s; `--nocapture` prints every tally)
+
+Upstream: the real `meshToMesh` of OpenFOAM-ESI v2506 through `upstream_driver/mesh_to_mesh_dump/meshToMeshDump.C` (7 objects built in 4 s each upstream, the dump is 107 MB, scratch deleted; the committed reference `refs/mesh_to_mesh_esfr.ref.txt.gz`, 159 KB, is a sample). Port: `multi_region::cell_overlap`. **Compared with the FULL dump** (every cell; `GENFOAM_MESH_TO_MESH_DUMP=<dump>`) **and with the committed sample**; both pass, same counts below for the full dump:
+
+| object (upstream `meshToMesh(src, tgt)`), cells | addressing incl. entry order | normalised weights | raw overlap volumes | `V()`, `V()` raw | mapped scalar + vector + reverse-direction fields |
+|---|---|---|---|---|---|
+| fluid -> neutro (23322 / 23322) | 93288/93288 identical | 46644/46644, worst 0 | 46644/46644, worst 0 | 2/2, 0 | 116610/116610, worst 0 |
+| neutro -> fluid | 93288/93288 | 46644/46644, worst 0 | 46644/46644, worst 0 | 2/2, 0 | 116610/116610, worst 0 |
+| neutro -> thermoMechanical (23322 / 23340; 18 cells overlap nothing) | 93324/93324 | 46644/46644, worst 0 | 46644/46644, worst 0 | 2/2, 0 | 116628/116628, worst 0 |
+| thermoMechanical -> fluid | 93324/93324 | 46644/46644, worst 0 | 46644/46644, worst 0 | 2/2, 0 | 116682/116682, worst 0 |
+| thermoMechanical -> neutro | 93324/93324 | 46644/46644, worst 0 | 46644/46644, worst 0 | 2/2, 0 | 116682/116682, worst 0 |
+| neutro -> neutro moved by `fvMesh::movePoints` (partial overlap, up to 16 cells per cell) | 93288/93288 | 440622/440622, worst 0 | 440622/440622, worst 0 | 2/2, 0 | 116610/116610, worst 0 |
+| moved -> neutro | 93288/93288 | 440622/440622, worst 0 | 440622/440622, worst 0 | 2/2, 0 | 116610/116610, worst 0 |
+
+**Everything is bit-identical (worst relative difference 0), including the order of every address list and `V()` (which differs between objects at 1e-14 because of the front's summation order).** No 1e-9 allowance was used. Port wall time: the seven objects in 38 s (release, 2 jobs), upstream 4 s each: the port is not slower than order 10x.
+
+### Controls
+* **A 1-ulp change in one weight, and a swapped pair of addresses, are detected** (`control_one_ulp_and_wrong_address_are_detected`).
+* **Wrong direction fails** (`control_wrong_direction_fails`): the `(moved, neutro)` addressing against the `(neutro, moved)` reference fields differs by more than 1e-9.
+* **The old form fails on partial overlap** (`control_old_form_fails_on_partial_overlap`): nearest-cell + global rescale vs upstream's mapped field on the moved pair: **0 of 23322 cells identical, worst relative difference 4.1e-2** (full dump; 3.7e-2 on the 112 sampled cells); on a mesh against itself the old form is exact (worst 0), so the control is not failing everywhere. The 450 K / 697.8-879.8-1122.5 K cases of the issue are reproduced by the deprecated `NearestCellGlobalRescale` in `mesh_to_mesh::tests` (`partial_overlap_upstream_form_and_deprecated_control`, `same_extent_linear_field_exact_and_control_reproduces_the_issue`).
+
+### Predictions: held and missed
+* **P1 held** (addressing and entry order identical on all 7 objects, including my replacement of the octree `findInside` by the lowest-index containing cell: it chose the same seeds).
+* **P2 held** (weights bit-identical, worst 0).
+* **P3 held** (mapped fields bit-identical, both directions, scalar and vector, with the pre-existing target value and the `(1 - sum w)` remainder).
+* **P4 MISSED** (recorded in Amendment 1): the shipped ESFR pairs are not partially overlapping; they are identical cells, 18 uncovered. They test addressing, the keep-value rule and `V`, not averaging. The partial-overlap content comes from the moved pair (P8).
+* **P5 held in kind, missed in size on the shipped pairs**: I predicted the old form fails (relative `1e-3` or more) on the thermoMechanical pairs; on those pairs the meshes' cells coincide, so the old form is accurate there (it is exact on identical cells; only the 18 uncovered cells and the rescale factor differ). The failure is on the moved pair: 4.1e-2.
+* **P6 MISSED**: the slab 10 -> 3 same-extent case gives **702 / 900 / 1098**, not 700 / 900 / 1100. The issue text (and my prediction) used continuous cell means; upstream averages the piecewise-constant source cell values (cell 0: 0.3 m of cells at 630, 690, 750 plus 1/30 m at 810, over 1/3 m = 702). The unit tests state 702 / 900 / 1098; the 450 K and keep-value predictions held.
+* **P7 held**: upstream 4 s per object; the port 38 s for seven (about 5 s per object).
+* **P8 held**: most cells overlap 8 or 12 moved cells (range 1 to 16, not 4 to 27: edge cells overlap fewer), `V = 14.5997` m^3 (predicted 14.0 to 14.9; mesh volume 15.0246), all raw volumes bit-identical (my 85 % confidence for ALL held). New fact: `V` of `(neutro, moved)` is 14.599691603522279 and of `(moved, neutro)` 14.599692208646008, different at 4e-8 relative: the `1e-6 * V_src` drop of tiny overlaps is not symmetric (upstream behaviour, reproduced).
+
+### Findings worth the maintainer's attention
+* `meshHandler.C:192-201` passes `false` as `interpAllPatches`; `normalise` is not passed and is `true`. Round 9's driver comment ("`normalise = false`") and README line 1591 read it as `normalise`; the weights there were measured as exactly 1.0, which both readings give. Corrected here, not edited in place in round 9's text.
+* The weights are overlap-volume weights normalised by their per-cell SUM, not by cell volume: a covered cell in a partially covered mesh gets the average of what it overlaps, and a field is conserved only where the meshes cover the same volume.
+* The mapping direction is the opposite of the data direction (upstream's SOURCE is the receiving region); `MeshToMesh::cell_volume_weight(source, target, ..)` hides that.
+
+### Deviations from upstream and what is not covered
+* `findInside` for the FIRST seed is the lowest-index target cell whose box and `(centre, f[0], f[i], f[i+1])` tets hold the point, not the octree with minimum-twist `tetBasePtIs`. It agreed on every seed here; a mesh where it does not would change the entry ORDER (and so the last bit of a sum), not the overlaps.
+* Serial; no `distributed()` branch, no second-order (`tgtToSrcCellVec_`) or AMI patch mapping (GeN-Foam uses neither). `mapSrcToTgt` is ported for scalars only (GeN-Foam's `heatExchanger` uses it; not wired).
+* Boundary fields are not mapped (`mapTgtToSrc` of a `VolumeField` also maps patches through AMI, which `interpAllPatches = false` leaves empty, and then `correctBoundaryConditions`).
+* `removeBaffles` mapping meshes (`mappingMeshes_`) are not modelled.
+* NOT done (filed): wiring `deformMesh` and the mapped `meshDisp -> disp` into `multi_region::outer_iteration` / `IdenticalMeshMap` (gh:#1852); `IdenticalMeshMap` still refuses non-identical meshes.
+
+### Moved numbers
+* `multi_region` lib tests that mapped with `CellVolumeWeight` (`coupling_conserves_total_power` in `coupling_fields`, `coupled_power_conservation_across_meshes` and `coupled_steady_state_negative_feedback` in `mesh_region`, `cell_volume_weight_conserves_integral` in `mesh_to_mesh`): they now build regions with an `OverlapMesh` (the regions' slabs are blocks `[0,1] x [0,1] x [0,A]`). All pass with their ORIGINAL assertion bounds; their recorded "Result" lines were measured with the old form, the conservation numbers (rel 0 to 2.3e-16 before) are within the same bounds now. **No gate or tolerance was changed.** **Re-measured (`--nocapture`, 2026-11-26)**: `coupled_power_conservation_across_meshes` relative power mismatch 2.3e-16 (old) -> **1.16e-16** (new), both 1.000000e6 W; `coupled_steady_state_negative_feedback` k_eff 2.995311, mean TFuel 909.80 K, feedback -9.804e-5: **unchanged to the printed digits** (the old rescale and the exact map agree where both cover the same slab and the field is smooth). No other existing test depended on the mapping.
+* `MeshToMesh::new` now returns `Result` (it refuses `CellVolumeWeight` without geometry); `MappingMethod` gained the deprecated `NearestCellGlobalRescale`; `CouplingRegion::with_overlap_mesh` is how a region carries its polyhedral geometry; `CouplingError` gained two variants. No other crate uses these (searched `crates/*/{src,tests,examples}`).
+
+### Reproduction
+`scripts/build_and_run_mesh_to_mesh_dump.sh <dump.txt>` (builds `upstream_driver/mesh_to_mesh_dump/meshToMeshDump.C` against ESI's `libsampling`, stages the case with `scripts/make_mesh_deform_case.sh`, 55 s), then `GENFOAM_MESH_TO_MESH_DUMP=<dump.txt> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_mesh_to_mesh_vs_upstream -- --nocapture`. The sample is made by `scripts/subsample_mesh_to_mesh_dump.py <dump> refs/mesh_to_mesh_esfr.ref.txt.gz 211`.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+`--lib multi_region` 51 passed; `--test genfoam_mesh_to_mesh_vs_upstream` 5 passed (full dump and sample); `-p petir --test no_platform_libm` 4 passed; `bash scripts/check-nostd.sh` clean for `outram-foam-appbuilder-lib` (and every other crate it lists).
+
+## Round 27 results (2026-11-26, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_legacy_tm_flux_d2dt2_vs_upstream.rs`, 7 tests, ~3 s; `--nocapture` prints every tally)
+
+### What was ported (upstream file -> Rust, all in `genfoam::thermo_mechanics::legacy_fvm`)
+
+| upstream (GeN-Foam 652b3da, ESI v2506) | port |
+|---|---|
+| `solveThermalMechanics.H` `if (!compactNormalStress_) divSigmaExp_ = fvc::div(DEqn.flux())` and `divSigmaExp_ += fvc::div(sigmaD_)` | `displacement_corrector` (flux straight after the solve, with the coefficients stored at assembly) |
+| `fvMatrix::flux()` (`fvMatrix.C:1422`), `lduMatrix::faceH`, `fvMatrix::operator-=` (negated `faceFluxCorrection`), `gaussLaplacianSchemes.C` (`faceFluxCorrection = gammaMagSf*correction`, stored because `setFluxRequired`) | `LegacyFvmThermoMechanics::flux_divergence` |
+| `legacyThermoMechanics.C` constructor non-compact branch (`div(sigmaD) - div((2mu+lambda)*grad(disp), "div(sigmaD)")`) | `initial_div_sigma_exp` |
+| `EulerD2dt2Scheme::fvmD2dt2` (non-moving), lazy `oldTime()`/`oldTime().oldTime()`, `Time::operator++` `deltaT0` | `D2dt2Scheme`, `with_d2dt2`, `d2dt2_terms`, `store_old_displacements`, `advance_time_levels` |
+| `fvSchemes.d2dt2Schemes`, `fvSolution.stressAnalysis.compactNormalStress` | `LegacyFvmCase::read` (`case.d2dt2`); `backward` and anything else refused by name: it does not exist in v2506 |
+
+`LegacyFvmSettings` is unchanged (`d2dt2` is a builder). The refusal of `compactNormalStress no` and of transient `d2dt2` is gone; the unit test that asserted it now asserts the build succeeds.
+
+### Comparisons (all bit for bit; `exact` counts equal values)
+
+| case | steps | fields compared | linear solves | result |
+|---|---|---|---|---|
+| F: `compactNormalStress no`, `steadyState`, dt 1 s | 3 | `disp` at 3 steps; `TStruct`, `fuelDisp`, `CRDisp`, `meshDisp` at step 3: 210,060 + 140,040 values | 36 | **every value bit-identical**; 36/36 solves identical (initial, final residual, iterations); `Max sigmaEq`, `residual_` identical |
+| E: compact, `Euler`, dt 1e-3 s constant | 4 | `disp` at 4 steps, the rest at step 4 | 48 | **bit-identical**, 48/48 solves, `Max sigmaEq` identical at all 4 steps |
+| FE: `no` + `Euler`, dt x1.3 per step (dt0 != dt from step 2) | 4 | same | 48 | **bit-identical**, 48/48 solves, `Max sigmaEq` identical |
+
+Worst relative difference: 0 in every field, step and residual. No round-off allowance used; nothing flagged under the 1e-9 rule. First diverging step: none.
+
+### Controls (each shows the tally can fail)
+
+| control | result |
+|---|---|
+| port with `compactNormalStress yes` against F reference, step 1 | `disp` 0/70020 equal, worst 2.13e-2 of max; worst initial residual differs 0.73 relative; `Max sigmaEq` 11 % off |
+| port with `steadyState` against E reference, step 1 | `disp` 0/70020 equal, worst 0.86 of max (inertia dominates at dt 1e-3: E max step-1 `disp` 5.2e-3 m against 8.9e-3 m steady) |
+| port that ignores the step schedule (constant dt) against FE reference | step 1 bit-identical (as it must be), step 2 `disp` 0/70020 equal, worst 5.5e-2; step 3 2.6e-2; `Max sigmaEq` 1.7e-2 off at step 3 |
+
+Unit tests (`legacy_fvm::tests`, 5 new, `--lib thermo_mechanics`: 33 passed): flux form and compact form both reproduce the linear stretch; they differ when loaded; Euler coefficients against hand evaluation (dt0 = dt and dt0 = 2 dt); old/old-old shift once per step and `deltaT0` tracking; steady scheme stores nothing; inertia lags the quasi-static solution.
+
+### Predictions: held and missed
+
+* **X1, X2 held** (bit-identical F; stated 65 %).
+* **X3 held**: control difference 2.1e-2 of max (predicted 1e-4 to 1e-1).
+* **X4 held** (E bit-identical, stated 65 %); **X5 held** (0.86 >> 0.1; Euler max `disp` smaller than steady, 5.2e-3 vs 8.9e-3).
+* **X6** (no separate control) as stated; the shift is evidenced by X4 at steps 3 and 4.
+* **X7 held** (FE bit-identical, stated 55 %); **X8 held** (5.5e-2 > 1e-3).
+* **X9, X10 held** (`TStruct`, `fuelDisp`, `CRDisp`, `Max sigmaEq`, `residual_` bit-identical).
+* **X11 held**: all 7 tests take 3 s together. **X12 held**: no case diverged.
+* Missed: none. The unit test `euler_d2dt2_lags_the_quasi_static_displacement` failed at first because MY test built the solver with `deltaT = 1` s and so used `deltaT0 = 1` s for step 1 with `dt = 1e-6`; that is upstream's behaviour (`Time::deltaT0` = initial `deltaT`), fixed in the test, not in the port. Its first form also used the maximum `disp`, which sits against the imposed boundary value; the mean is used.
+
+### Findings about upstream (now documented in the code)
+
+* ESI v2506 has **no `backward` d2dt2 scheme**: only `steadyState` and `Euler`. The issue's "backward" cannot exist upstream.
+* With `Euler` the old and old-old displacement are created lazily at the first step as copies of the current field (so `oldold = old = disp(0)` at step 1) and shift once per time step; `deltaT0` of step 1 is the controlDict `deltaT`. A solver built with a `deltaT` different from the first step's gets `deltaT0 != deltaT` at step 1 exactly as upstream's `Time` does.
+* The `faceFluxCorrection` is the one stored at assembly (from the displacement before the solve); the `GFTractionDisplacement` gradient used in the flux is likewise the one stored when `DEqn` was built.
+
+### Deviations and what is not covered
+
+* Static mesh only (`EulerD2dt2Scheme`'s `mesh().moving()` branch with `V0`/`V00` is not ported; a coupled run that moves this region's mesh needs it, gh:#1784 territory).
+* Non-zero initial `disp` is not supported by the port (already refused), so the "old = oldold = initial field" rule is exercised only from zero; the shift is exercised from step 2.
+* Tested on the fixedValue/zeroGradient `disp` patches of the round-23 case; `GFTractionDisplacement` with the flux form is built (boundary term `0*P - gMagSf*gradient`, from `fixedGradientFvPatchField`'s coefficients) but not compared with a reference. Filed.
+* `DEqn.relax()` remains refused (no relaxation entry matches `disp`).
+
+### Moved numbers
+
+None. No pin, gate or tolerance changed. Refs added (gzip -9): `legacy_tm_flux_f*` 1.9 MB, `legacy_tm_d2dt2_e*` 2.3 MB, `legacy_tm_flux_d2dt2_fe*` 2.4 MB (`disp` every step, other fields at the last step; logs 1 KB). `scripts/extract_legacy_tm_log.sh` now matches non-integer time names.
+
+### Reproduction
+
+`COMPACT=no LEGACY_TM_DISP_ONLY=1 bash scripts/build_and_run_legacy_tm_dump.sh 3 F.txt` (F); `D2DT2=Euler DELTAT=1e-3 LEGACY_TM_DISP_ONLY=1 ... 4 E.txt` (E); `COMPACT=no D2DT2=Euler DELTAT=1e-3 LEGACY_TM_DT_RATIO=1.3 LEGACY_TM_DISP_ONLY=1 ... 4 FE.txt` (FE); logs through `scripts/extract_legacy_tm_log.sh`; `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_legacy_tm_flux_d2dt2_vs_upstream -- --nocapture`.
+
+### Gates run (2026-11-26, release, targeted, `CARGO_BUILD_JOBS=2`)
+
+`--test genfoam_legacy_tm_flux_d2dt2_vs_upstream` 7 passed; `--test genfoam_legacy_thermo_mechanics_vs_upstream` 5 passed and `--test genfoam_traction_displacement_vs_upstream` 7 passed (unchanged, still bit-identical); `--lib thermo_mechanics` 33 passed; `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` see hand-off. Not run: the other suites of the crate and the workspace.
+
+# Round 29 (gh:#1842): single-phase `porousKEpsilon` remainders: `DhStruct` nut stabilisation, wall-function entries and blenders, `Final` entries
+
+Child of gh:#1812 / gh:#1839 (round 20 refused all of these by name). Sources read BEFORE any code or run (GeN-Foam 652b3da on ESI v2506): `porousKEpsilon.C`
+(`correctNut`: `alphat` from the UNstabilised `nut`, then `nut += pos(structure) magU DhStruct/laminarReStruct`, then `correctBoundaryConditions`; constructor reading
+`DhStruct`/`laminarReStruct` per region, default `laminarReStruct 500`, `DhStruct` 0 elsewhere), `fluid.H/.C` (`magU` is a STORED field: `magU = mag(U)` after each pressure
+corrector, `UEqn_1p.H` runs `turbulence().correct()` before it is refreshed), ESI `wallFunctionBlenders.C`, `wallFunctionCoefficients.C`, `nutkWallFunctionFvPatchScalarField.C`
+(`calcNut`, five blenders; `nutw -= nutVis`), `epsilonWallFunctionFvPatchScalarField.C` (`calculate`: five blenders, `lowReCorrection`, `G` added only if `!lowReCorrection || yPlus > yPlusLam`,
+per-patch coefficients because `calculateTurbulenceFields` calls each patch's own `calculate`), `nutWallFunctionFvPatchScalarField.C` (`U` is read into `UName_`, used ONLY by `yPlus()`),
+`fvMatrix::{solverDict, relax}` (`psi.select(mesh.data().isFinalIteration())` -> `kFinal`, `epsilonFinal`; `relaxEquation(name)` is a regex lookup, a missing `...Final` entry means NO relaxation),
+`pimpleControl::loop` and GeN-Foam's `customPimpleControl::loop` (`setFinalIteration(true)` when `corr_ == nOuterCorrectors`, no `residualControl` in 2D_MSFR).
+Defaults upstream: blender `stepwise`; `n` 4 for `nutk`, 2 for `epsilon`; `lowReCorrection false`; `Cmu 0.09 kappa 0.41 E 9.8`; `kappa`, `E` must be >= SMALL. Blender formulas are the ones
+in the two `.C` files (`pow4 = sqr(sqr)`, `ROOTVSMALL = 1e-150`, nut exponential `Gamma = 0.01 y+^4/(1+5y+)`, epsilon exponential `Gamma = 0.001 y+^4/(1+y+)`, tanh `tanh((0.1 y+)^4)`).
+
+## Searched before writing (reuse)
+
+`one_phase_cc/turbulence.rs` (round 20: the wall functions are there as stepwise-only, shared coefficients), `two_phase/turbulence.rs` helpers, `outram-foam-turbulence-lib::wall_functions`
+(round 20: standalone helpers with hard-coded kappa/E, no blenders: nothing to reuse), `grep -rn "blending\|nutkWallFunction\|epsilonWallFunction" crates/*/src`: only the round-20 code.
+Reused unchanged: `fv`, `pbicgstab_diagonal`, `bound`, `relax_equation`, `near_wall_dist`, `last_match`.
+
+## Case variants (overlay files over `cases/msfr_th`, made by `scripts/make_msfr_th_variants.sh`; the port reads the same bytes upstream runs)
+
+* `wf_*` run at **mu 0.5** (shipped 0.01). Why: the unmodified round-20 port has wall-face `y+ = Cmu^0.25 y sqrt(k)/nu` of 87 to 1062 (median 285, measured with a temporary print of the existing code, before any new code); at that `y+` every blender equals the inertial value to < 1e-8 and no option can be told from its default. mu 0.5 divides `y+` by 50: 1.7 to 21 (median 5.7), straddling `yPlusLam = 11.53` and the `epsilonVis/epsilonLog = 2 kappa/(Cmu^0.5 y+) = 2.73/y+` crossing. The salt is not meant to be physical; both codes read the same file.
+* `wf_base` (all defaults), `wf_lowre` (`lowReCorrection on` topwall, `off` bottomwall, `yes` reflector, default hx), `wf_max`, `wf_exponential`, `wf_tanh`, `wf_binomial` (nut `n 3` on topwall else default 4; epsilon `n 3` on bottomwall else default 2) on every patch of `nut` and `epsilon`; `wf_mixed` (a different blender per patch, nut and epsilon independently, `n 2.5`, stepwise+lowRe); `wf_coeffs` (`Cmu 0.0845` = `RNGkEpsilon.C` default in this ESI tree, `kappa 0.4187` / `E 9.793` = Launder-Spalding 1974 pair; nut on all patches, epsilon each patch different); `wf_uname` (nut `U UNoSuchField` topwall, `U U` bottomwall).
+* `dh_a` (`DhStruct 0.01` in `"hx"`, = that region's own `Dh` in `phaseProperties`; `laminarReStruct` default 500), `dh_b` (+ `laminarReStruct 50`); shipped mu.
+* `fin_solver`: `k`, `epsilon` `PBiCGStab/diagonal tolerance 1e-14 relTol 0.01`, `kFinal`, `epsilonFinal` same with `relTol 0` (upstream's pairing: 2D_FFTF `"(h|k|epsilon)"` relTol 0.001 vs `"(h|k|epsilon)Final"` relTol 0; 0.01 is the loose value of 32 other upstream entries). `fin_relax`: `".*" 0.9` plus `kFinal 0.6; epsilonFinal 0.6` (2D_FFTF's `"k.*" 0.6`, `"epsilon.*" 0.6`). `fin_norelax`: `"h.*" 0.9; "U.*" 0.9; k 0.9; epsilon 0.9` (no entry matches `kFinal`/`epsilonFinal`: no relaxation in the final iteration). Shipped mu.
+
+Protocol: tight (every solver 1e-14, relTol 0 except the `fin_solver` entries above, `p_rgh` PCG/DIC, `writePrecision 17`), 3 steps, fields `U k epsilon nut p_rgh` at steps 1 and 3 (and the `k`/`epsilon` solve log), real unmodified binary, run dirs deleted after extraction.
+**Control for every option:** the port reading the BASE case (option absent = default) compared with the variant's upstream reference must FAIL the gate; for `Final` the port's named ablation `without_final_iteration_selection()` on the variant case.
+
+## Predictions (written BEFORE any run of upstream or port with the new options; committed first)
+
+Pass gate: 1e-9 of each field's max-norm, steps 1 and 3. Reported besides: cell-wise relative maximum and the count of bit-equal values.
+
+* **R1 (no regression).** Default cases unchanged: round 19/20 tests pass with the numbers unchanged to the digit.
+* **R2 (every variant agrees).** Each variant agrees with its upstream run to <= 1e-9 of the max-norm in `U, k, epsilon, nut, p_rgh` at steps 1 and 3, on the first run. Expected size 1e-13 to 1e-11 (round 20: 5e-12 worst), not bit-identical (`ln`/`pow`/`exp`/`tanh` come from `petir` and may differ from glibc by 1 ulp). Likeliest failure point if missed: `exponential` and `tanh` (the nut and epsilon `Gamma` constants differ), then per-patch coefficients (`calculate` uses each patch's own).
+* **R3 (`max` for nut equals stepwise here).** At `y+` in 1.7..21, `nutLog < nutVis` exactly below `yPlusLam` (the crossing is `yPlusLam` by construction; `y kappa/ln(E y) < 1` on (0.1, 11.53)), so the nut half of `wf_max` equals stepwise to the bit. Its control therefore separates only through `epsilon` (`epsilonVis > epsilonLog` for `y+ < 2.73`, about 35 % of wall faces).
+* **R4 (control magnitudes, step 3, max-norm of `epsilon`, which sits in the smallest-`y` wall cells, `y+` about 1.7, `epsilonVis/epsilonLog` about 1.6).** The port without the option is LOWER than upstream by: `wf_lowre` 60 %; `wf_max` 60 %; `wf_binomial` (n=2) about 90 %; `wf_exponential` about 60 %; `wf_tanh` about 130 %. All five: `epsilon` control difference in [0.2, 1.5]. `wf_coeffs`, `wf_mixed`: > 1e-3. `wf_uname`: no control exists (an entry that changes nothing); predicted: port variant == port base to the BIT, and upstream variant == upstream base to the bit (`U` is read only by `yPlus()`).
+* **R5 (`nut` wall values are a small effect).** For `nutw` the blenders add 0 to ~3 % of `nu` at `y+ ~ 6` (binomial n=4: `(1+0.58^4)^(1/4) - 1 = 2.7 %`); the blender-only effect on `U` (max-norm, step 3) is smaller than the `epsilon` effect and above the gate: control `U` difference in [1e-8, 1e-2]. Not predicted more sharply.
+* **R6 (`DhStruct`).** Stabilisation is ZERO in outer iteration 1 of step 1 (`magU = 0`), nonzero from outer iteration 2; `alphat` is computed before it. `nut` in `hx` (equilibrium `nut ~ 1e-6` there, from `k_eq ~ 1.5 (U 0.16 Re^-0.125)^2`) rises by `U Dh/Re ~ 0.01 0.01/500 = 2e-7` (`dh_a`, about +20 %) and 10x that for `dh_b` (Re 50, about x3). Control: cell-wise relative `nut` difference in `hx` cells in [0.05, 10] (`dh_a`), [0.5, 100] (`dh_b`); the max-norm of `nut` (bulk 0.09) hides it (< 1e-5), so the control is read cell-wise; `U` max-norm control difference > 1e-6. Agreement itself held to the gate (R2).
+* **R7 (`Final`).** `fin_solver`: iteration counts of the `epsilon` and `k` solves equal to upstream's in all 30 solves (outer 1-4 loose `relTol 0.01`, 1 to 3 iterations; outer 5 tight), fields <= 1e-9, UNLESS a stopping decision of a loose solve flips on round-off (then differences of order `relTol` x change, ~1e-4; I give this 10 %). Control (ablation = plain entry in outer 5): `k` max-norm difference in [1e-7, 1e-3]. `fin_relax` (0.6 in the final outer iteration): control difference in `k` and `epsilon` in [1e-6, 1e-1]. `fin_norelax` (final outer iteration unrelaxed): control difference in [1e-6, 1e-1].
+* **R8 (refusals).** The refusal tests for `DhStruct`, `kappa` and `Final` entries are replaced. Still refused: `RASModel` other than `porousKEpsilon`, wall-patch types other than the three, any other `kqRWallFunction` entry (upstream ignores them; refused here rather than silently ignored), `fvOptions`, solvers other than `PBiCGStab`/`diagonal`, `relaxationFactors.equations` `default` (filed, gh:#1855).
+
+## Round 29 results (2026-11-26, release, 4 shared cores; `tests/genfoam_msfr_th_options_vs_upstream.rs`, 15 tests, ~45 s with 2 threads; `--nocapture --test-threads=1` prints every table)
+
+**Every variant agrees with the real binary on the first run, to round-off, in `U k epsilon nut` at steps 1 and 3**: worst max-norm relative difference over all 13 variants and both steps: `U` 4.9e-12, `k` 2.1e-13, `epsilon` 5.9e-13, `nut` 4.8e-14 (gate 1e-9); worst cell-wise relative `U` 1.0e-10, `nut` 1.2e-12. Not bit-identical (about 1500 of 8595 `epsilon` and 800 of 8595 `nut` values bit-equal; the variants that add `exp`/`tanh`/`pow` are no worse than the stepwise ones). **First diverging step: none; no cause to find.** The references are the real unmodified binary at the tight protocol (3 s per variant), `refs/msfr_th_opt_<variant>.ref.txt.gz` (14 files, ~0.9 MB each; run dirs deleted).
+
+| variant (option) | worst max-norm `U` / `k` / `epsilon` / `nut` (steps 1, 3) | CONTROL (port on the BASE case, step 3): max-norm `epsilon` / `nut` / `U` (cell-wise `nut`) |
+|---|---|---|
+| `wf_base` (all defaults, mu 0.5) | 3.3e-12 / 8.5e-14 / 3.4e-13 / 3.3e-14 | (it is the base) |
+| `wf_lowre` (`lowReCorrection` per patch) | 2.7e-12 / 7.2e-14 / 2.3e-13 / 2.3e-14 | 0.29 / 0.14 / 0.027 |
+| `wf_max` | 2.5e-12 / 1.9e-13 / 5.9e-13 / 4.2e-14 | 0.30 / 0.012 / 0.0075 |
+| `wf_binomial` (nut `n 3` on one patch, epsilon `n 3` on another) | 2.2e-12 / 1.8e-13 / 4.9e-13 / 4.8e-14 | 0.35 / 0.017 / 0.011 |
+| `wf_exponential` | 2.8e-12 / 2.0e-13 / 6.0e-13 / 4.3e-14 | 0.30 / 0.16 / 0.029 |
+| `wf_tanh` | 2.1e-12 / 1.8e-13 / 4.6e-13 / 4.1e-14 | 0.40 / 0.025 / 0.013 |
+| `wf_mixed` (blender per patch, nut and epsilon independently) | 2.0e-12 / 2.1e-13 / 5.9e-13 / 4.2e-14 | 0.35 / 0.12 / 0.011 |
+| `wf_coeffs` (`Cmu`, `kappa`, `E` per patch) | 2.6e-12 / 6.3e-14 / 2.2e-13 / 2.1e-14 | 0.29 / 0.12 / 0.0091 |
+| `wf_uname` (`U` entry) | = `wf_base`, bit for bit, in upstream AND in the port | no control exists |
+| `dh_a` (`DhStruct 0.01`, default `laminarReStruct 500`) | 2.3e-12 / 9.1e-14 / 3.3e-13 / 4.4e-14 | 3.2e-6 / 6.3e-6 (cell-wise 1.8e-3) / 3.6e-7 |
+| `dh_b` (+ `laminarReStruct 50`) | 1.9e-12 / 7.4e-14 / 3.5e-13 / 3.7e-14 | 3.2e-5 / 6.3e-5 (cell-wise 1.8e-2) / 3.6e-6 |
+| `fin_solver` | 2.3e-12 / 7.9e-14 / 3.4e-13 / 4.0e-14; 30 `epsilon`/`k` solves: residual to 1.6e-11, iteration counts EQUAL | stock Final selection: `k` 7.8e-6, `epsilon` 2.1e-5, `nut` 5.6e-3 |
+| `fin_relax` | 4.9e-12 / 8.3e-14 / 3.3e-13 / 3.1e-14 | stock: `k` 8.0e-4, `epsilon` 2.5e-3, `nut` 2.3e-2 |
+| `fin_norelax` | same numbers as `fin_relax` (identical upstream run) | stock: `k` 3.6e-4, `epsilon` 9.6e-4, `nut` 2.1e-2 |
+
+(Control of the `wf_*` rows: step-3 values; the step-1 values are of the same size. Every control fails the gate by 5 to 11 orders of magnitude: each option matters and the comparison can tell.)
+
+### The finding that matters: upstream NEVER selects the `Final` entries (prediction R7's premise missed)
+
+I predicted that `fin_solver`/`fin_relax`/`fin_norelax` would differ between the plain and the `Final` entry. They do not: upstream's `fin_relax` and `fin_norelax` runs are byte-identical to each other (and the `epsilon`/`k` iteration counts of the outer-5 solves of `fin_solver` are those of the LOOSE `relTol 0.01` entry: 3 and 4 iterations, not ~21). A probe with `kFinal { solver noSuchSolver; }` ran to the end without error. **Cause, read in the source after the measurement:** GeN-Foam's `customPimpleControl` (`src/classes/thermalHydraulics/src/customPimpleControl/customPimpleControl.H:186`) declares its own `int corr_` that SHADOWS the base `pimpleControl::corr_`; its `loop()` advances the derived one, but `pimpleControl::finalIter()` (`converged_ || corr_ == nCorrPIMPLE_`, inline in the base) reads the base `corr_`, which stays 0. So `mesh.data().setFinalIteration(true)` is never called unless `converged_` (residualControl converged), `isFinalIteration()` is false, and `psi.select(...)` gives the plain name. (Round 20's refusal "a Final entry that differs" was therefore stricter than needed, and a port that selected `Final` as stock OpenFOAM does would be wrong: the stock-selection control above differs from upstream by 1e-6 to 2e-2.) What the port does: reads the `Final` entries, never selects them (~~`PIMPLE.residualControl` is still refused, where this would change~~ **CORRECTED 2026-11-27 (round 31, gh:#1855): `residualControl` is ported, and with it the `Final` selection in the flagged iteration**), keeps stock selection as the named control `with_stock_final_iteration_selection()`. The same shadowing means every `Final` entry of every GeN-Foam onePhase/twoPhase region without a converging `residualControl` is dead; only `p_rghFinal` is used, through `finalInnerIter()` (computed from `corrPISO_`, not the shadowed counter). Not checked here: the twoPhase solver's other `Final` uses.
+
+### Predictions: held and missed
+
+* **R1 held**: round 19/20 numbers unchanged (`genfoam_msfr_th_vs_upstream`, 6 tests: `U` 4.9e-12 ... `nut` 1.7e-14 at steps 1-3, 14-step log gates, same digits as round 20's table).
+* **R2 held** on the first run for all 13 variants (largest 4.9e-12). Not bit-identical, as predicted.
+* **R3**: held as a unit statement (`nut_max_equals_stepwise_...`: bitwise equal for `y+` from 0.2 to 60 away from `yPlusLam +- 0.05`); its end-to-end control could not isolate the nut half (no nut-only variant was run).
+* **R4**: magnitudes held, the whole range: `epsilon` control in [0.29, 0.40] for the five (inside [0.2, 1.5]); but my point estimates were off (`binomial` predicted ~0.9, measured 0.35; `tanh` predicted 1.3, measured 0.40: the max-norm `epsilon` cell is not at `y+` 1.7). The SIGN (port without the option lower) was predicted and not recorded by the test: not claimed. `wf_coeffs`, `wf_mixed` > 1e-3 held. `wf_uname` held exactly (upstream and port both bit-equal to base).
+* **R5 untested as stated** (no variant isolates the nut blender from the epsilon blender); the combined `U` control is 7.5e-3 to 2.9e-2.
+* **R6 MISSED in magnitude, held in direction.** Predicted cell-wise `nut` control [0.05, 10] (`dh_a`) and [0.5, 100] (`dh_b`); measured 1.8e-3 and 1.8e-2, a factor ~30 to 50 smaller; `U` control > 1e-6 held for `dh_b` (3.6e-6) and missed for `dh_a` (3.6e-7). **Cause:** my equilibrium estimate `nut_hx ~ 1e-6` was wrong: the hx `k`, `epsilon` relax to equilibrium on `convergenceLength 0.5` (rate `U/0.5`, tiny in 3 steps) and stay near their initial values, so `nut` in hx is 8.6e-5 (the field minimum, `refs/msfr_th_on_head`), against which the stabilisation `U Dh/Re ~ 1.6e-7` is 0.2 %. The agreement itself (R2) is unaffected. Also confirmed: step 1 outer 1 has `magU = 0` (no stabilisation), the stored `magU` of the last pressure corrector is the right one (a wrong timing would have shown in `nut` of step 1).
+* **R7 MISSED in its premise** (above); the iteration-count part held (30 of 30 equal), as did the `U/k/epsilon/nut` agreement.
+* **R8 held** (`unknown_blender_and_unported_entries_are_refused_by_name`: `blending smooth`, an unknown `epsilon` entry, `kappa 0`, a `kqRWallFunction` entry). `relaxationFactors.equations default` is not read (filed, gh:#1855).
+
+### What was ported (upstream file -> Rust, `one_phase_cc/turbulence.rs`)
+
+* `wallFunctionCoefficients.C` -> `WallFunctionCoeffs::new` (`calcYPlusLam`), the `kappa, E >= SMALL` check in `read_wall_entries`.
+* `wallFunctionBlenders.C` -> `WallFunctionBlending` (enum, `from_name`), `WallBlender` (`n`, defaults 4 for `nutk`, 2 for `epsilon`).
+* `nutkWallFunctionFvPatchScalarField.C::calcNut` -> `WallBlender::nut_wall` (five blenders, `pow4 = sqr(sqr)`, `ROOTVSMALL`), per-patch `NutWallSpec`; `U` parsed into `NutWallSpec::u_name` (used by `yPlus()` only, which `correct()` never calls).
+* `epsilonWallFunctionFvPatchScalarField.C::calculate` -> `WallBlender::epsilon_wall`, `EpsilonWallSpec` (`lowReCorrection`, per-patch coefficients; `G` only if `!lowReCorrection || yPlus > yPlusLam`).
+* `porousKEpsilon.C::correctNut` and the constructor -> `nut_stabilization`, `dh_struct`, `laminar_re_struct` (default 500) in `read_turbulence_case`; the correction in `correct_turbulence` after `alphat`, with `fs.mag_u`.
+* `fvMatrix::{solverDict, relax}` + `customPimpleControl` -> `k_solver_final`, `relax_k_final`, ..., `final_selection` (default false) and `with_stock_final_iteration_selection()`.
+* No macros, no `dyn`/`Box`/lifetimes; `r_exp`, `r_tanh`, `r_powf`, `r_ln` from `petir`; no kovan-reviewed function was edited (`review.md` of the folder is `kind = "note"` only).
+
+### Deviations from upstream / not covered
+
+`kqRWallFunction` entries (upstream ignores them) are refused; `relaxationFactors.equations default` is not read (upstream's `relaxEquation` falls back to it); only the `U k epsilon nut` fields at steps 1 and 3 of 3 steps are compared (not `p`, `T`, `alphat`: `alphat = rho0 nut/Prt` is computed before the stabilisation, so with `DhStruct` it is NOT the `nut` field: not compared); `lowReCorrection` with the `omegaWallFunction`/`nutUWallFunction` family is out of scope; the `wf_*` variants use mu 0.5 (see above) so the numbers say nothing about the salt.
+
+### Gates run (2026-11-26, release, `CARGO_BUILD_JOBS=2`, targeted)
+
+`--test genfoam_msfr_th_options_vs_upstream` 15 passed; `--test genfoam_msfr_th_vs_upstream` 6 passed (the two refusal tests that these options un-refuse were replaced); `--lib one_phase_cc::turbulence` 7 passed (4 new); `-p petir --test no_platform_libm` 4 passed; `scripts/check-nostd.sh` see the issue comment. A unit assertion first written at `1e-9` failed and was NOT loosened to pass: the expectation was wrong (the exponential nut blender at `y+ = 2000` leaves `nutLog exp(-1/Gamma)`, a relative deficit `(1 + nu/log)/Gamma = 6.2e-8` analytically), and the test now asserts that analytic value to 1e-3 of itself; the reference there is this module's own full-precision value, not a rounded upstream number.
+
+* **R8 (refusals).** The refusal tests for `DhStruct`, `kappa` and `Final` entries are replaced. Still refused: `RASModel` other than `porousKEpsilon`, wall-patch types other than the three, any other `kqRWallFunction` entry (upstream ignores them; refused here rather than silently ignored), `fvOptions`, solvers other than `PBiCGStab`/`diagonal`, `relaxationFactors.equations` `default` (filed).
+
+---
+
+# Round 30 (gh:#1852, #1854; children of #1216, critical path to #1846): the moving-mesh state of `fvMesh::movePoints` and the exact `meshToMesh` in the coupled sequence
+
+AI-written, not human-reviewed. Research, education and V&V only. Written 2026-11-26, **predictions committed BEFORE the first run of upstream or port**.
+
+## What upstream does (read before any code; GeN-Foam 652b3da, OpenFOAM-ESI v2506)
+
+* Time step (`GeN-Foam.C:160-200`): `runTime++`; `mapper().mapAllFields()`; then for each solver `deformMesh(); correctPhysics(); correctBaffleLessFields()`. In a `multiPhysicsSolver` (`multiPhysicsSolver.C:174-186`) each iteration of the Picard loop does `mapTheseFields()`, then per solver `deformMesh()`, `correctPhysics()`: so `deformMesh()` runs ONCE PER ITERATION, several times within one time index. Shipped `3D_SmallESFR` lists only `neutroRegion` in `meshDeformation` (`displacementField disp`); `disp` on neutroRegion is `meshToMesh` (`imCellVolumeWeight`, `mapTgtToSrc`, `plusEqOp`) of the mechanics region's `meshDisp`, then `correctBoundaryConditions()` (`meshHandlerTemplates.C:85-93`). `meshHandler.C:192-201`: `interpAllPatches = false`, so `srcPatchID_`/`tgtPatchID_` are empty (`meshToMesh.C:732`): no AMI patch mapping and no cutting patches; the whole "boundary mapping" is `correctBoundaryConditions()` of the target field. The `meshToMesh` objects are built ONCE, on the undeformed meshes (`meshHandler.C:156-205`), and never rebuilt.
+* `fvMesh::movePoints` (`fvMesh.C:891-955`): (1) if `curTimeIndex_ < timeIndex`: `storeOldVol(V())`: `V00 = V0` (only if `V00` was ever requested), `V0 = V`, `curTimeIndex_ = timeIndex` (`fvMesh.C:164-216`); (2) create `meshPhi` (zeros) on the first call, else `oldTime()` when its time index differs; (3) `polyMesh::movePoints` (`polyMesh.C:1160`): `moving = true`; if `curMotionTimeIndex_ != timeIndex` the CURRENT points become `oldPoints` (once per time index), then `points = p`; (4) geometry update, then `fvGeometryScheme::movePoints` -> `setMeshPhi` (`fvGeometryScheme.C:44-95`): `meshPhi[f] = f.sweptVol(oldPoints, points) * rdt`, `rdt = 1.0/deltaT`, internal then boundary faces. `V00()` is built lazily from `V0()` (`fvMeshGeometry.C:233`).
+* Consumers in GeN-Foam: none of `meshPhi`, `makeRelative`, `makeAbsolute`, `V0` or `V00` is referenced in `src/` (grep over every `.C`/`.H`: only `mesh.moving()` in MULES). They are consumed INSIDE OpenFOAM's `ddt` schemes: `EulerDdtScheme::fvmDdt` on a moving mesh sets `diag = rDeltaT*rho*Vsc()`, `source = rDeltaT*rho.oldTime()*vf.oldTime()*Vsc0()` (`Vsc() = V`, `Vsc0() = V0` without sub-cycling). The neutronics region's flux and precursor `fvm::ddt` (`diffusion/include/createFluxMatrices.H:21`, `include/precEq.H:7`) are the ESFR consumer.
+* Searched before writing (reuse): `outram-foam-mesh::dynamic_mesh::{face_swept_vol, mesh_phi}` (gh:#1380) is `face::sweptVol` / `setMeshPhi`, bit-identical to ESI v2506 on warped hex and polyhedral meshes (hash-compared): REUSED, not rewritten. `outram-foam-basic-lib` has no moving-mesh `ddt` or `meshPhi`. `multi_region::mesh_deformation` (round 26) and `cell_overlap` (round 28) are extended, not duplicated.
+
+## Predictions (written BEFORE any run; committed first)
+
+Driver `upstream_driver/coupled_deform_dump/coupledDeformDump.C` (new, ours): builds the three real `fvMesh`es (fluid, neutro, thermoMechanical), the five real `meshToMesh` objects of the shipped dictionary exactly as `meshHandler.C` does, imposes the closed-form (`+ - * /` only) `meshDisp` on the mechanics mesh at step `n`, runs the sequence above (`runTime++`, map all fields, `deformMesh()` of neutroRegion from the MAPPED `disp`), for 3 steps with `deltaT = 0.05`; at step 3 `deformMesh()` runs twice (second call with a changed `meshDisp`: an outer iteration). Dumps per call: mapped `disp` (cells and boundary), the mapped scalar and vector fields of the other four objects (cells and boundary), `points`, `oldPoints`, `V`, `V0`, `V00` (requested from step 1 on), `meshPhi` (internal and boundary), `moving()`, and the `fvm::ddt` `diag`/`source` of a closed-form flux on the moving neutro mesh.
+
+* **R1 (mapped `disp`, the full handler path).** `disp` on neutroRegion (cells AND boundary values) equals upstream bit for bit at every call. Reason: the neutro cells are the mechanics cells (round 28: every neutro cell overlaps exactly one mechanics cell, weight exactly 1.0), so `result *= (1 - 1); result += 1.0*x` is a copy, and `correctBoundaryConditions()` of `zeroGradient` is the owner value. The same for the other four objects' mapped scalar/vector fields (cells and boundary), both directions; the 18 uncovered mechanics cells keep their pre-existing value. Confidence 95 %; the 5 % is the boundary patch types (a patch type I did not foresee makes the Rust side refuse by name, not miss).
+* **R2 (moved geometry).** `points`, `oldPoints`, `V` bit-identical at every call (round 26's movePoints + round 28's map, composed). No new gap expected.
+* **R3 (`V0`, `V00`).** Step 1: `V0 =` the undeformed `V` (mean relative change of `V` vs `V0` about +2e-3 per unit `n`, as round 26's R7); `V00 = V0` (built lazily on first request). Step 2: `V0 =` step-1 `V`, `V00 =` the undeformed `V`. Step 3, second `deformMesh()` call in the same time index: `V0` UNCHANGED (still the step-2 `V`), `oldPoints` UNCHANGED (the step-2 points), `moving() = true`. All bit-identical to upstream.
+* **R4 (`meshPhi`).** Bit-identical on every internal and boundary face at every call (the reused `face_swept_vol` is bit-identical to ESI on warped hexes; the same arithmetic here, `* (1.0/deltaT)`). At the second call of step 3 it is `sweptVol(step-2 points, step-3.5 points) * rdt`, NOT the step-3 value rescaled. Geometric conservation, recorded not gated: `sum over a cell's faces of meshPhi*deltaT` (owner +, neighbour -) against `V - V0`: the face-centre decomposition of `sweptVol` and the cell-centre pyramids of `V` are different decompositions of warped hexes, so I expect a residual, relative to `|V - V0|`, with median below 1e-2 and maximum below 0.2 (largest in the most warped cells). Sign not predicted.
+* **R5 (`ddt` consumer).** The Euler `fvm::ddt(flux)` `diag` and `source` on the moving mesh are bit-identical (`rDeltaT*Vsc`, `rDeltaT*old*Vsc0`). `diag` follows `V`, `source` follows `V0`.
+* **R6 (controls: each must FAIL the same gate).** (a) the no-deformation ablation (`MeshDeformationDict::without_deformation`) leaves `points = original`, `V0` absent: against upstream's step 1, `V` differs by +2.05e-3 mean relative (round 26's R7), `V0` is missing (reported as a refusal, not a number). (b) STALE `V0` (never refreshed after step 1): at step 2 the worst relative difference of `V0` against upstream equals the step-1 volume change, max about 3e-3, mean 2e-3. (c) `V0` refreshed on EVERY `movePoints` call (ignoring the time index): at the second call of step 3, `V0` differs from upstream by the 3 -> 3.5 volume change, max about 5e-4 (a sixth of a step), and `oldPoints`/`meshPhi` differ by a comparable fraction. (d) the mapping REBUILT on the moved neutro mesh (upstream never does): the mapped `disp` at step 2 differs from upstream's by a relative 1e-3 to 1e-1 at the worst cell. (e) a 1-ulp change in one `meshPhi` is found.
+* **R7 (the loop).** `correct_physics_loop` is unchanged in behaviour for every existing caller (the msfr coupled tests pass with the numbers unchanged to the digit); the new variant calls `deform(i)` before `correct(i, ..)` for each solver, in each iteration, which is `multiPhysicsSolver::correctPhysics`'s order; a unit test records the call order.
+* **R8 (the general map in the existing coupled code).** `IdenticalMeshMap` stays; the new `RegionMeshMap` returns bit-identical numbers on identical meshes (tested) and works on non-identical ones. The three `multi_region` tests that map across meshes keep their assertion bounds. No existing number moves.
+* **R9 (cost).** Port, release, 2 jobs: building the three `OverlapMesh`es and five addressings about 25 to 45 s (round 28: 38 s for seven objects); one `deformMesh()` plus `meshPhi` on 23322 cells under 1 s.
+* **Not attempted, and why.** The octree `findInside` of the FIRST seed (`cellVolumeWeightMethod::findInitialSeeds` -> `indexedOctree<treeDataCell>`): it chooses among several cells that contain one point by octree-leaf traversal order, and the only observable is the ENTRY ORDER of a list (so the last bit of one sum); round 28 found equal order on all seven objects. Without a mesh that makes the two choices differ there is nothing to test a port of the octree against, so the named deviation stays. `removeBaffles` `mappingMeshes_` (the ESFR `controlDict` has no `removeBaffles`): refused by name if requested.
+
+# Round 31 (gh:#1855; child of #1216, follow-up of round 29): `relaxationFactors` `default`, `PIMPLE.residualControl` (customPimpleControl) and the `Final` selection it causes, cell-centred `onePhase`
+
+## Read before any port code (GeN-Foam 652b3da on OpenFOAM-ESI v2506)
+
+* `customPimpleControl.{H,C,I.H}`, ESI `pimpleControl.{C,H,I.H}`, `solutionControl.{C,H}`, `meshState` (`setSolverPerformance`), `solution.C` (`relaxField`, `relaxEquation`), `fvMatrix::relax()`, `GeometricField::relax()`, `myOps.C`, `onePhase.C`, `EEqn_1p.H`, `UEqn_1p.H`, `pEqn_1p.H`, `solveP_rgh_1p.H`, `FSPair.C`.
+* **`solverPerformanceDict` keeps a `Pair` (first, last) of initial residuals per field, per time step** (`meshStateTemplates.C`), not a list. `maxResidual().last()` is the initial residual of the MOST RECENT solve of that field; `U` is never solved in `onePhase`, so it is never checked. Entries are created in first-solve order (epsilon, k, p_rgh, h); this order matters only for `stopIfFirstResRelChangeAboveRelTol` (`stopLoop_` set by one field passes every later one).
+* `criteriaSatisfied`: `corr_` is the shadowing one; `storeInitialResiduals()` is the base inline (base `corr_` = 0): always false, so `relative = last/(0 + SMALL)`, i.e. `relTol` is inert (round 5 found the same for twoPhase). `finalIter()` = `converged_`. A flagged iteration runs with `finalIteration` true; the next `loop()` ends the step; flagged at `corr == nOuterCorrectors` leaves `converged_` set (the stale flag): the NEXT step's first `loop()` ends at once, so that step runs zero outer iterations.
+* `fvMatrix::relax()` / `GeometricField::relax()`: the name is `psi.select(isFinalIteration)`, so in the flagged iteration the lookup is `hFinal`; when no key or pattern matches it, `default` is used if present, else NO relaxation (the factor of plain `h` is NOT consulted). `relaxEquation(name, factor)`: exact key, else last matching pattern, else `default`. `fvMatrix::relax(alpha)` returns for `alpha <= 0`; `GeometricField::relax(alpha)` is `prevIter() + alpha*(*this - prevIter())` with no guard.
+* **A defect of the port found while reading:** `p_rgh` is solved with `p_rgh.select(pimple_.finalInnerIter())`; `finalInnerIter()` is `corrPISO_ == nCorrPISO_ && corrNonOrtho_ == nNonOrthCorr_+1`, AND `finalIter()` only when `finalOnLastPimpleIterOnly` (default false). So `p_rghFinal` is the solver of the last corrector of EVERY outer iteration. The port used it on the last outer iteration only. Invisible so far because every shipped and round 19-29 case has `p_rghFinal` identical to `p_rgh`.
+* `fields`: `he.relax()` (name `h`), `p_rgh_.relax()`, and in `FSPair::correct` `Kd_.relax()` and `htc_.relax()` (`Kd`, `htc`), with `prevIter` stored at each `loop()` for every registered field with `relaxField(name)` (`default` makes that every field) and by `myOps::storePrevIterIfRelax` for `Kd`, `htc`.
+
+## Searched before writing (reuse)
+
+`two_phase/mod.rs` already has `customPimpleControl::loop` for `twoPhase` (round 4/5: stale flag, `converged_` flag, `criteria_satisfied` for `p_rgh`/`h.liquid` only, no `Final`) and `one_phase_fc.rs` the same for the face-centred form; both hard-wire their two fields. The cell-centred port had no loop state at all (`for outer in 1..=n_outer`) and refused `residualControl`. New code: `one_phase_cc/pimple.rs` (the control, the performance dict, the relaxation lookup), written for the cell-centred region; `twoPhase`'s `Final` uses are NOT touched (gh:#1855 item 3 stays open: `solveP_rgh_2p.H` and `EEqns_2p.H` use the same selectors).
+
+## Case variants (`cases/msfr_th_variants_r31/`, `scripts/make_msfr_th_pimple_variants.sh`; `turbulence true`, tight, three steps)
+
+Thresholds are taken from upstream's logged initial residuals of the base run (round 29's `refs/msfr_th_opt_fin_norelax`, step 1, table in the script header), NOT from a port run. Every `rc_*` variant also carries distinct `Final` entries: `hFinal`, `kFinal`, `epsilonFinal` solvers with `relTol 0.1` (iteration counts show which entry ran), `hFinal 0.6`, `UFinal 0.7`, `kFinal 0.5`, `epsilonFinal 0.5` relaxation.
+
+| variant | what it is |
+|---|---|
+| `rc_a` | `h` 0.25, `p_rgh` 0.004 first-PISO |
+| `rc_b` | `h` 0.1, `p_rgh` 0.0015 first-PISO (flag at the last outer iteration) |
+| `rc_c` | `h` 1e-3, `p_rgh` 1e-6 (never met) |
+| `rc_d` | `h` 0.25, `p_rgh` 5e-4 (last corrector), `k` 0.2, `epsilon` 0.07, `relTol 0.5` on all |
+| `rc_rel` | tolerances 1e-30, `relTol 0.99` (only `relTol` could fire) |
+| `rc_stop` | `p_rgh` `stopIfFirstResRelChangeAboveRelTol` + `h` |
+| `rc_fin_prgh` | `rc_a` + `p_rghFinal relTol 0.05` + `finalOnLastPimpleIterOnly true` |
+| `fin_prgh` | no `residualControl`, `p_rghFinal relTol 0.05` |
+| `rel_def` | `equations { default 0.9; }` only |
+| `rel_mix` | `default 0.8; h 0.6; "U.*" 0.7` |
+| `rel_fin` | `rel_mix` + `rc_a` thresholds + Final solvers |
+| `fld_def` | `fields { default 0.8; }` |
+| `fld_mix` | `fields { p_rgh 0.7; h 0.85; }` |
+
+## Predictions (written BEFORE any upstream run of these variants and BEFORE any port code of this round; committed first)
+
+* **P1 (outer-iteration counts, step 1; exact, from the base log).** `rc_a`: 4 (criteria first true at the start of iteration 4: `h(3)` = 0.218 < 0.25 and `p(3)` = 0.00321 < 0.004; at 3, `h(2)` = 0.99995). `rc_d`: 4 (`h` 0.218, `p` last 7e-5, `k` 0.1385 < 0.2, `epsilon` 0.0588 < 0.07). `rc_b`: 5, flagged AT the last iteration, so the stale flag follows: **step 2 runs zero outer iterations** (no solve lines, fields of step 2 equal those of step 1 to the bit; `U k epsilon p_rgh T`), step 3 runs normally. `rc_c`, `rc_rel`: 5 in every step, bit-equal to the base run of the same case (`Final` entries never selected; `relTol` inert). `rc_stop`: 2 in every step (at iteration 2 the first-PISO pair is (0, r1), `r1/0 = inf >= 0.5`; later steps: ratio near 1 >= 0.5). `rc_fin_prgh`: 4, like `rc_a`.
+* **P2 (steps 2 and 3 of `rc_a`, `rc_d`).** Not derivable from the base log (their initial states differ from the base's). Expectation only: 3 to 5 iterations, never 2 (`h(1)` is 0.5 at the start of a step), at least one step exits early and the counts need not equal step 1's. The PORT's counts must equal upstream's exactly, whatever they are.
+* **P3 (which entry ran).** In the flagged iteration the `h` solve takes about 8 to 12 iterations (`relTol 0.1`) against 21 to 27 in the others; `k`/`epsilon` likewise; in `rel_fin` the flagged iteration relaxes `h` with 0.8 (`default`), not 0.6, and `U` with 0.7 (`U.*` matches `UFinal`). In `fin_prgh` the sixth `p_rgh` solve of EVERY outer iteration takes fewer iterations than the fifth; in `rc_fin_prgh` only the flagged iteration's sixth does.
+* **P4 (bit identity).** Every variant: port equals upstream to <= 1e-12 max-norm on `U k epsilon p_rgh T` at all three steps, outer-iteration counts and all per-solve iteration counts equal. Risk: the `fields` variants (`fld_*`): the old `Kd`/`htc` before the first relaxation (`Kd` zero, `htc` the start value) is an assumption not read from the constructor; if wrong the first diverging step is step 1 and the cause is that initial value.
+* **P5 (controls; each must FAIL).** (a) the port with `residualControl` ignored (`without_residual_control`) against `rc_a`, `rc_b`, `rc_d`, `rc_stop`: step 1 differs by 1e-4 to 1e-2 (max-norm relative) in `k`, `epsilon`, `U`, `p_rgh`, `T` by 1e-9 to 1e-6; for `rc_stop` (2 against 5 iterations) 1e-2 to 1e-1; and the counts differ. (b) the port with the `default` entries ignored (`without_relaxation_default`) against `rel_def`: differs by 1e-4 to 1e-2 (no relaxation against 0.9); against `rel_mix` for `k`/`epsilon` (none against 0.8). (c) the stock `Final` selection (`with_stock_final_iteration_selection`) against `rc_c`: differs (selects `Final` in iteration 5), 1e-4 to 1e-2. (d) the old `p_rghFinal`-on-the-last-outer-iteration-only behaviour against `fin_prgh`: sixth-corrector iteration counts differ in outers 1 to 4; fields 1e-6 to 1e-4.
+* **P6 (nothing earlier moves).** Rounds 19-21, 29: unchanged to the last digit (no `residualControl`, no `default`, `p_rghFinal` equal to `p_rgh` there).
+* **P7 (cost / size).** Upstream: about a minute per variant (3 steps, turbulence on); reference per variant under 0.3 MB (every 11th cell of `U k epsilon p_rgh T` at 3 steps plus the solve log).
+
+## Round 30 results (2026-11-26, release, `CARGO_BUILD_JOBS=2`; `tests/genfoam_coupled_deformation_vs_upstream.rs`, 4 tests, 47 s; `--nocapture` prints every tally)
+
+### What was ported / wired (upstream -> Rust)
+
+| upstream (GeN-Foam 652b3da, OpenFOAM-ESI v2506) | port |
+|---|---|
+| `fvMesh::movePoints` (`fvMesh.C:891-955`), `storeOldVol` (`:164-216`), `polyMesh::movePoints` oldPoints (`polyMesh.C:1160-1198`), `fvGeometryScheme::setMeshPhi` (`fvGeometryScheme.C:44-95`), lazy `V00()` (`fvMeshGeometry.C:233`) | `DeformableMesh::{move_points_at, deform_mesh_at, moving, v0, v00, old_points, mesh_phi, vsc, vsc0}`, `StepClock`; `meshPhi` reuses `outram_foam_mesh::dynamic_mesh::mesh_phi` (gh:#1380, new normal dependency of this crate, no cycle, no_std) |
+| `EulerDdtScheme::fvmDdt(rho, vf)` moving branch (`EulerDdtScheme.C:437-471`) | `DeformableMesh::euler_fvm_ddt` |
+| `multiPhysicsSolver::correctPhysics` (`deformMesh()` before each solver's `correctPhysics()`, every iteration) | `correct_physics_loop_with_deformation` (the old `correct_physics_loop` now delegates to it with a no-op deform) |
+| `neutronics.C::deformMesh()` (region listed in `meshDeformation`, field looked up in the region) | `deform_region_mesh` (+ `VolDisplacement::from_vol_field`); `MeshDeformationDict::without_deformation` is the ablation |
+| `meshHandler.C:192-201` objects for non-identical meshes | `RegionMeshMap` (general operator with the polyhedral meshes, `IdenticalMeshMap` without), `CouplingRegion::from_deformable`; `MeshHandler::add_mapping(.., CellVolumeWeight, ..)` is the five shipped objects |
+| `meshHandlerTemplates.C:93` `tgtField.correctBoundaryConditions()` (the whole boundary treatment: `interpAllPatches = false`, `meshToMesh.C:732`) | `coupling_fields::correct_boundary_conditions` (zeroGradient, fixedValue; other patches refused by name), called by `MeshHandler::run_mapping` |
+| `mapSrcToTgt` (`heatExchanger.C:265-267`) scalar and vector | `MeshToMesh::{map_reverse_scalar, map_reverse_vector}`, `CellVolumeWeightAddressing::map_src_to_tgt_vector`, `RegionMeshMap::map_reverse_scalar` |
+
+### Comparison (upstream = real meshes, real `meshToMesh`, real `movePoints`; `deltaT = 0.05`; calls 1, 2, 3 = three time steps, call 4 = a second iteration of step 3 with a changed `meshDisp`)
+
+Every value of the 50 MB full dump (`GENFOAM_COUPLED_DEFORM_DUMP`) compared: **2,492,490 values, all bit-identical (worst relative difference 0), first diverging item: none**; the committed 797 KB sample (every 31st item plus the last, 80,638 values) also passes.
+
+| quantity (all 4 calls unless noted) | values | worst rel. diff. |
+|---|---|---|
+| mapped `disp` on neutroRegion, cells and boundary (the full handler path, from the mechanics `meshDisp`, patch 0 `fixedValue`, the rest `zeroGradient`) | 279,864 + 49,176 | 0 |
+| the other ten mapped fields of the five shipped objects, cells and boundary (fluid <- neutro, neutro <- fluid, mech <- fluid, mech <- neutro; 18 uncovered mechanics cells keep their value) | 950,436 | 0 |
+| `points`, `oldPoints`, `V`, `V0`, `V00` | 159,264 x 2 + 93,288 x 3 | 0 |
+| `meshPhi` internal and boundary | 225,024 + 16,392 | 0 |
+| `moving()`, `timeIndex` | 4 states | equal |
+| `fvm::ddt` `diag`, `source`, old flux | 3 x 93,288 | 0 |
+| reverse `mapSrcToTgt` vector (neutro `disp` -> mech list) and scalar (neutro `TCool` -> fluid list) | 70,020 + 23,322 | 0 |
+
+Values by call as observed: `V0` is the undeformed `V` at call 1, call 1's `V` at call 2, call 2's `V` at call 3 and STILL call 2's `V` at call 4 (same time index); `V00` lags one step behind; `oldPoints` likewise; `meshPhi` at call 4 spans the whole step.
+
+### Controls (each fails the same comparison)
+
+* **a, no-deformation ablation** (`without_deformation`, mesh left at its original points, `deform_region_mesh` returns `false`): `V` of call 1 against upstream: 0 of 23322 equal, worst relative difference 3.06e-2.
+* **b, stale `V0`** (not refreshed after step 1): `V0` at call 2 against upstream: 0 of 23322 equal, worst 3.06e-2.
+* **c, `V0` refreshed on EVERY `movePoints`** (ignoring the time index): `V0` at call 4: 0 of 23322 equal, worst 3.17e-2; `oldPoints` at call 4: 1391 of 39816 equal, worst 29.8 (relative to near-zero coordinates).
+* **d, mapping REBUILT on the moved neutro mesh** (upstream never does): mapped `disp` at call 2: 126 of 69966 equal, worst relative 1.76 (relative to near-zero displacements).
+* **e, one ulp in one `meshPhi`**: found, 1 of 56256.
+* **Not a control but recorded**: geometric conservation `|sum(meshPhi dt) - (V - V0)| / |V - V0|` on call 1: median 4.0e-13, 99 % 2.7e-12, max 6.4e-12.
+
+### Predictions: held and missed
+
+* **R1 held** (mapped `disp` and the other ten fields, cells and boundary, bit-identical). **R2 held. R3 held** (the V0/V00/oldPoints schedule exactly as predicted, including call 4). **R4 held in kind** (meshPhi bit-identical, call 4 spans the step); the recorded GCL residual is far smaller than the bound I gave (median below 1e-2, max below 0.2): **MISSED in size by about ten orders** (median 4e-13): the swept volume of a hex face with the central decomposition closes the cell volume to round-off even on these warped cells. **R5 held. R7 held. R8 held** (`RegionMeshMap` general equals identical bit for bit on identical meshes; the existing coupled tests pass with unchanged numbers).
+* **R6 held in kind, MISSED in size**: a/b predicted worst about 3e-3 (round 26's mean/max volume change), observed 3.06e-2: the driver's `disp` has patch 0 (`top`) `fixedValue 0` (a non-zeroGradient patch on purpose), which pins the top boundary points and strains the cells beside it; round 26's `disp` was zeroGradient there. c predicted about 5e-4, observed 3.2e-2 (same cause). d predicted 1e-3 to 1e-1, observed 1.76 (worst cell, near-zero upstream value). The controls fail by more than predicted, never by less.
+* **R9 held**: whole test (three DeformableMeshes, five addressings, two reverse objects, one control object) 47 s, release, 2 jobs.
+
+### Findings
+
+* GeN-Foam consumes `meshPhi`, `V0`, `V00` nowhere (no `makeRelative`/`makeAbsolute` in `src/`); only OpenFOAM's `ddt` does, in the neutronics flux and precursor equations (`fvm::ddt` with `Vsc0()` on a moving mesh). So `V0`/`meshPhi` matter for the coupled ESFR run only once the Rust neutronics transient takes its volumes from the moving mesh: NOT done, filed (see below). `DeformableMesh::euler_fvm_ddt` is the bit-identical operator it must call.
+* `deformMesh()` runs in every Picard iteration (`multiPhysicsSolver.C:176`), so `V0`/`oldPoints` must be keyed by time index, not refreshed per call (control c).
+* `meshToMesh` objects are built once on the undeformed meshes and never rebuilt (control d).
+* The GCL residual is round-off, so `meshPhi` and the volumes are mutually consistent.
+
+### Deviations from upstream and what is not covered
+
+* The octree `findInside` first seed stays the lowest-index containing cell (named deviation of round 28). Not attempted: no mesh here makes the two choices differ, so there is nothing to test an octree port against (prediction text above).
+* `meshHandler` itself is not built here; the driver transcribes its `map<>()` (three lines). The mechanics, fluid and neutronics solvers are not run: their fields are closed-form. `fvMesh`es, `meshToMesh`, `movePoints`, `V0`/`V00`, `meshPhi`, `fvm::ddt` are the real ESI code.
+* `meshPhi` old-time field (`phiPtr_->oldTime()`) is not modelled (no consumer here); `V00` is created on first request exactly as upstream; sub-cycling `Vsc`/`Vsc0` branches not ported (refused nowhere: not reachable from GeN-Foam).
+* `removeBaffles` `mappingMeshes_` and boundary patches other than `zeroGradient`/`fixedValue` after a map: refused by name. Moving the baffle-less copies: upstream does not move them, not modelled.
+* The Rust neutronics/TH region solvers do not yet take `V`/`V0` from the moving mesh (issue filed); `deform_region_mesh` and the loop variant are the sequence, not yet driven by a region solver.
+
+### Moved numbers
+
+None. The `multi_region` lib tests (56 pass), the round 26 and 28 integration tests and `genfoam_msfr_coupled_vs_upstream` (6 pass, 1 ignored) pass with their numbers unchanged. `correct_physics_loop` is now a one-line delegation to the new function with a no-op deform. Pre-existing flake noticed, not caused here: the six tests of `genfoam_mesh_deformation_vs_upstream.rs` share one staging directory and can race at the default thread count (passes with `--test-threads=2`).
+
+### Reproduction
+
+`scripts/build_and_run_coupled_deform_dump.sh <dump.txt>` (21 s; scratch `/home/user/upstream-build/gh1852`, delete after comparing), `scripts/subsample_coupled_deform_dump.py <dump> refs/coupled_deform_esfr.ref.txt.gz 31`, then `GENFOAM_COUPLED_DEFORM_DUMP=<dump> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_coupled_deformation_vs_upstream -- --nocapture`.
+
+### Gates run (2026-11-26, release, targeted)
+
+`--lib multi_region` 56 passed; `--test genfoam_coupled_deformation_vs_upstream` 4 passed (full dump and sample); `--test genfoam_mesh_deformation_vs_upstream` 6, `--test genfoam_mesh_to_mesh_vs_upstream` 5, `--test genfoam_msfr_coupled_vs_upstream` 6 passed; `-p petir --test no_platform_libm` 4 passed (after a forced rebuild: the cached test binary had a stale `CARGO_MANIFEST_DIR`); `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean (the full `check-nostd.sh` loop was not run: disk).
+## Round 31 results (2026-11-27, release, shared machine; `tests/genfoam_msfr_th_pimple_vs_upstream.rs`, 14 tests, ~55 s; `--nocapture` prints every table)
+
+Upstream = the real unmodified binary, serial, tight; each variant takes 3 to 4 s (prediction P7 said about a minute: missed, harmlessly). References: `refs/msfr_th_r31_<variant>.ref.txt.gz`, 150 KB each (every 11th cell of `U k epsilon p_rgh T`, the three written steps, the solve log), 16 variants (the 12 below plus `fld_h`, `fld_p`, `fld_kd`, `fld_htc`) and a total of 2.4 MB.
+
+### Upstream -> Rust mapping
+
+| upstream | Rust (`one_phase_cc/pimple.rs` unless noted) |
+|---|---|
+| `customPimpleControl::loop()` | `PimpleState::loop_step` (stale `converged_`, `corr_` shadow, `finalIteration` flag) |
+| `customPimpleControl::criteriaSatisfied()`, `solutionControl::applyToField/maxResidual` | `PimpleState::criteria_satisfied`; `ResidualSpec`; `PimpleState::record` is `meshState::setSolverPerformance` (first, last per field per step) |
+| `updateFirstPISOPrevPIMPLE()` | `update_first_piso_prev_pimple`, called after each `p_rgh` solve (`flow.rs`) |
+| `pimpleControl::finalIter()`, `finalInnerIter()` | `final_iter`, `final_inner_iter` (`p_rghFinal`: last corrector of EVERY outer iteration; `finalOnLastPimpleIterOnly`) |
+| `solution::relaxEquation/relaxField(name, factor)` incl. `default` | `RelaxationDict::factor`, `RelaxationFactors::{equation, field}`; reader `read_relaxation_factors` (`one_phase_cc.rs`) |
+| `fvMatrix::relax()` (`h`, `U`, `k`, `epsilon`; `Final` names) | `RelaxationFactors::equation(name, final)` at the four call sites (`alpha <= 0` returns, as upstream) |
+| `he.relax()`, `p_rgh_.relax()`, `Kd_.relax()`, `htc_.relax()`, `storePrevIterFields`, `myOps::storePrevIterIfRelax` | `correct_energy`, `flow.rs`, `correct_kd`, `correct_models`, `store_prev_iter_fields` |
+| `solutionControl::read` residualControl dictionaries | `read_residual_control` |
+| `onePhase::correctPhysics` `while (pimple_.loop())` | `OnePhaseCcSolver::correct_physics` |
+
+### Results per variant (port against the real binary; "iter" = the iteration count of every `p_rgh`, `h`, `k`, `epsilon` solve)
+
+| variant | outer iterations per step, port = upstream | solve iteration counts | worst field difference (max-norm relative, `U k epsilon p_rgh T`) | first diverging step |
+|---|---|---|---|---|
+| `rc_a` | 4, 4, 5 | equal except 7/117 solves by 1 | 1.8e-12 | none |
+| `rc_b` | 5, **0**, 5 | 5/90 by 1 | 1.3e-12 | none |
+| `rc_c` | 5, 5, 5 | 6/135 by 1 | 2.6e-12 | none |
+| `rc_d` | 4, 4, 5 | 7/117 by 1 | 1.8e-12 | none |
+| `rc_rel` | 5, 5, 5 | 6/135 by 1 | 2.6e-12 | none |
+| `rc_fin_prgh` | 4, 4, 5 | 9/117 by 1 | 2.2e-7 (loose `p_rghFinal`: see below) | step 1, in `U` only |
+| `fin_prgh` | 5, 5, 5 | 3/135 by 1 | 5.5e-7 (loose `p_rghFinal`) | step 1, in `U` |
+| `rel_def` | 5, 5, 5 | 6/135 by 1 | 2.6e-12 | none |
+| `rel_mix` | 5, 5, 5 | 8/135 by 1 | 1.9e-12 | none |
+| `rel_fin` | 5, **0**, 3 | 4/72 by 1 | 2.4e-12 | none |
+| `fld_def` | 5, 5, 5 | 4/135 by 1 | 2.3e-12 | none |
+| `fld_mix` | 5, 5, 5 | 2/135 by 1 | 1.4e-12 | none |
+| `fld_h` / `fld_p` / `fld_kd` / `fld_htc` | 5, 5, 5 | 8, 6, 8, 5 of 135 by 1 | 1.5e-12 / 1.3e-12 / 2.0e-12 / 1.3e-12 | none |
+
+The outer-iteration counts, which steps are skipped by the stale flag, and which solver entry ran (the `Final` solves take 1 iteration against 21 to 31; `p_rghFinal` 99 to 148 against 229 to 261) agree exactly in every variant. Iteration counts of the tight PCG/BiCGStab solves differ by ONE iteration in a few solves per variant: a 230-260 iteration PCG to an absolute 1e-14 stops at the first iteration below the threshold, and the 1e-12 round-off difference of the fields (the round-20 to round-29 level, present in `rc_c`, which has no feature of this round) moves a residual across it. A different ENTRY differs by tens to hundreds, so the gate "worst iteration difference <= 1" (the one of rounds 20 and 29) still tells which entry ran. 1e-9 relative is the field gate; all converged variants are at 1e-12.
+
+**`fin_prgh`, `rc_fin_prgh` (loose `p_rghFinal`, `relTol 0.05`): the one disagreement above 1e-9, with its cause.** The last corrector of every outer iteration is stopped after about 100 of about 240 PCG iterations; its result is the iterate of an unconverged Krylov sequence and amplifies round-off. Measured in the test (port against itself, initial temperature changed by 1e-15 relative): `U` moves by 2.2e-7 (`fin_prgh`) and 1.2e-8 (`rc_fin_prgh`) at step 3, against 1.6e-12 for the converged `rc_c`; the port differs from upstream by 5.5e-7 and 2.2e-7. ~~The gate for these two is therefore derived from the port's own sensitivity (the difference to upstream may not exceed 10 times it, in fields and initial residuals), not a fitted number; counts stay exact.~~ **CHANGED 2026-11-27 (maintainer: "No need to gate"):** these two variants' field and residual differences are measured and printed beside that sensitivity but not asserted; the outer-iteration counts per step (exact) and the one-iteration solve-count bound stay asserted. It is NOT a bit-identity claim: the loose variants are agreed to the round-off amplification, 1e-7 to 1e-6.
+
+### Controls (each must fail; all do)
+
+| control (port against the reference of) | outer iterations port / upstream | worst field difference |
+|---|---|---|
+| `without_residual_control` (`rc_a`, `rc_d`) | 5,5,5 / 4,4,5 | U 7.3e-2, k 2.2e-3, epsilon 6.7e-3, p_rgh 2.3e-3, T 2.3e-7 |
+| `without_residual_control` (`rc_b`) | 5,5,5 / 5,0,5 | U 1.2 (the skipped step) |
+| `with_stock_final_iteration_selection` (`rc_c`) | 5,5,5 / 5,5,5 | U 1.9e-2, epsilon 4.6e-3 |
+| `without_relaxation_default` (`rel_def`) | equal | U 4.6e-2, epsilon 2.5e-2 |
+| `without_relaxation_default` (`rel_mix`) | equal | U 3.7e-2, epsilon 2.7e-2 |
+| `without_relaxation_default` (`rel_fin`) | 5,4,3 / 5,0,3 | U 1.2 |
+| `with_legacy_p_final_on_last_outer_only` (`fin_prgh`) | equal | 3.8e-6 (19 solve counts differ) |
+| `with_legacy_p_final_on_last_outer_only` (`rc_fin_prgh`) | equal | 1.5e-6 |
+| the case without a `fields` entry (`fld_def`, `fld_mix`, `fld_p`) | equal | U 1.9e-2, 3.5e-2, 3.5e-2 |
+| the case without a `fields` entry (`fld_h`, `fld_kd`) | equal | 7.2e-8, 4.8e-6 |
+| the case without a `fields` entry (`fld_htc`) | equal | **1.9e-12: does NOT differ** |
+
+`fld_htc` is a no-op in this case, not a test of the relaxation: the start directory's `htc` equals the constant model value, so `prevIter + alpha (htc - prevIter)` is `htc`. The htc relaxation arithmetic is ported from `FSPair.C` and agrees with upstream (nothing to disagree about); it is untested where it matters (a case whose start `htc` differs from the model).
+
+### Findings
+
+1. **`stopIfFirstResRelChangeAboveRelTol` cannot be run upstream.** With it, the real binary aborts with a floating point exception at outer iteration 2 of the first step (`residuals.last()/residuals.first()` with the first-PISO pair `(0, r1)`; `FOAM_SIGFPE`). The port refuses it by name. My prediction (P1: "`rc_stop` 2 iterations in every step") was wrong in its premise: I had computed `inf >= relTol` and not asked whether the division traps.
+2. **`p_rghFinal` is used at the last corrector of every outer iteration** (`finalInnerIter()`), not at the last outer iteration only as the port did. Found in the source, confirmed by the real binary (`fin_prgh`: 99 against 239 iterations in outers 1 to 5). A defect of the port since round 19, invisible because `p_rghFinal` equalled `p_rgh` in every case. Fixed (`with_legacy_p_final_on_last_outer_only` keeps the old form as a control).
+3. **In the flagged iteration `hFinal`/`UFinal` fall back to `default`, not to the plain entry** (`rel_fin`: the flagged iteration relaxes `h` with 0.8, not `h 0.6`, and the real binary agrees to 2.4e-12).
+4. **`p_rgh_.relax()` is followed by a second `pEqnIncomp.flux()` evaluation**: `U` is reconstructed from the flux of the RELAXED `p_rgh`, `phi_` from the unrelaxed one. My first port computed one flux (U wrong by 3.5e-2); the fix needs the patch values to follow the cells before the flux is taken (without `correct_bc` the error was 77). Found with the single-field variants `fld_h/p/kd/htc`.
+5. `relTol` is inert in `residualControl` (`rc_rel`, `rc_d`): confirmed in the onePhase region, as round 5 found for twoPhase.
+
+### Predictions: held / missed
+
+* P1 held (counts 4, 4, 5 / 5,0,5 / 5,5,5, step 2 skipped in `rc_b`) except `rc_stop` (finding 1) and `rel_fin` (predicted 4 in step 1 "like `rc_a`": wrong, the relaxation changes the residuals; it flagged at 5 and skipped step 2: I should have said the path differs).
+* P2 held (3 to 5, never 2). P3: which entry ran held (`p_rghFinal` 99 against 239; `default` for `hFinal`); the magnitude missed: the `Final` `h`/`k`/`epsilon` solves took 1 iteration, not 8 to 12.
+* P4: held for 14 of 16 variants at 1e-12; the two loose-`p_rghFinal` variants are at 1e-7 (a possibility I had not foreseen). The risk named for `fld_*` (initial `Kd`/`htc`) did not materialise; the real `fld_*` problem was finding 4.
+* P5: all controls fail. Magnitudes: (a) U 7e-2 against predicted 1e-4 to 1e-2: missed high; T 2.3e-7 within 1e-9 to 1e-6. (b) 4.6e-2 against 1e-4 to 1e-2: missed high. (c) 1.9e-2: slightly high. (d) 3.8e-6 within 1e-6 to 1e-4.
+* P6 held: `genfoam_msfr_th_vs_upstream` (6 tests) and `genfoam_msfr_th_options_vs_upstream` (15 tests) pass at their own gates, unchanged. P7: size held, run time missed.
+
+### Not done, and what it is
+
+* `twoPhase` (and `one_phase_fc`) `Final` uses, gh:#1855 item 3: not ported; `solveP_rgh_2p.H` and `EEqns_2p.H` use the same selectors (`finalInnerIter()`, `isFinalIteration()` through `psi.select`). Their `customPimpleControl::loop` (round 4/5) is the older hard-wired form.
+* Function1 relaxation factors (tables) and regex keys beyond `.*` are refused / unsupported.
+* `fields` relaxation of `Kd`/`htc` where the start value differs from the model (see `fld_htc`).

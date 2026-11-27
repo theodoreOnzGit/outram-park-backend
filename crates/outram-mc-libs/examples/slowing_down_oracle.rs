@@ -69,8 +69,14 @@ fn main() {
     let nuclides = vec![c12, u238];
 
     let band = SlowingDownBand { e_top, e_bot };
-    let mut grid = nuclides[1].native_energy_grid(e_bot * 0.9, e_top * 1.1);
-    let g2 = nuclides[0].native_energy_grid(e_bot * 0.9, e_top * 1.1);
+    let mut grid = match nuclides[1].native_energy_grid_with_thinning(e_bot * 0.9, e_top * 1.1, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    };
+    let g2 = match nuclides[0].native_energy_grid_with_thinning(e_bot * 0.9, e_top * 1.1, Some(1.0e-12)) {
+        Ok(grid) => grid,
+        Err(err) => panic!("native energy grid: {err}"),
+    };
     grid.extend_from_slice(&g2);
     grid.sort_by(|a, b| a.partial_cmp(b).unwrap());
     grid.dedup_by(|a, b| (*a - *b).abs() <= 1e-12 * b.abs());

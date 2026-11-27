@@ -177,8 +177,11 @@ pub fn majorant_energy_grid() -> Vec<f64> {
 /// this 4096-point log grid, which left the UO2 kernel 14x above the majorant
 /// at 661 eV on ENDF/B-VIII.0. Every k-vs-height record before that date
 /// used it. `over_indices` now adds every nuclide breakpoint
-/// (`Majorant::from_materials`); the old construction is the ablation
-/// `Majorant::over_indices_without_breakpoints`.
+/// (`Majorant::from_materials`); ~~the old construction is the ablation
+/// `Majorant::over_indices_without_breakpoints`~~ **REMOVED 2026-11-26 (gh:#1819)**
+/// (maintainer: "it's wasting space"), with the example's
+/// `OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS` control; rerun it on a build at
+/// `625e964655` or earlier.
 #[must_use]
 pub fn bed_majorant(mats: &[Material], nucs: &[Nuclide]) -> Majorant {
     let bed_mats: Vec<usize> = (0..=mat::HELIUM).collect();

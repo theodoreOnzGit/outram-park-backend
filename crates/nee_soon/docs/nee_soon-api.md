@@ -18837,8 +18837,11 @@ on the materials only, so a sweep builds it once for every height.
 this 4096-point log grid, which left the UO2 kernel 14x above the majorant
 at 661 eV on ENDF/B-VIII.0. Every k-vs-height record before that date
 used it. `over_indices` now adds every nuclide breakpoint
-(`Majorant::from_materials`); the old construction is the ablation
-`Majorant::over_indices_without_breakpoints`.
+(`Majorant::from_materials`); ~~the old construction is the ablation
+`Majorant::over_indices_without_breakpoints`~~ **REMOVED 2026-11-26 (gh:#1819)**
+(maintainer: "it's wasting space"), with the example's
+`OUTRAM_HTR10_MAJORANT_WITHOUT_BREAKPOINTS` control; rerun it on a build at
+`625e964655` or earlier.
 
 ```rust
 pub fn bed_majorant(mats: &[outram_mc_libs::material::material::Material], nucs: &[outram_mc_libs::material::nuclide::Nuclide]) -> outram_mc_libs::pebble_beds::delta_tracking::Majorant { /* ... */ }

@@ -1139,7 +1139,7 @@ mod desktop {
     /// resonances are where a peak can slip between sub-samples.
     ///
     /// The check therefore uses the **nuclides' own reconstructed grids**
-    /// ([`Nuclide::native_energy_grid`]), not another log grid: those are the
+    /// ([`Nuclide::native_energy_grid_with_thinning`]), not another log grid: those are the
     /// points σ(E) is actually tabulated on, so every resonance peak is a node.
     /// A log grid would miss the same peaks the majorant does and agree with it
     /// for the wrong reason.
@@ -1148,7 +1148,11 @@ mod desktop {
         let mut worst = (0.0_f64, 0.0_f64, 0usize); // ratio, energy, material
         let mut n_pts = 0usize;
         for nuc in nucs {
-            for e in nuc.native_energy_grid(1.0e-4, 2.0e7) {
+            let grid = match nuc.native_energy_grid_with_thinning(1.0e-4, 2.0e7, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            };
+            for e in grid {
                 n_pts += 1;
                 let maj = majorant.at(e);
                 if !(maj > 0.0) {
