@@ -219,6 +219,12 @@ struct RunReport {
     /// Absolute `max|dUx|`, `max|dUy|`, `max|dUz|` over all steps divided by `max|U|` (the component table above is relative to
     /// each component's OWN maximum, which for a round-off-sized `Ux` is a ratio of noise).
     u_abs_over_umax: [f64; 3],
+    /// First step at which a `T (avg min max)` line differs by more than 1e-9 relative, and by how much (round 73).
+    first_t_line_over: Option<(usize, f64)>,
+    /// First step at which a `p_rgh` solve with upstream initial residual above `FLOOR` differs by more than 1e-6 relative, and by how much.
+    first_residual_over: Option<(usize, f64)>,
+    /// Number of `p_rgh` solves whose count or order could not be matched to the port's (round 73).
+    unmatched_solves: usize,
 }
 
 fn decade(ini: f64) -> usize {
@@ -236,6 +242,19 @@ fn decade(ini: f64) -> usize {
 /// Run `n_steps` steps of the staged case (`None`: to the reference's last step) and compare with the references.
 fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: Option<usize>, ctl: impl Fn(OnePhaseCcSolver) -> OnePhaseCcSolver) -> RunReport {
     let solver0 = OnePhaseCcSolver::from_case_dir(root, poly).unwrap_or_else(|e| panic!("the staged case is not readable: {e}"));
+    run_solver(solver0, field_ref, log_ref, n_steps, None, ctl)
+}
+
+/// [`run_case`] on a solver the caller built (read options, e.g. native `GAMG`); `fixed_dt` keeps `deltaT` (`adjustTimeStep false`).
+/// A field absent from the reference file (the ESFR references keep six fields at a few steps) is skipped, not compared.
+fn run_solver(
+    solver0: OnePhaseCcSolver,
+    field_ref: &str,
+    log_ref: &str,
+    n_steps: Option<usize>,
+    fixed_dt: Option<f64>,
+    ctl: impl Fn(OnePhaseCcSolver) -> OnePhaseCcSolver,
+) -> RunReport {
     let mut solver = ctl(solver0);
     let rf = read_fields(&vv_dir().join("refs").join(field_ref));
     let lg = read_log(&vv_dir().join("refs").join(log_ref));
@@ -257,6 +276,9 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
         solve_worst_abs: 0.0,
         big_iter_diffs: Vec::new(),
         u_abs_over_umax: [0.0; 3],
+        first_t_line_over: None,
+        first_residual_over: None,
+        unmatched_solves: 0,
     };
     for step in 1..=n_steps {
         solver.begin_time_step(dt);
@@ -271,8 +293,15 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
         // solve log
         let solves = solver.pressure_solves().to_vec();
         for &(o, c, ini, it) in lg.prgh.get(&step).map_or(&[][..], Vec::as_slice) {
-            let Some(mine) = solves.iter().find(|x| x.outer == o && x.corrector == c) else { continue };
+            let Some(mine) = solves.iter().find(|x| x.outer == o && x.corrector == c) else {
+                rep.unmatched_solves += 1;
+                continue;
+            };
             if ini > FLOOR {
+                let rd = ((mine.initial_residual - ini) / ini).abs();
+                if rd > 1e-6 && rep.first_residual_over.is_none() {
+                    rep.first_residual_over = Some((step, rd));
+                }
                 rep.solve_worst_res = rep.solve_worst_res.max(((mine.initial_residual - ini) / ini).abs());
                 rep.solve_worst_it = rep.solve_worst_it.max((mine.iterations as i64 - it).abs());
                 rep.log_gated += 1;
@@ -309,6 +338,9 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
             if let Some(up) = lg.tstat.get(&(step, o + 1)) {
                 for (x, y) in [st.0, st.1, st.2].iter().zip(up) {
                     rep.t_line_worst = rep.t_line_worst.max(((x - y) / y).abs());
+                    if ((x - y) / y).abs() > 1e-9 && rep.first_t_line_over.is_none() {
+                        rep.first_t_line_over = Some((step, ((x - y) / y).abs()));
+                    }
                 }
             }
         }
@@ -324,18 +356,21 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
                 a.iter().zip(&b).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / if scale > 0.0 { scale } else { 1.0 }
             };
             let ni = rf[&key("alphaPhi")].len();
+            let zero: Vec<f64> = Vec::new();
+            let fld = |name: &str| rf.get(&key(name)).unwrap_or(&zero);
+            let htc_now = solver.htc();
             let r = [
                 u.iter().zip(ru).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / umax,
                 comp(0),
                 comp(1),
                 comp(2),
-                rel_max(solver.pressure(), &rf[&key("p")]),
-                rel_max(solver.p_rgh().expect("flow"), &rf[&key("p_rgh")]),
-                rel_max(solver.temperature(), &rf[&key("T")]),
-                rel_max(&solver.alpha_phi()[..ni], &rf[&key("alphaPhi")]),
-                rel_max(solver.htc(), &rf[&key("htc")]),
-                rel_max(solver.passive_structure_temperature(), &rf[&key("T.passiveStructure")]),
-                rel_max(&solver.fuel_clad_temperatures().0, &rf[&key("T.fuelAvForNeutronics")]),
+                rel_max(solver.pressure(), fld("p")),
+                rel_max(solver.p_rgh().expect("flow"), fld("p_rgh")),
+                rel_max(solver.temperature(), fld("T")),
+                rel_max(&solver.alpha_phi()[..ni], fld("alphaPhi")),
+                rel_max(htc_now, fld("htc")),
+                rel_max(solver.passive_structure_temperature(), fld("T.passiveStructure")),
+                rel_max(&solver.fuel_clad_temperatures().0, fld("T.fuelAvForNeutronics")),
             ];
             for k in 0..3 {
                 let d = u.iter().skip(k).step_by(3).zip(ru.iter().skip(k).step_by(3)).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / umax;
@@ -355,7 +390,10 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
             }
             rep.fields.push((step, r));
         }
-        dt = adjust_delta_t(true, &[solver.max_delta_t()], 1e-300, dt).expect("adjustable");
+        dt = match fixed_dt {
+            Some(d) => d,
+            None => adjust_delta_t(true, &[solver.max_delta_t()], 1e-300, dt).expect("adjustable"),
+        };
     }
     rep
 }
@@ -378,6 +416,10 @@ fn print_report(name: &str, r: &RunReport) {
         r.solve_floor_reported.0,
         r.solve_floor_reported.1,
         r.t_line_worst
+    );
+    println!(
+        "{name}: first T-line over 1e-9: {:?}; first p_rgh initial residual over 1e-6 relative: {:?}; p_rgh solves of the reference with no match in the port: {}",
+        r.first_t_line_over, r.first_residual_over, r.unmatched_solves
     );
     println!("{name}: solves by decade of the upstream initial residual [1e-10,1e-9) [1e-9,1e-8) [1e-8,1e-6) [>=1e-6]: (worst rel residual diff, worst iteration diff, count) {:?}", r.bins);
     println!("{name}: worst ABSOLUTE initial-residual difference of the gated solves {:e}; solves with iteration difference >= 2: {} {:?}", r.solve_worst_abs, r.big_iter_diffs.len(), &r.big_iter_diffs[..r.big_iter_diffs.len().min(12)]);
@@ -665,4 +707,79 @@ fn r73_debug_f5_first_step_t_lines() {
     for (o, st) in rep.t_stats.iter().enumerate() {
         println!("PORT TSTAT 1 {} {:.17} {:.17} {:.17}", o + 1, st.0, st.1, st.2);
     }
+}
+
+/// The `fixedWalls` `p_rgh` `fixedFluxPressure` -> `zeroGradient`.
+fn variant_zero_gradient_p_rgh(root: &Path) {
+    edit_file(root, "0/fluidRegion/p_rgh", |t| {
+        let i = t.find("fixedWalls").expect("fixedWalls");
+        let j = i + t[i..].find("fixedFluxPressure").expect("type");
+        format!("{}zeroGradient{}", &t[..j], &t[j + "fixedFluxPressure".len()..])
+    });
+}
+
+/// F7: a `zeroGradient` wall `p_rgh` (the ONE edit), cell-centred.
+#[test]
+fn r73_zero_gradient_p_rgh_matches_the_real_binary() {
+    round73_gate("f7", &run73("r73f7", &[variant_zero_gradient_p_rgh], "f7_zerograd_p_rgh"));
+}
+
+/// F8: faceCentered with a `zeroGradient` wall `p_rgh` (named pair).
+#[test]
+fn r73_face_centered_zero_gradient_p_rgh_matches_the_real_binary() {
+    round73_gate("f8", &run73("r73f8", &[variant_face_centered, variant_zero_gradient_p_rgh], "f8_fc_zerograd"));
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 73 part B (gh:#1941): the shipped 3D_SmallESFR fluid region (`cases/esfr_fluid`, fluid only; `momentumMode faceCentered`, `heRhoThermo`
+// `icoPolynomial`/`hPolynomial`/`polynomial` sodium, `byRegime` Nusselt, `slip` walls and baffles, `fixedFluxExtrapolatedPressure` inlet,
+// `passiveProperties`, `nuclearFuelPin` / `nuclearFuelPinTest`) in `OnePhaseCcSolver`, against the real binary
+// (`scripts/run_esfr_fluid_real.sh`; references `refs/esfr_r73_<tight|loose>`). README "Round 73".
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// `cases/esfr_fluid` with its `polyMesh/*.gz` inflated; `tight`: every `tolerance 1e-07` of `fvSolution` -> `1e-14` (GAMG and the smoothSolver of
+/// `h` as shipped otherwise).
+fn stage_esfr(tag: &str, tight: bool) -> (PathBuf, PathBuf) {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1941_{tag}"));
+    let _ = std::fs::remove_dir_all(&root);
+    copy_dir(&vv_dir().join("cases/esfr_fluid"), &root);
+    let poly = root.join("constant/fluidRegion/polyMesh");
+    for f in ["points", "faces", "owner", "neighbour", "cellZones"] {
+        std::fs::write(poly.join(f), gunzip(&poly.join(format!("{f}.gz")))).expect("polyMesh");
+    }
+    if tight {
+        edit_file(&root, "system/fluidRegion/fvSolution", |t| t.replace("tolerance       1e-07;", "tolerance       1e-14;"));
+    }
+    (root, poly)
+}
+
+fn esfr_solver(root: &Path, poly: &Path) -> OnePhaseCcSolver {
+    use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{CaseReadOptions, GamgPolicy, OnePhaseCcCase};
+    let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+    let case = OnePhaseCcCase::read_with_options(root, poly, &opts).unwrap_or_else(|e| panic!("the ESFR fluid region is not readable: {e}"));
+    OnePhaseCcSolver::new(case)
+}
+
+/// The shipped ESFR fluid region, tight (GAMG `1e-14`), against the real binary: 50 steps. `#[ignore]`: wall time in README "Round 73 results".
+#[test]
+#[ignore = "long: the 23 322-cell ESFR fluid region, 50 steps (wall time in README Round 73 results)"]
+fn r73_esfr_tight_matches_the_real_binary_for_50_steps() {
+    let (root, poly) = stage_esfr("tight", true);
+    let t0 = std::time::Instant::now();
+    let r = run_solver(esfr_solver(&root, &poly), "esfr_r73_tight.ref.txt.gz", "esfr_r73_tight_log.ref.txt.gz", Some(50), Some(1.0), |s| s);
+    println!("esfr tight: wall {:.1} s", t0.elapsed().as_secs_f64());
+    print_report("esfr tight", &r);
+    assert_eq!(r.steps, 50);
+}
+
+/// The shipped ESFR fluid region AS SHIPPED (loose `1e-7`), 50 steps: solve counts and macroscopic quantities (README round 67's caveat).
+#[test]
+#[ignore = "long: the 23 322-cell ESFR fluid region, 50 steps (wall time in README Round 73 results)"]
+fn r73_esfr_loose_as_shipped_for_50_steps() {
+    let (root, poly) = stage_esfr("loose", false);
+    let t0 = std::time::Instant::now();
+    let r = run_solver(esfr_solver(&root, &poly), "esfr_r73_loose.ref.txt.gz", "esfr_r73_loose_log.ref.txt.gz", Some(50), Some(1.0), |s| s);
+    println!("esfr loose: wall {:.1} s", t0.elapsed().as_secs_f64());
+    print_report("esfr loose", &r);
+    assert_eq!(r.steps, 50);
 }
