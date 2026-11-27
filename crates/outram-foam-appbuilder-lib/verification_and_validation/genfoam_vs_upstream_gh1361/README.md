@@ -5521,3 +5521,62 @@ None. The `fixedPower` path is untouched; the radial reader only changed module 
 ### Reproduction
 
 `bash scripts/make_boiling_radial_variants.sh`; per variant `VARIANT=<v> EVERY_STEP=1 TIGHT=1 END_TIME=12 PRE_RUN=scripts/boiling_radial_variant_protocol.sh bash scripts/run_tutorial.sh featureCases/1D_boiling r41_<v>`; `EXTRA_FIELDS="..." PROFILE_FIELDS="Trad.<model>" bash scripts/extract_boiling_radial_reference.sh r41_<v> boiling_radial_r41_<v>_<lo>_<hi> . <lo> <hi>` (windows: 1-60, 200-225, 400-425, 600-625 for the no-onset variants; hp also 690-740; hp3 1-60 and 603-653; nfp_hot 1-60 and 575-625).
+
+# Round 42 (gh:#1887, gh:#1890): `fvSolution` solver entries read by the neutronics case readers; discontinuity factors in SP3, the stationary-fuel step and the static eigenvalue solve
+
+> Research, education and V&V only. AI draft, unreviewed. Maintainer direction 2026-11-27: "Port genfoam exhaustively", "Match all upstream".
+
+## What was read before any code (2026-11-27)
+
+* **Which `fvSolution` keys upstream's solvers read.** OpenFOAM-v2506 `lduMatrix::solver::readControls` (`lduMatrixSolver.C:195-208`): `log`, `norm` (`none`, `default`, `L1_scaled`), `minIter` 0, `maxIter` `defaultMaxIter` 1000, `tolerance` `defaultTolerance` 1e-6, `relTol` 0; the solver word (`solver::New`, symmetric table for a symmetric matrix, asymmetric table otherwise, and a diagonal matrix always runs `diagonalSolver`); the preconditioner as a word or as a sub-dictionary (`preconditioner::getName`). The dictionary is found by `lookupEntry` with pattern matching: exact keyword first, else the LAST declared matching pattern.
+* **`<field>Final` entries are never selected by the neutronics.** `fvMatrix::solve()` takes the `Final` dictionary only when the mesh's `data` carries `finalIteration`, which `pimpleControl` sets; `grep -rn "finalIter\|pimple" src/classes/neutronics` is empty, `GeN-Foam.C` solves each region once per step (`correctPhysics`) and no `pimpleControl` exists for the neutronics mesh. So `flux.*Final` is read by nothing. Controlled against the binary below (a `Final` entry with a loose tolerance changes nothing).
+* **SN applies no discontinuity factor.** `grep discFactor src/classes/neutronics/SN` finds one line, `SN/include/setXSFieldsSN.H:18`, a `const` reference declaration that is never used, and no `adjustDiscFactors` call in `solveNeutronicsSN.H`. Controlled against the binary below.
+* **SP3** (`fluxEqSP3.H`, `createFluxMatricesSP3.H`, `solveNeutronicsSP3.H:119`): unknown `fluxStar`/`fluxStar2`; `fluxStar` operator `ddt(IV/df) - laplacian(D/df) + Sp(sigmaRemoval/df)`; first-moment source `- sigmaRemoval*(fluxStar2/df)*2.0`; second moment `laplacian(df/(sr+ss)*3.0/7.0)` and `- (sr*(fluxStar/df))*2.0/3.0`; `flux = (fluxStar - fluxStar2*2.0)/df`; `adjustDiscFactors(fluxStar_)` after `normFluxesSP3.H` in the eigenvalue branch only.
+* **Diffusion stationary-fuel step** (`solveNeutronics.H`, `createFluxMatrices.H`, `fluxEq.H`): `flux = fluxStar/df` at the top of every step, the matrix over `fluxStar` with `IV/df`, `D/df`, `(nuSigmaEff/keff*(1-BetaTot)*chiPrompt*(1-eig) - sigmaRemoval)/df`, the sources in terms of the physical `flux`, `flux = fluxStar/df` after each group's solve; `adjustDiscFactors` is in the eigenvalue branch only, so a non-eigenvalue run keeps the factors of `correct()`.
+* **Searched first** (`grep -rn "disc_factors_are_unity|flux_star|DiscFactorsNotPorted"` over the crate): the pseudo-time eigenvalue step of round 39 already keeps `flux_star` (`diffusion/pseudo_time.rs`); nothing for SP3, the stationary step or the static solve. Reused: `DiscFactorState`, `XsEvolution`, `DiffusionXsFields::disc_factor`, `solve_twice`. No kovan-reviewed function exists in `neutronics/{diffusion,sp3,sn,xs}` (`review.md` holds no `kind = "review"` block).
+
+## Method
+
+Upstream: GeN-Foam 652b3da on ESI v2506, the unmodified binary, the round-39 `df_slab` case (guided slab 2, synthetic two-group data, `scripts/make_df_driveline_cases.sh`) at the tight protocol, varied by `scripts/make_r42_cases.sh` (`solver=SP3Neutronics`, `eigen=false`, `fvedit=`). References: `refs/r42_solver.ref.txt.gz`, `refs/r42_extsrc.ref.txt.gz`. Tests: `tests/genfoam_fv_solution_df_vs_upstream.rs`.
+
+| run | what it is |
+|---|---|
+| `BR` | external-source case B (`cases/external_source`) with the flux entry `relTol 0.1` (`tolerance 1e-14`) |
+| `v0r`, `v0m` | `df_slab` `v0` pseudo-time eigenvalue (diffusion) with flux `relTol 0.1`; `v0m` also `minIter 3` |
+| `fin` | `v0` with an extra `"flux.*Final"` entry `tolerance 1e-2; relTol 0.5; maxIter 3` (never selected) |
+| `s0`, `s1`, `s2`, `s3` | SP3 on the data of `v0`, `v1`, `v2`, `v3` (pseudo-time eigenvalue, 60 s) |
+| `n0`, `n3`, `n1` | diffusion `eigenvalueNeutronics false`, `endTime 3.5e-4` (about 350 steps, power 0.065 -> 1.2): data `v0` (unity), `v3` (given factors), `v1` (adjustDiscFactors true in the data but never called in this branch) |
+| `sn1`, `sn2` | `sn_slab` with `discFactor` 1 and 1.3 in every zone and group |
+
+## Predictions (written BEFORE any upstream run of the new variants and any port run of this round; committed first)
+
+Comparison criteria, fixed now and not to be changed after seeing results.
+* **Eigenvalue solver level** (round 39's T1 to T7): steps and final time equal (60 within 1e-9); `Time` rel < 5e-8; `|keff_ port - upstream| < 1e-12` every step; `power` rel < 1e-12; first residual rel < 1e-6 where upstream >= 1e-6, abs < 1e-9 below; unit-sum shape of the final `flux0` and `flux1` rel < 1e-10.
+* **Non-eigenvalue solver level** (`n*`, `BR`): step count equal; `Time` rel < 5e-8; `power:` rel < 1e-12; neutron-iteration count EQUAL at every step; last `neutroResidual` of each step rel < 1e-6 (abs < 1e-9 below 1e-6); final `flux0`, `flux1`, each cell rel < 1e-10 of that group's maximum. "Bit-identical" means every compared value `==`.
+* Where a result is bit-identical the gate is tightened to `==` afterwards, the previous bound named. A miss is recorded, the test asserts the measured size with the cause, marked post-run. Earlier numbers (rounds 1, 6, 11, 14, 15, 32, 32b, 36, 39, 40) are re-run and must not move; if one moves, old and new are recorded.
+
+| id | claim | prediction |
+|---|---|---|
+| F1 | reader: the committed tight `fvSolution` of `df_slab` and `external_source` | flux `PCG`/`DIC`, precursor `PBiCG`/`DILU`, angular `PBiCGStab`/`DILU`; tolerance 1e-14, relTol 0, maxIter 1000, minIter 0 (the defaults for the last two), exactly |
+| F2 | `ExternalSourceCase::read_with_fv_solution` on A, B, C against `read(.., {1e-14, 100000})` (they set relTol 0) | bit-identical history and fluxes (every `power`, flux cell, iteration count `==`): no solve of these cases needs more than 1000 iterations (round 40, S7) |
+| F3 | `BR` against the binary | iteration counts equal every step; `power` <= 1e-12 and `flux0(t=100)` <= 1e-12 relative; bit-identical 50 % (round 40: B, C, F were bit-identical with the same solver) |
+| F4 | `v0r`, `v0m` against the binary | T1 to T7 hold; first-step `dk` 0 in `v0r` 40 % |
+| F5 | `fin` against the binary | upstream's keff series bit-identical to `v0`'s (the `Final` entry is never selected) |
+| F6 | `v0m` | the port with `min_iter` forced to 0 differs from the binary by `|dk| > 1e-13` at some step (minIter acts) |
+| K1 control | port with `relTol` 0 on `BR` and on `v0r` | differs from upstream: `power` rel > 1e-9 at some step (BR); `|dk| > 1e-9` at some step (v0r) |
+| S0 | SP3 `s0` (unity) | T1 to T7 hold; port numbers equal those of the same port before this change to the last printed digit (regression) |
+| S1 | SP3 `s3` (given factors 1.05/0.96, 0.9/1.2, 0.98/1.04) | T1 to T7 hold (`|dk|` <= 1e-12); bit-identical 10 % |
+| S2 | SP3 `s1` (adjustment) and `s2` (skipped group and zone) | T1 to T7 hold; `adjustDiscFactors` is fed `fluxStar` (the composite moment), not `flux` |
+| S3 | controls: SP3 `s3` with factors forced to 1; SP3 `s1` without the adjustment | `|dk|` > 1e-4 at step 1; `|dk|` > 1e-4 at the last step |
+| S4 | SP3 with `DiscFactorsNotPorted` | removed: SP3 runs the factors; the error variant stays for the refused paths |
+| N0 | stationary step, `n0` (unity) | non-eigenvalue criteria hold; port numbers equal the round-14/15 form (regression: every number of `external_source` unchanged) |
+| N3 | stationary step with given factors, `n3` | criteria hold; bit-identical 25 % |
+| N1 | `n1` | upstream's power series bit-identical to `n0`'s (no adjustment outside the eigenvalue branch); the port's equal to its own `n0` series |
+| K2 control | `n3` with the port's factors forced to 1 | `power` rel > 1e-6 at the last step |
+| E1 | port's static `solve_eigenvalue` (own power iteration, tolerance 1e-12) on `v3` against the converged keff of upstream's `v3` run at t = 60 | `|dk|` <= 1e-9; flux shape <= 1e-8 |
+| E2 | the same on `v0` (unity) | `|dk|` <= 1e-9 (regression of the existing path) |
+| K3 control | `v3` with factors forced to 1 | `|dk|` > 1e-4 |
+| M1 | SN: upstream `sn2` (factor 1.3) against `sn1` (1) | the binary's `keff_`/power series bit-identical (the factor is never read); the port needs no change and its SN result on `sn2` data equals its `sn1` result |
+| R1 | the rounds 1, 6, 11, 14, 15, 32, 32b, 36, 39, 40 neutronics tests | do not move (only the form of an unity-factor path changes by `x/1.0`) |
+| X1 | refusals kept by name | `upstream_eigenvalue_step` and `upstream_transient_step` (liquid fuel), `DiffusionNeutronics::step` (the port's own single-pass scheme, not an upstream algorithm), the stationary step with a driveline or an adjusting `XsEvolution`: refuse a factor != 1 by name, pinned by tests |
+| X2 | `2D_FFTF` neutronics alone | not reachable: it needs the TH regions' fields (`liquidFuel false` but `TFuel`/`rhoCool`/`TCool` feedback from the `twoPhase`/`onePhase` regions and the structural `disp`); decided and recorded below after reading its `controlDict` |
