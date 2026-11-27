@@ -1,5 +1,13 @@
 # OUTRAM PARK Digital Twin Engine
 
+The digital-twin engine of **OUTRAM PARK** (**O**pen-source **U**nified
+**TRA**nsient **M**ulti-**P**hysics **A**dvanced **R**eactor simulation
+**K**it). It has no station backronym of its own.
+
+> ⚠️ **Research, education and V&V only.** Not for nuclear facility operation,
+> reactor control, licensing, safety-critical decisions or emergency response.
+> See the workspace `RESPONSIBLE_USE.md`.
+
 <!-- vv-unverified-banner -->
 > ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
 
@@ -26,6 +34,38 @@ tracer travel time.
 > systems, plant systems, safety-critical infrastructure, or restricted
 > infrastructure — see `RESPONSIBLE_USE.md`.
 
+It answers **"what does a reactor's physics state look like as it evolves,
+and can a reader watch it, question it and run it again?"**
+
+What this crate makes **studyable and challengeable** is the step from a
+published reactor description to a running, drawn plant: the MSRE and EBR-II
+benchmark reports turned into stepping models whose every constant is cited
+(and whose disagreements with the measurements are recorded, not fitted
+away), HTR-10's cited design data and packed-bed correlations each pinned to
+its published value, and animations whose speed is a physical residence time
+rather than decoration. A reader can open a simulator in a browser, change a
+pump or a rod, and then read the module doc that says which number came from
+which report and which choice was uncited.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | MSRE: ORNL-TM-0728, ORNL-TM-1070, ORNL-TM-1626, ORNL-TM-1647, ORNL-4233 (cited in `src/msre/` and [`docs/msre_library.md`](docs/msre_library.md)). EBR-II: ANL-ARC-226/228 and IAEA-TECDOC-1819, SHRT-17 / SHRT-45R (cited in `src/ebr2/` and [`docs/ebr2_library.md`](docs/ebr2_library.md); AI transcriptions, unreviewed). HTR-10: IAEA-TECDOC-1382 Chapter 4 (core-physics benchmark), Gao and Shi (2002), and the Virtual Test Bed's KTA worked example and ZBS tabulation (`src/htr10/` module doc; more in `crates/kovan-literature/CATALOGUE.md`); `htgr_sim_v1`'s beta_eff from Chen et al. (2009). HTR-10 passive decay heat against Hu et al.'s 206 kW. CIET (UC Berkeley) for the v2 simulator. Not a port of one upstream code. |
+| Mathematical equations | Circulating-fuel point kinetics (TM-1626 importance-weighted line model by default, TM-1070 well-stirred as the ablation) with fuel and graphite feedback (`src/msre/`); point kinetics with fast-reactor feedback and lumped fuel / core / IHX / pool (`src/ebr2/model.rs`); KTA packed-bed pressure drop and ZBS bed conductivity (`src/htr10/`); the HTGR plant's energy chain, steam generator and loops in `examples/htgr_sim_v1/physics/` module docs; tracer residence time $\tau = m / \dot{m}$ (below); the twin's reactivity coefficient definition (`src/twin`). |
+| Source code | Library: `msre/`, `ebr2/`, `htr10/`, `twin` (multifidelity twin template and its shell), `multifidelity/` (double-pipe HF to LF), `components/` (physics-backed widgets), `headless/`, `opcua_core/`, `ciet_opcua/`, `htgr_opcua/`; re-exports of `bugis`'s `animation`, `color_maps`, `app_scaffold`, `ascii`. Simulators: `examples/` and `src/bin/`. |
+| Interactive simulations | egui apps: `htgr_sim_v1`, `fhr_sim_v2`, `distillation_sim_v1`, `widget_studio`, `twin_app`, and the `ciet_educational_simulator_v2` / `ciet_v2_opcua_client` binaries. Browser demos (wasm, built from `web/`): `ciet_web`, `msre_web`, `ebr2_web`, `htgr_sim_v1` (`web/htgr/`), `fukushima_web` (password-gated), `double_pipe_twin_web`. Every egui simulator has a headless mode. CLI: `double_pipe_lf_grid`, `hf_lf_double_pipe_dataset`. |
+| Visualisations | The live simulators themselves, plus committed screenshots: `docs/htgr_sim_v1_schematic_tabs/`, `docs/htgr_screenshots/`, `docs/ebr2_web_screenshots/`, `docs/twin_app_screenshots/`, `web/msre/screenshots/`, and the ORNL-4233 pump-trip comparison plots in `docs/msre_pump_trip/`. |
+| Verification and validation evidence | MSRE ([`docs/msre_library.md`](docs/msre_library.md), 2026-11-11): with the default line model the circulation loss is +8.1 % against TM-1626's measurement and TM-1647's natural period is +5.0 % at 7.3 MW and +2.0 % at 1.0 MW. EBR-II ([`docs/ebr2_library.md`](docs/ebr2_library.md), 2026-11-10, uncalibrated): SHRT-45R base peak P/F 3.00 against the measured 2.8 (+7 %), spanning 2.14–3.35 across the ablations; steady-state flow, inlet temperature and pump head within a few percent and about ±7 K; fuel temperature rise under-predicted by 24 %. HTGR passive decay heat: 254.0 kW against Hu et al.'s 206 kW, +23.3 % (since 2026-09-28, `examples/htgr_sim_v1/physics/decay_heat_removal.rs`). Double-pipe HF to LF ([`verification_and_validation/hf_lf_double_pipe_gh1178.md`](verification_and_validation/hf_lf_double_pipe_gh1178.md), 2026-11-03/04): uncalibrated 1-D UA below the CFD's at 44 of 44 points, by 1.1 % to 21.4 %. CIET in the browser ([`verification_and_validation/ciet_web/README.md`](verification_and_validation/ciet_web/README.md), 2026-10-17): the browser plant equals the desktop stepper field for field. Further records in `verification_and_validation/` (KOH, MFK, filtering, OpenDA). None of this is a validation of a plant. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. One entry in `docs/human-corrections-to-ai-work.md` (2026-08-12: the excursion overlay drew an explosion an HTGR cannot have). `AGENTS.md` records three defects the maintainer caught on 2026-08-14 that the tests did not (a second-law violation, a feedforward controller, a `c_p` shortcut), and the rejected calibration of an axial length to Hu's 206 kW. Struck-through corrections below (pebble-bed core, MSRE default kinetics, module locations). |
+
+**Status:** the MSRE, EBR-II, HTR-10 data and double-pipe modules carry
+recorded comparisons against published or code-to-code references; no
+simulator is validated or human-reviewed, and every example is an offline
+demonstration.
+
 ## Design philosophy
 
 Avoid separating physics and rendering unnecessarily. Each visual component
@@ -45,10 +85,13 @@ separate rendering model that must be kept in sync by hand.
 
 | Module | Status |
 |---|---|
-| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples, and Crameri's Scientific colour maps. **Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`**, where the maps and tables now live byte for byte. |
-| `components/` | **Real wrappers.** Ten visual process objects, each composing its `tampines` (or `nee_soon`) physics counterpart. `instrumentation` is a deliberate visual-only label/value placeholder — `nee_soon` exposes no instrumentation-readout type to wrap yet. |
-| `animation/` | **Real.** Flow-tracer kinematics: `TracerTrain`, `residence_time_from_flow`, and the `FlowTracer`/`TravelTime` trait contracts. |
-| `app_scaffold/` | **Real.** `Arc<Mutex<_>>` physics-thread + panel-dispatch pattern, plus the thread-panic "please restart" modal. |
+| `color_maps/` | **Real.** Hot/cold and steam-quality colour functions, ported from the existing validated FHR/CIET simulator examples, and Crameri's Scientific colour maps. ~~**Since 2026-11-02 thin `egui::Color32` wrappers over `bugis::colour_maps`**, where the maps and tables now live byte for byte.~~ **CORRECTED 2026-11-27** — the `Color32` wrappers moved too: `color_maps` is now a re-export of `bugis::colour_maps::color32`, and `src/color_maps/` holds only kovan review records (checked against `src/color_maps/` and `AGENTS.md`, gh:#1112). |
+| `components/` | **Real wrappers.** ~~Ten visual process objects, each composing its `tampines` (or `nee_soon`) physics counterpart. `instrumentation` is a deliberate visual-only label/value placeholder — `nee_soon` exposes no instrumentation-readout type to wrap yet.~~ **CORRECTED 2026-11-27** — since the 2026-11-05 split (gh:#1112) this module holds the physics-backed widgets (`PipeVisual`, `PipeComponent`, `ValveVisual`, `ReactorVesselVisual`, `CondenserVisual`, `CoolingTowerVisual`, `HeatExchangerVisual`, `PumpVisual`, `SteamGeneratorVisual`, `TurbineVisual`), `ReactorArchetypeKinetics` and the `excursion` overlay; they draw through `bugis`'s `*Art` types, and the rest of the widget art (including `instrumentation`) is `bugis::components`, re-exported here (checked against `src/components/mod.rs`). |
+| `animation/` | **Real.** Flow-tracer kinematics: `TracerTrain`, `residence_time_from_flow`, and the `FlowTracer`/`TravelTime` trait contracts. **CORRECTED 2026-11-27** — moved to `bugis::animation` on 2026-11-02 (gh:#1112) and re-exported here; `src/animation/` holds only kovan review records. |
+| `app_scaffold/` | **Real.** `Arc<Mutex<_>>` physics-thread + panel-dispatch pattern, plus the thread-panic "please restart" modal. **CORRECTED 2026-11-27** — moved to `bugis::app_scaffold` on 2026-11-02 (gh:#1112) and re-exported here; `src/app_scaffold/` holds only kovan review records. |
+| `htr10/` | Cited HTR-10 design constants and packed-bed correlations (`design`, `kta`, `zbs`, `neutronics`), each with a test against its published value. Not validated. (Row added 2026-11-27: the module was missing from this table.) |
+| `twin` | The multifidelity digital-twin template (epic gh:#1743): `MultiFidelityTwin`, the seven-page `twin::shell::TwinShell`, the native `twin::local::LocalHost`; adopted by `msre::twin::MsreTwin` and `ebr2::twin::Ebr2Twin`; example `twin_app`. Not validated. (Row added 2026-11-27.) |
+| `headless/`, `opcua_core/`, `ciet_opcua/`, `htgr_opcua/` | Headless driving of a simulator with no GUI; OPC-UA (IEC 62541) server layers for offline demonstration only. Infrastructure, not physics. (Row added 2026-11-27.) |
 | `ebr2/` | **AI draft, not validated (gh:#1331).** EBR-II for web simulations: cited SHRT-17 / SHRT-45R data (`design`, `shrt`, `kinetics`, `pump`; AI transcriptions of ANL-ARC-226/228 and IAEA-TECDOC-1819, unreviewed) and a GUI-free, wasm-compilable stepping model (`model::Ebr2Model`: point kinetics, fast-reactor feedback, lumped fuel / core / IHX / pool with TUAS sodium). The IHX thermal-centre height is a required input (not in the sources). Record: `docs/ebr2_library.md`. |
 | `msre/` | **AI draft, not validated (gh:#1330).** MSRE in one place for web simulations: cited plant constants (`design`), a GUI-free, wasm-compilable stepping simulator (`model::MsreModel`: circulating-fuel kinetics with fuel and graphite feedback, heat exchanger, coolant loop, radiator, piping lags, from ORNL-TM-1070 and ~~`teh-o-prke`~~ `msre::circulation` (bit-identical to `teh-o-prke`'s kinetics at full flow; **CORRECTED 2026-11-10, gh:#1332**); since gh:#1332 fuel- and coolant-pump trips and start-ups, checked against ORNL-4233 Fig. 24), and re-exports of the workspace's MSRE V&V pieces. ~~Reproduces TM-1647's measured natural period at 7.3 MW to +0.2 %; circulation loss +16 % against TM-1626's measurement.~~ **CHANGED 2026-11-11 (gh:#1330, maintainer: "Let's use ORNL more correct physics"):** the default kinetics are ORNL-TM-1626's importance-weighted line model; TM-1070's well-stirred model is the ablation `MsreConfig::without_line_model()`. With the default, the circulation loss is +8.1 % against TM-1626's measurement (well-stirred +16 %), and TM-1647's natural period is +5.0 % at 7.3 MW and +2.0 % at 1.0 MW (well-stirred +0.2 % and −5.4 %). It costs about 40-60 µs per 0.01 s step (well-stirred about 1 µs). Record: `docs/msre_library.md`. |
 | `multifidelity/` | **AI draft, rung 1 of gh:#1177 (gh:#1178).** `double_pipe`: runs the double-pipe conjugate-heat-transfer CFD (`outram-foam-appbuilder-lib`) and the TUAS 1-D shell-and-tube exchanger (one tube) at the same design points, reads Nusselt and friction closures off the CFD, and interpolates them. The committed dataset and the rung-3 interface (`one_d::evaluate(&x, &θ)`) are documented in the module. Infrastructure: no correlation of its own. V&V record: `verification_and_validation/hf_lf_double_pipe_gh1178.md`. |
@@ -90,7 +133,13 @@ owned by a widget would reset its phase to zero each frame.
 
 ## Examples
 
-Both examples are **offline demonstration models**, not validated plant models.
+~~Both examples are~~ **CORRECTED 2026-11-27** — there are twelve examples,
+not two: eleven declared in `Cargo.toml` (`htgr_sim_v1`, `fhr_sim_v2`,
+`distillation_sim_v1`, `widget_studio`, `twin_app`, `ciet_web`, `msre_web`,
+`ebr2_web`, `fukushima_web`, `double_pipe_twin_web`, `double_pipe_lf_grid`)
+and `examples/hf_lf_double_pipe_dataset.rs`. The two below are the original
+pair. Every one is an **offline demonstration model**, not a validated plant
+model.
 
 ```bash
 cargo run --release --example htgr_sim_v1
@@ -146,17 +195,24 @@ reusable widgets.
   every step at the current bulk mean temperature.
 - Water/steam properties from IAPWS-IF97 (`tampines-steam-tables`) throughout —
   every state is a genuine $(p,h)$ / $(p,s)$ / saturation flash.
-- **Two-way loop coupling.** Each step hands the secondary's saturation
+- ~~**Two-way loop coupling.** Each step hands the secondary's saturation
   temperature to the primary as the IHX cold-side pinch. The IHX duty follows
-  the effectiveness-NTU result for one isothermal side,
+  the effectiveness-NTU result for one isothermal side,~~ **CORRECTED
+  2026-11-27** — the IHX is now the nodalised counter-flow steam generator
+  of `physics/steam_generator.rs` (hot fluid, tube metal and water/steam
+  arrays coupled node by node), as the note above already said; the lumped
+  relation below is the superseded one, kept for the record:
 
   $$Q = \varepsilon \dot{m} c_p (T_{\mathrm{out}} - T_{\mathrm{sink}}), \quad \varepsilon = 1 - e^{-\mathrm{NTU}}$$
 
   so duty cannot exceed what the temperature difference and $UA$ support. The
   resulting IHX helium outlet becomes the next core inlet, making the core
   inlet a computed loop variable rather than a fixed constant.
-- Darcy-Weisbach loop pressure drop with a Haaland friction factor, and the
-  circulator power to sustain it.
+- ~~Darcy-Weisbach loop pressure drop with a Haaland friction factor, and the
+  circulator power to sustain it.~~ **CORRECTED 2026-11-27** — the Haaland
+  pipe friction was removed with the prismatic core; the bed's share of the
+  loop loss is the KTA packed-bed correlation and the rest is the published
+  component sum (`physics/primary_loop.rs` module doc).
 - A closed steam cycle: condensate is the saturated liquid at condenser
   pressure, the feed pump adds real work $v \Delta p / \eta$, the condenser
   energy balance is carried by a cooling-water stream, and a first-order-lagged
@@ -278,9 +334,13 @@ This crate makes **no Android-portability claim** for its GUI modules — unlike
 the rest of the workspace, `egui`/`eframe`/`egui_plot`/`egui_extras` are real
 dependencies here, since presentation is the crate's whole purpose. They are
 declared under `cfg(not(target_os = "android"))` and the modules that use them
-are gated to match, so `cargo check --target aarch64-linux-android` still
+are gated to match, so ~~`cargo check --target aarch64-linux-android` still
 passes with the library reduced to `animation/`, which is deliberately
-`egui`-free.
+`egui`-free.~~ **CORRECTED 2026-11-27** — per this crate's `AGENTS.md`
+(corrected 2026-09-21, GitHub #239), `cargo check --release --target
+aarch64-linux-android` **fails**: `app_scaffold` (now `bugis::app_scaffold`,
+re-exported ungated) uses `egui` without an Android gate, so the library does
+not reduce to `animation/`. Not re-measured here.
 
 ## Build & test
 

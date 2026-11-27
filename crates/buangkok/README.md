@@ -23,6 +23,32 @@ offsite chain:
 Dose has its own crate so the dispersion and source-term crates keep their
 "no dose" boundary, and so none of them reads as a health-assessment tool.
 
+What this crate makes **studyable and challengeable** is a published dose
+code, read line by line: a Rust translation of pyDOSEIA (Sadhu et al. 2026)
+that a student can open beside the Python, together with the 26 defects
+(D1–D26) found by reading upstream, each reproduced and, where a correction
+exists, offered as a labelled divergence rather than a silent fix. The
+code-to-code fixture shows the port computes what pyDOSEIA computes; whether
+pyDOSEIA's model represents reality is the open question this crate leaves
+for the reader to challenge.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | pyDOSEIA: Sadhu et al., *Health Physics* **130**(1) (2026) 94–110, doi:10.1097/HP.0000000000002014; code at <https://github.com/BiswajitSadhu/pyDOSEIA>, commit `dca4cdc3`, MIT (notice in [`NOTICE`](NOTICE)). Dose coefficients: US EPA FGR-15 (2025, EPA 402-R-25-001) and FGR-11. HTR-10 dose tables: Liu and Cao (2002), Tables 7 and 9. Provenance in [`docs/References.md`](docs/References.md). |
+| Mathematical equations | Gaussian-plume master equation (Hukkoo and Bapat eq. 2.5) with BARC/AERB sigma fits, height correction, triple joint frequency distribution and calm correction, the inhalation, ground-shine, submersion, ingestion (IAEA SRS 19 food chain; H-3 and C-14 specific activity) and finite-cloud plume-shine (gamma build-up) pathways, in the module docs of `src/pydoseia/`. The plume equations are walked through in `changi`'s lesson book, [`crates/changi/docs/lessons/src/plume.md`](../changi/docs/lessons/src/plume.md). |
+| Source code | `src/pydoseia/` (`met`, `dispersion`, `dcf`, `dose`, `ingestion/`, `plume_shine/`, `quadpack`, `dcf_screening`, `plume_rise`, `config`, `assessment`), `src/coefficients.rs` (FGR tables in `reference/`), `src/published/` (Liu and Cao tables). |
+| Interactive simulations | No web demo or GUI in this crate. CLI examples: `examples/plume_chi_over_q.rs`, `examples/plume_rise_and_wake.rs`, `examples/pydoseia_assessment.rs`. The egui app `crates/outram-park-digital-twin-engine/examples/htgr_sim_v1` (its Map tab) calls the dose-rate functions. |
+| Visualisations | None yet. |
+| Verification and validation evidence | Code-to-code against upstream: [`docs/pydoseia-code-to-code.md`](docs/pydoseia-code-to-code.md), `tests/pydoseia_code_to_code.rs`, generator in `verification_and_validation/pydoseia_code_to_code/`. Recorded 2026-11-13 (gh:#1429): 1 917 cases, 18 217 values, 44 groups, all passing; every group bit-exact except `boundary_totals_text` (limited by the four significant figures of upstream's text report) and one `boundary_totals` value at 1.1e-16. Ten mutation tests show the fixture can fail. Cross-check against Liu and Cao's published doses (external pathways only): `tests/liu_cao_external_dose_cross_check.rs`, 2026-09-29, recorded as "consistent, not verified". No validation against measurement. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections in this README, `src/lib.rs` and the code-to-code doc (ingestion and plume shine "not ported", the QUADPACK-vs-petir integrator choice, the 1 899-case fixture count). |
+
+**Status:** the port has code-to-code verification evidence against
+pyDOSEIA; nothing here is validated, and no part has been human-reviewed.
+
 ## Status: pyDOSEIA ported, code-to-code verified (2026-09-28)
 
 ~~Status: placeholder, nothing is implemented.~~ **CHANGED 2026-09-28.** The
@@ -49,9 +75,13 @@ crate was created that day to reserve the name. It now holds:
     defaults, and the driver with its summary tables (a Rust API replaces the
     CLI; see `examples/pydoseia_assessment.rs`).
 - **Verification:** code-to-code against pyDOSEIA itself, on synthetic inputs.
-  The fixture has 1 899 cases and 18 127 values in 43 function groups; 41 are
+  ~~The fixture has 1 899 cases and 18 127 values in 43 function groups; 41 are
   bit-exact, one agrees to 4.8e-16 (a pandas mean) and one is limited by the
-  four significant figures of upstream's text report. Ten mutation tests show
+  four significant figures of upstream's text report.~~ **CORRECTED
+  2026-11-27** — the fixture now has 1 917 cases and 18 217 values in 44
+  groups; `speed_means` became bit-exact and a new in-memory
+  `boundary_totals` group was added (gh:#1429, 2026-11-13; checked against
+  the Results section of `docs/pydoseia-code-to-code.md`). Ten mutation tests show
   the suite can fail. Methodology and results are in
   [`docs/pydoseia-code-to-code.md`](docs/pydoseia-code-to-code.md).
 - **What this does not show:** agreement with pyDOSEIA is not agreement with
@@ -127,7 +157,7 @@ and whole-body mSv) — as cited reference data, with provenance in
 
 The default `std` feature can be turned off: the library is then `no_std` +
 `alloc` and builds for bare metal
-(`cargo check -p buangkok --no-default-features --target x86_64-unknown-none`,
+(`cargo check --release -p buangkok --no-default-features --target x86_64-unknown-none`,
 gated by `scripts/check-nostd.sh`). `std` turns on `changi`'s `std` (its thread pool). With `std` on (the default)
 nothing changes.
 
