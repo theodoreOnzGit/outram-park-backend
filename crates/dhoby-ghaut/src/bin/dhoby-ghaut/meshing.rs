@@ -27,7 +27,7 @@ use std::time::Instant;
 
 use dhoby_ghaut::workbench::meshes::{
     genfoam_default_fields, CellType, MeshMapping, MeshPlan, MeshRole, MeshSet, MeshSummary,
-    RegionClass, RegionMap, RegionVolume, RzBox, RzDomain, RzTiling,
+    RegionClass, RegionMap, RegionVolume, RzBox, RzDomain, RzPartition,
 };
 use outram_blender::csg::plot::{
     annotate_slice, default_colours, ImageData, LegendEntry, PlotBasis, SlicePlot,
@@ -105,18 +105,6 @@ fn opts(cell_cm: f64, refine: u8, dual: bool) -> TetDualOptions {
     }
 }
 
-/// [`opts`] on TetGen's tetrahedra (the cfMesh default, sized by the cell
-/// size), unless `refine > 0` asks for the octree only the carved route
-/// has. The neutronics and thermal-hydraulics meshes (maintainer,
-/// 2026-11-26: "TetGen dual"); the structural Tet4 mesh stays carved.
-fn opts_tetgen(cell_cm: f64, refine: u8, dual: bool) -> TetDualOptions {
-    let o = opts(cell_cm, refine, dual);
-    if refine > 0 {
-        return o;
-    }
-    TetDualOptions { tet_source: TetDualOptions::default().tet_source, ..o }
-}
-
 /// Step 7's snapping settings: on unless `DHOBY_NO_SNAP=1`; the morph band is
 /// one cell (`DHOBY_SNAP_MORPH=0` turns the morph off).
 fn step7_snap(cell_cm: f64) -> (bool, f64) {
@@ -132,181 +120,186 @@ fn to_m(profile: &[[f64; 2]]) -> Vec<[f64; 2]> {
         .collect()
 }
 
-/// Point-in-polygon in the R-Z half plane (even-odd).
-fn inside_profile(profile: &[[f64; 2]], r: f64, z: f64) -> bool {
-    let mut inside = false;
-    let n = profile.len();
-    for i in 0..n {
-        let (a, b) = (profile[i], profile[(i + 1) % n]);
-        if (a[1] > z) != (b[1] > z) {
-            let x = a[0] + (z - a[1]) / (b[1] - a[1]) * (b[0] - a[0]);
-            if r < x {
-                inside = !inside;
-            }
-        }
-    }
-    inside
-}
-
-/// Exact volume \[cm³\] of each region inside `profile` (quadrature on an
-/// `h` cm grid).
-fn exact_in(d: &RzDomain, map: &RegionMap, profile: &[[f64; 2]], h: f64) -> Vec<f64> {
-    let mut v = vec![0.0; map.regions.len()];
-    let nr = (d.r_outer / h).ceil() as usize;
-    let nz = ((d.z_top - d.z_bottom) / h).ceil() as usize;
-    let dr = d.r_outer / nr as f64;
-    let dz = (d.z_top - d.z_bottom) / nz as f64;
-    for i in 0..nr {
-        let r = (i as f64 + 0.5) * dr;
-        for k in 0..nz {
-            let z = d.z_bottom + (k as f64 + 0.5) * dz;
-            if !inside_profile(profile, r, z) {
-                continue;
-            }
-            if let Some(g) = map.region_at(d, r, z) {
-                v[g] += 2.0 * std::f64::consts::PI * r * dr * dz;
-            }
-        }
-    }
-    v
-}
-
-/// Mesh one role. Returns the cfMesh volume mesh (metres) and its notes.
-fn mesh_role(
-    d: &RzDomain,
-    plan: &MeshPlan,
-    role: MeshRole,
-) -> Result<(VolumeMesh, Vec<String>, CellType, bool), String> {
-    let s = &plan.roles[role.index()];
+/// Whether Step 7's `role` mesh holds region `g`: the neutronics mesh holds
+/// every region, the thermal-hydraulics mesh the bed and the cavity above it
+/// ([`RzDomain::th_profile`]), the structural mesh every region outside the
+/// core ([`RzDomain::structural_profile`]; the conus and the discharge tube
+/// are in neither).
+fn role_holds(map: &RegionMap, role: MeshRole, g: usize) -> bool {
     match role {
-        MeshRole::Neutronics => {
-            let prof = to_m(&d.neutronics_profile());
-            let (p, t) = revolved_profile_surface(&prof, s.n_seg);
-            let (vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh(
-                &p,
-                &t,
-                &opts_tetgen(s.cell_size_cm, s.refine, true),
-            )?;
-            Ok((vm, rep.stage_notes, CellType::TetDual, false))
-        }
-        MeshRole::Structural => {
-            let prof = to_m(&d.structural_profile());
-            let (p, t) = revolved_profile_surface(&prof, s.n_seg);
-            outram_blender::foam_mesh::check_closed_manifold(&p, &t).map_err(|e| e.to_string())?;
-            let o = TetDualOptions {
-                delaunay: true,
-                ..opts(s.cell_size_cm, s.refine, false)
-            };
-            let (vm, rep) =
-                outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh(&p, &t, &o)?;
-            Ok((vm, rep.stage_notes, CellType::Tet4, false))
-        }
-        MeshRole::ThermalHydraulics => {
-            let prof = to_m(&d.th_profile());
-            let (p, t) = revolved_profile_surface(&prof, s.n_seg);
-            // Name the surface: top disc = inlet (the helium enters the
-            // cavity from the top plenum and flows down), bottom disc =
-            // outlet, side above the bed = cavity_wall (fluid: layers), side
-            // along the bed = bed_wall (porous: no layers).
-            let (zb, zt, zbed) = (d.conus_top / 100.0, d.cavity_top / 100.0, d.bed_top / 100.0);
-            let labels: Vec<&str> = t
-                .iter()
-                .map(|tri| {
-                    let c = (p[tri[0]].z + p[tri[1]].z + p[tri[2]].z) / 3.0;
-                    let flat = (p[tri[0]].z - p[tri[1]].z).abs() < 1e-12
-                        && (p[tri[1]].z - p[tri[2]].z).abs() < 1e-12;
-                    if flat && (c - zt).abs() < 1e-9 {
-                        "inlet"
-                    } else if flat && (c - zb).abs() < 1e-9 {
-                        "outlet"
-                    } else if c > zbed {
-                        "cavity_wall"
-                    } else {
-                        "bed_wall"
-                    }
-                })
-                .collect();
-            let regions = SurfaceRegions::from_labels(&labels);
-            let (mut vm, rep) = outram_park_fork_cfmesh::pipeline::surface_to_tet_dual_mesh_multipatch(
-                &p,
-                &t,
-                &regions,
-                &opts_tetgen(s.cell_size_cm, s.refine, true),
-            )?;
-            let mut notes = rep.stage_notes;
-            // Snap the bare dual FIRST (2026-11-26, maintainer: "snap the
-            // layered TH mesh properly"), then grow the layers on the true
-            // wall, so every layer column is built from the snapped surface
-            // rather than moved after it (snapping a layered mesh took its
-            // worst face to 92.7 deg). After the layers, only the surface
-            // faces are snapped again (no morph): the layerer's untangling
-            // may move a wall point off the cylinder.
-            let segs = profile_segments_m(&d.th_profile());
-            let (snap_on, delta) = step7_snap(s.cell_size_cm);
-            if snap_on {
-                notes.push(snap_checked(&mut vm, None, &segs, s.n_seg, delta)?);
-            }
-            // Boundary layers on the fluid's wall only (maintainer default:
-            // fluid = tet-dual + layers, porous = tet-dual). The pipeline grows
-            // layers before naming patches, so they are grown here, on the
-            // named patch, and the patches re-named after (the layerer
-            // rebuilds the mesh).
-            // ~~`layers::add_boundary_layers_adaptive` (this crate's global
-            // back-off)~~ CHANGED 2026-11-26: since gh:#1215's quality check
-            // the back-off shrank every column of `cavity_wall` to nothing
-            // ("added none"; the 2026-10-05 record had 11 568 layer hexes).
-            // cfMesh's own `boundaryLayerOptimisation` thins locally instead
-            // (the layerer left callable by gh:#1829 for this workbench).
-            // TetGen's layers-first route is not used: it refuses this mesh
-            // at the cavity_wall / bed_wall seam (a column thinner than 1 %
-            // of the asked thickness).
-            if s.layers > 0 {
-                let before = vm.n_cells;
-                let (layered, lo) = outram_park_fork_cfmesh::boundary_layer_optimisation::add_boundary_layers_cfmesh(
-                    &vm,
-                    &["cavity_wall"],
-                    s.layers,
-                    s.first_layer_cm / 100.0,
-                    s.expansion.max(1.0),
-                    // With cfMesh's untangling passes (the boundary moves,
-                    // the LP untangler, the Laplace pass): without them 2 of
-                    // the 20 952 cells came out inverted and the layers were
-                    // refused (measured 2026-11-26).
-                    &outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
-                        untangle_boundary_moves: true,
-                        untangle_mesh_untangler: true,
-                        optimize_mesh_fv_laplace: true,
-                        ..Default::default()
-                    },
-                );
-                notes.push(format!(
-                    "boundary layers (cfMesh boundaryLayerOptimisation) on cavity_wall: {} layer cells, {:.1} % of wall faces with all {}",
-                    lo.faces.iter().map(|f| f.1).sum::<usize>(),
-                    100.0 * lo.full_coverage(),
-                    s.layers
-                ));
-                let mut named = assign_patches_by_region(&layered, &p, &t, &regions)?;
-                let q = outram_park_fork_cfmesh::checks::check_quality(&named);
-                if named.validate().is_ok() && q.n_negative_volume_cells == 0 {
-                    if named.n_cells == before {
-                        notes.push("boundary layers added none on cavity_wall (the adaptive layerer backed off)".into());
-                    }
-                    if snap_on {
-                        match snap_checked(&mut named.clone(), None, &segs, s.n_seg, 0.0) {
-                            Ok(_) => {
-                                let n = snap_checked(&mut named, None, &segs, s.n_seg, 0.0)?;
-                                notes.push(format!("after the layers: {n}"));
-                            }
-                            Err(e) => notes.push(format!("after the layers, the surface re-snap was refused ({e}); the layered mesh is kept as grown on the snapped wall")),
-                        }
-                    }
-                    return Ok((named, notes, CellType::TetDualWithLayers, snap_on));
-                }
-                notes.push("boundary layers skipped: they would invalidate the mesh".into());
-            }
-            Ok((vm, notes, CellType::TetDual, snap_on))
+        MeshRole::Neutronics => true,
+        MeshRole::ThermalHydraulics => map.is_bed(g) || g == map.cavity,
+        MeshRole::Structural => !map.regions[g].in_core,
+    }
+}
+
+/// One Step 7 mesh, as [`mesh_role`] builds it.
+struct RoleMesh {
+    /// The cfMesh volume mesh (metres).
+    vm: VolumeMesh,
+    /// What was run.
+    notes: Vec<String>,
+    /// The cell type.
+    cell_type: CellType,
+    /// Region of every cell (a [`RegionMap`] index), from the fitted
+    /// surface: no cell crosses a region boundary.
+    cell_region: Vec<usize>,
+    /// Exact (round, analytic) volume of every region inside this mesh's
+    /// domain \[cm³\]; zero for a region the mesh does not hold.
+    exact_cm3: Vec<f64>,
+}
+
+/// Mesh one role, **with every internal region boundary fitted and snapped**
+/// (maintainer, 2026-11-26: "always snap internal region boundaries";
+/// `outram-foam-appbuilder-lib/AGENTS.md`). The regions the role holds
+/// ([`role_holds`]) are cut into one-region polygons
+/// ([`RegionMap::rz_partition`]), revolved into one multi-region surface
+/// ([`fitted_surface`]) and meshed by TetGen with region attributes
+/// (`outram_park_fork_cfmesh::pipeline::multi_region`): the neutronics and
+/// thermal-hydraulics meshes as per-region duals stitched at the interfaces,
+/// the structural mesh as the tetrahedra themselves (Tet4). Each is then
+/// snapped onto the true surfaces of revolution, interfaces included
+/// ([`snap_checked`] with the cell regions), unless `DHOBY_NO_SNAP=1`. The
+/// TH mesh grows its `cavity_wall` layers after the snap, on the true wall.
+fn mesh_role(d: &RzDomain, plan: &MeshPlan, role: MeshRole) -> Result<RoleMesh, String> {
+    let s = &plan.roles[role.index()];
+    let map = &plan.regions;
+    if s.refine > 0 {
+        return Err(format!(
+            "{}: wall refinement levels ({}) need the carved octree, which cannot fit internal region boundaries; Step 7's meshes are fitted on TetGen (set the levels to 0 and the cell size smaller instead)",
+            role.name(),
+            s.refine
+        ));
+    }
+    let part = map.rz_partition(d)?;
+    let mut exact_cm3 = part.volumes(map.regions.len(), None);
+    for (g, v) in exact_cm3.iter_mut().enumerate() {
+        if !role_holds(map, role, g) {
+            *v = 0.0;
         }
     }
+    let (zb, zt, zbed) = (d.conus_top, d.cavity_top, d.bed_top);
+    let flat = |a: [f64; 2], b: [f64; 2], z: f64| (a[1] - z).abs() < 1e-9 && (b[1] - z).abs() < 1e-9;
+    let fitted = match role {
+        MeshRole::ThermalHydraulics => fitted_surface(map, &part, s.n_seg, |g| role_holds(map, role, g), |a, b| {
+            // Top disc = inlet (the helium enters the cavity from the top
+            // plenum and flows down), bottom disc = outlet, side above the
+            // bed = cavity_wall (fluid: layers), side along the bed =
+            // bed_wall (porous: no layers).
+            if flat(a, b, zt) {
+                "inlet".to_string()
+            } else if flat(a, b, zb) {
+                "outlet".to_string()
+            } else if 0.5 * (a[1] + b[1]) > zbed {
+                "cavity_wall".to_string()
+            } else {
+                "bed_wall".to_string()
+            }
+        }),
+        _ => fitted_surface(map, &part, s.n_seg, |g| role_holds(map, role, g), |_, _| "walls".to_string()),
+    };
+    let h = s.cell_size_cm / 100.0;
+    let tets = outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(h * h * h / (6.0 * 2f64.sqrt())));
+    let dual = role != MeshRole::Structural;
+    let m = outram_park_fork_cfmesh::pipeline::multi_region::multi_region_mesh(&fitted.surf, tets, dual)
+        .map_err(|e| format!("{}: {e}", role.name()))?;
+    let mut vm = m.mesh;
+    let mut cell_region: Vec<usize> = m.cell_region.iter().map(|&l| fitted.global[l]).collect();
+    let mut notes = m.notes;
+    notes.push(format!(
+        "region boundaries fitted: {} interface faces ({})",
+        m.interface_faces.iter().map(|i| i.1).sum::<usize>(),
+        m.interface_faces.iter().map(|i| format!("{} {}", i.0, i.1)).collect::<Vec<_>>().join(", ")
+    ));
+    let (snap_on, delta) = step7_snap(s.cell_size_cm);
+    if snap_on {
+        notes.push(snap_checked(&mut vm, Some(&cell_region), &fitted.segs_m, s.n_seg, delta).map_err(|e| format!("{}: {e}", role.name()))?);
+    } else {
+        notes.push("not snapped: the boundary stays on the faceted surface (DHOBY_NO_SNAP=1)".into());
+    }
+    let cell_type = match role {
+        MeshRole::Structural => CellType::Tet4,
+        _ => CellType::TetDual,
+    };
+    if role != MeshRole::ThermalHydraulics || s.layers == 0 {
+        notes.push(interface_quality_note(&vm, &cell_region));
+        return Ok(RoleMesh { vm, notes, cell_type, cell_region, exact_cm3 });
+    }
+    // Boundary layers on the fluid's wall only (maintainer default: fluid =
+    // tet-dual + layers, porous = tet-dual), grown on the SNAPPED dual
+    // (snapping a layered mesh took its worst face to 92.7 deg, 2026-11-26).
+    // ~~`layers::add_boundary_layers_adaptive` (this crate's global
+    // back-off)~~ CHANGED 2026-11-26: since gh:#1215's quality check the
+    // back-off shrank every column of `cavity_wall` to nothing ("added
+    // none"; the 2026-10-05 record had 11 568 layer hexes). cfMesh's own
+    // `boundaryLayerOptimisation` thins locally instead (the layerer left
+    // callable by gh:#1829 for this workbench). TetGen's layers-first route
+    // is not used: it refuses this mesh at the cavity_wall / bed_wall seam
+    // (a column thinner than 1 % of the asked thickness).
+    let before = vm.n_cells;
+    let (layered, lo) = outram_park_fork_cfmesh::boundary_layer_optimisation::add_boundary_layers_cfmesh(
+        &vm,
+        &["cavity_wall"],
+        s.layers,
+        s.first_layer_cm / 100.0,
+        s.expansion.max(1.0),
+        // With cfMesh's untangling passes (the boundary moves, the LP
+        // untangler, the Laplace pass): without them 2 of the 20 952 cells
+        // came out inverted and the layers were refused (measured
+        // 2026-11-26).
+        &outram_park_fork_cfmesh::boundary_layer_optimisation::BoundaryLayerOptimisationControls {
+            untangle_boundary_moves: true,
+            untangle_mesh_untangler: true,
+            optimize_mesh_fv_laplace: true,
+            ..Default::default()
+        },
+    );
+    notes.push(format!(
+        "boundary layers (cfMesh boundaryLayerOptimisation) on cavity_wall: {} layer cells, {:.1} % of wall faces with all {}",
+        lo.faces.iter().map(|f| f.1).sum::<usize>(),
+        100.0 * lo.full_coverage(),
+        s.layers
+    ));
+    // The layerer keeps the cells in order and appends the layer cells
+    // (`n_prism0 = mesh.n_cells`); every one sits on `cavity_wall`, which
+    // only the cavity touches, so each is the cavity's.
+    if layered.n_cells < before {
+        return Err(format!("thermal-hydraulics: the layered mesh has {} cells, fewer than the {before} it was grown on", layered.n_cells));
+    }
+    // The layerer rebuilds the mesh; name its boundary faces again by the
+    // nearest outer triangle of the fitted surface.
+    let (mut otris, mut labels) = (Vec::new(), Vec::new());
+    for (t, &mk) in fitted.surf.tris.iter().zip(&fitted.surf.marker) {
+        if !fitted.surf.interface[mk] {
+            otris.push(*t);
+            labels.push(fitted.surf.patch_names[mk].as_str());
+        }
+    }
+    let mut named = assign_patches_by_region(&layered, &fitted.surf.points, &otris, &SurfaceRegions::from_labels(&labels))?;
+    let q = outram_park_fork_cfmesh::checks::check_quality(&named);
+    if named.validate().is_err() || q.n_negative_volume_cells != 0 {
+        notes.push("boundary layers skipped: they would invalidate the mesh".into());
+        notes.push(interface_quality_note(&vm, &cell_region));
+        return Ok(RoleMesh { vm, notes, cell_type, cell_region, exact_cm3 });
+    }
+    cell_region.resize(named.n_cells, map.cavity);
+    if named.n_cells == before {
+        notes.push("boundary layers added none on cavity_wall (the layerer backed off)".into());
+    }
+    if snap_on {
+        // The layerer's untangling may move a wall point off the cylinder:
+        // snap the surface faces again, with no morph (a dry run first, so a
+        // refusal keeps the mesh as grown).
+        match snap_checked(&mut named.clone(), Some(&cell_region), &fitted.segs_m, s.n_seg, 0.0) {
+            Ok(_) => {
+                let n = snap_checked(&mut named, Some(&cell_region), &fitted.segs_m, s.n_seg, 0.0)?;
+                notes.push(format!("after the layers: {n}"));
+            }
+            Err(e) => notes.push(format!("after the layers, the surface re-snap was refused ({e}); the layered mesh is kept as grown on the snapped wall")),
+        }
+    }
+    notes.push(interface_quality_note(&named, &cell_region));
+    Ok(RoleMesh { vm: named, notes, cell_type: CellType::TetDualWithLayers, cell_region, exact_cm3 })
 }
 
 fn kinds(m: &UnstructuredMesh) -> Vec<(String, usize)> {
@@ -439,86 +432,16 @@ pub fn build(
     let mut summaries = Vec::new();
     let mut meshes: Vec<Arc<UnstructuredMesh>> = Vec::new();
     let mut images = Vec::new();
-    let profiles = [
-        d.neutronics_profile(),
-        d.th_profile(),
-        d.structural_profile(),
-    ];
     for (k, role) in MeshRole::ALL.into_iter().enumerate() {
         progress(MeshProgress::Stage(
             format!("meshing: {}", role.name()),
             k as f64 / 6.0,
         ));
         let t = Instant::now();
-        let (mut vm, mut notes, cell_type, already_snapped) = mesh_role(d, plan, role)?;
-        // Snap onto the true surface of revolution (2026-11-26, "snap
-        // properly"): the profile's cylinders and cone, not its facets.
-        let prof = match role {
-            MeshRole::Neutronics => d.neutronics_profile(),
-            MeshRole::ThermalHydraulics => d.th_profile(),
-            MeshRole::Structural => d.structural_profile(),
-        };
-        let n_seg = plan.roles[role.index()].n_seg;
-        // `DHOBY_NO_SNAP=1` is the ablation (Step 7 has no flag of its own).
-        let (snap_on, delta) = step7_snap(plan.roles[role.index()].cell_size_cm);
-        // The TH mesh snaps itself, before its layers (`mesh_role`).
-        let _ = cell_type;
-        if already_snapped {
-        } else if snap_on {
-            notes.push(snap_checked(&mut vm, None, &profile_segments_m(&prof), n_seg, delta).map_err(|e| format!("{}: {e}", role.name()))?);
-        } else {
-            notes.push("not snapped: the boundary stays on the faceted surface (DHOBY_NO_SNAP=1)".into());
-        }
+        let RoleMesh { vm, notes, cell_type, cell_region, exact_cm3: exact } = mesh_role(d, plan, role)?;
         let um = from_volume_mesh(&vm).map_err(|e| format!("{}: {e}", role.name()))?;
-        // Region of every cell, by centroid. A cell of the faceted, snapped
-        // mesh whose centroid falls in a region this mesh's domain does not
-        // hold (a structural cell poking into the cavity, say) takes the
-        // nearest region it may hold, searched on rings of growing radius in
-        // the R-Z plane; their number is reported.
-        let allowed = |g: usize| match role {
-            MeshRole::Neutronics => true,
-            MeshRole::ThermalHydraulics => map.regions[g].in_core,
-            MeshRole::Structural => !map.regions[g].in_core,
-        };
-        let mut cell_region = Vec::with_capacity(um.n_cells());
-        let (mut moved, mut unassigned) = (0, 0);
-        for c in 0..um.n_cells() {
-            let x = um.cell_centre(c);
-            let (r, z) = ((x[0] * x[0] + x[1] * x[1]).sqrt() * 100.0, x[2] * 100.0);
-            let here = map.region_at(d, r, z).filter(|&g| allowed(g));
-            let g = here.or_else(|| {
-                (1..=200).find_map(|k| {
-                    let rho = 0.5 * k as f64;
-                    (0..16).find_map(|j| {
-                        let a = std::f64::consts::TAU * j as f64 / 16.0;
-                        let (rr, zz) = (r + rho * a.r_cos(), z + rho * a.r_sin());
-                        if rr < 0.0 {
-                            return None;
-                        }
-                        map.region_at(d, rr, zz).filter(|&g| allowed(g))
-                    })
-                })
-            });
-            match g {
-                Some(g) => {
-                    if here.is_none() {
-                        moved += 1;
-                    }
-                    cell_region.push(g);
-                }
-                None => {
-                    unassigned += 1;
-                    cell_region.push(map.box_region.first().copied().unwrap_or(0));
-                }
-            }
-        }
-        if moved > 0 {
-            notes.push(format!(
-                "{moved} cells had a centroid in a region outside this mesh's domain (faceting and snapping) and took the nearest region inside it"
-            ));
-        }
-        if unassigned > 0 {
-            notes.push(format!("{unassigned} cells could not be given a region and were put in the first box's region"));
+        if cell_region.len() != um.n_cells() {
+            return Err(format!("{}: {} cell regions for {} cells", role.name(), cell_region.len(), um.n_cells()));
         }
         let zones: Vec<Zone> = map
             .regions
@@ -537,7 +460,8 @@ pub fn build(
         let um = um.with_zones(zones).map_err(|e| e.to_string())?;
         // Volumes.
         let vols = outram_blender::unstructured::overlap::cell_volumes_cm3(&um);
-        let exact = exact_in(d, map, &profiles[k], 0.5);
+        // ~~`exact_in`'s 0.5 cm quadrature~~ the partition's analytic volumes (2026-11-26:
+        // the quadrature was off by up to 0.4 % where a region edge is off its grid).
         let regions: Vec<RegionVolume> = (0..map.regions.len())
             .filter_map(|g| {
                 let cells: Vec<usize> =
@@ -725,125 +649,162 @@ pub enum ChtBoundaries {
     Centroid,
 }
 
-/// The whole cylinder as a multi-region surface for
-/// `outram_park_fork_cfmesh::pipeline::multi_region` (metres): every edge
-/// of `t` between two regions, and the outer top, bottom and side, revolved
-/// with `n_seg` segments as [`revolved_profile_surface`] revolves a profile
-/// (a vertex on the axis is one point). Collinear grid edges with the same
-/// two regions on either side, meeting at a vertex no other kept edge
-/// uses, are merged first, so a grid line that is a boundary elsewhere
-/// adds no facet edge here. Interface patches are named
-/// `<region a>_to_<region b>`. One seed per connected component of every
-/// region, at the centre of its first rectangle, at angle 0 (where the
-/// faceted rings pass through the true radii).
-pub fn fitted_cht_surface(map: &RegionMap, t: &RzTiling, n_seg: usize) -> outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface {
+/// A multi-region surface built from an [`RzPartition`], with what the
+/// mesh needs back: the global region of each local region, and the
+/// non-horizontal walls and interfaces to snap onto \[m\].
+pub struct FittedSurface {
+    /// The surface for `outram_park_fork_cfmesh::pipeline::multi_region`
+    /// (metres; local region indices).
+    pub surf: outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface,
+    /// `global[local]`: the [`RegionMap`] index of each local region.
+    pub global: Vec<usize>,
+    /// Every non-horizontal edge of the surface (walls and interfaces), in
+    /// metres, for [`snap_faces_to_revolved`] and [`morph_to_revolved`].
+    pub segs_m: Vec<[[f64; 2]; 2]>,
+}
+
+/// The **body-fitted multi-region surface** of the regions `allowed` keeps
+/// (root rule: internal region boundaries are always fitted, gh:#1800
+/// follow-up): every edge of `part` between two kept regions of different
+/// index (an interface patch `<region a>_to_<region b>`) and between a kept
+/// region and the outside or a region not kept (an outer patch, named by
+/// `outer(a, b)` for the edge from `a` to `b` in cm), revolved with `n_seg`
+/// segments as [`revolved_profile_surface`] revolves a profile (a vertex on
+/// the axis is one point; an edge on the axis sweeps nothing). Collinear
+/// edges of one patch meeting at a vertex no other kept edge uses are merged
+/// first. One seed per connected component of every kept region, at the
+/// area centroid of its first polygon, at angle 0 (where the faceted rings
+/// pass through the true radii).
+pub fn fitted_surface(
+    map: &RegionMap,
+    part: &RzPartition,
+    n_seg: usize,
+    allowed: impl Fn(usize) -> bool,
+    outer: impl Fn([f64; 2], [f64; 2]) -> String,
+) -> FittedSurface {
     use outram_park_fork_cfmesh::math::Vec3 as V;
-    let (nr, nz) = (t.nr(), t.nz());
-    let n_reg = map.regions.len();
-    // Region on either side of a grid edge; `n_reg` = outside.
-    let cell = |i: isize, j: isize| -> usize {
-        if i < 0 || j < 0 || i >= nr as isize || j >= nz as isize {
-            n_reg
-        } else {
-            t.at(i as usize, j as usize)
+    use std::collections::BTreeMap;
+    // Shared vertices (1e-6 cm keys) and each polygon's vertex ids.
+    let mut vid: BTreeMap<(i64, i64), usize> = BTreeMap::new();
+    let mut verts: Vec<[f64; 2]> = Vec::new();
+    let key = |p: [f64; 2]| ((p[0] * 1e6).round() as i64, (p[1] * 1e6).round() as i64);
+    let mut polys: Vec<(Vec<usize>, usize)> = Vec::new();
+    for (poly, g) in &part.polygons {
+        let mut ids: Vec<usize> = Vec::new();
+        for p in poly {
+            let k = key(*p);
+            let id = *vid.entry(k).or_insert_with(|| {
+                verts.push(*p);
+                verts.len() - 1
+            });
+            if ids.last() != Some(&id) {
+                ids.push(id);
+            }
         }
-    };
-    let mut patch_names = vec!["top".to_string(), "bottom".to_string(), "side".to_string()];
-    let mut interface = vec![false, false, false];
-    let mut patch_of = |a: usize, b: usize, outer: usize| -> usize {
-        if a == n_reg || b == n_reg {
-            return outer;
+        if ids.len() > 1 && ids[0] == *ids.last().unwrap() {
+            ids.pop();
         }
-        let (a, b) = (a.min(b), a.max(b));
-        let name = format!("{}_to_{}", map.regions[a].id, map.regions[b].id);
+        polys.push((ids, *g));
+    }
+    // Edge -> polygons on it.
+    let mut edge_polys: BTreeMap<(usize, usize), Vec<usize>> = BTreeMap::new();
+    for (pi, (ids, _)) in polys.iter().enumerate() {
+        for k in 0..ids.len() {
+            let (a, b) = (ids[k], ids[(k + 1) % ids.len()]);
+            edge_polys.entry((a.min(b), a.max(b))).or_default().push(pi);
+        }
+    }
+    // Local regions: the kept ones present, in map order.
+    let mut present: Vec<usize> = polys.iter().map(|p| p.1).filter(|&g| allowed(g)).collect();
+    present.sort_unstable();
+    present.dedup();
+    let local = |g: usize| present.iter().position(|&x| x == g);
+    let mut patch_names: Vec<String> = Vec::new();
+    let mut interface: Vec<bool> = Vec::new();
+    let mut patch_of = |name: String, iface: bool| -> usize {
         match patch_names.iter().position(|n| *n == name) {
             Some(k) => k,
             None => {
                 patch_names.push(name);
-                interface.push(true);
+                interface.push(iface);
                 patch_names.len() - 1
             }
         }
     };
-    // Kept edges, per grid line: vertical at r[i] (i >= 1), cells (i-1, j)
-    // and (i, j); horizontal at z[j], cells (i, j-1) and (i, j).
-    // vert[i][j] / horiz[j][i] = Some(patch).
-    let mut vert = vec![vec![None; nz]; nr + 1];
-    let mut horiz = vec![vec![None; nr]; nz + 1];
-    for i in 1..=nr {
-        for j in 0..nz {
-            let (a, b) = (cell(i as isize - 1, j as isize), cell(i as isize, j as isize));
-            if a != b {
-                vert[i][j] = Some(patch_of(a, b, 2));
+    // Kept edges with their patch.
+    let mut kept: BTreeMap<(usize, usize), usize> = BTreeMap::new();
+    for (&(a, b), ps) in &edge_polys {
+        let (pa, pb) = (verts[a], verts[b]);
+        if pa[0].abs() < 1e-9 && pb[0].abs() < 1e-9 {
+            continue; // on the axis
+        }
+        let regs: Vec<usize> = ps.iter().map(|&pi| polys[pi].1).filter(|&g| allowed(g)).collect();
+        let patch = match regs.as_slice() {
+            [_] => Some(patch_of(outer(pa, pb), false)),
+            [g, h] if g != h => {
+                let (x, y) = ((*g).min(*h), (*g).max(*h));
+                Some(patch_of(format!("{}_to_{}", map.regions[x].id, map.regions[y].id), true))
             }
+            _ => None,
+        };
+        if let Some(p) = patch {
+            kept.insert((a, b), p);
         }
     }
-    for j in 0..=nz {
-        for i in 0..nr {
-            let (a, b) = (cell(i as isize, j as isize - 1), cell(i as isize, j as isize));
-            if a != b {
-                horiz[j][i] = Some(patch_of(a, b, if j == 0 { 1 } else { 0 }));
+    // Merge collinear runs of one patch through vertices of degree 2.
+    let mut at: BTreeMap<usize, Vec<(usize, usize)>> = BTreeMap::new();
+    for &e in kept.keys() {
+        at.entry(e.0).or_default().push(e);
+        at.entry(e.1).or_default().push(e);
+    }
+    let collinear = |a: usize, m: usize, b: usize| {
+        let (u, w) = ([verts[m][0] - verts[a][0], verts[m][1] - verts[a][1]], [verts[b][0] - verts[m][0], verts[b][1] - verts[m][1]]);
+        let cross = u[0] * w[1] - u[1] * w[0];
+        let lu = (u[0] * u[0] + u[1] * u[1]).sqrt();
+        let lw = (w[0] * w[0] + w[1] * w[1]).sqrt();
+        cross.abs() <= 1e-9 * lu * lw && u[0] * w[0] + u[1] * w[1] > 0.0
+    };
+    let mut done: std::collections::BTreeSet<(usize, usize)> = std::collections::BTreeSet::new();
+    let mut runs: Vec<(usize, usize, usize)> = Vec::new();
+    let other = |e: (usize, usize), v: usize| if e.0 == v { e.1 } else { e.0 };
+    for (&e, &p) in &kept {
+        if done.contains(&e) {
+            continue;
+        }
+        done.insert(e);
+        // Extend both ways.
+        let mut ends = [e.0, e.1];
+        for side in 0..2 {
+            loop {
+                let v = ends[side];
+                let prev = ends[1 - side];
+                let es = &at[&v];
+                if es.len() != 2 {
+                    break;
+                }
+                let next = if done.contains(&es[0]) { es[1] } else { es[0] };
+                if done.contains(&next) || kept[&next] != p {
+                    break;
+                }
+                let w = other(next, v);
+                let ok = if side == 1 { collinear(prev, v, w) } else { collinear(w, v, prev) };
+                if !ok {
+                    break;
+                }
+                done.insert(next);
+                ends[side] = w;
             }
         }
+        runs.push((ends[0], ends[1], p));
     }
-    // Kept-edge degree of every grid node (i, j).
-    let mut deg = vec![vec![0usize; nz + 1]; nr + 1];
-    for i in 0..=nr {
-        for j in 0..nz {
-            if vert[i][j].is_some() {
-                deg[i][j] += 1;
-                deg[i][j + 1] += 1;
-            }
-        }
-    }
-    for j in 0..=nz {
-        for i in 0..nr {
-            if horiz[j][i].is_some() {
-                deg[i][j] += 1;
-                deg[i + 1][j] += 1;
-            }
-        }
-    }
-    // Merged runs as ((i0, j0), (i1, j1), patch).
-    let mut runs: Vec<([usize; 2], [usize; 2], usize)> = Vec::new();
-    for i in 1..=nr {
-        let mut j = 0;
-        while j < nz {
-            let Some(p) = vert[i][j] else {
-                j += 1;
-                continue;
-            };
-            let j0 = j;
-            j += 1;
-            while j < nz && vert[i][j] == Some(p) && deg[i][j] == 2 {
-                j += 1;
-            }
-            runs.push(([i, j0], [i, j], p));
-        }
-    }
-    for j in 0..=nz {
-        let mut i = 0;
-        while i < nr {
-            let Some(p) = horiz[j][i] else {
-                i += 1;
-                continue;
-            };
-            let i0 = i;
-            i += 1;
-            while i < nr && horiz[j][i] == Some(p) && deg[i][j] == 2 {
-                i += 1;
-            }
-            runs.push(([i0, j], [i, j], p));
-        }
-    }
-    // Points: one ring per used grid node (one point on the axis).
+    // Points: one ring per used vertex (one point on the axis).
     let mut points: Vec<V> = Vec::new();
-    let mut ring: std::collections::BTreeMap<[usize; 2], Vec<usize>> = std::collections::BTreeMap::new();
-    let mut ring_of = |n: [usize; 2], points: &mut Vec<V>| -> Vec<usize> {
-        ring.entry(n)
+    let mut ring: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
+    let mut ring_of = |v: usize, points: &mut Vec<V>| -> Vec<usize> {
+        ring.entry(v)
             .or_insert_with(|| {
-                let (r, z) = (t.r[n[0]] / 100.0, t.z[n[1]] / 100.0);
-                if n[0] == 0 {
+                let (r, z) = (verts[v][0] / 100.0, verts[v][1] / 100.0);
+                if r.abs() < 1e-12 {
                     points.push(V::new(0.0, 0.0, z));
                     vec![points.len() - 1; n_seg]
                 } else {
@@ -859,7 +820,8 @@ pub fn fitted_cht_surface(map: &RegionMap, t: &RzTiling, n_seg: usize) -> outram
             .clone()
     };
     let (mut tris, mut marker) = (Vec::new(), Vec::new());
-    for (a, b, p) in runs {
+    let mut segs_m = Vec::new();
+    for &(a, b, p) in &runs {
         let (ra, rb) = (ring_of(a, &mut points), ring_of(b, &mut points));
         for k in 0..n_seg {
             let l = (k + 1) % n_seg;
@@ -870,42 +832,52 @@ pub fn fitted_cht_surface(map: &RegionMap, t: &RzTiling, n_seg: usize) -> outram
                 }
             }
         }
+        if (verts[a][1] - verts[b][1]).abs() > 1e-9 {
+            segs_m.push([[verts[a][0] / 100.0, verts[a][1] / 100.0], [verts[b][0] / 100.0, verts[b][1] / 100.0]]);
+        }
     }
-    // Seeds: connected components of equal-region rectangles.
-    let mut comp = vec![usize::MAX; nr * nz];
+    // Seeds: connected components of kept polygons of one region.
+    let mut comp = vec![usize::MAX; polys.len()];
     let mut seeds = Vec::new();
-    for start in 0..nr * nz {
-        if comp[start] != usize::MAX {
+    for start in 0..polys.len() {
+        let g = polys[start].1;
+        if comp[start] != usize::MAX || !allowed(g) {
             continue;
         }
-        let g = t.region[start];
         let id = seeds.len();
-        let (i0, j0) = (start % nr, start / nr);
-        seeds.push((V::new(0.5 * (t.r[i0] + t.r[i0 + 1]) / 100.0, 0.0, 0.5 * (t.z[j0] + t.z[j0 + 1]) / 100.0), g));
+        let poly = &part.polygons[start].0;
+        let n = poly.len();
+        let area: f64 = 0.5 * (0..n).map(|k| poly[k][0] * poly[(k + 1) % n][1] - poly[(k + 1) % n][0] * poly[k][1]).sum::<f64>();
+        let rc = RzPartition::first_moment(poly) / area;
+        let zc = poly.iter().map(|q| q[1]).sum::<f64>() / n as f64;
+        seeds.push((V::new(rc / 100.0, 0.0, zc / 100.0), local(g).expect("kept")));
         let mut stack = vec![start];
         comp[start] = id;
-        while let Some(c) = stack.pop() {
-            let (i, j) = ((c % nr) as isize, (c / nr) as isize);
-            for (di, dj) in [(-1, 0), (1, 0), (0, -1), (0, 1)] {
-                let (a, b) = (i + di, j + dj);
-                if a >= 0 && b >= 0 && (a as usize) < nr && (b as usize) < nz {
-                    let n = b as usize * nr + a as usize;
-                    if comp[n] == usize::MAX && t.region[n] == g {
-                        comp[n] = id;
-                        stack.push(n);
+        while let Some(pi) = stack.pop() {
+            let ids = &polys[pi].0;
+            for k in 0..ids.len() {
+                let (a, b) = (ids[k], ids[(k + 1) % ids.len()]);
+                for &q in &edge_polys[&(a.min(b), a.max(b))] {
+                    if comp[q] == usize::MAX && polys[q].1 == g {
+                        comp[q] = id;
+                        stack.push(q);
                     }
                 }
             }
         }
     }
-    outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface {
-        points,
-        tris,
-        marker,
-        patch_names,
-        interface,
-        region_names: map.regions.iter().map(|r| r.id.clone()).collect(),
-        seeds,
+    FittedSurface {
+        surf: outram_park_fork_cfmesh::pipeline::multi_region::MultiRegionSurface {
+            points,
+            tris,
+            marker,
+            patch_names,
+            interface,
+            region_names: present.iter().map(|&g| map.regions[g].id.clone()).collect(),
+            seeds,
+        },
+        global: present,
+        segs_m,
     }
 }
 
@@ -1041,23 +1013,6 @@ fn profile_segments_m(profile: &[[f64; 2]]) -> Vec<[[f64; 2]; 2]> {
     (0..m.len()).map(|i| [m[i], m[(i + 1) % m.len()]]).collect()
 }
 
-/// Every vertical edge of `t` with different regions (or the outside) on
-/// its two sides \[m\]: the cylinders of the fitted CHT mesh, for
-/// [`snap_faces_to_revolved`].
-fn tiling_cylinders_m(t: &RzTiling) -> Vec<[[f64; 2]; 2]> {
-    let (nr, nz) = (t.nr(), t.nz());
-    let mut v = Vec::new();
-    for i in 1..=nr {
-        for j in 0..nz {
-            let inside = t.at(i - 1, j);
-            if i == nr || t.at(i, j) != inside {
-                v.push([[t.r[i] / 100.0, t.z[j] / 100.0], [t.r[i] / 100.0, t.z[j + 1] / 100.0]]);
-            }
-        }
-    }
-    v
-}
-
 /// Morph and snap `vm` ([`morph_to_revolved`], [`snap_faces_to_revolved`]) and refuse a result with a
 /// non-positive cell; a one-line note for the report.
 fn snap_checked(vm: &mut VolumeMesh, cell_region: Option<&[usize]>, segs: &[[[f64; 2]; 2]], n_seg: usize, delta: f64) -> Result<String, String> {
@@ -1181,17 +1136,27 @@ pub fn build_cht(
 ) -> Result<ChtMesh, String> {
     let t = Instant::now();
     let map = RegionMap::three_class_cht(d);
-    let tiling = map.rz_tiling(d)?;
-    let faceted_cm3 = tiling.volumes(map.regions.len(), Some(n_seg));
+    let part = map.rz_partition(d)?;
+    let faceted_cm3 = part.volumes(map.regions.len(), Some(n_seg));
+    let (zb, zt) = (d.z_bottom, d.z_top);
+    let fitted = fitted_surface(&map, &part, n_seg, |_| true, |a: [f64; 2], b: [f64; 2]| {
+        if (a[1] - zt).abs() < 1e-9 && (b[1] - zt).abs() < 1e-9 {
+            "top".to_string()
+        } else if (a[1] - zb).abs() < 1e-9 && (b[1] - zb).abs() < 1e-9 {
+            "bottom".to_string()
+        } else {
+            "side".to_string()
+        }
+    });
     let (vm, fitted_region, mut notes, interfaces) = match boundaries {
         ChtBoundaries::Fitted => {
             // Snapping TetGen's own surface vertices before the dual was
             // measured and rejected (2026-11-26): it took the cells away
             // from the interfaces from 63.8 to 87.4 deg and skewness 1.3 to
             // 14.9; the dual is snapped after, with a morph (below).
-            let surf = fitted_cht_surface(&map, &tiling, n_seg);
-            let m = outram_park_fork_cfmesh::pipeline::multi_region::multi_region_mesh(&surf, tets, true)?;
-            (m.mesh, Some(m.cell_region), m.notes, m.interface_faces)
+            let m = outram_park_fork_cfmesh::pipeline::multi_region::multi_region_mesh(&fitted.surf, tets, true)?;
+            let global: Vec<usize> = m.cell_region.iter().map(|&l| fitted.global[l]).collect();
+            (m.mesh, Some(global), m.notes, m.interface_faces)
         }
         ChtBoundaries::Centroid => {
             let (vm, notes) = cht_centroid_mesh(d, cell_cm, n_seg, tets)?;
@@ -1202,7 +1167,7 @@ pub fn build_cht(
     let mut vm = vm;
     if snap {
         let segs = match boundaries {
-            ChtBoundaries::Fitted => tiling_cylinders_m(&tiling),
+            ChtBoundaries::Fitted => fitted.segs_m.clone(),
             ChtBoundaries::Centroid => profile_segments_m(&d.neutronics_profile()),
         };
         let delta = if std::env::var("DHOBY_SNAP_MORPH").as_deref() == Ok("0") { 0.0 } else { cell_cm / 100.0 };
@@ -1254,10 +1219,10 @@ pub fn build_cht(
         um.n_cells()
     ));
     let vols = outram_blender::unstructured::overlap::cell_volumes_cm3(&um);
-    // The tiling's volumes are analytic (each rectangle revolved exactly);
+    // The partition's volumes are analytic (each polygon revolved exactly);
     // `exact_in`'s 0.5 cm quadrature was off by up to 0.4 % where a region
     // edge is not on its grid (the bed's top and bottom).
-    let exact = tiling.volumes(map.regions.len(), None);
+    let exact = part.volumes(map.regions.len(), None);
     let regions = map
         .regions
         .iter()

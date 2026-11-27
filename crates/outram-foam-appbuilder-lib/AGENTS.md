@@ -96,6 +96,40 @@ against `openmc --plot`
 axes in one call; `crates/nee_soon/examples/htr10_geometry_images.rs` is the
 worked example. For meshes, plot the mesh itself (cells, patches, zones).
 
+## Internal region boundaries are always fitted and snapped (HARD RULE)
+
+**Maintainer direction, 2026-11-26: "pls always snap internal region
+boundaries".** Binds every mesh made for a GeN-Foam case (or any
+multi-region case of this crate: `cellZones`, region polyMeshes,
+`chtMultiRegionFoam` regions), wherever it is built (dhoby-ghaut's Step 7
+and `--headless-cht-mesh`, Mesh Studio, Foam Studio, a test fixture).
+
+- **Every internal region boundary is a set of mesh faces.** No cell
+  straddles two regions: a region is meshed with its interfaces as
+  constraints, not assigned afterwards by cell centroid. The tool is
+  cfMesh's `pipeline::multi_region` (TetGen with region attributes, each
+  region dualled on its own and the duals stitched at the interfaces).
+- **The boundaries are snapped onto the true geometry**, interfaces and
+  outer walls alike: a body of revolution reaches the mesher as facets, and
+  the mesh is moved onto the true cylinders and cones afterwards
+  (dhoby-ghaut `meshing::snap_faces_to_revolved`, after
+  `morph_to_revolved`). A layered wall is snapped **before** its layers
+  grow, never after (snapping after took a face past 90°).
+- **Centroid assignment is an ablation only**: a named, explicit option
+  (`--boundaries centroid`), never a default, never a silent fallback.
+  Where a boundary cannot be fitted, the mesh is refused with the reason.
+- **Measure it**: each region's meshed volume against the exact R-Z volume
+  (the analytic one, not a quadrature), and draw the region map against the
+  mesh (the drawing rule above).
+
+**Why.** Region volumes set the source terms, the coupling maps and the
+porous/fluid/solid physics a GeN-Foam case solves. By centroid, HTR-10's
+cold-gas plenum came out 1–2 cells thick and broken, and every region was
+off by its stair-step, up to 0.96 % on the bed, hidden at first behind a
+cancelling faceting error. Fitted and snapped, each region's volume is
+within 0.03 % of its exact value
+(`crates/dhoby-ghaut/verification_and_validation/htr10_cht_mesh/`).
+
 ## Maturity: DECLARED MATURE (2026-09-05)
 
 The API-usability rules in the root `CLAUDE.md` ("Human interface layer",

@@ -710,41 +710,37 @@ impl RegionMap {
     }
 }
 
-/// The R-Z map cut into rectangles of one region each: the tensor grid of
-/// every `r` and `z` at which a part or a box begins or ends, each cell
-/// given the region at its centre. The exact interfaces between regions
-/// are then edges of this grid. This is what the body-fitted mesh
-/// (dhoby-ghaut `--headless-cht-mesh`, gh:#1800 follow-up) revolves.
+/// The R-Z map cut into **polygons of one region each**: the tensor grid
+/// of every `r` and `z` at which a part, a box or a bed sub-region begins or
+/// ends, with the rectangles the conus slope crosses split along it. Every
+/// boundary between two regions is then an edge of these polygons, which
+/// is what the body-fitted meshes revolve (dhoby-ghaut `--headless-cht-mesh`
+/// and Step 7; root rule: internal region boundaries are always fitted,
+/// `outram-foam-appbuilder-lib/AGENTS.md`).
 #[derive(Debug, Clone, PartialEq)]
-pub struct RzTiling {
-    /// Radii of the grid lines \[cm\], ascending, from 0 to `r_outer`.
-    pub r: Vec<f64>,
-    /// Heights of the grid lines \[cm\], ascending, bottom to top.
-    pub z: Vec<f64>,
-    /// Region of cell `(i, j)` (between `r[i]..r[i+1]`, `z[j]..z[j+1]`), at
-    /// `region[j * (r.len() - 1) + i]`.
-    pub region: Vec<usize>,
+pub struct RzPartition {
+    /// Counter-clockwise polygons in `(r, z)` \[cm\] and their region.
+    pub polygons: Vec<(Vec<[f64; 2]>, usize)>,
 }
 
-impl RzTiling {
-    /// Number of cells across (`r`).
+impl RzPartition {
+    /// `∫∫ r dr dz` over a counter-clockwise polygon (Green's theorem).
     #[must_use]
-    pub fn nr(&self) -> usize {
-        self.r.len() - 1
+    pub fn first_moment(poly: &[[f64; 2]]) -> f64 {
+        let n = poly.len();
+        (0..n)
+            .map(|i| {
+                let (a, b) = (poly[i], poly[(i + 1) % n]);
+                (a[0] * b[1] - b[0] * a[1]) * (a[0] + b[0])
+            })
+            .sum::<f64>()
+            / 6.0
     }
-    /// Number of cells up (`z`).
-    #[must_use]
-    pub fn nz(&self) -> usize {
-        self.z.len() - 1
-    }
-    /// Region of cell `(i, j)`.
-    #[must_use]
-    pub fn at(&self, i: usize, j: usize) -> usize {
-        self.region[j * self.nr() + i]
-    }
+
     /// Volume of every region \[cm³\]: exact for the body of revolution
-    /// (`n_seg = None`), or for the polygonal body with `n_seg` facets the
-    /// mesh's surface is (`n/2 sin(2 pi/n)` in place of `pi`).
+    /// (`n_seg = None`, Pappus: `2 pi ∫∫ r dA`), or for the polygonal body
+    /// with `n_seg` facets the mesh's surface is (`n/2 sin(2 pi/n)` in place
+    /// of `pi`: every ring of radius `r` scales by the same factor).
     #[must_use]
     pub fn volumes(&self, n_regions: usize, n_seg: Option<usize>) -> Vec<f64> {
         let k = match n_seg {
@@ -752,30 +748,90 @@ impl RzTiling {
             Some(n) => 0.5 * n as f64 * (2.0 * std::f64::consts::PI / n as f64).sin(),
         };
         let mut v = vec![0.0; n_regions];
-        for j in 0..self.nz() {
-            for i in 0..self.nr() {
-                v[self.at(i, j)] += k * (self.r[i + 1].powi(2) - self.r[i].powi(2)) * (self.z[j + 1] - self.z[j]);
-            }
+        for (poly, g) in &self.polygons {
+            v[*g] += 2.0 * k * Self::first_moment(poly);
         }
         v
     }
+
+    /// Whether `(r, z)` lies in a polygon of region `g` or within `tol` cm of
+    /// one.
+    #[must_use]
+    pub fn contains(&self, g: usize, r: f64, z: f64, tol: f64) -> bool {
+        self.polygons.iter().filter(|(_, h)| *h == g).any(|(poly, _)| {
+            let n = poly.len();
+            let mut inside = false;
+            for i in 0..n {
+                let (a, b) = (poly[i], poly[(i + 1) % n]);
+                if (a[1] > z) != (b[1] > z) && r < a[0] + (z - a[1]) / (b[1] - a[1]) * (b[0] - a[0]) {
+                    inside = !inside;
+                }
+                // Distance to the edge.
+                let (dx, dz) = (b[0] - a[0], b[1] - a[1]);
+                let l2 = dx * dx + dz * dz;
+                let t = if l2 > 0.0 { (((r - a[0]) * dx + (z - a[1]) * dz) / l2).clamp(0.0, 1.0) } else { 0.0 };
+                let (px, pz) = (a[0] + t * dx - r, a[1] + t * dz - z);
+                if (px * px + pz * pz).sqrt() <= tol {
+                    return true;
+                }
+            }
+            inside
+        })
+    }
+}
+
+/// Split the counter-clockwise polygon `poly` by the line `f(p) = 0` into
+/// the part with `f >= 0` and the part with `f <= 0` (either may be empty).
+fn split_polygon(poly: &[[f64; 2]], f: impl Fn([f64; 2]) -> f64) -> (Vec<[f64; 2]>, Vec<[f64; 2]>) {
+    let (mut pos, mut neg) = (Vec::new(), Vec::new());
+    let n = poly.len();
+    for i in 0..n {
+        let (a, b) = (poly[i], poly[(i + 1) % n]);
+        let (fa, fb) = (f(a), f(b));
+        if fa >= 0.0 {
+            pos.push(a);
+        }
+        if fa <= 0.0 {
+            neg.push(a);
+        }
+        if (fa > 0.0 && fb < 0.0) || (fa < 0.0 && fb > 0.0) {
+            let t = fa / (fa - fb);
+            let x = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
+            pos.push(x);
+            neg.push(x);
+        }
+    }
+    let area = |p: &[f64; 2], q: &Vec<[f64; 2]>| {
+        let _ = p;
+        let m = q.len();
+        (0..m).map(|i| q[i][0] * q[(i + 1) % m][1] - q[(i + 1) % m][0] * q[i][1]).sum::<f64>()
+    };
+    let keep = |q: Vec<[f64; 2]>| if q.len() >= 3 && area(&[0.0, 0.0], &q).abs() > 1e-12 { q } else { Vec::new() };
+    (keep(pos), keep(neg))
 }
 
 impl RegionMap {
-    /// Cut the R-Z map into [`RzTiling`] rectangles.
+    /// Cut the whole R-Z map (`r <= r_outer`, bottom to top) into an
+    /// [`RzPartition`].
     ///
     /// # Errors
-    /// When a rectangle does not hold one region throughout: a corner probe
-    /// (inset by `1e-4` of the cell) differs from the centre, or finds no
-    /// part. That happens where a region boundary is not a grid line (the
-    /// conus slope, when the conus and the graphite beside it are in
-    /// different regions) or where the boxes leave a gap.
-    pub fn rz_tiling(&self, d: &RzDomain) -> Result<RzTiling, String> {
+    /// When a polygon does not hold one region throughout (a probe at each
+    /// vertex, moved `1e-4` of the way to the polygon's centroid, differs
+    /// from the centroid's region, or finds no part): a boundary that is
+    /// neither a grid line nor the conus slope, or a gap in the boxes.
+    pub fn rz_partition(&self, d: &RzDomain) -> Result<RzPartition, String> {
         let mut r = vec![0.0, d.r_outer, d.core_radius, d.tube_radius];
         let mut z = vec![d.z_bottom, d.z_top, d.conus_floor, d.conus_top, d.bed_top, d.cavity_top];
         for b in &d.boxes {
             r.extend(b.r);
             z.extend(b.z);
+        }
+        let [nr_bed, nz_bed] = self.bed_split;
+        for i in 1..nr_bed {
+            r.push(d.core_radius * i as f64 / nr_bed as f64);
+        }
+        for k in 1..nz_bed {
+            z.push(d.conus_top + (d.bed_top - d.conus_top) * k as f64 / nz_bed as f64);
         }
         let clean = |v: &mut Vec<f64>, lo: f64, hi: f64| {
             v.retain(|x| (lo..=hi).contains(x));
@@ -784,30 +840,49 @@ impl RegionMap {
         };
         clean(&mut r, 0.0, d.r_outer);
         clean(&mut z, d.z_bottom, d.z_top);
-        let (nr, nz) = (r.len() - 1, z.len() - 1);
-        let mut region = Vec::with_capacity(nr * nz);
-        for j in 0..nz {
-            for i in 0..nr {
-                let (rc, zc) = (0.5 * (r[i] + r[i + 1]), 0.5 * (z[j] + z[j + 1]));
-                let g = self
-                    .region_at(d, rc, zc)
-                    .ok_or_else(|| format!("no part at r = {rc:.3}, z = {zc:.3} cm"))?;
-                let (er, ez) = (1e-4 * (r[i + 1] - r[i]), 1e-4 * (z[j + 1] - z[j]));
-                for (pr, pz) in [(r[i] + er, z[j] + ez), (r[i + 1] - er, z[j] + ez), (r[i] + er, z[j + 1] - ez), (r[i + 1] - er, z[j + 1] - ez)] {
-                    if self.region_at(d, pr, pz) != Some(g) {
-                        return Err(format!(
-                            "the rectangle r {:.3}-{:.3}, z {:.3}-{:.3} cm holds more than one region (a boundary that is not a grid line)",
-                            r[i],
-                            r[i + 1],
-                            z[j],
-                            z[j + 1]
-                        ));
+        // The conus slope, from (tube radius, conus floor) to (core radius,
+        // conus top): `f > 0` above it (the conus graphite side).
+        let (r0, z0, r1, z1) = (d.tube_radius, d.conus_floor, d.core_radius, d.conus_top);
+        let slope = |p: [f64; 2]| (p[1] - z0) * (r1 - r0) - (p[0] - r0) * (z1 - z0);
+        let mut polygons = Vec::new();
+        for j in 0..z.len() - 1 {
+            for i in 0..r.len() - 1 {
+                let rect = vec![[r[i], z[j]], [r[i + 1], z[j]], [r[i + 1], z[j + 1]], [r[i], z[j + 1]]];
+                let in_band = r[i] >= r0 - 1e-9 && r[i + 1] <= r1 + 1e-9 && z[j] >= z0 - 1e-9 && z[j + 1] <= z1 + 1e-9;
+                let crossed = in_band && {
+                    let f: Vec<f64> = rect.iter().map(|p| slope(*p)).collect();
+                    f.iter().any(|&x| x > 1e-12) && f.iter().any(|&x| x < -1e-12)
+                };
+                let pieces = if crossed {
+                    let (a, b) = split_polygon(&rect, slope);
+                    vec![a, b].into_iter().filter(|q| !q.is_empty()).collect()
+                } else {
+                    vec![rect]
+                };
+                for poly in pieces {
+                    let m = RzPartition::first_moment(&poly);
+                    let area: f64 = {
+                        let n = poly.len();
+                        0.5 * (0..n).map(|k| poly[k][0] * poly[(k + 1) % n][1] - poly[(k + 1) % n][0] * poly[k][1]).sum::<f64>()
+                    };
+                    // Area centroid (r from the first moment, z from the
+                    // vertices' mean, enough for a convex piece).
+                    let rc = if area.abs() > 0.0 { m / area } else { poly[0][0] };
+                    let zc = poly.iter().map(|p| p[1]).sum::<f64>() / poly.len() as f64;
+                    let g = self.region_at(d, rc, zc).ok_or_else(|| format!("no part at r = {rc:.3}, z = {zc:.3} cm"))?;
+                    for p in &poly {
+                        let q = [p[0] + 1e-4 * (rc - p[0]), p[1] + 1e-4 * (zc - p[1])];
+                        if self.region_at(d, q[0], q[1]) != Some(g) {
+                            return Err(format!(
+                                "the polygon at r {rc:.3}, z {zc:.3} cm holds more than one region (a boundary that is neither a grid line nor the conus slope)"
+                            ));
+                        }
                     }
+                    polygons.push((poly, g));
                 }
-                region.push(g);
             }
         }
-        Ok(RzTiling { r, z, region })
+        Ok(RzPartition { polygons })
     }
 }
 
@@ -1168,31 +1243,36 @@ pub(crate) mod tests {
         );
     }
 
-    /// The three-class map tiles into rectangles of one region each, and
-    /// the tiles' volumes add to the cylinder's (exact and faceted).
+    /// The partition holds one region per polygon, its volumes add to the
+    /// cylinder's (exact and faceted) and to the exact part volumes, and it
+    /// splits the conus slope: the Basic map's conus and conus graphite are
+    /// different regions, and their exact volumes come out (Pappus) against
+    /// the trapezoid's own formula.
     #[test]
-    fn three_class_cht_tiles_into_one_region_rectangles() {
+    fn the_partition_fits_every_region_including_the_conus_slope() {
         let d = htr10_like();
-        let m = RegionMap::three_class_cht(&d);
-        let t = m.rz_tiling(&d).expect("tiling");
-        assert_eq!(t.region.len(), t.nr() * t.nz());
-        let cyl = std::f64::consts::PI * d.r_outer.powi(2) * (d.z_top - d.z_bottom);
-        let v: f64 = t.volumes(4, None).iter().sum();
-        assert!((v - cyl).abs() < 1e-9 * cyl);
-        let n = 32.0;
-        let vf: f64 = t.volumes(4, Some(32)).iter().sum();
-        let want = 0.5 * n * (2.0 * std::f64::consts::PI / n).sin() * d.r_outer.powi(2) * (d.z_top - d.z_bottom);
-        assert!((vf - want).abs() < 1e-9 * want);
-        // Every tile agrees with the map at its centre.
-        for j in 0..t.nz() {
-            for i in 0..t.nr() {
-                let (r, z) = (0.5 * (t.r[i] + t.r[i + 1]), 0.5 * (t.z[j] + t.z[j + 1]));
-                assert_eq!(m.region_at(&d, r, z), Some(t.at(i, j)));
+        for m in [RegionMap::three_class_cht(&d), RegionMap::basic(&d)] {
+            let p = m.rz_partition(&d).expect("partition");
+            let n = m.regions.len();
+            let cyl = std::f64::consts::PI * d.r_outer.powi(2) * (d.z_top - d.z_bottom);
+            let v: f64 = p.volumes(n, None).iter().sum();
+            assert!((v - cyl).abs() < 1e-9 * cyl, "{v} vs {cyl}");
+            let k = 0.5 * 32.0 * (2.0 * std::f64::consts::PI / 32.0).sin();
+            let vf: f64 = p.volumes(n, Some(32)).iter().sum();
+            assert!((vf - k * d.r_outer.powi(2) * (d.z_top - d.z_bottom)).abs() < 1e-9 * cyl);
+            for (poly, g) in &p.polygons {
+                let c = poly.iter().fold([0.0, 0.0], |a, q| [a[0] + q[0], a[1] + q[1]]);
+                let c = [c[0] / poly.len() as f64, c[1] / poly.len() as f64];
+                assert_eq!(m.region_at(&d, c[0], c[1]), Some(*g));
             }
         }
-        // The Basic map's conus and conus graphite are different regions:
-        // the slope is not a grid line, so it is refused.
-        assert!(RegionMap::basic(&d).rz_tiling(&d).is_err());
+        // The conus (a truncated cone between the tube and core radii) is
+        // exactly pi h (R^2 + R r + r^2) / 3.
+        let m = RegionMap::basic(&d);
+        let v = m.rz_partition(&d).unwrap().volumes(m.regions.len(), None);
+        let (rt, rc, h) = (d.tube_radius, d.core_radius, d.conus_top - d.conus_floor);
+        let cone = std::f64::consts::PI * h * (rc * rc + rc * rt + rt * rt) / 3.0;
+        assert!((v[m.conus] - cone).abs() < 1e-9 * cone, "{} vs {cone}", v[m.conus]);
     }
 
     /// Splitting the bed renumbers the regions after it consistently, and

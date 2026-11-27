@@ -860,11 +860,12 @@ mod tests {
             assert!(*n > 0, "{id} has cells");
             assert!((mv - fv).abs() < 1e-9 * fv, "{id}: meshed {mv} vs faceted {fv}");
         }
-        let names: Vec<&str> = m.patches.iter().map(|p| p.0.as_str()).collect();
-        assert_eq!(names, ["top", "bottom", "side"]);
+        let mut names: Vec<&str> = m.patches.iter().map(|p| p.0.as_str()).collect();
+        names.sort_unstable();
+        assert_eq!(names, ["bottom", "side", "top"]);
         assert!(m.interfaces.last().is_some_and(|i| i.1 > 0), "{:?}", m.interfaces);
         // Every vertex of every cell is in (the closure of) its region.
-        let t = m.map.rz_tiling(&d).expect("tiling");
+        let part = m.map.rz_partition(&d).expect("partition");
         let tol = 1e-6;
         // A facet is a chord: a point on the faceted cylinder of radius r
         // lies as close to the axis as r cos(pi / n_seg).
@@ -874,11 +875,9 @@ mod tests {
             for &v in m.mesh.cell_nodes(c) {
                 let p = m.mesh.points()[v];
                 let (rr, zz) = ((p[0] * p[0] + p[1] * p[1]).sqrt() * 100.0, p[2] * 100.0);
-                let ok = (0..t.nz()).any(|j| {
-                    (0..t.nr()).any(|i| {
-                        t.at(i, j) == g && rr >= t.r[i] * chord - tol && rr <= t.r[i + 1] + tol && zz >= t.z[j] - tol && zz <= t.z[j + 1] + tol
-                    })
-                });
+                // On the faceted surface a point may sit inside its true
+                // radius by the chord: try it at r and at r / cos(pi/n).
+                let ok = part.contains(g, rr, zz, tol) || part.contains(g, rr / chord, zz, tol);
                 assert!(ok, "cell {c} of {} has a vertex at r {rr}, z {zz}", m.map.regions[g].id);
             }
         }
@@ -983,6 +982,25 @@ mod tests {
         assert!(on_cylinder(&b.meshes[MeshRole::Neutronics.index()], "walls", ro) > 0);
         assert_eq!(th.cell_type, dhoby_ghaut::workbench::meshes::CellType::TetDualWithLayers, "TH layers grew");
         assert!(th.regions.iter().all(|r| r.cells == 0 || plan.regions.regions[r.region].in_core));
+        // Fitted region boundaries (2026-11-26, maintainer: "always snap
+        // internal region boundaries"): every region a mesh holds has cells,
+        // and its meshed volume is within 1 % of its analytic round volume.
+        // A stair-stepped boundary missed the 10 cm cold-gas band by +90 %
+        // (the 2026-10-05 record); the inscribed 32-gon alone is -0.64 %,
+        // and snapping removes most of that.
+        for m in &b.set.meshes {
+            for r in &m.regions {
+                let id = &plan.regions.regions[r.region].id;
+                if r.exact_cm3 > 0.0 {
+                    assert!(r.cells > 0, "{:?}: {id} has no cells", m.role);
+                    let rel = r.mesh_cm3 / r.exact_cm3 - 1.0;
+                    assert!(rel.abs() < 0.01, "{:?}: {id} volume off by {rel:e}", m.role);
+                } else {
+                    assert_eq!(r.cells, 0, "{:?}: {id} is outside this mesh's domain", m.role);
+                }
+            }
+            assert!(m.notes.iter().any(|n| n.contains("region boundaries fitted")), "{:?}: {:?}", m.role, m.notes);
+        }
         for to in [MeshRole::ThermalHydraulics, MeshRole::Structural] {
             let m = b.set.mapping(MeshRole::Neutronics, to).unwrap();
             assert!(m.to_coverage > 0.99, "N -> {to:?} covers {}", m.to_coverage);

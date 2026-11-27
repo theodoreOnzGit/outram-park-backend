@@ -556,7 +556,8 @@ pub fn mesh_settings(app: &mut App, ui: &mut egui::Ui) {
                     ui.label("Facets around");
                     ui.add(egui::DragValue::new(&mut rs.n_seg).range(8..=128));
                     ui.label("wall refinement levels");
-                    ui.add(egui::DragValue::new(&mut rs.refine).range(0..=3));
+                    ui.add_enabled(false, egui::DragValue::new(&mut rs.refine).range(0..=3))
+                        .on_disabled_hover_text("Off: Step 7's meshes are fitted to every region boundary on TetGen, which the octree refinement cannot do (refine with a smaller cell size)");
                 });
                 if role == MeshRole::ThermalHydraulics {
                     ui.horizontal(|ui| {
