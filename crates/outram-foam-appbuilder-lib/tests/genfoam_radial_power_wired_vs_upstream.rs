@@ -409,7 +409,13 @@ fn assert_matches(variant: &str) -> Outcome {
     assert!(o.counts_equal(), "{variant}: outer iterations {:?} against {:?}", o.outer, o.outer_ref);
     // the round-20/29 criterion: a different solver ENTRY differs by tens; a ~1e-12 field difference moves a 1e-14 stop by one iteration
     assert!(o.worst_iter_diff <= 1, "{variant}: worst iteration difference {}", o.worst_iter_diff);
-    assert!(o.worst_residual <= 1e-6, "{variant}: residual {:e}", o.worst_residual);
+    // RE-PINNED 2026-11-27 (round 49, gh:#1908) under the maintainer's rounding rule ("Pins can move if they r due to
+    // rounding errors ... 1e-4 for propagated error"): was `<= 1e-6` (measured 8.6e-7 / 8.4e-7 for lns / lns3). Reading
+    // points ESI-style (`parse_foam_f64`, strtold narrowed to double: 4 of 52 860 coordinates move one ulp towards
+    // upstream) and the OpenFOAM-order cc helpers move this noise-level relative initial-residual difference to
+    // 5.3e-7 / 2.0e-6 while every other gate (outer counts, iteration difference <= 1, fields <= GATE) holds. The cause is
+    // round-off propagated through solves whose initial residuals sit near the 1e-7 floor; new pin 5e-6.
+    assert!(o.worst_residual <= 5e-6, "{variant}: residual {:e}", o.worst_residual);
     assert!(o.worst_field <= GATE, "{variant}: field {:e}, first diverging step {:?}", o.worst_field, o.first_diverging_step);
     o
 }
