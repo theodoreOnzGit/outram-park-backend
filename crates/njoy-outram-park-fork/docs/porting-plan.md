@@ -101,7 +101,7 @@ ACER is not one file — it is a family. The Phase-4 sub-blocks (see §4) map to
 | `modules::errorr` | `errorr.f90` | 11.2k | 🟢 **MF=33 path ported and validated** (`src/errorr/mf33.rs` `run_mf33`: `gridd`/`uniong`, `grpav`/`epanel`/`gety1`, `covcal` `LB` 0–6/8, `sigc`/`covout` + output tape) — element-for-element against nine NJOY2016 ERRORR tapes (H-2 ×2, Be-9, Li-6, C-12, F-19, Si-30, U-234, U-238 with lumped MTs) at the tape printing precision (worst 4.9e-7), `tests/errorr_mf33_golden.rs`, golden data in `reference-data/errorr/`. 🟢 MF=32 `resprx` chain (2026-09-10/11): MLBW `LCOMP=1/2` + `LRU=2` validated on TENDL Ar-37 (`tests/errorr_mf32_ar37_golden.rs`), `LRF=7` `rpxsamm` with the SAMM derivatives validated on ENDF/B-VII.1 Cl-35 to 4.8e-7 (`tests/errorr_mf32_cl35_rml_golden.rs`), `covadd` (999 option). 🟢 `LRF=3` ERRORJ sensitivities (`ggrmat`) + `LCOMP=1` validated on JENDL-3.3 U-238 to 4.95e-7 (`tests/errorr_mf32_j33u238_lrf3_golden.rs`, 2026-09-11). 🟡 Not ported: `LCOMP=0`, `LRF=1` ERRORJ sensitivities, `NRO≠0`, `NLRS>0`, INTG in the ERRORJ branch, `resprp`, MF=31/34/35/40, `iread` 1/2, `nstan`/`nin`, `colaps` (GENDF input) |
 | `modules::covr` | `covr.f90` | ~3k | 🟢 library option (ERRORR tape → BOXER) ported and byte-identical to NJOY on 9 materials × 2 matrix types (`tests/covr_boxer_golden.rs`); PostScript plotting out of scope |
 | `modules::leapr` | `leapr.f90` | 3.6k | 🟡 *generate* MF=7 S(α,β) (upstream of THERMR) — ported (`src/leapr/`); translation-level, V&V pending |
-| `modules::samm` | `samm.f90` | 7.2k | 🟢 Cross sections **and** resonance-parameter derivatives verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): every node of NJOY's RECONR grid at the 7-figure floor (`tests/reconr_cl35_rml_njoy_golden.rs`), derivatives through ERRORR MF=32 to 4.8e-7 (`samm::derivs`, `tests/errorr_mf32_cl35_rml_golden.rs`); RECONR carries the extra particle-pair channels (`MT=600`). 🟡 Not ported: angular distributions (dead upstream — both callers set `Want_Angular_Dist=.false.`), `derext`/`KBK` background terms, `KRM≠3`, `IFG=1`; ~~`yfour` (4+ channels) unexercised~~ `yfour` fixed and verified 2026-10-01 (#339: Fe-57, Mo-95 RECONR word-for-word NJOY2016) |
+| `modules::samm` | `samm.f90` | 7.2k | 🟢 Cross sections **and** resonance-parameter derivatives verified against NJOY2016 on ENDF/B-VII.1 Cl-35 (2026-09-11): every node of NJOY's RECONR grid at the 7-figure floor (`tests/reconr_cl35_rml_njoy_golden.rs`), derivatives through ERRORR MF=32 to 4.8e-7 (`samm::derivs`, `tests/errorr_mf32_cl35_rml_golden.rs`); RECONR carries the extra particle-pair channels (`MT=600`). 🟡 Not ported: angular distributions (dead upstream — both callers set `Want_Angular_Dist=.false.`), ~~`derext`/`KBK` background terms~~ `derext` (the derivatives with respect to the `KBK` background; **CORRECTED 2026-11-24, gh:#667:** the background itself is parsed, `samm::mf2::BackgroundRMatrix`, and applied, `samm::xsformula::setr`, gated on Sr-88 by `tests/reconr_sr88_lrf7_kbk_njoy_golden.rs`), `KRM≠3`, `IFG=1`; ~~`yfour` (4+ channels) unexercised~~ `yfour` fixed and verified 2026-10-01 (#339: Fe-57, Mo-95 RECONR word-for-word NJOY2016) |
 
 ### Formatters, plotting, misc (Phase 6 — lowest priority)
 
@@ -404,10 +404,14 @@ further). Split by function/responsibility into a `module_name/` directory
 their functional group) rather than one flat file — see `src/samm/coulomb/`
 for the pattern (`mod.rs`, `steed.rs`, `asymptotic.rs`, `dispatch.rs`,
 `api.rs`, split from an original single 1085-line `coulomb.rs`). Applies to
-every module ported from this date forward; existing over-length files are
-tracked below and should be split opportunistically (not urgently — they
+every module ported from this date forward; existing over-length files ~~are
+tracked below~~ should be split opportunistically (not urgently — they
 work and are tested/building — but don't grow them further without splitting
-first):
+first). **CORRECTED 2026-11-24 (gh:#667):** the table below lists only the three
+files already split on 2026-09-10; it never tracked the rest. Measured with
+`wc -l` on 2026-11-24, 28 files under `src/` are over 1000 lines: `src/errorr/groups/tables.rs` (9122), `src/nuclear_data/secondary.rs` (2688), `src/reconr/mod.rs` (2644), `src/acer/build.rs` (1829), `src/leapr/generate.rs` (1754), `src/acer/read.rs` (1605), `src/acer/photon_blocks.rs` (1591), `src/acer/acelcp.rs` (1495), `src/broadr/joint.rs` (1428), `src/purr/tables.rs` (1406), `src/acer/acelf6.rs` (1365), `src/leapr/endout.rs` (1299), `src/thermr/inelastic.rs` (1282), `src/hdf5/nuclide_read.rs` (1178), `src/leapr/deck.rs` (1161), `src/acquire.rs` (1140), `src/errorr/driver.rs` (1126), `src/hdf5/nuclide_laws.rs` (1113), `src/groupr/unresolved.rs` (1104), `src/thermr/mf7.rs` (1103), `src/acer/energy/mf6.rs` (1087), `src/broadr/mod.rs` (1066), `src/deck/run.rs` (1041), `src/acer/ce_laws.rs` (1040), `src/acer/photonuclear/build.rs` (1037), `src/dtfr/deck.rs` (1025), `src/groupr/matrix_panel.rs` (1023), `src/groupr/input.rs` (1008).
+`errorr/groups/tables.rs` is data tables. Splitting the others is a refactor of
+the port and waits for the maintainer (crate `AGENTS.md`, "The port is the oracle"):
 
 | File | Lines | Status |
 |---|---|---|
@@ -457,6 +461,16 @@ cross-crate plan (njoy ↔ `outram-mc-libs`) lives in the workspace-level
 **`../../../docs/keff-doppler-roadmap.md`**; njoy's slice of it:
 
 > ### ⏭️ NEXT TO PORT — Unresolved Resonance Region (URR, LRU=2): `UNRESR` then `PURR`
+>
+> **CORRECTED 2026-11-24 (gh:#667):** the paragraph below is the 2026-07-06
+> position, kept as history; it is no longer true in the present tense. RECONR
+> now reconstructs the unresolved range as upstream does
+> (`src/reconr/urr.rs`, `add_unresolved_ranges`: `csunr1`/`csunr2` on the
+> `eunr` grid, interpolated by `sigunr`), and UNRESR and PURR are ported
+> (`src/unresr/`, `src/purr/`). RECONR's `reconr::mf2::parse_lru2_header`
+> still reads only the range header, but the unresolved walk takes the LRU=2
+> parameters from `unresr::mf2` (`urr.rs` imports `UnresolvedRange`), so the
+> "header-only" consequence below is history too.
 >
 > **Why now (2026-07-06):** RECONR reconstructs only the **resolved** resonance
 > region (LRU=1: SLBW/MLBW/Reich-Moore). For U-238 the resolved region ends at

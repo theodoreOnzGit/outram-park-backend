@@ -48,6 +48,20 @@ pub enum Bc {
     Calculated,
     /// `empty`: the patch carries no values (reduced-dimension case).
     Empty,
+    /// `fixedGradient` (here: `fixedFluxPressure`, whose gradient the solver resets every corrector
+    /// from `setSnGradP_rgh_2p.H`): one `snGrad` per face. Face value `c + g/deltaCoeffs`
+    /// (`fixedGradientFvPatchField::evaluate`).
+    FixedGradient(Vec<f64>),
+    /// `inletOutlet` (ESI `inletOutletFvPatchField`, a `mixed` patch): `valueFraction = neg(phi)`,
+    /// `refValue = inletValue`, `refGrad = 0`, so the face value is `inletValue` where the NAMED flux
+    /// (`phi_index`: `0` = fluid 1's `phi`, `1` = fluid 2's) is negative and the owner value
+    /// otherwise. Evaluated only by [`Scalar::correct_bc_with_flux`] (it needs the flux).
+    InletOutlet {
+        /// `inletValue`, one per face.
+        inlet_value: Vec<f64>,
+        /// Which fluid's `phi` the patch names (`phi phi.<fluid>`).
+        phi_index: usize,
+    },
 }
 
 /// Mesh geometry the operators need, precomputed once.
@@ -184,8 +198,22 @@ impl Scalar {
     }
 
     /// Apply the BCs: `zeroGradient` copies the owner value, `fixedValue`
-    /// writes its values, `calculated` and `empty` leave the face values.
+    /// writes its values, `fixedGradient` writes `c + gradient/deltaCoeffs`, `calculated` and
+    /// `empty` leave the face values.
+    ///
+    /// # Panics
+    /// On an [`Bc::InletOutlet`] patch, which needs the flux it names: use
+    /// [`Self::correct_bc_with_flux`] (a programming error, never case data).
     pub fn correct_bc(&mut self, g: &Geometry) {
+        self.correct_bc_with_flux(g, [&[], &[]]);
+    }
+
+    /// As [`Self::correct_bc`], with the two fluids' `phi` available to a flux-dependent patch
+    /// (`inletOutlet`): `valueFraction = neg(phi_b)` as ESI `inletOutletFvPatchField::updateCoeffs`.
+    ///
+    /// # Panics
+    /// An [`Bc::InletOutlet`] patch whose named flux is not supplied.
+    pub fn correct_bc_with_flux(&mut self, g: &Geometry, phi: [&[f64]; 2]) {
         let ni = g.n_internal();
         for (pi, p) in g.mesh.patches.iter().enumerate() {
             match &self.bc[pi] {
@@ -200,8 +228,53 @@ impl Scalar {
                         self.b[p.start + k - ni] = v[k];
                     }
                 }
+                Bc::FixedGradient(gr) => {
+                    for k in 0..p.size {
+                        let f = p.start + k;
+                        self.b[f - ni] = self.c[g.mesh.owner[f]] + gr[k] / g.delta[f];
+                    }
+                }
+                Bc::InletOutlet { inlet_value, phi_index } => {
+                    let phi = phi[*phi_index];
+                    assert!(
+                        !phi.is_empty(),
+                        "an inletOutlet patch is evaluated with its flux: use correct_bc_with_flux"
+                    );
+                    for k in 0..p.size {
+                        let f = p.start + k;
+                        // mixed::evaluate: vf*refValue + (1 - vf)*(patchInternalField + refGrad/deltaCoeffs)
+                        let vf = if phi[f] < 0.0 { 1.0 } else { 0.0 };
+                        self.b[f - ni] =
+                            vf * inlet_value[k] + (1.0 - vf) * (self.c[g.mesh.owner[f]] + 0.0 / g.delta[f]);
+                    }
+                }
                 Bc::Calculated | Bc::Empty => {}
             }
+        }
+    }
+
+    /// `(valueInternalCoeffs, valueBoundaryCoeffs)` of boundary face `f` for a convection term
+    /// `fvm::div(phi, psi)`: the diagonal gets `phi * internal`, the source `-phi * boundary`
+    /// (`gaussConvectionScheme::fvmDiv`). `phi` are the two fluids' fluxes (an `inletOutlet` patch reads
+    /// the one it names).
+    ///
+    /// # Panics
+    /// An [`Bc::InletOutlet`] patch whose named flux is not supplied.
+    #[must_use]
+    pub fn convection_coeffs(&self, g: &Geometry, f: usize, phi: [&[f64]; 2]) -> (f64, f64) {
+        let ni = g.n_internal();
+        let pi = g.patch_of[f - ni];
+        let k = f - g.mesh.patches[pi].start;
+        match &self.bc[pi] {
+            Bc::Fixed(v) => (0.0, v[k]),
+            Bc::FixedGradient(gr) => (1.0, gr[k] / g.delta[f]),
+            Bc::InletOutlet { inlet_value, phi_index } => {
+                let named = phi[*phi_index];
+                assert!(!named.is_empty(), "an inletOutlet patch needs its flux in the matrix assembly");
+                let vf = if named[f] < 0.0 { 1.0 } else { 0.0 };
+                (1.0 - vf, vf * inlet_value[k] + (1.0 - vf) * 0.0 / g.delta[f])
+            }
+            Bc::ZeroGradient | Bc::Calculated | Bc::Empty => (1.0, 0.0),
         }
     }
 
@@ -210,6 +283,12 @@ impl Scalar {
     #[must_use]
     pub fn face(&self, g: &Geometry, f: usize) -> f64 {
         self.b[f - g.n_internal()]
+    }
+
+    /// `true` when the patch of boundary face `f` is `fixedGradient`.
+    #[must_use]
+    pub fn is_fixed_gradient(&self, g: &Geometry, f: usize) -> bool {
+        matches!(self.bc[g.patch_of[f - g.n_internal()]], Bc::FixedGradient(_))
     }
 
     /// `true` when the patch of boundary face `f` is `fixedValue`.
@@ -229,32 +308,358 @@ impl Scalar {
     }
 }
 
-/// A volume vector field (velocity): cells and boundary faces, all patches
-/// `zeroGradient` (the only vector BC the two-phase tutorials use for `U`).
+/// Boundary condition of one patch of a [`Vector`] (velocity) field.
+///
+/// Ported from OpenFOAM-ESI v2506 `finiteVolume/fields/fvPatchFields/`: `basic/zeroGradient`,
+/// `basic/fixedValue`, `basic/basicSymmetry` (`derived/slip`) and `derived/pressureInletOutletVelocity`
+/// (a `directionMixed` patch). Nothing else is accepted by the case reader.
+#[derive(Debug, Clone, PartialEq)]
+pub enum VectorBc {
+    /// `zeroGradient`.
+    ZeroGradient,
+    /// `fixedValue`: one vector per face. The matching flux patch is a `fixedValue` `fvsPatchField`
+    /// (`fluid.C`: the `phi` of a fixedValue/slip velocity patch is fixed, not solved).
+    Fixed(Vec<Vector3>),
+    /// `slip` (`basicSymmetry`): the normal component is removed, `(U_c + (I - 2nn).U_c)/2`.
+    Slip,
+    /// `pressureInletOutletVelocity` (`directionMixed`): `valueFraction = neg(phi)*(I - nn)`,
+    /// `refValue = 0`, `refGrad = 0` (no `tangentialVelocity`); `phi_index` names which fluid's flux.
+    PressureInletOutletVelocity {
+        /// `0`: fluid 1's `phi`, `1`: fluid 2's.
+        phi_index: usize,
+    },
+    /// `wedge` (ESI `wedgeFvPatchField`, a `transformFvPatchField`): the face value is `faceT & U_c` and the
+    /// matrix coefficients follow `snGradTransformDiag = 0.5 diag(I - cellT)` (gh:#1812). Build it with
+    /// [`wedge_velocity_bc`].
+    Wedge {
+        /// `wedgePolyPatch::faceT()`, row-major.
+        face_t: [[f64; 3]; 3],
+        /// `wedgePolyPatch::cellT() = faceT & faceT`, row-major.
+        cell_t: [[f64; 3]; 3],
+    },
+}
+
+/// `tensor & vector`, row-major.
+fn tensor_dot(t: &[[f64; 3]; 3], v: [f64; 3]) -> [f64; 3] {
+    [
+        t[0][0] * v[0] + t[0][1] * v[1] + t[0][2] * v[2],
+        t[1][0] * v[0] + t[1][1] * v[1] + t[1][2] * v[2],
+        t[2][0] * v[0] + t[2][1] * v[1] + t[2][2] * v[2],
+    ]
+}
+
+/// OpenFOAM `sign(s)`: `+1` for `s >= 0`.
+fn foam_sign(s: f64) -> f64 {
+    if s >= 0.0 {
+        1.0
+    } else {
+        -1.0
+    }
+}
+
+/// `rotationTensor(n1, n2)` of ESI `transform.H` (the rotation of `n1` onto `n2`), row-major.
+#[must_use]
+pub fn rotation_tensor(n1: [f64; 3], n2: [f64; 3]) -> [[f64; 3]; 3] {
+    const SMALL: f64 = 1e-15;
+    let s = n1[0] * n2[0] + n1[1] * n2[1] + n1[2] * n2[2];
+    let n3 = [
+        n1[1] * n2[2] - n1[2] * n2[1],
+        n1[2] * n2[0] - n1[0] * n2[2],
+        n1[0] * n2[1] - n1[1] * n2[0],
+    ];
+    let mag_sqr = n3[0] * n3[0] + n3[1] * n3[1] + n3[2] * n3[2];
+    let mut out = [[0.0; 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            let id = if i == j { 1.0 } else { 0.0 };
+            out[i][j] = if mag_sqr > SMALL {
+                // s I + (1 - s) sqr(n3)/|n3|^2 + (n2 n1 - n1 n2)
+                s * id + (1.0 - s) * (n3[i] * n3[j]) / mag_sqr + (n2[i] * n1[j] - n1[i] * n2[j])
+            } else if s < 0.0 {
+                id + 2.0 * (n1[i] * n2[j])
+            } else {
+                id
+            };
+        }
+    }
+    out
+}
+
+/// `wedgePolyPatch::calcGeometry` for patch `pi`: `n = gAverage(faceNormals)`, `centreNormal` the coordinate-plane
+/// direction implied by `n`, `faceT = rotationTensor(centreNormal, n)`, `cellT = faceT & faceT`.
+///
+/// # Panics
+/// A patch that is not a wedge plane (zero `centreNormal`).
+#[must_use]
+pub fn wedge_velocity_bc(g: &Geometry, pi: usize) -> VectorBc {
+    let p = &g.mesh.patches[pi];
+    let mut n = [0.0; 3];
+    for k in 0..p.size {
+        let u = unit_normal(g, p.start + k);
+        for c in 0..3 {
+            n[c] += u[c];
+        }
+    }
+    let sz = p.size as f64;
+    for c in &mut n {
+        *c /= sz;
+    }
+    let mut cn = [0.0; 3];
+    for c in 0..3 {
+        cn[c] = foam_sign(n[c]) * (n[c].abs().max(0.5) - 0.5);
+    }
+    let m = (cn[0] * cn[0] + cn[1] * cn[1] + cn[2] * cn[2]).sqrt();
+    assert!(m > 1e-15, "wedge patch {pi}: no centre plane");
+    for c in &mut cn {
+        *c /= m;
+    }
+    let face_t = rotation_tensor(cn, n);
+    let mut cell_t = [[0.0; 3]; 3];
+    for i in 0..3 {
+        for j in 0..3 {
+            cell_t[i][j] = face_t[i][0] * face_t[0][j] + face_t[i][1] * face_t[1][j] + face_t[i][2] * face_t[2][j];
+        }
+    }
+    VectorBc::Wedge { face_t, cell_t }
+}
+
+/// The four boundary coefficients of one velocity patch face (OpenFOAM `valueInternalCoeffs`,
+/// `valueBoundaryCoeffs`, `gradientInternalCoeffs`, `gradientBoundaryCoeffs`), per component.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct VectorPatchCoeffs {
+    /// `valueInternalCoeffs` (the convection term's diagonal weight).
+    pub value_internal: [f64; 3],
+    /// `valueBoundaryCoeffs`.
+    pub value_boundary: [f64; 3],
+    /// The diagonal `d` of `gradientInternalCoeffs = -deltaCoeffs * d` (`1` for `fixedValue`, `0`
+    /// for `zeroGradient`, `snGradTransformDiag` for a transform patch).
+    pub gradient_internal_diag: [f64; 3],
+    /// `gradientBoundaryCoeffs`.
+    pub gradient_boundary: [f64; 3],
+}
+
+/// A volume vector field (velocity): cells and boundary faces and one [`VectorBc`] per patch
+/// (`zeroGradient` unless the case says otherwise; gh:#1801).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Vector {
     /// Cell values.
     pub c: Vec<Vector3>,
     /// Boundary-face values.
     pub b: Vec<Vector3>,
+    /// One boundary condition per patch.
+    pub bc: Vec<VectorBc>,
+}
+
+fn comp3(v: Vector3) -> [f64; 3] {
+    [v.x, v.y, v.z]
+}
+
+/// `nf = Sf/magSf` component-wise (OpenFOAM divides, it does not multiply by the reciprocal).
+fn unit_normal(g: &Geometry, f: usize) -> [f64; 3] {
+    let s = g.mesh.face_area_vectors[f];
+    let a = g.mesh.face_areas[f];
+    [s.x / a, s.y / a, s.z / a]
+}
+
+/// `symmTensor & vector` for a symmetric tensor given as `[xx, xy, xz, yy, yz, zz]`.
+fn symm_dot(t: [f64; 6], v: [f64; 3]) -> [f64; 3] {
+    [
+        t[0] * v[0] + t[1] * v[1] + t[2] * v[2],
+        t[1] * v[0] + t[3] * v[1] + t[4] * v[2],
+        t[2] * v[0] + t[4] * v[1] + t[5] * v[2],
+    ]
+}
+
+/// `I - 2 sqr(n)` of `basicSymmetryFvPatchField`.
+fn reflection(n: [f64; 3]) -> [f64; 6] {
+    [
+        1.0 - 2.0 * (n[0] * n[0]),
+        -(2.0 * (n[0] * n[1])),
+        -(2.0 * (n[0] * n[2])),
+        1.0 - 2.0 * (n[1] * n[1]),
+        -(2.0 * (n[1] * n[2])),
+        1.0 - 2.0 * (n[2] * n[2]),
+    ]
+}
+
+/// `valueFraction = neg(phi) * (I - sqr(n))` of `pressureInletOutletVelocity`, `[xx, xy, xz, yy, yz, zz]`.
+fn piov_value_fraction(n: [f64; 3], phi: f64) -> [f64; 6] {
+    let neg = if phi < 0.0 { 1.0 } else { 0.0 };
+    [
+        neg * (1.0 - n[0] * n[0]),
+        neg * (-(n[0] * n[1])),
+        neg * (-(n[0] * n[2])),
+        neg * (1.0 - n[1] * n[1]),
+        neg * (-(n[1] * n[2])),
+        neg * (1.0 - n[2] * n[2]),
+    ]
 }
 
 impl Vector {
-    /// A uniform vector field.
+    /// A uniform vector field, `zeroGradient` on every patch.
     #[must_use]
     pub fn uniform(g: &Geometry, v: Vector3) -> Self {
         Self {
             c: vec![v; g.n_cells()],
             b: vec![v; g.n_faces() - g.n_internal()],
+            bc: vec![VectorBc::ZeroGradient; g.mesh.patches.len()],
         }
     }
 
-    /// `zeroGradient` on every non-empty patch.
+    /// A uniform vector field as OpenFOAM constructs a temporary one (`UEqn.H()`: `extrapolatedCalculated`): ordinary
+    /// patches extrapolate (`zeroGradient`), but a mesh patch of a CONSTRAINT type keeps its constraint patch field whatever
+    /// patch field type was requested (`fvPatchField::New`: a `symmetry` mesh patch always gets `symmetryFvPatchField`,
+    /// i.e. `basicSymmetry`, `(U_c + (I - 2nn) U_c)/2`, whose flux through the patch is zero). gh:#1833.
+    #[must_use]
+    pub fn uniform_with_constraint_patches(g: &Geometry, v: Vector3) -> Self {
+        let mut out = Self::uniform(g, v);
+        for (pi, p) in g.mesh.patches.iter().enumerate() {
+            if p.kind == PatchKind::Symmetry {
+                out.bc[pi] = VectorBc::Slip;
+            }
+            // a `wedge` mesh patch always gets `wedgeFvPatchField` (value `faceT . U_c`; gh:#1812, #1837)
+            if p.kind == PatchKind::Wedge {
+                out.bc[pi] = wedge_velocity_bc(g, pi);
+            }
+        }
+        out
+    }
+
+    /// `true` when the flux patch that belongs to boundary face `f` is a `fixedValue` `fvsPatchField`
+    /// (`fluid.C`: the velocity patch is `fixedValue`, `slip` or `partialSlip`): such a flux is set
+    /// to `Sf . U_b` by `correctBoundaryFlux_2p.H` and is not overwritten by `phi = phiHbyA + ...`.
+    #[must_use]
+    pub fn flux_is_fixed(&self, g: &Geometry, f: usize) -> bool {
+        matches!(self.bc[g.patch_of[f - g.n_internal()]], VectorBc::Fixed(_) | VectorBc::Slip)
+    }
+
+    /// `true` when any patch is not `zeroGradient`.
+    #[must_use]
+    pub fn has_non_zero_gradient_patch(&self) -> bool {
+        self.bc.iter().any(|b| !matches!(b, VectorBc::ZeroGradient))
+    }
+
+    /// Evaluate the BCs that need no flux (`zeroGradient`, `fixedValue`, `slip`).
+    ///
+    /// # Panics
+    /// On a `pressureInletOutletVelocity` patch: use [`Self::correct_bc_with_flux`].
     pub fn correct_bc(&mut self, g: &Geometry) {
+        self.correct_bc_with_flux(g, [&[], &[]]);
+    }
+
+    /// `correctBoundaryConditions()` with the two fluids' `phi` available to a
+    /// `pressureInletOutletVelocity` patch (`updateCoeffs` reads `neg(phi_b)`).
+    ///
+    /// # Panics
+    /// A `pressureInletOutletVelocity` patch whose named flux is not supplied.
+    pub fn correct_bc_with_flux(&mut self, g: &Geometry, phi: [&[f64]; 2]) {
         let ni = g.n_internal();
-        for f in ni..g.n_faces() {
-            if g.active[f] {
-                self.b[f - ni] = self.c[g.mesh.owner[f]];
+        for (pi, p) in g.mesh.patches.iter().enumerate() {
+            if p.kind == PatchKind::Empty {
+                continue;
+            }
+            for k in 0..p.size {
+                let f = p.start + k;
+                let pif = self.c[g.mesh.owner[f]];
+                self.b[f - ni] = match &self.bc[pi] {
+                    VectorBc::ZeroGradient => pif,
+                    VectorBc::Fixed(v) => v[k],
+                    VectorBc::Slip => {
+                        let r = symm_dot(reflection(unit_normal(g, f)), comp3(pif));
+                        Vector3::new((pif.x + r[0]) / 2.0, (pif.y + r[1]) / 2.0, (pif.z + r[2]) / 2.0)
+                    }
+                    VectorBc::Wedge { face_t, .. } => {
+                        let r = tensor_dot(face_t, comp3(pif));
+                        Vector3::new(r[0], r[1], r[2])
+                    }
+                    VectorBc::PressureInletOutletVelocity { phi_index } => {
+                        let phi = phi[*phi_index];
+                        assert!(
+                            !phi.is_empty(),
+                            "a pressureInletOutletVelocity patch is evaluated with its flux: use correct_bc_with_flux"
+                        );
+                        Self::direction_mixed_value(g, f, pif, phi[f])
+                    }
+                };
+            }
+        }
+    }
+
+    /// `directionMixedFvPatchField::evaluate` for `pressureInletOutletVelocity`:
+    /// `transform(vf, refValue) + transform(I - vf, patchInternalField + refGrad/deltaCoeffs)`,
+    /// `refValue = refGrad = 0`.
+    fn direction_mixed_value(g: &Geometry, f: usize, pif: Vector3, phi: f64) -> Vector3 {
+        let vf = piov_value_fraction(unit_normal(g, f), phi);
+        let normal = symm_dot(vf, [0.0, 0.0, 0.0]);
+        let grad_value = [pif.x + 0.0 / g.delta[f], pif.y + 0.0 / g.delta[f], pif.z + 0.0 / g.delta[f]];
+        let i_minus_vf = [1.0 - vf[0], -vf[1], -vf[2], 1.0 - vf[3], -vf[4], 1.0 - vf[5]];
+        let t = symm_dot(i_minus_vf, grad_value);
+        Vector3::new(normal[0] + t[0], normal[1] + t[1], normal[2] + t[2])
+    }
+
+    /// The boundary coefficients of boundary face `f` for the matrix assembly (`fvMatrix`'s
+    /// `internalCoeffs`/`boundaryCoeffs`), from the CURRENT patch values.
+    ///
+    /// # Panics
+    /// A `pressureInletOutletVelocity` patch whose named flux is not supplied.
+    #[must_use]
+    pub fn patch_coeffs(&self, g: &Geometry, f: usize, phi: [&[f64]; 2]) -> VectorPatchCoeffs {
+        let ni = g.n_internal();
+        let pi = g.patch_of[f - ni];
+        let ub = comp3(self.b[f - ni]);
+        let pif = comp3(self.c[g.mesh.owner[f]]);
+        let delta = g.delta[f];
+        let transform = |d: [f64; 3], sn: [f64; 3]| {
+            let vic = [1.0 - d[0], 1.0 - d[1], 1.0 - d[2]];
+            let vbc = [ub[0] - vic[0] * pif[0], ub[1] - vic[1] * pif[1], ub[2] - vic[2] * pif[2]];
+            let gic = [-delta * d[0], -delta * d[1], -delta * d[2]];
+            let gbc = [sn[0] - gic[0] * pif[0], sn[1] - gic[1] * pif[1], sn[2] - gic[2] * pif[2]];
+            VectorPatchCoeffs {
+                value_internal: vic,
+                value_boundary: vbc,
+                gradient_internal_diag: d,
+                gradient_boundary: gbc,
+            }
+        };
+        match &self.bc[pi] {
+            VectorBc::ZeroGradient => VectorPatchCoeffs {
+                value_internal: [1.0; 3],
+                value_boundary: [0.0; 3],
+                gradient_internal_diag: [0.0; 3],
+                gradient_boundary: [0.0; 3],
+            },
+            VectorBc::Fixed(_) => VectorPatchCoeffs {
+                value_internal: [0.0; 3],
+                value_boundary: ub,
+                gradient_internal_diag: [1.0; 3],
+                gradient_boundary: [delta * ub[0], delta * ub[1], delta * ub[2]],
+            },
+            VectorBc::Slip => {
+                let n = unit_normal(g, f);
+                let d = [n[0].abs(), n[1].abs(), n[2].abs()];
+                let r = symm_dot(reflection(n), pif);
+                let h = delta / 2.0;
+                let sn = [(r[0] - pif[0]) * h, (r[1] - pif[1]) * h, (r[2] - pif[2]) * h];
+                transform(d, sn)
+            }
+            VectorBc::Wedge { cell_t, .. } => {
+                // `snGradTransformDiag = 0.5 (I - cellT).diag()`, `snGrad = (0.5 deltaCoeffs)(cellT.U_c - U_c)`
+                let d = [0.5 * (1.0 - cell_t[0][0]), 0.5 * (1.0 - cell_t[1][1]), 0.5 * (1.0 - cell_t[2][2])];
+                let r = tensor_dot(cell_t, pif);
+                let h = 0.5 * delta;
+                let sn = [h * (r[0] - pif[0]), h * (r[1] - pif[1]), h * (r[2] - pif[2])];
+                transform(d, sn)
+            }
+            VectorBc::PressureInletOutletVelocity { phi_index } => {
+                let phi = phi[*phi_index];
+                assert!(
+                    !phi.is_empty(),
+                    "a pressureInletOutletVelocity patch needs its flux: patch_coeffs was given none"
+                );
+                let vf = piov_value_fraction(unit_normal(g, f), phi[f]);
+                let d = [vf[0].abs().sqrt(), vf[3].abs().sqrt(), vf[5].abs().sqrt()];
+                let sn = [(ub[0] - pif[0]) * delta, (ub[1] - pif[1]) * delta, (ub[2] - pif[2]) * delta];
+                transform(d, sn)
             }
         }
     }
@@ -512,17 +917,7 @@ impl Eqn {
     /// `phi` on the diagonal (`zeroGradient` `valueInternalCoeffs = 1`).
     pub fn div_upwind(&mut self, g: &Geometry, phi: &[f64], psi: &Scalar) {
         let m = &g.mesh;
-        for f in 0..g.n_internal() {
-            let (o, n) = (m.owner[f], m.neighbour[f]);
-            let fl = phi[f];
-            if fl >= 0.0 {
-                self.ldu.diag[o] += fl;
-                self.ldu.lower[f] -= fl;
-            } else {
-                self.ldu.upper[f] += fl;
-                self.ldu.diag[n] -= fl;
-            }
-        }
+        self.div_upwind_internal(g, phi);
         for f in g.n_internal()..g.n_faces() {
             if !g.active[f] {
                 continue;
@@ -532,6 +927,22 @@ impl Eqn {
                 self.source[o] -= phi[f] * psi.face(g, f);
             } else {
                 self.ldu.diag[o] += phi[f];
+            }
+        }
+    }
+
+    /// The internal-face part of [`Self::div_upwind`] (the boundary part depends on the patch types).
+    pub fn div_upwind_internal(&mut self, g: &Geometry, phi: &[f64]) {
+        let m = &g.mesh;
+        for f in 0..g.n_internal() {
+            let (o, n) = (m.owner[f], m.neighbour[f]);
+            let fl = phi[f];
+            if fl >= 0.0 {
+                self.ldu.diag[o] += fl;
+                self.ldu.lower[f] -= fl;
+            } else {
+                self.ldu.upper[f] += fl;
+                self.ldu.diag[n] -= fl;
             }
         }
     }
@@ -548,10 +959,18 @@ impl Eqn {
             self.ldu.lower[f] -= c;
         }
         for f in g.n_internal()..g.n_faces() {
-            if g.active[f] && psi.is_fixed(g, f) {
+            if !g.active[f] {
+                continue;
+            }
+            if psi.is_fixed(g, f) {
                 let c = gamma[f] * m.face_areas[f] * g.delta[f];
                 self.ldu.diag[m.owner[f]] += c;
                 self.source[m.owner[f]] += c * psi.face(g, f);
+            } else if let Bc::FixedGradient(gr) = &psi.bc[g.patch_of[f - g.n_internal()]] {
+                // fvm::laplacian: `boundaryCoeffs = -pGamma * gradientBoundaryCoeffs` (= -pGamma * gradient
+                // for `fixedGradient`, `internalCoeffs = 0`); negated for `-laplacian`.
+                let k = f - g.mesh.patches[g.patch_of[f - g.n_internal()]].start;
+                self.source[m.owner[f]] += gamma[f] * m.face_areas[f] * gr[k];
             }
         }
     }
@@ -650,6 +1069,18 @@ impl Eqn {
         for f in 0..g.n_faces() {
             if g.active[f] {
                 out[f] = -gamma[f] * g.mesh.face_areas[f] * sng[f];
+            }
+        }
+        // `fixedGradient` faces: the flux is `-(pGamma) * gradient` straight from the boundary coefficient
+        // (`fvMatrix::flux`: `internalCoeffs*psi_c - boundaryCoeffs`), not through the evaluated face value.
+        for (pi, patch) in g.mesh.patches.iter().enumerate() {
+            if let Bc::FixedGradient(gr) = &p.bc[pi] {
+                for k in 0..patch.size {
+                    let f = patch.start + k;
+                    if g.active[f] {
+                        out[f] = -(gamma[f] * g.mesh.face_areas[f]) * gr[k];
+                    }
+                }
             }
         }
         out

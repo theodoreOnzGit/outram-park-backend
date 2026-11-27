@@ -263,7 +263,12 @@ impl Graph {
             let mut origen = amin.r_log10();
             let mut i = origen as i32;
             if origen < 0.0 {
-                i -= 1;
+                // gh:#1543: at `amin = 0`, `int(-inf)` is `i32::MIN` (gfortran and
+                // Rust's saturating cast agree) and gfortran's `i-1` wraps silently
+                // to `i32::MAX`; NJOY2016 runs on and writes NaN coordinates.
+                // Wrapping here reproduces its PostScript byte for byte
+                // (`tests/viewr_log_axis_zero_minimum_vs_njoy2016.rs`).
+                i = i.wrapping_sub(1);
             }
             let mut v = origen - f64::from(i);
             if v < ds {
@@ -287,7 +292,8 @@ impl Graph {
             let mut aend = amax.r_log10();
             let mut j = aend as i32;
             if aend < 0.0 {
-                j -= 1;
+                // gh:#1543: gfortran's wrap at `amax = 0`, as for `i` above.
+                j = j.wrapping_sub(1);
             }
             v = aend - f64::from(j);
             if v < ds {

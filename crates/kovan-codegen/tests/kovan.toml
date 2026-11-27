@@ -8,37 +8,24 @@ test_ids = ["crates/kovan-codegen/tests/zotero_schema_regen.rs::committed_schema
 path = "test:zotero_schema_regen"
 
 [[module."zotero_schema_regen.rs".function]]
-id = "fn:178f3156e2a3ef4b"
-name = "find_schema"
-qual = "find_schema"
-lines = [
-    22,
-    31,
-]
-hash = "sha256:028f464300afea9b11e7fa1b0f15f8e660c1435b457247aad4028b38b2c50885"
+id = "fn:92d72c576a047bcf"
+name = "committed_schema_tables_regenerate_identically"
+qual = "committed_schema_tables_regenerate_identically"
+hash = "sha256:191dc35681ded29ba272bd32a4cfa32bb17c2b2ff7d53b4005cee953281de2a7"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."zotero_schema_regen.rs".function]]
-id = "fn:92d72c576a047bcf"
-name = "committed_schema_tables_regenerate_identically"
-qual = "committed_schema_tables_regenerate_identically"
-lines = [
-    33,
-    62,
-]
-hash = "sha256:191dc35681ded29ba272bd32a4cfa32bb17c2b2ff7d53b4005cee953281de2a7"
+id = "fn:178f3156e2a3ef4b"
+name = "find_schema"
+qual = "find_schema"
+hash = "sha256:028f464300afea9b11e7fa1b0f15f8e660c1435b457247aad4028b38b2c50885"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:178f3156e2a3ef4b",
-    "fn:d8be8f4fe9b0be28",
-]
-uses = ["fn:e24430d1dba775f3"]
 test = true
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = ["#0"]
 failed = []

@@ -6302,7 +6302,7 @@ pub struct Nuclide {
   Whether fission sampling applies delayed-neutron spectra: `true` when the
 
 - ```rust
-  pub fn native_energy_grid(self: &Self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> { /* ... */ }
+  pub fn native_energy_grid_with_thinning(self: &Self, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
   ```
   The native energy breakpoints \[eV\] this nuclide's cross-section data
 
@@ -6800,6 +6800,17 @@ free label: `Ok`, unchecked.
 
 ```rust
 pub fn check_name_against_za(name: &str, za: f64) -> Result<(), njoy_outram_park_fork::NjoyError> { /* ... */ }
+```
+
+#### Function `thin_energy_nodes`
+
+Clip `nodes` to `[e_min_ev, e_max_ev]`, add both endpoints, sort, and drop
+duplicates: exactly equal energies always, and with `thin_tol = Some(tol)`
+also any node within `tol * max(|last|, 1.0)` of the last kept one
+(absolute below 1 eV, relative above). Non-finite nodes are dropped.
+
+```rust
+pub fn thin_energy_nodes(nodes: Vec<f64>, e_min_ev: f64, e_max_ev: f64, thin_tol: Option<f64>) -> Result<Vec<f64>, njoy_outram_park_fork::NjoyError> { /* ... */ }
 ```
 
 #### Function `zero_kelvin_companion_candidates`
@@ -9370,8 +9381,13 @@ atom. ~~4 eV is the OpenMC/NJOY convention for light-water thermal tables~~.
 **CORRECTED 2026-09-30 (GitHub #459):** OpenMC and NJOY use the evaluation's
 MF=7/MT=4 `B(4)`: 10.00008 eV for ENDF/B-VIII.0 `tsl-HinH2O`. A table built
 from a tape ([`ThermalScattering::from_tape`]) now uses that, and an ACE
-table uses its last inelastic energy. This constant remains only the
-fallback.
+table uses its last inelastic energy. ~~This constant remains only the
+fallback.~~ **CORRECTED 2026-11-24 (gh:#637):** nothing references this
+constant. The tape route's fallback is njoy's own
+`thermr::scattering::CALCEM_EMAX_FALLBACK_EV` (also 4 eV), reached through
+`IncoherentInelasticScattering::energy_max_ev()` when `B(4)` is absent
+(`ThermalScattering::from_tape`, `calcem_energy_max_ev(..)
+.unwrap_or_else(|| sab.energy_max_ev())`).
 
 ```rust
 pub const DEFAULT_THERMAL_CUTOFF_EV: f64 = 4.0;
@@ -23069,7 +23085,7 @@ says so instead of leaving the partial answer to be found later.
 
 ```rust
 pub struct MeshSurfaceFilter {
-    pub mesh: crate::tally::mesh::RegularMesh,
+    pub mesh: MeshKind,
 }
 ```
 
@@ -23077,7 +23093,7 @@ pub struct MeshSurfaceFilter {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `mesh` | `crate::tally::mesh::RegularMesh` | The mesh whose faces are binned. Only [`MeshKind::Regular`] is<br>supported — the cylindrical and spherical meshes carry no face<br>crossing routine yet, and [`Self::new`] refuses them rather than<br>returning an empty bin list that reads as "this track crossed nothing". |
+| `mesh` | `MeshKind` | The mesh whose faces are binned: any of the four structured kinds.<br>~~Only [`MeshKind::Regular`] is supported~~ **CHANGED 2026-11-22<br>(gh:#1712):** rectilinear, cylindrical and spherical meshes are walked<br>by the same port of `raytrace_mesh`. [`Self::new`] still refuses an<br>unstructured mesh, as upstream does. The field was a `RegularMesh`<br>before gh:#1712. (Row hand-edited 2026-11-22; `kovan-cli` was not<br>available to regenerate this mirror.) |
 
 ##### Implementations
 
@@ -23481,9 +23497,12 @@ apart, and no recorded comparison contains one.
 
 Scores supported: [`ScoreType::Flux`] on segments (`w * d`) and
 [`ScoreType::Current`] on crossings and, for a mesh-surface tally, on
-segments. A tally with a mesh-surface filter must carry no other filter
+segments. ~~A tally with a mesh-surface filter must carry no other filter
 (one event can match several faces; combining would need a product over
-multi-match filters). Time is not reconstructed (`time = 0`).
+multi-match filters).~~ **CORRECTED 2026-11-22 (gh:#1713):** a mesh-surface
+filter combines with single-bin filters as upstream's `FilterBinIter` does
+([`mesh_surface_bins`]); a second multi-match filter beside it is still
+refused. Time is not reconstructed (`time = 0`).
 
 ```rust
 pub mod history_events { /* ... */ }
@@ -24062,14 +24081,20 @@ pub fn score_crossing(batch: &mut [f64], tally: &crate::tally::tally::Tally, geo
 
 - `Other("#[attr = LintCheck([LintCheck {lint_name: LintName { tool: Some(\"clippy\"), name: \"too_many_arguments\" },\nkind: Allow}])]")`
 
-Score the faces one flight crosses into `batch` for a tally whose only
+~~Score the faces one flight crosses into `batch` for a tally whose only
 filter is a mesh-surface filter and whose score is `Current`
-(`filter_meshsurface.cpp`); any other tally is left alone. `crossing` is the
-surface the flight ended on (`None` for a collision or a lattice boundary),
-`collides` whether it ended in a collision.
+(`filter_meshsurface.cpp`); any other tally is left alone.~~ **CORRECTED
+2026-11-22 (gh:#1709, gh:#1713; hand-edited, mirror not regenerated):** scores
+one raytrace from `EventHistory::r_last_current` to where the flight
+collides, leaks or changes direction (`mesh_surface_span`), for a tally with
+a mesh-surface filter, any single-bin filters beside it
+(`mesh_surface_bins`) and a `Current` score; called from the surface- and the
+delta-tracking arm. `crossing` is the surface the flight ended on (`None` for
+a collision or a lattice boundary), `collides` whether it ended in a
+collision. See the source doc comment for the full text.
 
 ```rust
-pub fn score_mesh_surface_segment(batch: &mut [f64], tally: &crate::tally::tally::Tally, geom: &crate::geometry::geometry::Geometry, hist: &EventHistory, cell_idx: usize, energy: f64, weight: f64, crossing: Option<usize>, collides: bool, r_flight: crate::geometry::position::Position, u: crate::geometry::position::Direction, d: f64) { /* ... */ }
+pub fn score_mesh_surface_segment(batch: &mut [f64], tally: &crate::tally::tally::Tally, geom: &crate::geometry::geometry::Geometry, hist: &EventHistory, cell_idx: usize, universe_idx: usize, cell_instance: Option<usize>, energy: f64, weight: f64, crossing: Option<usize>, collides: bool, r_flight: crate::geometry::position::Position, u: crate::geometry::position::Direction, d: f64) { /* ... */ }
 ```
 
 #### Function `history_events`
@@ -28264,19 +28289,9 @@ pub struct Majorant {
   Build the majorant `Σ_maj(E) ≥ max_m Σ_t,m(E)` over `materials`, on the
 
 - ```rust
-  pub fn from_materials_without_breakpoints(materials: &[Material], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
-  ```
-  **ABLATION — not a bound on resonance data.** The pre-#589
-
-- ```rust
   pub fn over_indices(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
   ```
   **A majorant bounding only the materials a REGION can reach.**
-
-- ```rust
-  pub fn over_indices_without_breakpoints(materials: &[Material], indices: &[usize], nuclides: &[Nuclide], energies: &[f64], margin: f64) -> Self { /* ... */ }
-  ```
-  **ABLATION — not a bound on resonance data.** [`Self::over_indices`] on
 
 - ```rust
   pub fn bounding(materials: &[Material], nuclides: &[Nuclide], e_min: f64, e_max: f64, n_bins: usize, subsamples: usize, margin: f64) -> Self { /* ... */ }
@@ -47933,7 +47948,7 @@ pub fn solve_on_grid(g: &SlowingDownGrid) -> SlowingDownResult { /* ... */ }
 Build a [`SlowingDownGrid`] from real nuclear data.
 
 `grid_ev` supplies the *energy* resolution — pass the union of the nuclides'
-own [`Nuclide::native_energy_grid`]s, which resolves every resonance the
+own [`Nuclide::native_energy_grid_with_thinning`]s, which resolves every resonance the
 reconstruction resolved. This function then supplies the *lethargy*
 resolution the solver needs, subdividing any interval wider than
 `ε_min / steps_per_window` (see [`solve_on_grid`] for why that matters).
@@ -77961,7 +77976,7 @@ between its log-spaced nodes; its fidelity is bounded by `n_points`.
 
 [`UnionTotalXs::tabulate_native`] (beads op-u6s.7) builds the genuine
 **native-breakpoint union grid**: it gathers every energy node the underlying
-nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid`]
+nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid_with_thinning`]
 — reconstructed section grids for the HIGH tier; WMP window edges + fast-group
 bounds for the LOW/analytic tier), merges them with a log-spaced backbone
 floor (so it is never coarser than the equal-size dense grid), and

@@ -10630,7 +10630,10 @@ written the same way but no evaluation here exercises it.
 ~~multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED 2026-10-04:** all
 three `IFENG` forms are written since 2026-09-22 (`InelasticForm`,
 `ThermalAceOptions::form`; `tests/acer_thermal_ifeng_vs_njoy2016.rs`).
-Still not handled: multi-atom mixing (`nmix`, taken as 1).
+~~Still not handled: multi-atom mixing (`nmix`, taken as 1).~~ **CORRECTED
+2026-11-24 (gh:#866):** this builder writes the table for `nmix = 1`; the
+ACER deck applies `thrlod`'s division by `nmix` to it
+(`deck::acer_thermal::thrlod_nmix`, gated on decks 67 and 49).
 
 ## Prerequisite provenance
 
@@ -14640,10 +14643,15 @@ pub fn broadening_limit(result: &crate::ReconrResult) -> f64 { /* ... */ }
 Doppler-broaden RECONR output up to `thnmax` \[eV\], copying everything
 above it through untouched — upstream BROADR's actual behaviour.
 
-This is the entry point the RECONR → BROADR pipeline should use; see
+~~This is the entry point the RECONR → BROADR pipeline should use; see
 [`broaden_result`] for the one-call form that also derives `thnmax` with
-[`broadening_limit`]. [`doppler_broaden`] is the same kernel with no bound
-and exists for kernel-level tests.
+[`broadening_limit`].~~ **CORRECTED 2026-11-24 (gh:#622)** — the pipeline
+entry point is [`broaden_result`], which runs [`joint::broadr_joint_pairs`]
+(upstream's joint walk on MT=1's grid, with its own `thnmax`); this
+per-reaction form, with [`broadening_limit`], is only its fallback for a
+result with no MT=1 section (`broaden_result_with_tolerance_and_pairs`,
+`mod.rs`). [`doppler_broaden`] is the same kernel with no bound and exists
+for kernel-level tests.
 
 Per section, the output grid is **BROADR's own adaptive grid**
 ([`broadn_section`], `broadr.f90` `broadn`): nodes chosen from the input
@@ -20660,7 +20668,7 @@ pub struct ContinuousEnergyData {
 
 | Name | Type | Documentation |
 |------|------|---------------|
-| `za` | `f64` | Z×1000 + A (e.g. 1828 for Ar-37, 9228 for U-235). |
+| `za` | `f64` | Z×1000 + A (e.g. 18037 for Ar-37, 92235 for U-235), from the material header. ~~(e.g. 1828 for Ar-37, 9228 for U-235)~~ **CORRECTED 2026-11-24 (gh:#667)** — 1828 and 9228 are those evaluations' MAT numbers, not their ZA. |
 | `awr` | `f64` | Atomic weight ratio: target mass / neutron mass. |
 | `temperature` | `crate::Temperature` | Temperature at which broadening was applied \[K\]. |
 | `reactions` | `Vec<ReactionCrossSection>` | Cross sections for each available reaction, ordered by MT number. |

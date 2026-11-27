@@ -1,0 +1,355 @@
+--- a/tetgen.cxx	2026-11-26 04:51:14.809990685 +0000
++++ b/tetgen.cxx	2026-11-26 04:51:14.811894518 +0000
+@@ -47,6 +47,8 @@
+ 
+ #include "tetgen.h"
+ long tg_reach[64];
++long tg5[64];
++
+ 
+ //== io_cxx ==================================================================//
+ //                                                                            //
+@@ -22754,6 +22756,7 @@
+ 
+ int tetgenmesh::suppressbdrysteinerpoint(point steinerpt)
+ {
++  tg5[11]++;
+   face parentsh, spinsh, *parysh;
+   face leftseg, rightseg;
+   point lpt = NULL, rpt = NULL;
+@@ -23077,6 +23080,7 @@
+   
+   int steinercount = 0;
+ 
++  tg5[12]++;
+   int bak_fliplinklevel = b->fliplinklevel;
+   b->fliplinklevel = 100000; // Unlimited flip level.
+ 
+@@ -23121,6 +23125,7 @@
+ 
+ int tetgenmesh::suppresssteinerpoints()
+ {
++  tg5[10]++;
+ 
+   if (!b->quiet) {
+     printf("Suppressing Steiner points ...\n");
+@@ -23160,6 +23165,7 @@
+       if (pointtype(rempt) != UNUSEDVERTEX) {
+         if (pointtype(rempt) == FREEVOLVERTEX) {
+           if (removevertexbyflips(rempt)) {
++            tg5[13]++;
+             remcount++;
+           }
+         }
+@@ -23217,6 +23223,7 @@
+               }
+             }
+             if (smoothpoint(rempt, cavetetlist, 1, &opm)) {
++              tg5[14]++;
+               count++;
+             }
+             if (opm.imprval <= 0.0) {
+@@ -23875,6 +23882,7 @@
+ 
+ void tetgenmesh::carveholes()
+ {
++  tg5[0]++;
+   arraypool *tetarray, *hullarray;
+   triface tetloop, neightet, *parytet, *parytet1;
+   triface *regiontets = NULL;
+@@ -23927,6 +23935,7 @@
+       neightet.tet = NULL;
+       randomsample(&(in->holelist[i]), &neightet);
+       if (locate(&(in->holelist[i]), &neightet) != OUTSIDE) {
++        tg5[1]++;
+         // The tet 'neightet' contain this point.
+         if (!infected(neightet)) {
+           infect(neightet);
+@@ -24079,6 +24088,7 @@
+       randomsample(&(in->regionlist[i]), &neightet);
+       if (locate(&(in->regionlist[i]), &neightet) != OUTSIDE) {
+         regiontets[i/5] = neightet;
++        tg5[2]++;
+       } else {
+         if (!b->quiet) {
+           printf("Warning:  The %d-th region point ", i/5+1);
+@@ -24195,6 +24205,7 @@
+     }
+ 
+     newhullfacearray = new arraypool(sizeof(triface), 10);
++    tg5[3]++;
+ 
+     // Create and save new hull tets.
+     for (i = 0; i < tetarray->objects; i++) {
+@@ -24315,6 +24326,7 @@
+               }
+               shellfacedealloc(subsegs, checkseg.sh);
+               delsegcount++;
++              tg5[5]++;
+             }
+           }
+           senextself(*parysh);
+@@ -24322,6 +24334,7 @@
+         // Delete this subface.
+         shellfacedealloc(subfaces, parysh->sh);
+       } // i
++      tg5[4]++;
+       if (b->verbose) {
+         printf("  Deleted %ld subfaces.\n", subfacstack->objects);
+       }
+@@ -24341,6 +24354,7 @@
+             }
+             shellfacedealloc(subsegs, paryseg->sh);
+             delsegcount++;
++            tg5[5]++;
+           }
+         }
+       }
+@@ -24378,6 +24392,7 @@
+           }
+           setpointtype(*parypt, UNUSEDVERTEX);
+           unuverts++;
++          tg5[6]++;
+         }
+       }
+ 
+@@ -24453,6 +24468,7 @@
+     if (!b->quiet) {
+       printf("Spreading region attributes.\n");
+     }
++    tg5[7]++;
+     REAL volume;
+     int attr, maxattr = 0; // Choose a small number here.
+     int attrnum = numelemattrib - 1; 
+@@ -30013,7 +30029,7 @@
+                   pe = org(neightet);
+                   if ((pointtype(pe) == FREEFACETVERTEX) ||
+                       (pointtype(pe) == FREESEGVERTEX)) {
+-                    removevertexbyflips(pe);
++tg5[9]++;                     removevertexbyflips(pe);
+                   }
+                 } else {
+                   eorgoppo(neightet, hulltet); // [b,a,d,e]
+@@ -30022,7 +30038,7 @@
+                     pd = dest(neightet);
+                     if ((pointtype(pd) == FREEFACETVERTEX) ||
+                         (pointtype(pd) == FREESEGVERTEX)) {
+-                      removevertexbyflips(pd);
++tg5[9]++;                       removevertexbyflips(pd);
+                     }
+                   } else {
+                     // Perform a 3-to-2 flip to remove the sliver.
+@@ -30046,6 +30062,7 @@
+                       flip32count--;
+                       flip22count--;
+                       sliver_peels++;
++                      tg5[8]++;
+                       if (fc->remove_ndelaunay_edge) {
+                         // Update the volume (must be decreased).
+                         //assert(fc->tetprism_vol_sum <= 0);
+@@ -30611,6 +30628,7 @@
+ 
+ int tetgenmesh::get_surf_laplacian_center(point mesh_vert, REAL target[3])
+ {
++  tg5[17]++;
+   if (pointtype(mesh_vert) == UNUSEDVERTEX) {
+     return 0;
+   }
+@@ -30659,6 +30677,7 @@
+ 
+ int tetgenmesh::get_laplacian_center(point mesh_vert, REAL target[3])
+ {
++  tg5[18]++;
+   if (pointtype(mesh_vert) == UNUSEDVERTEX) {
+     return 0;
+   }
+@@ -30757,6 +30776,7 @@
+     for (j = 0; j < 3; j++) {
+       mesh_vert[j] = newpos[j];
+     }
++    tg5[16]++;
+ 
+     triface checkface, neightet;
+     //int j;
+@@ -30807,6 +30827,7 @@
+ 
+ void tetgenmesh::smooth_vertices()
+ {
++  tg5[15]++;
+   if (!b->quiet) {
+     printf("Smoothing vertices...\n");
+   }
+@@ -31331,6 +31352,7 @@
+ 
+ bool tetgenmesh::add_steinerpt_to_repair(badface *bf, bool bSmooth)
+ {
++  tg5[26]++;
+   REAL cosmaxd = bf->cent[0];
+   REAL eta = bf->cent[2];
+   int lcount = bf->ss.shver; // the number of large dihedrals.
+@@ -31410,7 +31432,7 @@
+       terminatetetgen(this, 2);
+     }
+ 
+-    if (Lmin <= minedgelength) {
++    if (Lmin <= minedgelength) { tg5[29]++;
+       // A very short edge. Check if it was correctly created.
+       point e1 = org(short_edge);
+       point e2 = dest(short_edge);
+@@ -31467,6 +31489,7 @@
+ 
+   if (insertpoint(steinerpt, &splittet, NULL, NULL, &ivf)) {
+     st_volref_count++;
++    tg5[27]++;
+     //if (steinerleft > 0) steinerleft--;
+ 
+     if (flipstack != NULL) {
+@@ -31485,6 +31508,7 @@
+   } else {
+     // Point is not inserted.
+     pointdealloc(steinerpt);
++    tg5[28]++;
+     return false;
+   }
+ 
+@@ -31572,6 +31596,7 @@
+ 
+   if (removeedgebyflips(sliver_edge, &fc) == 2) {
+     // This sliver is removed by flips.
++    tg5[25]++;
+     if ((fc.cosdihed_out < cosmaxdihed) || (fc.max_asp_out > b->opt_max_asp_ratio)) {
+       // Queue new bad tets for further improvements.
+       badface bf;
+@@ -31607,6 +31632,7 @@
+ 
+ bool tetgenmesh::repair_tet(badface *bf, bool bFlips, bool bSmooth, bool bSteiners)
+ {
++  tg5[21]++;
+   REAL cosmaxd = bf->cent[0];
+   REAL eta = bf->cent[2];
+   int lcount = bf->ss.shver; // the number of large dihedrals.
+@@ -31619,10 +31645,10 @@
+     // Determine the outer shape of this sliver, i.e., a square of a triangle?
+     if (lcount == 2) {
+       // It is a square. Try to remove the edge [a,b]
+-      shape = 'S';
++      shape = 'S'; tg5[22]++;
+     } else if (lcount == 3) {
+       // It is a triangle. Try to remove the edge [c,d]
+-      shape = 'T';
++      shape = 'T'; tg5[23]++;
+       //edestoppo(bf->tt, sliver_edge); // face [c,d,a]
+     }
+ 
+@@ -31653,6 +31679,7 @@
+       }
+     }
+   } else if (eta > b->opt_max_edge_ratio) {
++    tg5[24]++;
+     // It is a skinny tet.
+     // This tet contains a relatively short edge. Check if it can be collapsed.
+     REAL Lmin = bf->cent[3];
+@@ -31671,7 +31698,7 @@
+     }
+ 
+ 
+-    if (Lmin <= minedgelength) {
++    if (Lmin <= minedgelength) { tg5[29]++;
+       // A very short edge. Check if it was correctly created.
+       point e1 = org(short_edge);
+       point e2 = dest(short_edge);
+@@ -31714,6 +31741,7 @@
+ 
+ long tetgenmesh::repair_badqual_tets(bool bFlips, bool bSmooth, bool bSteiners)
+ {
++  tg5[20]++;
+   if (b->verbose > 1) {
+     printf("  Repairing %ld bad quality tets.\n", badqual_tets_pool->items);
+   }
+@@ -31765,6 +31793,7 @@
+ 
+ void tetgenmesh::improve_mesh()
+ {
++  tg5[19]++;
+   if (!b->quiet) {
+     printf("Improving mesh...\n");
+   }
+@@ -33498,6 +33527,7 @@
+ 
+ void tetgenmesh::jettisonnodes()
+ {
++  tg5[32]++;
+   point pointloop;
+   bool jetflag;
+   int oldidx, newidx;
+@@ -36355,6 +36385,14 @@
+ //                                                                            //
+ //============================================================================//
+ 
++static void tg5_write() {
++  if (getenv("TG_REACH5")) {
++    FILE *g = fopen(getenv("TG_REACH5"), "w");
++    for (int i = 0; i < 64; i++) fprintf(g, "%ld%c", tg5[i], i == 63 ? '\n' : ' ');
++    fclose(g);
++  }
++}
++
+ void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
+                     tetgenio *addin, tetgenio *bgmin)
+ {
+@@ -36488,6 +36526,7 @@
+     }
+ 
+     m.carveholes();
++    if (getenv("TG_DUMP5C")) { tg5_write(); m.dump_recoverboundary(getenv("TG_DUMP5C")); exit(0); }
+ 
+     ts[2] = clock();
+ 
+@@ -36516,6 +36555,7 @@
+         terminatetetgen(&m, 200);
+       }
+     }
++    if (getenv("TG_DUMP5S")) { tg5_write(); m.dump_recoverboundary(getenv("TG_DUMP5S")); exit(0); }
+   }
+ 
+   tv[5] = clock();
+@@ -36538,6 +36578,7 @@
+     }
+     m.recoverdelaunay();
+   }
++    if (getenv("TG_DUMP5D")) { tg5_write(); m.dump_recoverboundary(getenv("TG_DUMP5D")); exit(0); }
+ 
+   tv[7] = clock();
+ 
+@@ -36579,6 +36620,7 @@
+       ((m.st_volref_count > 0) || (m.st_facref_count > 0))) {
+     m.smooth_vertices(); // m.optimizemesh(ts[0]);
+   }
++    if (getenv("TG_DUMP5M")) { tg5_write(); m.dump_recoverboundary(getenv("TG_DUMP5M")); exit(0); }
+ 
+   tv[10] = clock();
+ 
+@@ -36593,6 +36635,7 @@
+   if (b->plc || b->quality) {
+     m.improve_mesh();
+   }
++    if (getenv("TG_DUMP5I")) { tg5_write(); m.dump_recoverboundary(getenv("TG_DUMP5I")); exit(0); }
+ 
+   tv[11] = clock();
+ 
+@@ -36606,6 +36649,7 @@
+       || (b->refine && (in->numberofcorners == 10)))) {
+     m.jettisonnodes();
+   }
++    if (getenv("TG_DUMP5J")) { tg5_write(); m.dump_recoverboundary(getenv("TG_DUMP5J")); exit(0); }
+ 
+ 
+   if ((b->order == 2) && !b->convex) {
+@@ -36731,6 +36775,7 @@
+   if (!b->quiet) {
+     m.statistics();
+   }
++  tg5_write();
+ }
+ 
+ #ifndef TETLIBRARY

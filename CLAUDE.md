@@ -16,7 +16,7 @@ exactly as if it were here.
 | writing or editing any `README.md` or markdown with math | [`docs/claude-md/markdown-format.md`](docs/claude-md/markdown-format.md) |
 | adding or changing a public API; judging a crate's maturity; the Haiku API test | [`docs/claude-md/api-design-and-maturity.md`](docs/claude-md/api-design-and-maturity.md) |
 | asked for a "bookkeeping pass"; regenerating `docs/<crate>-api.md`; tempted to write Python for docs/accounting | [`docs/claude-md/bookkeeping-and-api-docs.md`](docs/claude-md/bookkeeping-and-api-docs.md) |
-| writing Rust (enums not `dyn`, no `Box`, no lifetimes, `Arc<RwLock>`) | [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md) |
+| writing Rust (enums not `dyn`, no `Box`, no lifetimes, `Arc<RwLock>`, explicit `match` on `Result`) | [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md) |
 | looking up a crate, or changing a dependency (`burn`, BLAS, versions) | [`docs/claude-md/members-and-dependencies.md`](docs/claude-md/members-and-dependencies.md) |
 | adding a dependency, test or example (Android/Termux, wasm), or a deep file path (170-char cap) | [`docs/claude-md/portability-android-wasm-paths.md`](docs/claude-md/portability-android-wasm-paths.md) |
 | writing a slow test, or touching CI (`long-tests` tiers, TUAS parallel runs) | [`docs/claude-md/long-tests-and-ci.md`](docs/claude-md/long-tests-and-ci.md) |
@@ -376,6 +376,13 @@ on gh:#1614. A new one needs 1e-9.
   supersedes 1e-8 there too.
 
 
+### No regression pins until there is concrete V&V at unit-test level (HARD RULE)
+
+**Maintainer, 2026-11-26.** No pin on a model's own output until the pieces
+it depends on have concrete V&V at the unit-test level. The full rule, with
+what it does and does not cover, is in [`AGENTS.md`](AGENTS.md#no-regression-pins-until-there-is-concrete-vv-at-unit-test-level-hard-rule)
+(moved there the same day, maintainer: "Move to agents md pls").
+
 ## Search the workspace before building anything (HARD RULE)
 
 **Before attempting a solution — and before briefing an agent on one — scan
@@ -654,12 +661,18 @@ A system BLAS is **only** needed to run `outram-foam-basic-lib`'s
 library in the workspace needs it (`sudo pacman -S openblas` /
 `sudo apt install libopenblas-dev`).
 
-**This workspace has two submodules** — `reference-data/ace`
+~~**This workspace has two submodules**~~ **This workspace has three
+submodules** (CORRECTED 2026-11-27) — `reference-data/ace`
 (`theodoreOnzGit/ace_and_other_data`, since 2026-09-20), holding the gzipped
-NJOY2016 ACE tables that are too large to track here directly, and
+NJOY2016 ACE tables that are too large to track here directly,
 `crates/kovan-literature/reactor-literature` (`theodoreOnzGit/reactor-literature`,
 since 2026-09-22), holding the open literature PDFs (see "Literature and the
-Kovan corpus" below). Clone with `git clone --recurse-submodules`, or run
+Kovan corpus" below), and
+`crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/refs`
+(the `genfoam-vs-upstream-refs` branch of `theodoreOnzGit/C-_YouTube_OpenFoam`,
+since 2026-11-27, maintainer decision), holding the GeN-Foam
+differential-test references (`*.ref.txt.gz`, ~78 MB); new references are
+written there and committed in that repository. Clone with `git clone --recurse-submodules`, or run
 `git submodule update --init` afterwards. A plain clone leaves each path an
 **empty directory rather than an error**, so nothing complains until something
 looks for a file and does not find one. (Since 2026-09-30 the first workspace
@@ -732,6 +745,10 @@ not call for a trivial unit test per function.
 - A test over **5 minutes** (or one needing heavy reference data) is gated
   behind the crate's `long-tests` feature, which is **on by default**.
   Multi-hour tests use a plain `#[ignore]`.
+- **Tests never race for the same file (HARD RULE, 2026-11-27):** a test
+  that writes, deletes or changes a file uses its own copy at a unique path
+  (`tempfile`), never a fixed shared name; full rule in
+  [`AGENTS.md`](AGENTS.md).
 - `cargo quick-test` skips them, for iteration only. **Work is not done on a
   quick-test run**: before reporting complete, run
   `cargo test --workspace --lib --tests --release`, and say which one you ran.
@@ -757,6 +774,9 @@ Full rules, tiers and CI triggers: [`docs/claude-md/long-tests-and-ci.md`](docs/
   aliases for complex quantities.
 - **`no_std` maps are `hashbrown`**, through each crate's `crate::hash`
   module; never a `BTreeMap as HashMap` stand-in (maintainer, 2026-11-16).
+- **Handle every `Result` with an explicit `match`**, never `?`, `unwrap` or
+  `expect`, in all new agent-written code; a panicking `Err` arm states why
+  (maintainer, 2026-11-26).
 
 Full text, with the enum-dispatch pattern: [`docs/claude-md/rust-design-rules.md`](docs/claude-md/rust-design-rules.md).
 
@@ -817,10 +837,16 @@ all three.
   workspace wide"):** every hand-written `macro_rules!` was replaced with
   plain code that day (#1253), behaviour unchanged, including inside the
   reviewed `outram_mc_libs::physics::transport_csg::transport_history_vr`
-  (confirmed by the maintainer for that refactor). One is left:
+  (confirmed by the maintainer for that refactor). ~~One is left:
   `raffles`' exported `quantities!`, used by
   `outram-park-digital-twin-engine`; its removal is a public API change
-  awaiting the maintainer (#1253). Text inside string literals and doc
+  awaiting the maintainer (#1253).~~ **CORRECTED 2026-11-27:** two are left:
+  `raffles`' exported `quantities!`, used by
+  `outram-park-digital-twin-engine`, and `kovan-codegen`'s exported
+  `kovan_fixed_point!` (`src/macros_support.rs:160`, the crate's
+  declarative-macro example; the copy at `:63` is template text inside a
+  string). Removing either is a public API change awaiting the maintainer
+  (#1253). Verified by `grep -rn "macro_rules!" crates`. Text inside string literals and doc
   comments (`kovan-codegen`'s generated output) is not a macro here.
 - **If a macro seems unavoidable**, ask the maintainer first and say why
   plain code does not work.

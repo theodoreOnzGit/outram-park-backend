@@ -68,12 +68,19 @@ fn main() {}
 
 #[cfg(not(target_os = "android"))]
 mod app;
+/// The Fault tree tab's model: the DRAFT SB-LOCA tree read and quantified
+/// by `raffles::scram` (gh:#1719, #1720). GUI-free.
+#[cfg(not(target_os = "android"))]
+mod fault_tree;
 #[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
 mod headless;
 #[cfg(not(target_os = "android"))]
 mod physics;
 #[cfg(not(target_os = "android"))]
 mod runtime;
+/// HTR-10 on the multifidelity twin template (gh:#1750). Native only.
+#[cfg(all(not(target_os = "android"), not(target_arch = "wasm32")))]
+mod twin;
 /// The browser platform layer: the canvas, the physics Web Worker and the
 /// messages between them (gh:#986). No model lives here.
 #[cfg(all(not(target_os = "android"), target_arch = "wasm32"))]
@@ -103,6 +110,36 @@ fn main() -> eframe::Result<()> {
     if args.iter().any(|a| a == "--bounding-air-ingress") {
         headless::print_bounding_air_ingress();
         return Ok(());
+    }
+
+    // The control-volume list (gh:#1718) as CSV: id, name, volume,
+    // neighbours and the live state, after an optional number of steps.
+    //
+    //     cargo run --release --example htgr_sim_v1 -- --dump-cvs [steps]
+    if args.iter().any(|a| a == "--dump-cvs") {
+        let steps = args[1..].iter().filter_map(|a| a.parse().ok()).next().unwrap_or(0);
+        print!("{}", headless::dump_cvs(steps));
+        return Ok(());
+    }
+
+    // The multifidelity twin template (gh:#1750): `--coefficients` runs the
+    // poured-bed Monte Carlo case (gh:#1739's five runs, hours) and sends it
+    // to the plant; `--twin` opens the template's app (TwinApp) on it.
+    //
+    //     cargo run --release --example htgr_sim_v1 -- --coefficients
+    //     cargo run --release --example htgr_sim_v1 -- --twin
+    if args.iter().any(|a| a == "--coefficients") {
+        match twin::coefficient_report() {
+            Ok(text) => print!("{text}"),
+            Err(e) => {
+                eprintln!("{e}");
+                std::process::exit(1);
+            }
+        }
+        return Ok(());
+    }
+    if args.iter().any(|a| a == "--twin") {
+        return twin::gui();
     }
 
     if args.iter().any(|a| a == "--headless") {

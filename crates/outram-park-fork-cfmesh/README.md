@@ -1,5 +1,8 @@
 # outram-park-fork-cfmesh
 
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. V&V cases are human-reviewed and are intended for journal / arXiv publication — that is the trust workflow. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. For research, education and V&V only. Not for nuclear facility operation, reactor control, safety-critical, or licensing decisions.
+
 > **This is a fork.** `outram-park-fork-cfmesh` is an independent
 > **fork / Rust port of [cfMesh](https://github.com/wyldckat/cfMesh)** (Creative
 > Fields' automatic unstructured mesh generator), for the OUTRAM PARK
@@ -17,6 +20,47 @@ layers.
                         + boundary layers)              solvable)
 ```
 
+**Name.** `outram-park` is the workspace name, OUTRAM PARK: **O**pen-source
+**U**nified **TR**Ansient **M**ulti-Physics **A**dvanced **R**eactor simulation
+**K**it (`docs/ecosystem-naming.md`); `fork-cfmesh` marks a fork of cfMesh, the
+workspace's convention for forks. **The question it answers:** how does an
+automatic mesher turn a closed surface into a volume mesh with wall layers,
+and does a Rust port of cfMesh and TetGen produce the same mesh as the
+originals?
+
+**What this crate lets you study and challenge.** Automatic meshing is
+usually trusted because nobody can read it. Here cfMesh's four workflows
+(`cartesianMesh`, `tetMesh`, `pMesh`, `cartesian2DMesh`) and Hang Si's
+TetGen 1.6.0 are transcribed routine by routine and run beside the upstream
+binaries, stage by stage, with the bar set at bit identity; the records say
+where that was reached, where it was not (one `pow` ulp in asmoOctree's
+`meshOptimisation`) and why. They also keep what the port taught about the
+originals: that an OpenFOAM `HashSet`'s iteration order can move a curvature
+by O(1), that a C++ default argument silently binds a `bool`, that TetGen's
+`-q` leaves tetrahedra above its own ratio near sharp corners. The
+workspace's own tet → dual → layers pipeline sits beside these ports and is
+labelled as original work.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Upstream code (provenance in [`upstream_source/README.md`](upstream_source/README.md)): cfMesh `wyldckat/cfMesh` `6cf1d211f9cf` (GPL-3.0-only) and `DAFoam/cfmesh` `e944f6ba695f` (cfMesh v1.1, GPL-3.0-or-later, the differential target), TetGen 1.6.0 (`libigl/tetgen` `e05aca7df74e`, AGPL-3.0-or-later), OpenFOAM-dev `852527377c7e` (`polyDualMesh`, `snappyLayerDriver`), OpenFOAM ESI v2506 (the build cfMesh runs on) and voro++ (modified BSD). Shewchuk (1997), *Adaptive Precision Floating-Point Arithmetic and Fast Robust Geometric Predicates*, for the predicates. No `crates/kovan-literature/CATALOGUE.md` entry is tied to this crate. |
+| Mathematical equations | Module docs: exact orientation and in-sphere predicates (`tetgen::predicates`), Bowyer-Watson insertion and bistellar flips (`tetgen::delaunay`, `tetgen::flip`, `delaunay`), radius-edge quality and Delaunay refinement (`tetgen::refine`), the median and cell-centre duals (`dual`, `cell_centre_dual`), prism layer thickness and grading (`layers`), cfMesh's mesh-quality metrics and optimisers (`checks`, `mesh_optimizer`, `surface_optimizer`). |
+| Source code | cfMesh ports: `mesh_octree*`, `cartesian_mesh`, `tet_creator_octree`, `tet_mesh_extractor_octree`, `voronoi_mesh_extractor`, `surface_engine`, `surface_mapper(_2d)`, `edge_extractor`, `boundary_layer_optimisation`, `mesh_optimizer`, `surface_optimizer`, `final_mesh`, `renumber_mesh`, `mesh_dict`, `tri_surf_io`, `surface`, `pipeline::{cartesian_mesh, tet_mesh, p_mesh, cartesian_2d_mesh}`; TetGen port: `tetgen`; original work: `pipeline` (tet → dual → layers, `multi_region`, `region_join`), `carve`, `snap`, `octree`, `tet`, `dual`, `layers`, `math`, `shapes`, `reactor`, `patches`. |
+| Interactive simulations | No app in this crate. Mesh Studio (`crates/dhoby-ghaut/examples/mesh_studio/`) and Foam Studio (`foam_studio_web`) run its pipeline; `outram-foam-cli` exposes the four workflows as `cartesianMesh`, `tetMesh`, `pMesh`, `cartesian2DMesh`. |
+| Visualisations | 129 committed images (PNG/SVG) under `verification_and_validation/`, drawn from the assembled meshes. |
+| Verification and validation evidence | [`verification_and_validation/`](verification_and_validation/), one folder per issue. As recorded in `AGENTS.md`: TetGen stage 1, 84 000 / 84 000 predicate values bit-identical (`tetgen_predicates_gh1790`); stage 2, 12 / 12 cases identical to `tetgen -zQ` (`tetgen_delaunay_gh1791`); stage 3, 13 / 13 (`tetgen_meshsurface_gh1792`); stage 4, 38 / 38 runs (`tetgen_recoverboundary_gh1793`); stage 5, 192 / 192 output files byte-identical (`tetgen_plc_gh1794`); stage 6, 164 / 164 files (`tetgen_quality_gh1795`); `-m`, 164 / 164 files (`tetgen_sizing_gh1825`), all 2026-11-26. cfMesh (`upstream_cfmesh_gh1385`, 2026-11-11): all seven steps and the final meshes of `cartesianMesh`, `tetMesh` and `pMesh` bit-identical on the sphere; asmoOctree bit-identical through `boundaryLayerGeneration`, `meshOptimisation` 71649/71650 (one `pow` ulp). Further records: `cartesian_mesh_gh1274`, `tet_mesh_gh1272`, `p_mesh_gh1273`, `cartesian_2d_mesh_gh1275`, `case_reading_gh1476`, `patch_types_gh1483.md`, and others in the folder. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp (no `kind = "review"` block in any `review.md` here). No entry in `docs/human-corrections-to-ai-work.md` names this crate. The maintainer accepted the moved anisotropic fingerprint pins (gh:#1336, 2026-11-12, recorded in `AGENTS.md`) and set the layers-first HARD RULE (gh:#1829); struck-through corrections in this README record TetGen's admission (AGPL) and patch-selective layers. |
+
+**Status:** the TetGen stages and the cfMesh workflows above have AI-run
+bit-for-bit evidence against the upstream binaries on the recorded cases; the
+original tet → dual → layers pipeline has property checks (closure, volume,
+no inverted cells) but no upstream to compare with. Nothing here has been
+reviewed by a human or validated against a flow solution.
+
 ## Why this crate exists
 
 The workspace has the mesh **representation** and finite-volume addressing
@@ -26,7 +70,11 @@ crate supplies the **cfMesh-lineage** automatic unstructured generator between
 them: `outram-blender` surface → one call → solvable polyhedral volume mesh with
 prism wall layers. Open-source, pure-Rust, GPLv3-clean tooling for that is
 genuinely lacking, so this crate **ports the proven cfMesh workflows** instead of
-reinventing them (and deliberately avoids the AGPL-licensed TetGen).
+reinventing them (~~and deliberately avoids the AGPL-licensed TetGen~~
+**CORRECTED 2026-11-26:** AGPL is acceptable since the maintainer's
+2026-10-20 direction, and TetGen 1.6.0 is being ported as the `tetgen`
+module, `src/tetgen/`, epic gh:#1789; stage 1, the exact predicates, is in,
+bit-identical to upstream, gh:#1790).
 
 ### Relationship to `outram-foam-mesh` (they overlap — read this)
 
@@ -55,6 +103,10 @@ Consume an `outram-blender` `Mesh` (a closed watertight surface), generate a
 prism layers**, and emit a real-cell `outram-foam-basic-lib` `PolyMesh` for the
 CFD/TH solvers and `outram-mc-libs` geometry for neutronics — the mesh substrate
 for coupled **pebble-bed / molten-salt / light-water reactor** simulations.
+(Not re-checked as a present capability, 2026-11-27: no `outram-mc-libs`
+export is in `src/` (grep finds only this sentence in `src/lib.rs`); Monte
+Carlo meshes reach `outram-mc-libs` through `outram-blender`'s
+`unstructured` mesh.)
 
 ## Vendored upstreams (reference only, GPLv3-clean, never shipped)
 
@@ -67,12 +119,23 @@ record and the exact clone commands):
 | **cfMesh** | <https://github.com/wyldckat/cfMesh> | **GPL-3.0-only** | Primary port target — `meshLibrary/{cartesianMesh, tetMesh, utilities}` (Cartesian/tet meshing, surface tools, boundary layers) |
 | **voro++** | <https://github.com/chr1shr/voro> | modified-BSD (LBNL), GPLv3-compatible | Voronoi / polyhedral-dual (`polyDualMesh`-style) reference |
 
+**CORRECTED 2026-11-27** — the table lists two upstreams; `upstream_source/README.md`
+and `AGENTS.md` record more: cfMesh `DAFoam/cfmesh` `e944f6ba695f` (v1.1,
+GPL-3.0-or-later; the target of the differential ports, built and run against
+OpenFOAM ESI v2506), TetGen 1.6.0 (`libigl/tetgen` `e05aca7df74e`,
+AGPL-3.0-or-later; `src/tetgen/`) and OpenFOAM-dev `852527377c7e`.
+
 **Every `src/*.rs` file carries an SPDX identifier and a provenance header
-block.** Because this crate re-implements published *algorithms* rather than
+block.** ~~Because this crate re-implements published *algorithms* rather than
 transcribing C++, that block names the upstream project, the source directory or
 file the construction follows, the copyright holder and the licence — rather
 than a per-file upstream commit, which would imply a line-level correspondence
-that does not exist. Files that are original OUTRAM PARK work with no upstream
+that does not exist.~~ **CORRECTED 2026-11-27** — that holds for the early
+modules (`carve`, `snap`, `octree`, `tet`, `dual`, `layers`, ...). The cfMesh
+workflow modules transcribe `DAFoam/cfmesh` `e944f6ba695f` and the `tetgen`
+module transcribes TetGen 1.6.0 line for line, compared bit for bit with
+upstream (`AGENTS.md`, "Differential against real upstream output" and "The
+`tetgen` module"). Files that are original OUTRAM PARK work with no upstream
 ancestor (`math`, `shapes`, `reactor`, `pipeline`, `patches`) say so explicitly
 in the same block.
 
@@ -83,8 +146,11 @@ literature citation rather than an implied code lineage — notably
 Predicates*, Discrete & Computational Geometry 18(3):305-363, 1997). Note that
 only the determinant *formulations* are taken from that work: the adaptive
 exact-arithmetic expansions that make Shewchuk's `predicates.c` robust are **not**
-implemented here, so these are plain `f64` evaluations and are not a substitute
-for the real predicates on degenerate input.
+implemented ~~here~~ in `delaunay`, so these are plain `f64` evaluations and are not a substitute
+for the real predicates on degenerate input. **CORRECTED 2026-11-27** — the exact
+adaptive predicates do exist in the crate, as `tetgen::predicates` (TetGen's
+`predicates.cxx`, 84 000 / 84 000 values bit-identical, gh:#1790); `delaunay`
+does not use them.
 
 ## Licensing & provenance
 
@@ -185,13 +251,22 @@ cells are well *shaped*. Two specific gaps to know before citing this crate:
 ### High-level pipeline (the recommended entry point)
 
 `pipeline::surface_to_tet_dual_mesh(points, tris, &opts)` composes the whole
-kernel into **one call** via the **tet → dual** path — tetrahedralize the carved
-interior, take its polyhedral dual, then grow adaptive prism boundary layers:
+kernel into **one call** via the **tet → dual** path — ~~tetrahedralize the carved
+interior, take its polyhedral dual, then grow adaptive prism boundary layers~~:
 
 ```text
 surface → carve_box → snap_to_surface → tetrahedralize → flip_to_delaunay
   → polyhedral_dual(_min_faces) → laplacian_smooth → add_boundary_layers_adaptive
 ```
+
+**CORRECTED 2026-11-27** (gh:#1829, HARD RULE in `AGENTS.md`): the diagram
+above is the old layers-last route. The pipeline now grows its prism layers
+**first**, inward from TetGen's wall triangulation (`pipeline::layers_first`),
+then TetGen (the default `TetDualOptions::tet_source`) meshes the inner region
+face to face with the prisms, and the optional dual is taken of both. The
+carved source (carve, snap, centroid split, Delaunay flips) remains for bare
+meshes only; with `n_layers > 0` it is an error. The octree-grading table
+below was measured on the carved route on 2026-08-07.
 
 It is tuned by `pipeline::TetDualOptions` (all lengths in **metres**: background
 `cell_size`, `first_layer_thickness`; dimensionless `expansion ≥ 1`; per-stage
@@ -203,7 +278,7 @@ free of negative-volume (inverted) cells — otherwise it is **gracefully skippe
 the previous mesh is kept, and a human-readable line is appended to
 `TetDualReport::stage_notes`. The returned mesh is therefore always valid and
 exportable, so a caller never has to unwind a broken partial mesh. This is the
-coarse-grained entry point the **`outram-blender` Mesh Studio GUI** calls (in
+coarse-grained entry point the ~~**`outram-blender` Mesh Studio GUI**~~ **Mesh Studio GUI** (in `dhoby-ghaut` since 2026-10-02, through `outram-blender`'s `foam_mesh`; CORRECTED 2026-11-27) calls (in
 place of hand-wiring the individual stages) to author a surface and generate a
 polyhedral-with-layers volume mesh; the `box_tet_dual` / `sphere_tet_dual` /
 `cylinder_tet_dual` wrappers mesh the built-in primitives directly.
@@ -305,7 +380,11 @@ Remaining roadmap (beads under the `op-hzs` epic):
 8. octree grading wired into the high-level pipeline (`refinement_levels`) ✅
 9. named boundary patches carried through to the output polyMesh
    (`surface_to_tet_dual_mesh_multipatch`) ✅
-10. exact/adaptive predicates + size-driven point insertion (rest of `op-38z`)
+10. ~~exact/adaptive predicates + size-driven point insertion (rest of `op-38z`)~~
+    **CORRECTED 2026-11-27:** both exist in the `tetgen` port (exact predicates,
+    gh:#1790; Delaunay refinement and `-m` point sizes, gh:#1795, gh:#1825), which
+    the pipeline uses for its inner region; the carved route's `delaunay` still
+    evaluates plain `f64`
 11. ~~**patch-selective** layer insertion (layers currently grow over the whole
     boundary, because patch classification runs last) and~~ **patch-selective
     layers done 2026-11-04 (gh:#1202)**; ~~still to do: feature-edge capture~~
@@ -314,7 +393,7 @@ Remaining roadmap (beads under the `op-hzs` epic):
     ~~still to do: feature-aware layers and **local layer collapse** (three
     layers on the pipe diverge in the solver; the interface to the dual sits
     at 75–84°, and only a local collapse, snappy-style, can meet upstream's
-    relaxed `maxNonOrtho 75`)~~ **UPDATED 2026-11-04 (gh:#1215):** both
+    relaxed `maxNonOrtho 75`)~~ ~~**UPDATED 2026-11-04 (gh:#1215):** both
     upstream repairs are ported beside the crate's own back-off and
     selectable by `TetDualOptions::layer_strategy`
     (`layers::LayerQualityStrategy`): `BackOffOnly` (default, unchanged),
@@ -324,7 +403,13 @@ Remaining roadmap (beads under the `op-hzs` epic):
     (snappyHexMesh's per-point `extrudeMode` and `checkAndUnmark` loop with
     `meshQualityDict`'s limits, modules `snappy_layers`,
     `checks::faces_failing_mesh_quality`); the layer builder takes a
-    per-point layer count (`layers::build_layered_variable`). The
+    per-point layer count (`layers::build_layered_variable`).~~
+    **CHANGED 2026-11-26 (gh:#1829, maintainer HARD RULE):** the pipeline
+    grows its layers **first**, from TetGen's wall triangulation, and TetGen
+    meshes the inside face to face (`pipeline::layers_first`); the
+    `layer_strategy` option, `snappy_layers` and `pipeline::tet_layers` are
+    deleted. The back-off and `boundary_layer_optimisation` stay as library
+    functions (the cfMesh workflow ports use the latter). The
     differential results are in
     `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`
     (gh:#1215 section). Also found: the tet-dual pipeline was not

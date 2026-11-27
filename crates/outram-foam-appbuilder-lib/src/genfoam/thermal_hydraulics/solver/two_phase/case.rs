@@ -19,9 +19,10 @@
 //! `system/controlDict`, `system/<region>/fvSolution` and the `0/<region>`
 //! fields, with basic-lib's `FoamFile` dictionary parser and this crate's
 //! `polyMesh` reader. **Every selection the port does not implement is a hard
-//! error naming it**, except the alpha solver (`MULES` → `implicitUpwind`),
-//! which is recorded in [`TwoPhaseCase::deviations`] because GeN-Foam ships
-//! the alternative and the substitution is the whole point of this slice.
+//! error naming it**. ~~Except the alpha solver (`MULES` → `implicitUpwind`), recorded
+//! in [`TwoPhaseCase::deviations`].~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): `MULES` is ported and is what
+//! a case that selects it runs; the old substitution is the explicit
+//! [`TwoPhaseCase::with_alpha_solver_implicit_upwind`].
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -41,22 +42,29 @@ use uom::si::time::second;
 use uom::si::volumetric_heat_capacity::joule_per_cubic_meter_kelvin;
 use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-use super::fv::{Bc, Geometry, Scalar, Vector};
+use super::fv::{Bc, Geometry, Scalar, Vector, VectorBc};
 use super::thermo::PhaseThermo;
 use super::{
-    ByRegime, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, Structure,
-    TimeControls, TwoPhaseControls, TwoPhaseModels,
+    ByRegime, HPbicgstab, PRghPcg, FfHtcModel, FsHtcModel, HeStabilization, Phase, PhaseChangeConfig, RegimeMapSelection, RegimeParameter,
+    ChfSelection, Structure, TimeControls, TraceBoilingModel, TraceChfModel, TwoPhaseControls, TwoPhaseModels,
 };
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::cachard::{CachardLiquid, CachardVapour};
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::LeidenfrostTemperature;
+use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf_table::LookUpTableChf;
+use super::mules::{AlphaConvection, LimiterControls};
+use super::{AlphaSolver, MulesControls, MultiRegimeBoilingModel};
 #[cfg(feature = "std")]
 use crate::error::AppBuilderError;
 use crate::genfoam::thermal_hydraulics::closures::ff_drag::{FfDragCoefficient, TwoPhaseDragMultiplier};
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::chf::{
-    FlowEnhancementFactor, SuppressionFactor,
+    FlowEnhancementFactor, OnsetOfNucleateBoilingTemperature, SubcooledBoilingFraction, SuppressionFactor,
 };
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::{
     FsForcedConvectionHtc, PoolBoilingHtc,
 };
+use crate::genfoam::thermal_hydraulics::closures::interfacial::by_regime::ByRegimeModel;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map_2d::RegimeMap2D;
 use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{
     RegimeBound, RegimeInterpolationMode, RegimeMap1D,
 };
@@ -118,6 +126,15 @@ impl Ctx {
     pub(super) fn read(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
         let p = self.root.join(rel);
         FoamFile::read(&p)
+            .map(|f| f.dict)
+            .map_err(|e| err(&self.root, format!("{rel}: {e}")))
+    }
+
+    /// As [`Ctx::read`], following `#include "file"` (the `lookUpTableCHF` table is one).
+    #[cfg(feature = "std")]
+    pub(super) fn read_with_includes(&self, rel: &str) -> Result<FoamDict, AppBuilderError> {
+        let p = self.root.join(rel);
+        FoamFile::read_with_includes(&p)
             .map(|f| f.dict)
             .map_err(|e| err(&self.root, format!("{rel}: {e}")))
     }
@@ -205,6 +222,15 @@ pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
 
 /// The first entry of `d` whose (regex) key matches `name`, as OpenFOAM
 /// looks up `relaxationFactors` and `solvers`.
+/// OpenFOAM's dictionary lookup of `name`: the exact keyword if there is one, else the LAST declared pattern that matches (patterns
+/// are searched from the newest entry back, so a catch-all `".*"` declared after `"h.*"` shadows it).
+pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+    if let Some(e) = d.get(name) {
+        return Some(e);
+    }
+    d.iter().filter(|(k, _)| key_matches(k, name)).last().map(|(_, e)| e)
+}
+
 pub(super) fn lookup_regex<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
@@ -223,8 +249,12 @@ pub(super) fn uniform_value(ctx: &Ctx, e: Option<&FoamEntry>) -> Result<FoamValu
 
 /// A volume field file: internal value and per-patch BCs.
 pub(super) struct FieldFile {
+    /// The field's name (the file name), for error messages.
+    pub(super) name: String,
     pub(super) internal: FoamValue,
     pub(super) bcs: Vec<(String, String, Option<FoamValue>)>,
+    /// The whole dictionary of each patch (`phi`, `inletValue`, ...), by patch name.
+    pub(super) dicts: Vec<(String, FoamDict)>,
 }
 
 #[cfg(feature = "std")]
@@ -233,8 +263,10 @@ pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderEr
     let internal = uniform_value(ctx, d.get("internalField"))?;
     let bf = ctx.sub(&d, "boundaryField")?;
     let mut bcs = Vec::new();
+    let mut dicts = Vec::new();
     for (name, e) in bf.iter() {
         if let FoamEntry::SubDict(pd) = e {
+            dicts.push((name.to_string(), pd.clone()));
             let ty = ctx.word(pd, "type")?;
             let value = match pd.get("value") {
                 Some(FoamEntry::Word(w)) if w == "$internalField" => Some(internal.clone()),
@@ -244,12 +276,40 @@ pub(super) fn read_field(ctx: &Ctx, rel: &str) -> Result<FieldFile, AppBuilderEr
             bcs.push((name.to_string(), ty, value));
         }
     }
-    Ok(FieldFile { internal, bcs })
+    Ok(FieldFile { name: rel.rsplit('/').next().unwrap_or(rel).to_string(), internal, bcs, dicts })
+}
+
+/// The boundary conditions beyond `fixedValue`, `zeroGradient` and `calculated` that a scalar field may
+/// carry (gh:#1801); each is accepted ONLY for the field the solver implements it for.
+#[cfg(feature = "std")]
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ExtraBc {
+    /// Only the three basic types.
+    NoExtra,
+    /// `fixedFluxPressure` (`p_rgh`).
+    FixedFluxPressure,
+    /// `inletOutlet` (`alpha.<fluid>`) with `phi phi.<fluid>`.
+    InletOutlet,
 }
 
 #[cfg(feature = "std")]
-/// Map a scalar field file to [`Bc`]s on the mesh patches.
+/// Map a scalar field file to [`Bc`]s on the mesh patches: `fixedValue`, `zeroGradient` and `calculated`
+/// only. **Any other type is refused by name** (before gh:#1801 it became `calculated` silently, so a case
+/// selecting `fixedFluxPressure` or `inletOutlet` ran a different problem without a word).
 pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<Bc>, AppBuilderError> {
+    scalar_bcs_with(ctx, g, ff, ExtraBc::NoExtra, &[])
+}
+
+#[cfg(feature = "std")]
+/// [`scalar_bcs`] plus the one extra type `extra` names. `fluids` are the two fluid names (an
+/// `inletOutlet` patch's `phi phi.<fluid>` is resolved against them).
+pub(super) fn scalar_bcs_with(
+    ctx: &Ctx,
+    g: &Geometry,
+    ff: &FieldFile,
+    extra: ExtraBc,
+    fluids: &[String],
+) -> Result<Vec<Bc>, AppBuilderError> {
     let mut out = Vec::new();
     for p in &g.mesh.patches {
         if p.kind == PatchKind::Empty {
@@ -260,25 +320,229 @@ pub(super) fn scalar_bcs(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<Vec<
             .bcs
             .iter()
             .find(|(n, _, _)| n == &p.name)
-            .ok_or_else(|| ctx.e(format!("no BC for patch `{}`", p.name)))?;
+            .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", ff.name, p.name)))?;
+        let dict = ff.dicts.iter().find(|(n, _)| n == &p.name).map(|(_, d)| d);
+        let refuse_keys = |allowed: &[&str]| -> Result<(), AppBuilderError> {
+            if let Some(d) = dict {
+                for (k, _) in d.iter() {
+                    if k != "type" && !allowed.contains(&k) {
+                        return Err(ctx.e(format!(
+                            "{}.{}: entry `{k}` of a `{ty}` patch is not ported",
+                            ff.name, p.name
+                        )));
+                    }
+                }
+            }
+            Ok(())
+        };
         out.push(match ty.as_str() {
             "fixedValue" => {
+                refuse_keys(&["value"])?;
                 let v = v
                     .as_ref()
                     .and_then(FoamValue::as_scalar)
                     .ok_or_else(|| ctx.e("fixedValue needs a uniform scalar value"))?;
                 Bc::Fixed(vec![v; p.size])
             }
-            "zeroGradient" => Bc::ZeroGradient,
-            // `calculated` (and the `calulated` spelling 1D_boiling's
-            // alpha.liquid carries) are set by field algebra.
-            _ => Bc::Calculated,
+            "zeroGradient" => {
+                // ESI `zeroGradientFvPatchField` reads no entry but `value`: the leftover `phi`/`inletValue` of an
+                // `inletOutlet` patch the user switched to `zeroGradient` (PhaseII_Ex*'s `alpha.vapour.outlet`) are
+                // never looked up, so they are ignored on a phase fraction (gh:#1802)
+                if ff.name.starts_with("alpha.") {
+                    refuse_keys(&["value", "phi", "inletValue"])?;
+                } else {
+                    refuse_keys(&["value"])?;
+                }
+                Bc::ZeroGradient
+            }
+            // `calculated` is set by field algebra (the misspelling `calulated`, which 1D_boiling's
+            // `alpha.liquid` carries, is accepted for the file that upstream does not read as a field).
+            "calculated" => {
+                refuse_keys(&["value"])?;
+                Bc::Calculated
+            }
+            "calulated" if ff.name.starts_with("alpha.") => Bc::Calculated,
+            "fixedFluxPressure" if extra == ExtraBc::FixedFluxPressure => {
+                // ESI `fixedFluxPressureFvPatchScalarField`: no `gradient` entry (a given one is not ported)
+                // starts from `extrapolateInternal(); gradient() = Zero;`.
+                refuse_keys(&["value"])?;
+                Bc::FixedGradient(vec![0.0; p.size])
+            }
+            "inletOutlet" if extra == ExtraBc::InletOutlet => {
+                refuse_keys(&["value", "phi", "inletValue"])?;
+                let d = dict.ok_or_else(|| ctx.e("inletOutlet patch without a dictionary"))?;
+                let phi = ctx.word(d, "phi")?;
+                let phi_index = fluids
+                    .iter()
+                    .position(|n| phi == format!("phi.{n}"))
+                    .ok_or_else(|| {
+                        ctx.e(format!(
+                            "{}.{}: inletOutlet `phi {phi}` is not one of the fluid fluxes `phi.<fluid>`",
+                            ff.name, p.name
+                        ))
+                    })?;
+                let iv = uniform_value(ctx, d.get("inletValue"))?
+                    .as_scalar()
+                    .ok_or_else(|| ctx.e("inletOutlet needs a uniform scalar inletValue"))?;
+                Bc::InletOutlet { inlet_value: vec![iv; p.size], phi_index }
+            }
+            // a `symmetry` patch evaluates to the owner value for a scalar (`basicSymmetry<scalar>`; transformFvPatchField
+            // coefficients are those of zeroGradient); `p` is set by algebra on every patch, so it stays `calculated` there
+            "symmetry" if p.kind == PatchKind::Symmetry => {
+                refuse_keys(&["value"])?;
+                if ff.name == "p" { Bc::Calculated } else { Bc::ZeroGradient }
+            }
+            other => {
+                return Err(ctx.e(format!(
+                    "{}.{}: boundary condition `{other}` is not ported (the two-phase driver supports fixedValue, \
+                     zeroGradient, calculated{})",
+                    ff.name,
+                    p.name,
+                    match extra {
+                        ExtraBc::NoExtra => "",
+                        ExtraBc::FixedFluxPressure => ", fixedFluxPressure",
+                        ExtraBc::InletOutlet => ", inletOutlet",
+                    }
+                )))
+            }
+        });
+    }
+    Ok(out)
+}
+
+#[cfg(feature = "std")]
+/// Map a velocity field file to [`VectorBc`]s: `zeroGradient`, `fixedValue` (uniform), `slip` and
+/// `pressureInletOutletVelocity` (`phi phi.<fluid>`, no `tangentialVelocity`). Anything else is refused by name.
+pub(super) fn vector_bcs(
+    ctx: &Ctx,
+    g: &Geometry,
+    ff: &FieldFile,
+    fluids: &[String],
+) -> Result<Vec<VectorBc>, AppBuilderError> {
+    let mut out = Vec::new();
+    for p in &g.mesh.patches {
+        if p.kind == PatchKind::Empty {
+            out.push(VectorBc::ZeroGradient);
+            continue;
+        }
+        let (_, ty, v) = ff
+            .bcs
+            .iter()
+            .find(|(n, _, _)| n == &p.name)
+            .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", ff.name, p.name)))?;
+        let dict = ff.dicts.iter().find(|(n, _)| n == &p.name).map(|(_, d)| d);
+        let refuse_keys = |allowed: &[&str]| -> Result<(), AppBuilderError> {
+            if let Some(d) = dict {
+                for (k, _) in d.iter() {
+                    if k != "type" && !allowed.contains(&k) {
+                        return Err(ctx.e(format!(
+                            "{}.{}: entry `{k}` of a `{ty}` patch is not ported",
+                            ff.name, p.name
+                        )));
+                    }
+                }
+            }
+            Ok(())
+        };
+        out.push(match ty.as_str() {
+            "zeroGradient" => {
+                refuse_keys(&["value"])?;
+                VectorBc::ZeroGradient
+            }
+            "fixedValue" => {
+                refuse_keys(&["value"])?;
+                let v = v
+                    .as_ref()
+                    .and_then(FoamValue::as_vector3)
+                    .ok_or_else(|| ctx.e("fixedValue needs a uniform vector value"))?;
+                VectorBc::Fixed(vec![v; p.size])
+            }
+            "slip" => {
+                refuse_keys(&["value"])?;
+                VectorBc::Slip
+            }
+            // ESI `symmetryFvPatchField` derives from `basicSymmetry`, as `slip` does (gh:#1802)
+            "symmetry" if p.kind == PatchKind::Symmetry => {
+                refuse_keys(&["value"])?;
+                VectorBc::Slip
+            }
+            "pressureInletOutletVelocity" => {
+                refuse_keys(&["value", "phi"])?;
+                let d = dict.ok_or_else(|| ctx.e("pressureInletOutletVelocity patch without a dictionary"))?;
+                let phi = ctx.word(d, "phi")?;
+                let phi_index = fluids
+                    .iter()
+                    .position(|n| phi == format!("phi.{n}"))
+                    .ok_or_else(|| {
+                        ctx.e(format!(
+                            "{}.{}: pressureInletOutletVelocity `phi {phi}` is not one of the fluid fluxes `phi.<fluid>`",
+                            ff.name, p.name
+                        ))
+                    })?;
+                VectorBc::PressureInletOutletVelocity { phi_index }
+            }
+            other => {
+                return Err(ctx.e(format!(
+                    "{}.{}: velocity boundary condition `{other}` is not ported (zeroGradient, fixedValue, slip and \
+                     pressureInletOutletVelocity are)",
+                    ff.name, p.name
+                )))
+            }
         });
     }
     Ok(out)
 }
 
 impl TwoPhaseCase {
+    /// DEPRECATED (gh:#1361 round 13): give every `perfectGas` phase the CODATA 2019 universal gas constant the port
+    /// used before round 13, in place of OpenFOAM-v2506's (`NA k` from `etc/controlDict`), which is the default.
+    /// The CODATA value makes the vapour density 8.96e-7 relative larger than the real binary's.
+    #[must_use]
+    pub fn with_codata2019_gas_constant(mut self) -> Self {
+        for f in self.fluids.iter_mut() {
+            f.thermo = f.thermo.clone().with_gas_constant(outram_foam_basic_lib::prelude::GasConstant::Codata2019);
+        }
+        self
+    }
+}
+
+impl TwoPhaseCase {
+    /// DEPRECATED (gh:#1815): apply every `fixedPower` `powerTimeProfile` as the closed form `initial * prof(t)` the
+    /// port used before it translated upstream's recursion `prof(t) * pdOld / prof(t - dt)`
+    /// ([`FixedPower::with_closed_form_power_profile`]). Upstream's recursion is the default.
+    #[must_use]
+    pub fn with_closed_form_power_profile(mut self) -> Self {
+        self.structure.power =
+            self.structure.power.into_iter().map(|p| p.map(FixedPower::with_closed_form_power_profile)).collect();
+        self
+    }
+}
+
+impl TwoPhaseCase {
+    /// The port's behaviour BEFORE gh:#1361 round 7: run GeN-Foam's `implicitUpwind` alpha solver
+    /// (`solveAlphaImplicitUpwind.H`, `solvePhase` = the vapour unless the case names one) in place of
+    /// the `MULES` the case selects, and record it in [`TwoPhaseCase::deviations`]. Not what upstream does for a
+    /// case that selects MULES (the default now); needs an `alpha.<phase>` linear-solver entry in `fvSolution`.
+    ///
+    /// # Errors
+    /// The case has no linear solver for `alpha.<solvePhase>`.
+    pub fn with_alpha_solver_implicit_upwind(mut self) -> Result<Self, crate::error::AppBuilderError> {
+        if self.controls.alpha != AlphaSolver::ImplicitUpwind {
+            if self.controls.alpha_solver_tolerance.is_nan() {
+                return Err(crate::error::AppBuilderError::Case {
+                    case: crate::path::PathBuf::new(),
+                    msg: "no linear solver for alpha.<phase> in fvSolution: implicitUpwind cannot run".into(),
+                });
+            }
+            self.controls.alpha = AlphaSolver::ImplicitUpwind;
+            self.deviations.push(format!(
+                "alpha solver `MULES` is not run; ran GeN-Foam's implicitUpwind (solveAlphaImplicitUpwind.H) with solvePhase {}",
+                self.fluids[self.controls.solve_phase].name
+            ));
+        }
+        Ok(self)
+    }
+
     /// The ablation of [`TwoPhaseControls::p_patch_from_file`]: the patch values of `p` start as `p_rgh`'s
     /// (and are reset to `p_rgh + rho gh` after the thermo construction), as the port did before gh:#1361
     /// round 5. Differs from GeN-Foam 652b3da in steps 1 and 2 only (the `U.vapour` inlet cell of an absent phase).
@@ -309,7 +573,7 @@ impl TwoPhaseCase {
         let zones = read_cell_zones(&poly)?;
         let g = Geometry::new(mesh.clone());
         let n = g.n_cells();
-        let mut deviations = Vec::new();
+        let deviations: Vec<String> = Vec::new();
         let zone_cells = |names: &str| -> Result<Vec<usize>, AppBuilderError> {
             let mut cells = Vec::new();
             for z in names.split(':') {
@@ -359,13 +623,13 @@ impl TwoPhaseCase {
         }
 
         // phaseProperties
-        let pp = ctx.read(&format!("constant/{region}/phaseProperties"))?;
+        let pp = ctx.read_with_includes(&format!("constant/{region}/phaseProperties"))?;
         let names = [ctx.word(&pp, "fluid1")?, ctx.word(&pp, "fluid2")?];
 
         // 0/ fields
         let zero = format!("0/{region}");
         let p_rgh_f = read_field(&ctx, &format!("{zero}/p_rgh"))?;
-        let p_rgh_bc = scalar_bcs(&ctx, &g, &p_rgh_f)?;
+        let p_rgh_bc = scalar_bcs_with(&ctx, &g, &p_rgh_f, ExtraBc::FixedFluxPressure, &names)?;
         let p_rgh = Scalar::uniform(&g, p_rgh_f.internal.as_scalar().unwrap_or(0.0), p_rgh_bc);
         let p_f = read_field(&ctx, &format!("{zero}/p"))?;
         let mut p = Scalar::uniform(&g, p_f.internal.as_scalar().unwrap_or(0.0), vec![Bc::Calculated; mesh.patches.len()]);
@@ -389,11 +653,15 @@ impl TwoPhaseCase {
         // fluids
         let mut fluids = Vec::new();
         let mut alphas = Vec::new();
+        let mut alpha_bcs: Vec<Option<Vec<Bc>>> = Vec::new();
         for name in &names {
             let a_path = root.join(format!("{zero}/alpha.{name}"));
             alphas.push(if a_path.exists() {
-                Some(read_field(&ctx, &format!("{zero}/alpha.{name}"))?.internal.as_scalar().unwrap_or(0.0))
+                let af = read_field(&ctx, &format!("{zero}/alpha.{name}"))?;
+                alpha_bcs.push(Some(scalar_bcs_with(&ctx, &g, &af, ExtraBc::InletOutlet, &names)?));
+                Some(af.internal.as_scalar().unwrap_or(0.0))
             } else {
+                alpha_bcs.push(None);
                 None
             });
         }
@@ -402,6 +670,8 @@ impl TwoPhaseCase {
         }
         let a0 = alphas[0].unwrap_or(1.0 - alphas[1].unwrap_or(0.0));
         let a1 = alphas[1].unwrap_or(1.0 - a0);
+        let mut dd_tables: Vec<(usize, String, Vec<(String, f64)>)> = Vec::new();
+        let mut turb_dicts: Vec<FoamDict> = Vec::new();
         for (k, name) in names.iter().enumerate() {
             let props = ctx.sub(&pp, &format!("{name}Properties"))?;
             let state = ctx.word(props, "stateOfMatter")?;
@@ -410,14 +680,28 @@ impl TwoPhaseCase {
             let tra = scalar(props, "thermoResidualAlpha").unwrap_or(0.0);
             let dd = match props.get_dict("dispersedDiameterModel") {
                 Some(d) if word(d, "type").as_deref() == Some("constant") => ctx.f64(d, "value")?,
-                Some(_) => return Err(ctx.e(format!("{name}: only a constant dispersedDiameterModel is ported"))),
+                Some(d) if word(d, "type").as_deref() == Some("byRegime") => {
+                    // gh:#1225: one constant sub-model per regime of the named map
+                    let mut table = Vec::new();
+                    for (rn, e) in d.iter() {
+                        if let FoamEntry::SubDict(sd) = e {
+                            if ctx.word(sd, "type")? != "constant" {
+                                return Err(ctx.e(format!("{name}: byRegime diameter sub-models must be constant")));
+                            }
+                            table.push((rn.to_string(), ctx.f64(sd, "value")?));
+                        }
+                    }
+                    dd_tables.push((k, ctx.word(d, "regimeMap")?, table));
+                    0.0
+                }
+                Some(_) => {
+                    return Err(ctx.e(format!("{name}: only a constant or byRegime dispersedDiameterModel is ported")))
+                }
                 None => 0.0,
             };
             let thermo = read_thermo(&ctx, &format!("constant/{region}/thermophysicalProperties.{name}"))?;
             let tp = ctx.read(&format!("constant/{region}/turbulenceProperties.{name}"))?;
-            if word(&tp, "simulationType").as_deref() != Some("laminar") {
-                return Err(ctx.e(format!("{name}: only laminar turbulence is ported")));
-            }
+            turb_dicts.push(tp);
             let t_f = read_field(&ctx, &format!("{zero}/T.{name}"))?;
             let t_bc = scalar_bcs(&ctx, &g, &t_f)?;
             let he_bc: Vec<Bc> = t_bc
@@ -431,19 +715,56 @@ impl TwoPhaseCase {
             let t = Scalar::uniform(&g, t_f.internal.as_scalar().unwrap_or(0.0), t_bc);
             let u_f = read_field(&ctx, &format!("{zero}/U.{name}"))?;
             let u0 = u_f.internal.as_vector3().ok_or_else(|| ctx.e("U must be uniform"))?;
-            for (pn, ty, _) in &u_f.bcs {
-                if ty != "zeroGradient" && ty != "empty" {
-                    return Err(ctx.e(format!("U.{name}.{pn}: only zeroGradient velocity patches are ported")));
+            let u_bc = vector_bcs(&ctx, &g, &u_f, &names)?;
+            let mut u = Vector::uniform(&g, u0);
+            // Initial patch values as upstream's constructors give them: `fixedValue` its value; `slip` evaluated
+            // (`basicSymmetry` dictionary constructor); `pressureInletOutletVelocity` the file's `value`.
+            {
+                let mut tmp = u.clone();
+                tmp.bc = u_bc
+                    .iter()
+                    .map(|b| match b {
+                        VectorBc::PressureInletOutletVelocity { .. } => VectorBc::ZeroGradient,
+                        o => o.clone(),
+                    })
+                    .collect();
+                tmp.correct_bc(&g);
+                u.b = tmp.b;
+                u.bc = u_bc;
+                for (pi, patch) in g.mesh.patches.iter().enumerate() {
+                    if matches!(u.bc[pi], VectorBc::PressureInletOutletVelocity { .. }) {
+                        let file_value = u_f
+                            .bcs
+                            .iter()
+                            .find(|(n, _, _)| n == &patch.name)
+                            .and_then(|(_, _, v)| v.as_ref().and_then(FoamValue::as_vector3))
+                            .unwrap_or(u0);
+                        for kk in 0..patch.size {
+                            u.b[patch.start + kk - g.n_internal()] = file_value;
+                        }
+                    }
                 }
             }
-            let alpha = Scalar::uniform(&g, if k == 0 { a0 } else { a1 }, g.default_bcs());
+            let a_bc = match alpha_bcs.get(k).cloned().flatten() {
+                Some(b) => b
+                    .into_iter()
+                    .map(|b| match b {
+                        // `calculated` on a phase fraction is algebra-set: the port's earlier reading
+                        Bc::Calculated => Bc::ZeroGradient,
+                        o => o,
+                    })
+                    .collect(),
+                None => g.default_bcs(),
+            };
+            let mut alpha = Scalar::uniform(&g, if k == 0 { a0 } else { a1 }, g.default_bcs());
+            alpha.bc = a_bc;
             fluids.push(Phase::new(
                 &g,
                 name,
                 is_liquid,
                 thermo,
                 alpha,
-                Vector::uniform(&g, u0),
+                u,
                 t,
                 he_bc,
                 residual_alpha,
@@ -451,7 +772,7 @@ impl TwoPhaseCase {
                 dd,
             ));
         }
-        let fluids: [Phase; 2] = [fluids[0].clone(), fluids[1].clone()];
+        let mut fluids: [Phase; 2] = [fluids[0].clone(), fluids[1].clone()];
 
         // structure
         let sp = ctx.sub(&pp, "structureProperties")?;
@@ -459,6 +780,7 @@ impl TwoPhaseCase {
         let mut dh_s = vec![1.0; n];
         let mut power: Vec<Option<FixedPower>> = vec![None; n];
         let mut power_off = None;
+        let mut power_density_file: Option<Vec<f64>> = None;
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
             if key == "powerOffCriterionModel" {
@@ -486,9 +808,13 @@ impl TwoPhaseCase {
                 if word(pm, "type").as_deref() != Some("fixedPower") {
                     return Err(ctx.e("only the fixedPower powerModel is ported"));
                 }
-                if pm.get("powerTimeProfile").is_some() {
-                    return Err(ctx.e("fixedPower powerTimeProfile is not wired"));
-                }
+                let power_profile = match pm.get_dict("powerTimeProfile") {
+                    Some(d) => Some(read_table_time_profile(&ctx, d, "powerTimeProfile")?),
+                    None if pm.get("powerTimeProfile").is_some() => {
+                        return Err(ctx.e("powerTimeProfile must be a dictionary"))
+                    }
+                    None => None,
+                };
                 let pa = scalar(pm, "volumeFraction").unwrap_or(vf);
                 let rho_cp = match (scalar(pm, "rho"), scalar(pm, "Cp"), scalar(pm, "rhoCp")) {
                     (Some(r), Some(cp), _) => r * cp,
@@ -497,10 +823,23 @@ impl TwoPhaseCase {
                 };
                 let ia = ctx.f64(pm, "volumetricArea")?;
                 let t0 = ctx.f64(pm, "T")?;
-                let q = ctx.f64(pm, "powerDensity")?;
+                // `powerDensity` of the dictionary, else the cell values of `0/<region>/powerDensity.fixedPower`
+                // (`fixedPower::powerDensity_` is READ_IF_PRESENT; `setRegionField` overrides it only where the key exists; gh:#1802)
+                let q_dict = scalar(pm, "powerDensity");
+                if q_dict.is_none() && power_density_file.is_none() {
+                    let path = root.join(format!("0/{region}/powerDensity.fixedPower"));
+                    let (f, _) = outram_foam_basic_lib::io::read_vol_scalar_field(&path, mesh.clone())
+                        .map_err(|e| ctx.e(format!("fixedPower has no `powerDensity` and {}: {e}", path.display())))?;
+                    power_density_file = Some(f.internal.as_slice().to_vec());
+                }
                 for &c in &cells {
+                    let q = match (q_dict, &power_density_file) {
+                        (Some(q), _) => q,
+                        (None, Some(file)) => file[c],
+                        (None, None) => unreachable!("loaded above"),
+                    };
                     // fixedPower.C: alphaRhoCp = max(alpha rhoCp, 1e-69)
-                    power[c] = Some(FixedPower::new(
+                    let model = FixedPower::new(
                         Ratio::new::<ratio>(pa),
                         uom::si::f64::ReciprocalLength::new::<reciprocal_meter>(ia),
                         uom::si::f64::VolumetricPowerDensity::new::<watt_per_cubic_meter>(q),
@@ -508,25 +847,82 @@ impl TwoPhaseCase {
                             (pa * rho_cp).max(1e-69),
                         ),
                         ThermodynamicTemperature::new::<kelvin>(t0),
-                    ));
+                    );
+                    power[c] = Some(match &power_profile {
+                        Some(pr) => model.with_power_profile(pr.clone()),
+                        None => model,
+                    });
                 }
             }
         }
         let structure = Structure::new(&g, alpha_s, dh_s, power, power_off);
 
         // regime map
+        let mut regime_map_name: Option<String> = None;
+        let mut regime_labels: Vec<String> = Vec::new();
         let regime_map = match pp.get_dict("regimeMapModels") {
             None => None,
             Some(rm) => {
                 let maps: Vec<(&str, &FoamEntry)> = rm.iter().collect();
-                if maps.len() != 1 {
+                if maps.is_empty() {
+                    None
+                } else if maps.len() != 1 {
                     return Err(ctx.e("exactly one regime map is supported"));
-                }
+                } else {
                 let FoamEntry::SubDict(md) = maps[0].1 else {
                     return Err(ctx.e("regime map must be a dictionary"));
                 };
+                regime_map_name = Some(maps[0].0.to_string());
+                if word(md, "type").as_deref() == Some("twoParameters") {
+                    let parse_param = |key: &str| -> Result<RegimeParameter, AppBuilderError> {
+                        let w = ctx.word(md, key)?;
+                        for (k, nm) in names.iter().enumerate() {
+                            if w == format!("normalized.alpha.{nm}") {
+                                return Ok(RegimeParameter::NormalizedAlpha(k));
+                            }
+                            if w == format!("alphaRhoMagU.{nm}") {
+                                return Ok(RegimeParameter::AlphaRhoMagU(k));
+                            }
+                        }
+                        Err(ctx.e(format!("regime parameter `{w}` not supported")))
+                    };
+                    let parameter1 = parse_param("parameter1")?;
+                    let parameter2 = parse_param("parameter2")?;
+                    let mut points: Vec<(String, [f64; 2])> = Vec::new();
+                    for (pn, e) in ctx.sub(md, "regimePoints")?.iter() {
+                        let FoamEntry::List(v) = e else {
+                            return Err(ctx.e(format!("regimePoints.{pn} must be a list (x y)")));
+                        };
+                        match (v.first().and_then(|x| x.as_scalar()), v.get(1).and_then(|x| x.as_scalar())) {
+                            (Some(x), Some(y)) => points.push((pn.to_string(), [x, y])),
+                            _ => return Err(ctx.e(format!("regimePoints.{pn} must be two numbers"))),
+                        }
+                    }
+                    let mut regimes: Vec<(String, Vec<String>)> = Vec::new();
+                    for (rn, e) in ctx.sub(md, "regimes")?.iter() {
+                        let FoamEntry::List(v) = e else {
+                            return Err(ctx.e(format!("regimes.{rn} must be a list of point names")));
+                        };
+                        let mut pts = Vec::new();
+                        for x in v {
+                            match x {
+                                FoamValue::Word(w) | FoamValue::Str(w) => pts.push(w.clone()),
+                                _ => return Err(ctx.e(format!("regimes.{rn} must list point names"))),
+                            }
+                        }
+                        regimes.push((rn.to_string(), pts));
+                    }
+                    let mode = match word(md, "interpolationMode").as_deref() {
+                        Some("quadratic") => RegimeInterpolationMode::Quadratic,
+                        _ => RegimeInterpolationMode::Linear,
+                    };
+                    let width = ctx.f64(md, "interpolationWidth")?;
+                    let map = RegimeMap2D::new(&points, &regimes, width, mode).map_err(|e| ctx.e(e))?;
+                    regime_labels = map.regime_names().to_vec();
+                    Some(RegimeMapSelection::TwoParameters { map, parameter1, parameter2 })
+                } else {
                 if word(md, "type").as_deref() != Some("oneParameter") {
-                    return Err(ctx.e("only the oneParameter regime map is ported (twoParameters is a gap)"));
+                    return Err(ctx.e("only the oneParameter and twoParameters regime maps are ported"));
                 }
                 let param = ctx.word(md, "parameter")?;
                 let k = names
@@ -536,6 +932,7 @@ impl TwoPhaseCase {
                 let mut bounds = Vec::new();
                 for (rn, e) in ctx.sub(md, "regimeBounds")?.iter() {
                     if let FoamEntry::List(v) = e {
+                        regime_labels.push(rn.to_string());
                         bounds.push(RegimeBound {
                             name: rn.to_string(),
                             lower: v[0].as_scalar().unwrap_or(0.0),
@@ -547,9 +944,20 @@ impl TwoPhaseCase {
                     Some("quadratic") => RegimeInterpolationMode::Quadratic,
                     _ => RegimeInterpolationMode::Linear,
                 };
-                Some((RegimeMap1D::new(bounds, mode), k))
+                Some(RegimeMapSelection::OneParameter(RegimeMap1D::new(bounds, mode), k))
+                }
+                }
             }
         };
+        // `byRegime` diameters of the fluids: every regime of the (single) map needs a sub-model
+        for (k, rm, table) in dd_tables {
+            if regime_map_name.as_deref() != Some(rm.as_str()) {
+                return Err(ctx.e(format!("regimeMap `{rm}` of the dispersedDiameterModel is not in regimeMapModels")));
+            }
+            let m = ByRegimeModel::per_regime(&regime_labels, |n| table.iter().find(|(t, _)| t == n).map(|(_, v)| *v))
+                .map_err(|e| ctx.e(e))?;
+            fluids[k].dispersed_diameter_by_regime = Some(m);
+        }
 
         // physics models
         let pm = ctx.sub(&pp, "physicsModels")?;
@@ -597,18 +1005,23 @@ impl TwoPhaseCase {
                     "Kaiser74" => TwoPhaseDragMultiplier::Kaiser74,
                     "ChenKalish" => TwoPhaseDragMultiplier::ChenKalish,
                     "KottowskiSavatteri" => TwoPhaseDragMultiplier::KottowskiSavatteri,
+                    "LockhartMartinelli" => TwoPhaseDragMultiplier::LockhartMartinelli {
+                        c: scalar(d, "C").unwrap_or(20.0),
+                        max_phi2: scalar(d, "maxPhi2").unwrap_or(1000.0),
+                    },
                     other => return Err(ctx.e(format!("multiplier `{other}` not wired"))),
                 };
                 Some((model, k, scalar(d, "maxPhi2").unwrap_or(1000.0)))
             }
         };
         let htm = ctx.sub(pm, "heatTransferModels")?;
+        let mut chf_tables: Vec<LookUpTableChf> = Vec::new();
         let mut fs_htc: [Vec<Option<FsHtcModel>>; 2] = [vec![None; n], vec![None; n]];
         for (k, name) in names.iter().enumerate() {
             if let Some(d) = pair(name, "structure", htm) {
                 for (zk, e) in d.iter() {
                     let FoamEntry::SubDict(md) = e else { continue };
-                    let model = read_fs_htc(&ctx, md)?;
+                    let model = read_fs_htc(&ctx, md, &mut chf_tables)?;
                     for c in zone_cells(zk)? {
                         fs_htc[k][c] = Some(model);
                     }
@@ -645,10 +1058,31 @@ impl TwoPhaseCase {
             Ok(if disp == names[0] { v } else { 1.0 - v })
         })?;
         let ia = ctx.sub(&ffg, "interfacialAreaDensityModel")?;
-        if word(ia, "type").as_deref() != Some("spherical") {
-            return Err(ctx.e("only the spherical interfacial area model is wired"));
+        let mut interfacial_area_by_regime = None;
+        let mut spherical_cutoff_alpha = 0.9;
+        match word(ia, "type").as_deref() {
+            Some("spherical") => spherical_cutoff_alpha = scalar(ia, "cutoffAlpha").unwrap_or(0.9),
+            Some("byRegime") => {
+                let rm = ctx.word(ia, "regimeMap")?;
+                if regime_map_name.as_deref() != Some(rm.as_str()) {
+                    return Err(ctx.e(format!("regimeMap `{rm}` of the interfacialAreaDensityModel is not in regimeMapModels")));
+                }
+                let mut table: Vec<(String, f64)> = Vec::new();
+                for (rn, e) in ia.iter() {
+                    if let FoamEntry::SubDict(sd) = e {
+                        if word(sd, "type").as_deref() != Some("spherical") {
+                            return Err(ctx.e("byRegime interfacialAreaDensityModel: only spherical sub-models are wired"));
+                        }
+                        table.push((rn.to_string(), scalar(sd, "cutoffAlpha").unwrap_or(0.9)));
+                    }
+                }
+                interfacial_area_by_regime = Some(
+                    ByRegimeModel::per_regime(&regime_labels, |n| table.iter().find(|(t, _)| t == n).map(|(_, v)| *v))
+                        .map_err(|e| ctx.e(e))?,
+                );
+            }
+            _ => return Err(ctx.e("only the spherical interfacial area model is wired (alone or byRegime)")),
         }
-        let spherical_cutoff_alpha = scalar(ia, "cutoffAlpha").unwrap_or(0.9);
         let mut contact_partition = None;
         for (k, name) in names.iter().enumerate() {
             if let Some(d) = pair(name, "structure", geo) {
@@ -697,12 +1131,14 @@ impl TwoPhaseCase {
             fs_drag,
             two_phase_multiplier,
             fs_htc,
+            chf_tables,
             ff_htc,
             virtual_mass,
             regime_map,
             dispersion_fluid1,
             contact_partition,
             spherical_cutoff_alpha,
+            interfacial_area_by_regime,
             phase_change,
         };
 
@@ -727,31 +1163,111 @@ impl TwoPhaseCase {
             Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "minIter").unwrap_or(0.0) as usize),
             _ => return Err(ctx.e("no h.* solver")),
         };
+        // OpenFOAM resolves a name to the exact keyword, else the LAST matching pattern: for `h.liquid` a catch-all `".*"` declared after
+        // `"h.*"` wins (upstream's log: `diagonalPBiCGStab: Solving for h.liquid`)
+        let h_pbicgstab = match lookup_pattern_last(solvers, &format!("h.{}", names[0])) {
+            Some(FoamEntry::SubDict(d))
+                if word(d, "solver").as_deref() == Some("PBiCGStab") && word(d, "preconditioner").as_deref() == Some("diagonal") =>
+            {
+                Some(HPbicgstab {
+                    tolerance: ctx.f64(d, "tolerance")?,
+                    rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                    min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                })
+            }
+            _ => None,
+        };
+        // upstream resolves `p_rgh` to the exact keyword, else the LAST matching pattern; `PCG` + `DIC` is run as OpenFOAM does
+        let p_rgh_pcg = match lookup_pattern_last(solvers, "p_rgh") {
+            Some(FoamEntry::SubDict(d))
+                if word(d, "solver").as_deref() == Some("PCG") && word(d, "preconditioner").as_deref() == Some("DIC") =>
+            {
+                Some(PRghPcg {
+                    tolerance: ctx.f64(d, "tolerance")?,
+                    rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                    min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                    max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                })
+            }
+            _ => None,
+        };
         let alpha_d = match lookup_regex(solvers, "alpha") {
             Some(FoamEntry::SubDict(d)) => d.clone(),
             _ => return Err(ctx.e("no alpha solver dictionary")),
         };
         let alpha_solver = ctx.word(&alpha_d, "solver")?;
         let solve_phase_name = word(&alpha_d, "solvePhase");
-        let solve_phase = match solve_phase_name {
+        let solve_phase = match solve_phase_name.clone() {
             Some(sp) => names.iter().position(|x| *x == sp).ok_or_else(|| ctx.e("unknown solvePhase"))?,
             None => {
                 // MULES solves both; implicitUpwind needs one: the vapour.
                 if fluids[0].is_liquid { 1 } else { 0 }
             }
         };
-        let (alpha_solver_tolerance, alpha_solver_rel_tol) =
-            match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
-                Some(FoamEntry::SubDict(d)) => (ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0)),
-                _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
-            };
-        if alpha_solver != "implicitUpwind" {
-            deviations.push(format!(
-                "alpha solver `{alpha_solver}` is not ported; ran GeN-Foam's implicitUpwind \
-                 (solveAlphaImplicitUpwind.H) with solvePhase {}",
-                names[solve_phase]
-            ));
-        }
+        let linear_solver = match lookup_regex(solvers, &format!("alpha.{}", names[solve_phase])) {
+            Some(FoamEntry::SubDict(d)) => Some((ctx.f64(d, "tolerance")?, scalar(d, "relTol").unwrap_or(0.0))),
+            _ => None,
+        };
+        let (alpha_solver_tolerance, alpha_solver_rel_tol) = match (alpha_solver.as_str(), linear_solver) {
+            (_, Some(t)) => t,
+            // MULES is explicit: no linear solver is read; NaN marks "none" (implicitUpwind refuses it).
+            ("MULES", None) => (f64::NAN, 0.0),
+            _ => return Err(ctx.e("no linear solver for alpha.<phase>")),
+        };
+        let relax_dict = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("fields"));
+        let alpha = match alpha_solver.as_str() {
+            "implicitUpwind" => AlphaSolver::ImplicitUpwind,
+            "MULES" => {
+                if solve_phase_name.is_some() {
+                    return Err(ctx.e("MULES with `solvePhase` set (single-phase solveAlpha) is not ported"));
+                }
+                let schemes = ctx.read(&format!("system/{region}/fvSchemes"))?;
+                let div = ctx.sub(&schemes, "divSchemes")?;
+                let conv = |key: &str| -> Result<AlphaConvection, AppBuilderError> {
+                    let e = lookup_regex(div, key).ok_or_else(|| ctx.e(format!("fvSchemes: no divSchemes entry `{key}`")))?;
+                    let words: Vec<String> = match e {
+                        FoamEntry::Word(w) => vec![w.clone()],
+                        FoamEntry::Tokens(vs) => vs
+                            .iter()
+                            .filter_map(|v| match v {
+                                FoamValue::Word(w) => Some(w.clone()),
+                                _ => None,
+                            })
+                            .collect(),
+                        _ => Vec::new(),
+                    };
+                    let w: Vec<&str> = words.iter().map(String::as_str).collect();
+                    AlphaConvection::from_words(&w)
+                        .ok_or_else(|| ctx.e(format!("fvSchemes: `{key}` = {words:?} is not ported (upwind, linear, vanLeer)")))
+                };
+                let adjust = bool_entry(&alpha_d, "adjustSubCycles").unwrap_or(false);
+                let relax_of = |name: &str| -> Option<f64> {
+                    relax_dict.and_then(|r| lookup_regex(r, name)).and_then(|e| match e {
+                        FoamEntry::Scalar(x) => Some(*x),
+                        _ => None,
+                    })
+                };
+                AlphaSolver::Mules(MulesControls {
+                    min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-6),
+                    adjust_sub_cycles: adjust,
+                    alpha_max_co: if adjust { ctx.f64(&alpha_d, "alphaMaxCo")? } else { 0.49 },
+                    max_sub_cycles: scalar(&alpha_d, "maxSubCycles").unwrap_or(50.0) as usize,
+                    n_sub_cycles: scalar(&alpha_d, "nSubCycles").unwrap_or(1.0) as usize,
+                    limiter: LimiterControls {
+                        n_limiter_iter: scalar(&alpha_d, "nLimiterIter").unwrap_or(3.0) as usize,
+                        smooth_limiter: scalar(&alpha_d, "smoothLimiter").unwrap_or(0.0),
+                        extrema_coeff: scalar(&alpha_d, "extremaCoeff").unwrap_or(0.0),
+                    },
+                    phi_scheme: conv("div(phi,alpha)")?,
+                    phir_scheme: conv("div(phir,alpha)")?,
+                    relax: [
+                        relax_of(&format!("alpha.{}", names[0])),
+                        relax_of(&format!("alpha.{}", names[1])),
+                    ],
+                })
+            }
+            other => return Err(ctx.e(format!("alpha solver `{other}` is not an upstream selection (MULES, implicitUpwind)"))),
+        };
         let rc = pimple.get_dict("residualControl");
         let rc_tol = |name: &str| rc.and_then(|r| r.get_dict(name)).and_then(|d| scalar(d, "tolerance"));
         let relax = fs.get_dict("relaxationFactors").and_then(|r| r.get_dict("fields"));
@@ -765,12 +1281,16 @@ impl TwoPhaseCase {
                 .unwrap_or(1.0)
         };
         let controls = TwoPhaseControls {
+            alpha,
             n_outer: scalar(pimple, "nOuterCorrectors").unwrap_or(1.0) as usize,
             n_corr: scalar(pimple, "nCorrectors").unwrap_or(1.0) as usize,
             correct_until_convergence: bool_entry(pimple, "correctUntilConvergence").unwrap_or(false),
             p_rgh_tolerance: p_rgh_tol,
             h_tolerance: h_tol,
             h_min_iter: h_min,
+            h_pbicgstab,
+            p_rgh_pcg,
+            h_symmetry_constraint: true,
             residual_control_p_rgh: rc_tol("p_rgh"),
             residual_control_h1: rc_tol(&format!("h.{}", names[0])),
             mass_transfer_safety_factor: scalar(pimple, "massTransferSafetyFactor"),
@@ -783,12 +1303,17 @@ impl TwoPhaseCase {
             relax_dmdt: rf(&format!("dmdt.{}.{}", names[0], names[1])),
             relax_t_interface: rf("T.interface"),
             relax_he: [rf(&format!("h.{}", names[0])), rf(&format!("h.{}", names[1]))],
+            relax_phi: [rf(&format!("phi.{}", names[0])), rf(&format!("phi.{}", names[1]))],
             min_kd_ff: scalar(pimple, "minKdFF").unwrap_or(1.0),
             min_alpha_sp: scalar(&alpha_d, "minAlphaSp").unwrap_or(1e-4),
             solve_phase,
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
             max_dpdt: scalar(pimple, "maxDpdt").unwrap_or(1e6),
             dpdt: true,
+            earlier_nusselt_association: false,
+            converged_temperature_newton: false,
+            live_thermo_residual_markers: false,
+            earlier_interfacial_flux_ratio: false,
             lazy_old_time_first_step: true,
             stale_pimple_converged_flag: false,
             p_patch_from_file: true,
@@ -799,6 +1324,53 @@ impl TwoPhaseCase {
         };
         if scalar(pimple, "oscillationLimiterFraction").unwrap_or(0.0) != 0.0 {
             return Err(ctx.e("oscillationLimiterFraction != 0 is not ported"));
+        }
+        // gh:#1801: the through-flow patches exist only where the solver implements them.
+        for (k, fl) in fluids.iter().enumerate() {
+            let has_inlet_outlet = fl.alpha.bc.iter().any(|b| matches!(b, Bc::InletOutlet { .. }));
+            if has_inlet_outlet && k != controls.solve_phase {
+                return Err(ctx.e(format!(
+                    "alpha.{}: inletOutlet on the phase fraction that is NOT solved (solvePhase {}) is not ported",
+                    fl.name, names[controls.solve_phase]
+                )));
+            }
+            if has_inlet_outlet && !matches!(controls.alpha, AlphaSolver::ImplicitUpwind) {
+                return Err(ctx.e(format!(
+                    "alpha.{}: inletOutlet is ported for the implicitUpwind alpha solver only (the case selects MULES)",
+                    fl.name
+                )));
+            }
+            if fl.u.has_non_zero_gradient_patch() && models.virtual_mass.is_some() {
+                return Err(ctx.e(format!(
+                    "U.{}: non-zeroGradient velocity patches with a virtualMassCoefficientModel are not ported",
+                    fl.name
+                )));
+            }
+        }
+        for (k, fl) in fluids.iter_mut().enumerate() {
+            if k != controls.solve_phase {
+                // the other fraction is `1 - alphas - alphaSolved` on the patches too
+                for b in fl.alpha.bc.iter_mut() {
+                    if !matches!(b, Bc::Empty) {
+                        *b = Bc::ZeroGradient;
+                    }
+                }
+            }
+        }
+
+        // turbulence (gh:#1802): the structure regions and their volume fractions are needed
+        let mut regions: Vec<(String, Vec<usize>, f64)> = Vec::new();
+        for (key, e) in sp.iter() {
+            if let FoamEntry::SubDict(zd) = e {
+                if key != "powerOffCriterionModel" {
+                    regions.push((key.to_string(), zone_cells(key)?, ctx.f64(zd, "volumeFraction")?));
+                }
+            }
+        }
+        for (k, fl) in fluids.iter_mut().enumerate() {
+            fl.turbulence = super::turbulence::read_porous_k_epsilon_2phase(
+                &ctx, &g, region, &names[k], &turb_dicts[k], &fs, &regions,
+            )?;
         }
 
         Ok(Self {
@@ -817,6 +1389,52 @@ impl TwoPhaseCase {
             deviations,
         })
     }
+}
+
+#[cfg(feature = "std")]
+/// A `timeProfile` dictionary of GeN-Foam (`timeProfile.C`): `type table;`, optional `startTime` (default 0), and
+/// `table table ((t0 v0) (t1 v1) ...);` (ESI `Function1::Table`, linear, clamped outside the table). Every other
+/// entry and every other `type` (`fmi`, `constant`, `sine`, ...) is refused by name.
+pub(super) fn read_table_time_profile(
+    ctx: &Ctx,
+    d: &FoamDict,
+    what: &str,
+) -> Result<crate::genfoam::common::TimeProfile, AppBuilderError> {
+    for (k, _) in d.iter() {
+        if !matches!(k, "type" | "startTime" | "table") {
+            return Err(ctx.e(format!("{what}.{k} is not ported (only `type table`, `startTime` and `table`)")));
+        }
+    }
+    let ty = ctx.word(d, "type")?;
+    if ty != "table" {
+        return Err(ctx.e(format!("{what}: time profile type `{ty}` is not ported (only `table`)")));
+    }
+    let start = scalar(d, "startTime").unwrap_or(0.0);
+    let rows: Vec<FoamValue> = match d.get("table") {
+        Some(FoamEntry::List(l)) => l.clone(),
+        Some(FoamEntry::Tokens(t)) => t
+            .iter()
+            .find_map(|v| if let FoamValue::List(l) = v { Some(l.clone()) } else { None })
+            .ok_or_else(|| ctx.e(format!("{what}.table holds no list")))?,
+        _ => return Err(ctx.e(format!("{what}.table is missing"))),
+    };
+    let mut times = Vec::new();
+    let mut values = Vec::new();
+    for r in &rows {
+        let FoamValue::List(pair) = r else {
+            return Err(ctx.e(format!("{what}.table rows must be (time value)")));
+        };
+        match (pair.first().and_then(FoamValue::as_scalar), pair.get(1).and_then(FoamValue::as_scalar), pair.len()) {
+            (Some(t), Some(v), 2) => {
+                times.push(Time::new::<second>(t));
+                values.push(v);
+            }
+            _ => return Err(ctx.e(format!("{what}.table rows must be (time value)"))),
+        }
+    }
+    let profile = crate::genfoam::common::TimeProfile::table(times, values)
+        .map_err(|e| ctx.e(format!("{what}.table: {e:?}")))?;
+    Ok(profile.with_start_time(Time::new::<second>(start)))
 }
 
 #[cfg(feature = "std")]
@@ -859,7 +1477,11 @@ pub(super) fn read_nusselt(ctx: &Ctx, md: &FoamDict) -> Result<FsForcedConvectio
 }
 
 #[cfg(feature = "std")]
-fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> {
+fn read_fs_htc(
+    ctx: &Ctx,
+    md: &FoamDict,
+    chf_tables: &mut Vec<LookUpTableChf>,
+) -> Result<FsHtcModel, AppBuilderError> {
     match ctx.word(md, "type")?.as_str() {
         "NusseltReynoldsPrandtlPower" | "Nusselt" => Ok(FsHtcModel::Nusselt(read_nusselt(ctx, md)?)),
         "superpositionNucleateBoiling" => {
@@ -894,7 +1516,145 @@ fn read_fs_htc(ctx: &Ctx, md: &FoamDict) -> Result<FsHtcModel, AppBuilderError> 
                 suppression,
             })
         }
-        other => Err(ctx.e(format!("FS htc `{other}` not wired (multiRegimeBoilingTRACE etc. are gaps)"))),
+        "multiRegimeBoiling" | "multiRegimeBoilingTRACE" | "multiRegimeBoilingTRACECHF" => {
+            let with_chf = ctx.word(md, "type")? == "multiRegimeBoilingTRACECHF";
+            let plain = ctx.word(md, "type")? == "multiRegimeBoiling";
+            if md.get("filmCondensationModel").is_some() {
+                return Err(ctx.e("multiRegimeBoiling(TRACE,CHF): filmCondensationModel is not ported"));
+            }
+            if plain && !bool_entry(md, "heatFluxSuperposition").unwrap_or(false) {
+                return Err(ctx.e(
+                    "multiRegimeBoiling: `heatFluxSuperposition false` (htc superposition with the cached htcNBi) is not ported",
+                ));
+            }
+            let forced_convection = read_nusselt(ctx, ctx.sub(md, "forcedConvectionModel")?)?;
+            let pbd = ctx.sub(md, "poolBoilingModel")?;
+            let pool_boiling = match ctx.word(pbd, "type")?.as_str() {
+                "Gorenflo" => {
+                    if bool_entry(pbd, "useExplicitHeatFlux").unwrap_or(false) {
+                        return Err(ctx.e("Gorenflo useExplicitHeatFlux true is not wired"));
+                    }
+                    PoolBoilingHtc::Gorenflo {
+                        surface_roughness: uom::si::f64::Length::new::<uom::si::length::meter>(
+                            scalar(pbd, "absoluteSurfaceRoughness").unwrap_or(4e-7),
+                        ),
+                    }
+                }
+                other => return Err(ctx.e(format!("multiRegimeBoilingTRACE pool boiling `{other}` not wired"))),
+            };
+            let fd = ctx.sub(md, "flowEnhancementFactorModel")?;
+            let max_value = Ratio::new::<ratio>(scalar(fd, "maxValue").unwrap_or(50.0));
+            let flow_enhancement = match ctx.word(fd, "type")?.as_str() {
+                "RezkallahSims" => FlowEnhancementFactor::RezkallahSims { exponent: ctx.f64(fd, "exp")?, max_value },
+                "Chen" => FlowEnhancementFactor::Chen { max_value },
+                other => return Err(ctx.e(format!("multiRegimeBoilingTRACE flow enhancement `{other}` not wired"))),
+            };
+            // TRACE constructs the suppression model (and never evaluates it): it must exist; the plain
+            // `multiRegimeBoiling` evaluates it when present (gh:#1802)
+            let suppression = match md.get_dict("suppressionFactorModel") {
+                None if plain => None,
+                None => ctx.sub(md, "suppressionFactorModel").map(|_| None)?,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "Chen" => Some(SuppressionFactor::Chen),
+                    "COBRA-TF" => Some(SuppressionFactor::CobraTf),
+                    other => return Err(ctx.e(format!("multiRegimeBoiling suppression `{other}` not wired"))),
+                },
+            };
+            let onset = match md.get_dict("nucleateBoilingOnsetModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "Basu" => Some(OnsetOfNucleateBoilingTemperature::Basu {
+                        surface_tension: uom::si::f64::SurfaceTension::new::<uom::si::surface_tension::newton_per_meter>(
+                            ctx.f64(d, "surfaceTension")?,
+                        ),
+                        // BasuTONB.C: `contactAngle*2.0*pi/360.0`, evaluated in that order
+                        contact_angle: uom::si::f64::Angle::new::<uom::si::angle::radian>(
+                            ctx.f64(d, "contactAngle")? * 2.0 * core::f64::consts::PI / 360.0,
+                        ),
+                    }),
+                    other => return Err(ctx.e(format!("nucleateBoilingOnsetModel `{other}` not wired"))),
+                },
+            };
+            let sub_cooled_fraction = match md.get_dict("subCooledBoilingFractionModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "SahaZuber" => Some(SubcooledBoilingFraction::SahaZuber),
+                    "constant" => Some(SubcooledBoilingFraction::Constant { value: Ratio::new::<ratio>(ctx.f64(d, "value")?) }),
+                    other => return Err(ctx.e(format!("subCooledBoilingFractionModel `{other}` not wired"))),
+                },
+            };
+            let base = TraceBoilingModel {
+                forced_convection,
+                pool_boiling,
+                flow_enhancement,
+                onset,
+                sub_cooled_fraction,
+            };
+            if plain {
+                return Ok(FsHtcModel::MultiRegimeBoiling(MultiRegimeBoilingModel {
+                    base,
+                    suppression,
+                    exponent: ctx.f64(md, "superpositionExponent")?,
+                }));
+            }
+            if !with_chf {
+                return Ok(FsHtcModel::MultiRegimeBoilingTrace(base));
+            }
+            // multiRegimeBoilingTRACECHF (gh:#1223, gh:#1224)
+            let chf = match md.get_dict("criticalHeatFluxModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "constantCHF" => Some(ChfSelection::Constant(ctx.f64(d, "value")?)),
+                    "lookUpTableCHF" => {
+                        let t = LookUpTableChf::from_dict(d).map_err(|e| ctx.e(e.to_string()))?;
+                        chf_tables.push(t);
+                        Some(ChfSelection::Table(chf_tables.len() - 1))
+                    }
+                    other => return Err(ctx.e(format!("criticalHeatFluxModel `{other}` not wired"))),
+                },
+            };
+            let leidenfrost = match md.get_dict("leidenfrostModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "GroeneveldStewart" => Some(LeidenfrostTemperature::GroeneveldStewart {
+                        critical_pressure: uom::si::f64::Pressure::new::<uom::si::pressure::pascal>(
+                            ctx.f64(d, "criticalPressure")?,
+                        ),
+                    }),
+                    other => return Err(ctx.e(format!("leidenfrostModel `{other}` not wired"))),
+                },
+            };
+            let annular = match md.get_dict("annularFlowModel") {
+                None => None,
+                Some(d) => match ctx.word(d, "type")?.as_str() {
+                    "CachardLiquid" => {
+                        Some(CachardLiquid::new(ctx.f64(d, "wallEmissivity")?, ctx.f64(d, "liquidEmissivity")?))
+                    }
+                    other => {
+                        return Err(ctx.e(format!("multiRegimeBoilingTRACECHF annularFlowModel `{other}` not wired")))
+                    }
+                },
+            };
+            Ok(FsHtcModel::MultiRegimeBoilingTraceChf(TraceChfModel {
+                base,
+                chf,
+                leidenfrost,
+                annular,
+                roughness: scalar(md, "absoluteSurfaceRoughness").unwrap_or(4e-7),
+            }))
+        }
+        "multiRegimeBoilingVapourTRACE" => {
+            // upstream dereferences a null `htcAFPtr_` in the post-CHF branches when there is no
+            // `annularFlowModel`: refuse rather than reproduce a crash
+            let d = md.get_dict("annularFlowModel").ok_or_else(|| {
+                ctx.e("multiRegimeBoilingVapourTRACE without annularFlowModel (upstream dereferences a null pointer post-CHF)")
+            })?;
+            match ctx.word(d, "type")?.as_str() {
+                "CachardVapour" => Ok(FsHtcModel::MultiRegimeBoilingVapourTrace(CachardVapour::new())),
+                other => Err(ctx.e(format!("multiRegimeBoilingVapourTRACE annularFlowModel `{other}` not wired"))),
+            }
+        }
+        other => Err(ctx.e(format!("FS htc `{other}` not wired"))),
     }
 }
 

@@ -308,7 +308,29 @@ and g(r) by `outram_park_fork_liggghts::rdf`, against `REFERENCE_G`), the g(r)
 graph (`rdf_plot`) and the side-on pour drawing for any container
 (`draw_pour` with a `PourFrame`). Moved from `dhoby-ghaut`'s HTR-10 rung,
 which calls it; a new pebble-bed simulator uses it rather than copying the
-rung. The pour engine itself is still the rung's (`dem_web/engine.rs`).
+rung. ~~The pour engine itself is still the rung's (`dem_web/engine.rs`).~~
+**CORRECTED 2026-11-25:** the engine moved here on 2026-11-19 as
+`dem_pour::engine` (gh:#1655); since gh:#1742 the rung reaches it by a plain
+`pub use`, not by `#[path]`.
+
+**Historical reactors and the Monte Carlo rungs (gh:#1735, moved here 2026-11-25).**
+
+Maintainer, 2026-11-24: "the code for the rungs shld live in nee soon, then
+used in dhoby ghaut/the digital twin engine lib"; HTR-10, MSRE and EBR-II's
+high-fidelity files live in `nee_soon` and `dhoby-ghaut`. Moved verbatim
+(only paths changed); every moved test and pin passes unchanged.
+
+| Module | What | Moved from |
+|---|---|---|
+| `msre_n1` (+ `tallies`) | MSRE first criticality (N-1, gh:#1128): the full-core model, `Study`, the reference k; the engine re-exports it as `msre::first_criticality` | `outram_mc_libs::vv::msre_n1` (gh:#1737); examples `msre_n1_first_criticality`, `msre_n1_parameter_images` and the record `verification_and_validation/msre_n1_first_criticality/` came with it |
+| `ebr2_core` (`std`) | A SIMPLIFIED EBR-II full core (gh:#1762, maintainer's option A): Run 138B's 637 positions (the gh:#1313 transcription) on a CSG hex lattice, each subassembly homogenised, fresh fuel; `Study` (temperature, control-rod drop), drawn by `examples/ebr2_core_images.rs`; record `verification_and_validation/ebr2_core/` (k = 1.09526 ± 0.00203 at the default). Every assumption labelled in the module docs | new 2026-11-25 |
+| `ebr2_fresh_driver` (`std`) | EBR-II MARK-II fresh driver subassembly (gh:#1329) | `outram-mc-libs/examples/common/ebr2_fresh_driver_model.rs` (gh:#1737), with `examples/ebr2_fresh_driver_kinf.rs`, `tests/model_ebr2_fresh_driver.rs` and the record `verification_and_validation/ebr2_fresh_driver/` |
+| `mc_rungs` | the model half of the Monte Carlo web demo's rungs: `CsgModel`, `godiva`, `jemima`, `hst009`, `natu`, `triso`, `ugraphite`, `lumped`, and `htr10_core` (bed codes, the DEM bed cut, the reader's pour, the recorded lattice / DEM-bed k) | `dhoby-ghaut/examples/monte_carlo_web/` (gh:#1742); the GUI half and the data builders stay there |
+
+Not moved yet (gh:#1742): `lct008`, `dhshort` and the HTR-10 fuel-zone rung,
+which build their models from `outram-mc-libs/examples/common/` files.
+
+
 
 **Do not add physics kernels here** — only orchestration / facade /
 cross-crate glue belongs in this crate.

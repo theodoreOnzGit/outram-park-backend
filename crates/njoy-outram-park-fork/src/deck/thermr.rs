@@ -62,7 +62,6 @@ use crate::thermr::effective_temperature::{gateff, gatef2};
 use crate::thermr::mf3_grid::{coh_with, sigcoh_from_endf6, Sigcoh};
 use crate::thermr::mf7::{calcem_temperature_k, SecondarySct, parse_mf7, parse_mf7_at_temperature, IncoherentElastic, IncoherentInelastic, Mf7};
 use crate::NjoyError;
-use petir::mathf::RealMath;
 
 const SMALL: f64 = 1.0e-10;
 const UP: f64 = 1.00001;
@@ -98,29 +97,6 @@ pub(crate) fn endf45_second_sct_atom(matde: i32, temp: f64) -> Option<SecondaryS
     };
     let r = (az2 + 1.0) / az2;
     Some(SecondarySct { sb2: sz2 * (r * r), az2, teff2_k: gatef2(temp, matde) })
-}
-
-/// An ENDF-6 tape's own second SCT atom (`calcem`, `thermr.f90:1678-1690`):
-/// with `NI > 6` and `B(7) = 0`, `az2 = B(9)` and `sb2 = B(8)*((az2+1)/az2)**2
-/// /B(12)/natom`. A non-zero `sb2` needs the second `T_eff` TAB1
-/// (`:1835-1854`), which the MF=7 parser does not keep: refused by name. A
-/// third SCT atom (`NI > 12`, `B(13) = 0`) stops upstream ("only 2 sct atoms
-/// allowed"). No tape held here has either (gh:#1375).
-pub(crate) fn refuse_endf6_second_sct_atom(b: &[f64]) -> Result<(), NjoyError> {
-    if b.len() <= 6 {
-        return Ok(());
-    }
-    let az2 = if b[6] == 0.0 { b.get(8).copied().unwrap_or(0.0) } else { 0.0 };
-    let sb2 = if az2 != 0.0 { b.get(7).copied().unwrap_or(0.0) * ((az2 + 1.0) / az2).r_powi(2) } else { 0.0 };
-    if b.len() > 12 && b[12] == 0.0 {
-        return Err(NjoyError::InvalidInput("thermr: calcem: only 2 sct atoms allowed.".into()));
-    }
-    if sb2 != 0.0 {
-        return Err(NjoyError::NotPorted(
-            "THERMR on an ENDF-6 tape with a second SCT atom (B(7) = 0): its T_eff2 TAB1, thermr.f90:1835-1854",
-        ));
-    }
-    Ok(())
 }
 
 fn rows_of_pairs(pairs: &[(f64, f64)]) -> Vec<[f64; 6]> {
@@ -334,9 +310,14 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     let mut itemp = 0usize;
     let mut i = 0usize;
     let mut seen = false;
+    // Closers NJOY copies on a coded `nout` (`tpend`'s, `tomend`'s, `totend`'s),
+    // which keep the running sequence number (gh:#866); the TEND is `totend`'s.
+    let mut copied: Vec<EndfKey> = vec![EndfKey { mat: -1, mf: 0, mt: 0 }];
     while i < secs.len() {
         if !is_head(&secs[i]) {
+            // Another material: `tomend` before matdp, `totend` after it.
             out.push(secs[i].clone());
+            copied.extend(every_closer(&secs[i]));
             i += 1;
             continue;
         }
@@ -356,7 +337,9 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
             };
             let t = block[0].rows[thead][0];
             if (t - temp).abs() <= 1.0e-4 * temp {
-                out.extend(thermr_block(block, endf, c, itemp)?);
+                let (group, mts) = thermr_block(block, endf, c, itemp)?;
+                out.extend(group);
+                copied.extend(tpend_copied_closers(block, &mts));
                 itemp += 1;
             } else if t > temp {
                 return Err(NjoyError::InvalidInput("thermr: desired temperature not on tape.".into()));
@@ -364,7 +347,9 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
                 return Err(NjoyError::NotPorted("THERMR skipping tape temperatures below the desired one"));
             }
         } else {
+            // A temperature after the last one asked for: `totend`.
             out.extend(block.iter().cloned());
+            copied.extend(block.iter().flat_map(every_closer));
         }
         i = j;
     }
@@ -373,6 +358,7 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
     }
     let mut tape = Tape::from_sections(prev.tpid.clone(), out);
     tape.copy_raw_mf32_from(prev);
+    tape.set_copied_closers(copied);
     Ok(tape)
 }
 
@@ -380,7 +366,7 @@ fn thermr_tape(prev: &Tape, endf: Option<&Tape>, c: &ThermrCards) -> Result<Tape
 /// (this temperature's sections of the material). Returns the block's output
 /// sections in file order. The MF=1/MT=451 description text is set on `out`'s
 /// tape by the caller's `copy_raw_mf32_from`; its length is the block's.
-fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: usize) -> Result<Vec<Section>, NjoyError> {
+fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: usize) -> Result<(Vec<Section>, Vec<i32>), NjoyError> {
     let matd = c.matdp;
     let mtref = c.mtref;
     let temp = c.temps[itemp];
@@ -475,7 +461,16 @@ fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: 
                 });
             }
             ii.teff_request_k = Some(calcem_temp);
-            refuse_endf6_second_sct_atom(&ii.b)?;
+            // `thermr.f90:1814-1834`: `calcem` stops on a request outside the
+            // `T_eff` TAB1 (gh:#636); inside it the kernel's own read
+            // (`teff_ev`) gives the same value to the bit.
+            if !ii.teff_table.is_empty() {
+                ii.calcem_teff_k(calcem_temp)?;
+            }
+            // `:1678-1690`, `:1835-1856`: an ENDF-6 tape's own second SCT atom
+            // (`B(7) = 0`) and its `T_eff2` TAB1 (gh:#632). ~~Refused by name
+            // (gh:#1375).~~ **CORRECTED 2026-11-24.**
+            ii.secondary_sct = ii.endf6_secondary_sct(natom, calcem_temp)?;
         } else {
             // `thermr.f90:145-157, 214-221`: ENDF-4/5 has no T_eff record; `gateff`.
             let eft = if c.matde == 0 { temp } else { gateff(temp, c.matde) };
@@ -603,7 +598,12 @@ fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: 
                 let mut data: Vec<f64> = Vec::with_capacity(j * (nl + 1));
                 for r in &rec.rows {
                     data.push(r.ep_ev);
-                    data.push(round_xs(r.pdf * rxsec));
+                    // `calcem` writes the row to the scratch tape `nscr`, which is text
+                    // when `nout` is (`thermr.f90:297-298`); `tpend` reads the density
+                    // back at `a11`'s precision before scaling it (as
+                    // `acer::acesix::tpend_rows`; OpenMC's deck, gh:#866, 2026-11-24).
+                    let pdf = if c.nout > 0 { crate::acer::acesix::pendf_text(r.pdf)? } else { r.pdf };
+                    data.push(round_xs(pdf * rxsec));
                     data.extend_from_slice(&r.cosines);
                 }
                 rows6.push([0.0, rec.e_in_ev, 0.0, 0.0, (nl + 1) as f64 * j as f64, (nl + 1) as f64]);
@@ -684,7 +684,55 @@ fn thermr_block(block: &[Section], endf: Option<&Tape>, c: &ThermrCards, itemp: 
         group.push(Section { key: EndfKey { mat: matd, mf: 6, mt: mtref + k }, rows: r6 });
     }
     group.sort_by_key(|s| (s.key.mf, s.key.mt));
-    Ok(group)
+    Ok((group, mts))
+}
+
+/// The closing records `tpend` *copies* for one temperature block on a coded
+/// unit (`thermr.f90:2998-3385`), which carry the running sequence number
+/// ([`Tape::set_copied_closers`]; gh:#866). `input` is the block as read, `mts`
+/// the MTs THERMR writes (`mtref..`, in MF=3 and MF=6).
+///
+/// Written (`asend`/`afend`/`amend`, each restarting the count), so not listed:
+/// each new MF=3 SEND (`call asend`, label 230); MF=3's FEND when no input MF=3
+/// section follows the new ones (`afend` before label 250); MF=6's FEND when no
+/// input MF=6 section follows (the `afend` after `tosend(nscr,...)`, or
+/// `contio`'s `afend` on the FEND held in `sav` at label 295); and the MEND when
+/// the block has nothing from MF=4 on (`sav` is the MEND itself at label 295).
+///
+/// Copied: MF=1's and MF=2's SENDs and FENDs (`tofend` after `dictio`); each
+/// input MF=3 section kept before the new ones (`tosend`, label 200) and after
+/// them, with MF=3's FEND (`tofend`, label 245); each new MF=6 section's SEND,
+/// copied from the scratch unit (`tosend(nscr,nout,...)`); every input section
+/// from MF=4 on (`tosend` at label 252, or `tomend` at label 295) with the FENDs
+/// and the MEND `tomend` copies. Not modelled: input MF=4/5 sections, whose FEND
+/// `tpend` holds in `sav` and writes after MF=6 (no PENDF here carries them).
+fn tpend_copied_closers(input: &[Section], mts: &[i32]) -> Vec<EndfKey> {
+    let (Some(&first), Some(&last), Some(head)) = (mts.first(), mts.last(), input.first()) else { return Vec::new() };
+    let mat = head.key.mat;
+    let mut out = Vec::new();
+    for s in input {
+        let k = s.key;
+        let fend = EndfKey { mat, mf: k.mf, mt: 0 };
+        match k.mf {
+            1 | 2 => out.extend([k, fend]),
+            3 | 6 if k.mt < first => out.push(k),
+            3 | 6 if k.mt > last => out.extend([k, fend]),
+            3 | 6 => {}
+            _ => out.extend([k, fend]),
+        }
+        if k.mf >= 4 {
+            out.push(EndfKey { mat, mf: 0, mt: 0 });
+        }
+    }
+    out.extend(mts.iter().map(|&mt| EndfKey { mat, mf: 6, mt }));
+    out
+}
+
+/// A section's SEND, its file's FEND and its material's MEND, all copied
+/// (`tomend`/`totend`).
+fn every_closer(s: &Section) -> [EndfKey; 3] {
+    let k = s.key;
+    [k, EndfKey { mat: k.mat, mf: k.mf, mt: 0 }, EndfKey { mat: k.mat, mf: 0, mt: 0 }]
 }
 
 #[cfg(test)]
@@ -752,18 +800,32 @@ mod tests {
         assert_eq!(endf45_second_sct_atom(1065, 296.0), None);
     }
 
-    /// An ENDF-6 second SCT atom is refused by name; H in H2O's free-gas
-    /// oxygen (`B(7) = 1`) and a six-word `B` pass (gh:#1375).
+    /// An ENDF-6 second SCT atom (`calcem`, `thermr.f90:1678-1690`): H in
+    /// H2O's free-gas oxygen (`B(7) = 1`) and a six-word `B` give none;
+    /// `B(7) = 0` gives `sb2 = B(8)((B(9)+1)/B(9))^2/B(12)/natom`, `az2 = B(9)`
+    /// and `teff2` from the second TAB1; a missing TAB1 and a third SCT atom
+    /// are refused. ~~Refused by name (gh:#1375).~~ **CORRECTED 2026-11-24
+    /// (gh:#632).**
     #[test]
-    fn endf6_second_sct_atom_is_refused_by_name() {
-        let h2o = [40.87216, 395.26, 0.9991673, 10.00008, 0.0, 2.0, 1.0, 3.7939, 15.85751, 0.0, 0.0, 1.0];
-        assert!(refuse_endf6_second_sct_atom(&h2o).is_ok());
-        assert!(refuse_endf6_second_sct_atom(&h2o[..6]).is_ok());
-        let mut sct = h2o;
+    fn endf6_second_sct_atom_is_calcem_1678_1690() {
+        let h2o = vec![40.87216, 395.26, 0.9991673, 10.00008, 0.0, 2.0, 1.0, 3.7939, 15.85751, 0.0, 0.0, 1.0];
+        let mut ii = IncoherentInelastic::free_gas(0.9991673, 400.0, 2.0);
+        ii.b = h2o.clone();
+        assert_eq!(ii.endf6_secondary_sct(2.0, 400.0).unwrap(), None);
+        ii.b = h2o[..6].to_vec();
+        assert_eq!(ii.endf6_secondary_sct(2.0, 400.0).unwrap(), None);
+        let mut sct = h2o.clone();
         sct[6] = 0.0;
-        assert!(matches!(refuse_endf6_second_sct_atom(&sct), Err(NjoyError::NotPorted(_))));
-        let mut three = h2o.to_vec();
+        ii.b = sct.clone();
+        assert!(matches!(ii.endf6_secondary_sct(2.0, 400.0), Err(NjoyError::EndfParse(_))), "no T_eff2 TAB1");
+        ii.teff2_table = vec![(300.0, 1000.0), (500.0, 1400.0)];
+        let s = ii.endf6_secondary_sct(2.0, 400.0).unwrap().unwrap();
+        let r = (15.85751 + 1.0) / 15.85751;
+        assert_eq!((s.sb2, s.az2, s.teff2_k), (3.7939 * (r * r) / 1.0 / 2.0, 15.85751, 1200.0));
+        assert!(matches!(ii.endf6_secondary_sct(2.0, 600.0), Err(NjoyError::TemperatureOutOfRange { .. })));
+        let mut three = sct;
         three.extend([0.0, 1.0, 1.0, 0.0, 0.0, 1.0]);
-        assert!(matches!(refuse_endf6_second_sct_atom(&three), Err(NjoyError::InvalidInput(_))));
+        ii.b = three;
+        assert!(matches!(ii.endf6_secondary_sct(2.0, 400.0), Err(NjoyError::InvalidInput(_))));
     }
 }

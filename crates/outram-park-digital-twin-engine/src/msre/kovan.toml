@@ -1,0 +1,1867 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/msre"
+
+[module."circulation.rs"]
+path = "crate::msre::circulation"
+
+[[module."circulation.rs".function]]
+id = "fn:204fab72f9b579c5"
+name = "CirculatingKinetics"
+qual = "CirculatingKinetics"
+item = "type"
+shape = "struct"
+hash = "sha256:ea3b66a08ad7c87506140dd266170ab94c59f4b2750a38c1c6e141f4cd50dd38"
+doc_hash = "sha256:e95c4d110b86e8c0ed7d1d686805de8fc8f6f40e557bbf881ef9ea1d6b0ceac4"
+
+[[module."circulation.rs".function]]
+id = "fn:873a96254b7ccbd8"
+name = "circulation_loss"
+qual = "CirculatingKinetics::circulation_loss"
+hash = "sha256:c50473cea95181c98c4085714258ecd96044cdebb91aff1b264fe8a40b460358"
+doc_hash = "sha256:0e7b634bb40cd710c942407135850daf48912ef35cc5132425ba7e65a23ffa77"
+
+[[module."circulation.rs".function]]
+id = "fn:3620d320e0db69e4"
+name = "coefficients"
+qual = "CirculatingKinetics::coefficients"
+hash = "sha256:91a7fcdd33c5bbe8c695c00d82d1e2d9bb566115ca57ab77bbdd4e57cb56c98a"
+doc_hash = "sha256:032591385ab34db5114574776f4fe274b1f346354d2f61e19217ed7915902235"
+
+[[module."circulation.rs".function]]
+id = "fn:8eabcc845d0d1a78"
+name = "critical_reactivity"
+qual = "CirculatingKinetics::critical_reactivity"
+hash = "sha256:bd508469be70f4bc84adb75e2211a55766df2d101a8058a590232fd8f8ac2b8e"
+doc_hash = "sha256:a630433af2658e938378672bae29527d4f39ad9adbb8675910c7bf9769e12f49"
+
+[[module."circulation.rs".function]]
+id = "fn:630433a7c98fbe12"
+name = "delayed_sources"
+qual = "CirculatingKinetics::delayed_sources"
+hash = "sha256:f9537cf615ca1aca7bade03862c4768f661da4487411ce9237735364b97d9e48"
+doc_hash = "sha256:17ca2dd4a2ed277407d31c55cb2c6b929d3e6ada724923fd94393f906d6b3b5d"
+
+[[module."circulation.rs".function]]
+id = "fn:1647d67adb6faf2b"
+name = "flow_fraction"
+qual = "CirculatingKinetics::flow_fraction"
+hash = "sha256:e18fd74c639e50c6158fa45145e6b1cb127c117191e1cdddde4e8712da007875"
+doc_hash = "sha256:57869263e33daaef7ef8aafdc42e7d2aa087305e503db1f8ff6000353d28c78b"
+
+[[module."circulation.rs".function]]
+id = "fn:7a1fe6e14f418156"
+name = "holding_reactivity"
+qual = "CirculatingKinetics::holding_reactivity"
+hash = "sha256:9eedfc8358989b5e099c4cdd8938bc4a50b4bdb8310d8916f0516d13a82e27ed"
+doc_hash = "sha256:188225270b230af1b8a8030d5649978784e73753faa992eff599d1a8d0f1f074"
+
+[[module."circulation.rs".function]]
+id = "fn:eea27af3a973f73a"
+name = "model"
+qual = "CirculatingKinetics::model"
+hash = "sha256:6ca31e219ee7abe15e62aa1afd41c0836b4271248b774bcb69c745cabb362b6e"
+doc_hash = "sha256:3f66e325e0d3771011974541376e21e30553ac772211db33ce10e2781bd8373a"
+
+[[module."circulation.rs".function]]
+id = "fn:37e3300c056e3505"
+name = "neutron_density"
+qual = "CirculatingKinetics::neutron_density"
+hash = "sha256:9834de2f5899c7a0d627de0316d19665d362e73e5a7984aee3517e0551526d73"
+doc_hash = "sha256:550353c00cba44839cbe06577cd967fd7ca62b1c069cb534c85b27fa5f2cc852"
+
+[[module."circulation.rs".function]]
+id = "fn:b78a067fb96d097a"
+name = "new"
+qual = "CirculatingKinetics::new"
+hash = "sha256:2811748bea25aa927c0cceaa9bd67200f2b20f80b25f1040e8bcbefc83f2629c"
+doc_hash = "sha256:be086bb8dc6d8732a2ed93b74ade656139f835c674129efcbe0f4e1a18952df8"
+
+[[module."circulation.rs".function]]
+id = "fn:b5d36c6ad268887e"
+name = "set_circulating_equilibrium"
+qual = "CirculatingKinetics::set_circulating_equilibrium"
+hash = "sha256:b5088178039100da05077f43c0d848b7224241d5fb902766c3122d41e0031542"
+doc_hash = "sha256:1e0627feddfefc81a62a4a62f91bae94c13c91e2222ac3a16b54be82c6b918a0"
+
+[[module."circulation.rs".function]]
+id = "fn:eb3add7bee0dc80f"
+name = "shifts"
+qual = "CirculatingKinetics::shifts"
+hash = "sha256:3d21cc685762d1a02812c7da4514abf91625a04afff180e562af4b1fdd38ef6d"
+doc_hash = "sha256:908a6e334eb1602f4b29ba76304c3bd8c7968bc42bee36e6bb6a0a615249f89e"
+
+[[module."circulation.rs".function]]
+id = "fn:3ec9c50cb4b9fd51"
+name = "step"
+qual = "CirculatingKinetics::step"
+hash = "sha256:c1071abeacd6206b3ec686b0325e1b15530530d235a190d3c2d34593a0aa6bc8"
+doc_hash = "sha256:fa102476f7d9f074406747815685313f7ca743d16215558f42cc57473376fedf"
+
+[[module."circulation.rs".function]]
+id = "fn:1164c40650659318"
+name = "total_delayed_fraction"
+qual = "CirculatingKinetics::total_delayed_fraction"
+hash = "sha256:bb664d01febb27c4e96798e924f870d2ef0a31c785f5ae6dd4f851e76e030fe7"
+doc_hash = "sha256:2273e4920655c9f62cf2540c3bc8a169e5d8307c2e82f7b5b168fc6a92c18771"
+
+[[module."circulation.rs".function]]
+id = "fn:a91b770db54f91c1"
+name = "CirculationError"
+qual = "CirculationError"
+item = "type"
+shape = "enum"
+hash = "sha256:e224e95bb8204c0f502e869d47185d2e8a5a70f7f6aaa78f0d26024f529a0a50"
+doc_hash = "sha256:3eb21e99164f98b868b2693903a405b244cf3453b810922536754e3a770e2639"
+
+[[module."circulation.rs".function]]
+id = "fn:44c86cab7851ba61"
+name = "CirculationModel"
+qual = "CirculationModel"
+item = "type"
+shape = "enum"
+hash = "sha256:290de4cbcdcee58255e5a57e90560b6c368bbba16f5d54616382785903dd8aa5"
+doc_hash = "sha256:713e43fb97b3aaa4b3bc279a5e2338c118d3d688724c48a68eda0b8181f41068"
+
+[[module."circulation.rs".function]]
+id = "fn:58425b4d406b0bcc"
+name = "Path"
+qual = "Path"
+item = "type"
+shape = "enum"
+hash = "sha256:1fe3caddb1f7570b8bf5d6ea064a01898cd0c2c352b0e7441586eba037c2ecc3"
+doc_hash = "sha256:d1b8f5e1ea8b6f4bf0ff725f69dae5baafa1f1ed4953e4313ce419b5e8f5f199"
+
+[[module."circulation.rs".function]]
+id = "fn:d799f6d169632797"
+name = "TM1070_CORE_TRANSIT_S"
+qual = "TM1070_CORE_TRANSIT_S"
+item = "const"
+shape = "const"
+hash = "sha256:6d262eeee2164898a3d273223f1e41182ccea1b9cdd0e4323ea3d1135c6f597e"
+doc_hash = "sha256:d122600e8338fd0d77fa360905173491b17d0e6c4cbb8692ffdaedc6efe75006"
+
+[[module."circulation.rs".function]]
+id = "fn:6706a6000289e1a2"
+name = "TM1070_LOOP_TRANSIT_S"
+qual = "TM1070_LOOP_TRANSIT_S"
+item = "const"
+shape = "const"
+hash = "sha256:e44b8ff7d0ff211318e4910d996cb1ff51ba06f76380389d618607f71b4c7442"
+doc_hash = "sha256:c6dff25fb423b3b864363ee4eaeeed537b78ff807996c1d145e28120b792dd9e"
+
+[[module."circulation.rs".function]]
+id = "fn:d8c90037655b991e"
+name = "TM1626_FIG4"
+qual = "TM1626_FIG4"
+item = "const"
+shape = "const"
+hash = "sha256:e6c9315e906d1183682fbeedcc1b943fd4714bd79c903132b07ce2097cba92ea"
+doc_hash = "sha256:ca0dc06278124ca51dec5c886a85779d58a1a9d52a9663a755b43c08d6fe9bff"
+
+[[module."circulation.rs".function]]
+id = "fn:4d83c877f4cf9068"
+name = "TM1626_RESIDENCE_S"
+qual = "TM1626_RESIDENCE_S"
+item = "const"
+shape = "const"
+hash = "sha256:bb67e70060364da20108659e32a481cde0baee0ee2b364fe1e919d0a7b1dd3d8"
+doc_hash = "sha256:e305cae62656f099eb6b8f22fa70c2e4ae9059b57e6e6d11e80d0ea0dba427e2"
+
+[[module."circulation.rs".function]]
+id = "fn:bc0b9d84c1f7e6de"
+name = "TM1626_TABLE1"
+qual = "TM1626_TABLE1"
+item = "const"
+shape = "const"
+hash = "sha256:a4079487ae1810dea40bc2eb85d636b167c5b6a306b8a251b5c9945c4762237f"
+doc_hash = "sha256:94f9faa691142059f5ed07d5644a9b4ecbdc964c770d02ee6e688edbbce47d81"
+
+[[module."circulation.rs".function]]
+id = "fn:87ae5c6328d18369"
+name = "TM1626_Z_EXTENTS_CM"
+qual = "TM1626_Z_EXTENTS_CM"
+item = "const"
+shape = "const"
+hash = "sha256:ff1121945ee2566ed0e75332f6c47607b40f9f28c4ae949467a794342750ba3c"
+doc_hash = "sha256:bccd19d7daebdb651414ba577634469f7d02e4505eb0fe74375ea5caad445fcb"
+
+[[module."circulation.rs".function]]
+id = "fn:821d0e919501592d"
+name = "solve_n"
+qual = "solve_n"
+hash = "sha256:5fe90034a7bd5a22b59d256eb3717ee8a605114bde23eaf43dbf871bc1306b7b"
+doc_hash = "sha256:37c73ef54670ce1981c44a8130d8106085838e2d6f2c1fce9b11e657fd652287"
+
+[[module."circulation.rs".function]]
+id = "fn:04a446c88d8753a7"
+name = "tm1626_path_at"
+qual = "tm1626_path_at"
+hash = "sha256:bffcee3edc79e779462bbc9519640b05649d92df41d8118f3a71d3e79f4da545"
+doc_hash = "sha256:01b602552b82543f7ffc544480a2806f3f844f6e7b012588ec3b12954005d130"
+
+[[module."circulation.rs".function]]
+id = "fn:c78db812ecf7d800"
+name = "tm1626_shape_at"
+qual = "tm1626_shape_at"
+hash = "sha256:756a6626775662917e5c2a682bf4efb70914d8c469eab3dcd6cc70164e6bf73e"
+doc_hash = "sha256:360da313f2cdee57492bc605d9fc0501455bac6890e68939f81d5f0fa01a5102"
+
+[[module."circulation.rs".function]]
+id = "fn:3d862ee503058cd2"
+name = "weighted_sum"
+qual = "weighted_sum"
+hash = "sha256:6945ebf82ffa7e55c03ae0fb78e087b95dd8d13d89917ec89502ead8924783fc"
+doc_hash = "sha256:f573c7cc561bf60336eab300641dd9a05955332a276306b5108fe5e2bba61b39"
+
+[[module."circulation.rs".function]]
+id = "fn:1d4ed84492b899b7"
+name = "well_stirred_loss"
+qual = "well_stirred_loss"
+hash = "sha256:88bc4704d7d963dd7566a97dc82d91637196e64b8903ea87aaee9388d7f8d6f5"
+doc_hash = "sha256:dfaf3c244daec304ff4dd06ecf1e6bb921d51228c8d839a87e3676615438f1ad"
+
+[[module."circulation.rs".function]]
+id = "fn:f77e2ab7a9dad949"
+name = "whole_steps"
+qual = "whole_steps"
+hash = "sha256:fdd74977bbf937308b7b48b16f8d2545bfd7c2aa21a82e333a0779822644f820"
+doc_hash = "sha256:4849374fe13cdb508aad9360fde2159c54f4704e061d8baa0926c054602d2531"
+
+[module."design.rs"]
+path = "crate::msre::design"
+
+[[module."design.rs".function]]
+id = "fn:25a2c395f829d6f4"
+name = "MW_PER_F_IN_W_PER_K"
+qual = "MW_PER_F_IN_W_PER_K"
+item = "const"
+shape = "const"
+hash = "sha256:dfea7019285b3caf00a16b235415b234015fd53d14242ede255e2605ae28db23"
+doc_hash = "sha256:27e98e4edff57bd5a89041c6488ade0b87b5c90b0c9e0d3c54a5cdd209b8af6d"
+
+[[module."design.rs".function]]
+id = "fn:6e14ea506f9bce66"
+name = "MsreDesignPoint"
+qual = "MsreDesignPoint"
+item = "type"
+shape = "struct"
+hash = "sha256:5208c982fc140f35aea8780b9f307652a6ee1e88a3b4560d5535541c8c6f38e9"
+doc_hash = "sha256:7aba7b34f275d0ccaed363623a08c77fdb4357508dfaaf37b888b826dc728f9a"
+
+[[module."design.rs".function]]
+id = "fn:b51c51e36a57d953"
+name = "coolant_heat_capacity_rate"
+qual = "MsreDesignPoint::coolant_heat_capacity_rate"
+hash = "sha256:68ff70d8f5525fb8f91ce6b20072895efbbfeb3a14a60e13475ab2cba226637b"
+doc_hash = "sha256:e570704d092e1e1f04bf95cdb15e9543b4dfb12dcbdb97ffacd533c781232d00"
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:7129d12a239f4c4e"
+name = "fuel_heat_capacity_rate"
+qual = "MsreDesignPoint::fuel_heat_capacity_rate"
+hash = "sha256:bec8bdd3bfce2ee6df266701b2b9db0f0df4b02dbf92bbc1c045d03c50833b91"
+doc_hash = "sha256:afa4f0bf76594d4e07eea2e4a801ad2224c9abc02e4f7fa24efc9cf2bd6133d9"
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:f38bc71fc182a6b1"
+name = "tm0728"
+qual = "MsreDesignPoint::tm0728"
+hash = "sha256:f5769127e6dba21adfa6759cff03a70021aa30b17b64a2da377292b04ed79796"
+doc_hash = "sha256:43fad5549aec0135a03474fc4da729677fb8d2b0b3ceca23098af41898ce2806"
+
+[[module."design.rs".function]]
+id = "fn:1869da0310d14053"
+name = "mean"
+qual = "mean"
+hash = "sha256:174016050a70f24b81fc9581649a85ebca8ffbfe1bf98bc9a6df1245760c71ec"
+doc_hash = "sha256:5d945dfdd66503675a727b4bb2dbb2ce85bd6b7811f0cc0b0397ef539b22ff35"
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:4afd66fe5ddc63bb"
+name = "measured_circulation_loss_tm1626"
+qual = "measured_circulation_loss_tm1626"
+hash = "sha256:083240ab2f2fae437358bbb25b5716c1b0deaac01e4b2ec1a012ba8f9c3edd76"
+doc_hash = "sha256:3dc1fb890c1e2fa3551f2afc45cc56c4f0c04d5e8c879fcbaec9888867e1b4af"
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:825a3b76ac0fe070"
+name = "measured_circulation_loss_uncertainty_tm1626"
+qual = "measured_circulation_loss_uncertainty_tm1626"
+hash = "sha256:ce78690a9be29dfa3d29b053e83f0808dc41ff61d5540004bb4bf1e4aa834ff2"
+doc_hash = "sha256:2f804564c8483cce162d2fdc523aa7a1c2511329dfb97a1a3004bfc8b7dc3552"
+physical_interface = true
+
+[[module."design.rs".function]]
+id = "fn:15a19ae307f68931"
+name = "the_design_point_is_the_cited_one"
+qual = "the_design_point_is_the_cited_one"
+hash = "sha256:86fb7a846ca7eb6ddf087bc53e995a6652ee05cb2b08838c6c6d6314939e52b2"
+doc_hash = "sha256:819bea3a57a39f16d27fc768a7901e87e9729be3d691b91992cdefc8cfb068ec"
+test = true
+
+[[module."design.rs".function]]
+id = "fn:e121b3cab92029fb"
+name = "the_tuas_fuel_salt_and_tm1070_lumps_agree_on_the_heat_capacity_rate"
+qual = "the_tuas_fuel_salt_and_tm1070_lumps_agree_on_the_heat_capacity_rate"
+hash = "sha256:18f899dc5730a10203db10f98d169de06fad418884f60f5c20d2dc39bc538861"
+doc_hash = "sha256:108f24e752e88c475dc9e7767802932875fbd3eeec2c3880f0a95acfea809dac"
+test = true
+
+[[module."design.rs".function]]
+id = "fn:40570ce876d32a6f"
+name = "tm1070_fuel_heat_capacity_rate"
+qual = "tm1070_fuel_heat_capacity_rate"
+hash = "sha256:4ec62f34352e00be8af829c66d1f4e2b4f3852d600bea063eb08769c7cf01075"
+doc_hash = "sha256:ab837408662003c28786c440ef99ac9d984ca21299b226ff0ea0e46e732fe124"
+physical_interface = true
+
+[module."mod.rs"]
+path = "crate::msre"
+
+[module."model.rs"]
+path = "crate::msre::model"
+
+[[module."model.rs".function]]
+id = "fn:ff8d1acb08cfa4fc"
+name = "F1"
+qual = "F1"
+item = "const"
+shape = "const"
+hash = "sha256:f334aaaeb26569bcb99e6ff6a532fd9375b6dbc1137c8deb1b112f70638a4fa4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:d0428e9cc7a7c460"
+name = "F2"
+qual = "F2"
+item = "const"
+shape = "const"
+hash = "sha256:f00f93bca09c20ac36c9d21cd55e5973be08321dd56c3fa913093d85b2d60641"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:e789a9f5cf7ef356"
+name = "Flows"
+qual = "Flows"
+item = "type"
+shape = "struct"
+hash = "sha256:101aa76d4cdf501e4d718a30766a804ada9e7a55e5ab90e84550a79d9a6f6552"
+doc_hash = "sha256:a4a115c165ddee6553c9073edd4fa8c3f0741cb235c64077279ec3a60c819d1d"
+
+[[module."model.rs".function]]
+id = "fn:393076a03d01a1f0"
+name = "G"
+qual = "G"
+item = "const"
+shape = "const"
+hash = "sha256:6805ea92c119e90890f4c06ce3c680c811981fd29d948af4d4aa269648edf80e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:8322cd32c7fff896"
+name = "HX"
+qual = "HX"
+item = "const"
+shape = "const"
+hash = "sha256:59a5e8ce9a05349920ac13580febb3d2df80e6fac745f9b0053099aed23b0db3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:879da27cd3f706fc"
+name = "INTERNAL_TIMESTEP_S"
+qual = "INTERNAL_TIMESTEP_S"
+item = "const"
+shape = "const"
+hash = "sha256:1f148c20a9052f9c5f1d120aca80b136c552a15d19103a0acaa8a96ed2021013"
+doc_hash = "sha256:8349bfc068bb0fa2b21f85262cfcd52e44c87755a20269003351f36d729546fb"
+
+[[module."model.rs".function]]
+id = "fn:8c2cdf4b2bf055a8"
+name = "MsreConfig"
+qual = "MsreConfig"
+item = "type"
+shape = "struct"
+hash = "sha256:cd40e5352f58619aa411d6f7e65fdc48c759281926f1fb74f59fbe13c6b76389"
+doc_hash = "sha256:86dbe52bd465cb3d14fc9e66b5a9389fa87fcd827bfaf612a412efa9d5d7ce9d"
+
+[[module."model.rs".function]]
+id = "fn:039f89c973b0cd52"
+name = "tm1070"
+qual = "MsreConfig::tm1070"
+hash = "sha256:d8996aaafb3e79909634e4d57ca30a764bc8f136043c59d7d2d32d8a1cb1fd4f"
+doc_hash = "sha256:af44eb4f33142a6c1563c558792aed0de37308230e16c01edabb7cef5b9c2d7b"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:55625885b531d5b8"
+name = "without_line_model"
+qual = "MsreConfig::without_line_model"
+hash = "sha256:536dbae34575fbbd015d9a00847dd60fd319ddfd0e91797abc90521f92b646a6"
+doc_hash = "sha256:366b10b984cd9693c7152288a9a9de387205bedbe9d7dc38ec4104ebc87adb69"
+
+[[module."model.rs".function]]
+id = "fn:b712a1d7c4f77839"
+name = "MsreModel"
+qual = "MsreModel"
+item = "type"
+shape = "struct"
+hash = "sha256:32cd47b0ed44ea29cdd8dc2815dd2f0fe2d7a246694b986017fd5f057a69dd65"
+doc_hash = "sha256:b06e36d451f2c023992cfa5f1b5e5ed8484bf48e5a35dc00386c6260703879a0"
+
+[[module."model.rs".function]]
+id = "fn:9e654cd8994e0af3"
+name = "circulation_loss"
+qual = "MsreModel::circulation_loss"
+hash = "sha256:f9aafcf69b1e63f8b39d59c6772f71fd8931e30308c113f914839a6cd3937cd0"
+doc_hash = "sha256:cdd50c554decdb25ff6a180d5e825fa1268ba1f7cdf030a0e1de010fc8746143"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:ba3caa0c1a59285a"
+name = "circulation_model"
+qual = "MsreModel::circulation_model"
+hash = "sha256:094a582f7800a2a19a8b478f05ecbfc79bd2b989f96abbc646d1803f1fff10d3"
+doc_hash = "sha256:a2dc99408095e6d098e592e14c7e8479faa11cefed060953f4607d0b4a2303fc"
+
+[[module."model.rs".function]]
+id = "fn:d15c45650152620f"
+name = "coolant_flow_fraction"
+qual = "MsreModel::coolant_flow_fraction"
+hash = "sha256:db56241e0015fbe51ea54e3271326aaf20c9aa7ec20f38024d4494b327a3b5a4"
+doc_hash = "sha256:0249781c75a25251998a661a0c43ccd3f0149f2c10d6ba7862e45697c9e6f717"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:31754687160f41b3"
+name = "core_inlet_temperature"
+qual = "MsreModel::core_inlet_temperature"
+hash = "sha256:f69aa9a601c4d021deb608868a1d063c3ef830fc10e63c20822bfdc93425c7c2"
+doc_hash = "sha256:817bdeea06adeef3abe7430bdfb8d193254b4605887f89ac6e067b728ea1b83f"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:546a0ccc190e2440"
+name = "core_outlet_temperature"
+qual = "MsreModel::core_outlet_temperature"
+hash = "sha256:eb47d562513f3ef3358b4a89d5f5176b36d88cf9c0d6e5764aa247d7dd8528e2"
+doc_hash = "sha256:aa9db60e0d963dfa89ce9f69bd63412ccc67e8030693186a427d1b4a31826fe5"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:5aebfa26f8faf740"
+name = "critical_rod_reactivity"
+qual = "MsreModel::critical_rod_reactivity"
+hash = "sha256:98fba4c7632e6076f1b78d5ed7fa1247daed3d92a57003c94c505679cb4658e8"
+doc_hash = "sha256:e752bd27719a7307dee4d23da6494e309b525dc4cca2812923ca9cc24e8ddae1"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:fb8266c4b89bb85f"
+name = "delayed_neutron_sources"
+qual = "MsreModel::delayed_neutron_sources"
+hash = "sha256:ec2e95f69ffc29a82fcd035e4079a8fc9478a171db3c0864923ed647818692a9"
+doc_hash = "sha256:2a2e338ec45bc3c16960a9930eb286a770d6537a819493245dedee697bff1b0f"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:3c70c0d2cc5bc2cb"
+name = "feedback_reactivity"
+qual = "MsreModel::feedback_reactivity"
+hash = "sha256:5e909aae020151ec7253b437e3c3fb3a332cc93cb9b8ea7cdd87862b9db8374f"
+doc_hash = "sha256:a9ee041c1f61fa5105fb034cbf974b90bf863c425a32013cdb5a1ed8a90e5d8a"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:c4cec4eca346839e"
+name = "fuel_flow_fraction"
+qual = "MsreModel::fuel_flow_fraction"
+hash = "sha256:ca2f9fcf5fc91e118dc14152c8e6121776959a82f21a7123ba361627091ee4f1"
+doc_hash = "sha256:f25ffccf14b1f9b14d665c1a05b7cd26c1776145d2734202c3e3ce020c1d7192"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:b5d771665b25face"
+name = "fuel_lump_temperature"
+qual = "MsreModel::fuel_lump_temperature"
+hash = "sha256:357f4adc39e65729ac15a29dd3aa238066b4a979c1ed6c9f1d63f11dc02551ec"
+doc_hash = "sha256:21e41d4daef9d4b1ccd4a23a728a6f2c46a5251389ce49537e81c12eeba3653f"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:246ad22d6670b6b3"
+name = "fuel_temperature_coefficient"
+qual = "MsreModel::fuel_temperature_coefficient"
+hash = "sha256:8f445609d851a3fd547fc9dcea784214333431dcf3f8493a469c409e474262c7"
+doc_hash = "sha256:2b706ea3c046c5237c215361ae7b688bb67da6848c76d536cffcf36fee1ad76f"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:15e7ee57b5a8c7e9"
+name = "graphite_temperature"
+qual = "MsreModel::graphite_temperature"
+hash = "sha256:577995fa6379207bb265cd26036a96d7f249eb2bb86fc6f26251eee1dda608bf"
+doc_hash = "sha256:0b8b30a7e78412cca5a0672d1ad0fa9d5dd4b70b783b28b3e1fbc6783b1d9773"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:76190a67ff98d5dd"
+name = "graphite_temperature_coefficient"
+qual = "MsreModel::graphite_temperature_coefficient"
+hash = "sha256:e215d2acb9859a2f25a4b1b84564fdf6729bf145e102221c321325bb99833460"
+doc_hash = "sha256:5c3b68902bb5a143f1f51bdd6019d0c27fe24b8e6e9177c1fd50ee320b55c418"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:af384bd4b8dfe7cd"
+name = "heat_deposition"
+qual = "MsreModel::heat_deposition"
+hash = "sha256:cd0984ef4347d253ad0118fa8fa5e66924c752fad08703c8f203303b8af93295"
+doc_hash = "sha256:737a7de33dddcbaa5569bc665d39724a5298912e7e20c3eff65a0745ae9f56fd"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:fc93847528e813eb"
+name = "hx_coolant_inlet_temperature"
+qual = "MsreModel::hx_coolant_inlet_temperature"
+hash = "sha256:2aaf199d855748f99ad93a5015465428d3a557ddc88503821d743bdd856075d3"
+doc_hash = "sha256:5e7cffc7f16f53c35f0eb8cab9e1479de17a09b1bf4b83560537814423944314"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:11779bd6d2f27f2c"
+name = "hx_coolant_outlet_temperature"
+qual = "MsreModel::hx_coolant_outlet_temperature"
+hash = "sha256:a141145d2bf4d62a0e5b0468e6dd95e5f2d86c188991566da25da8c6656a75d2"
+doc_hash = "sha256:f7868f9dfba7885d4bed54c84e9ca300eee8c904688b296fafe80793fea5f253"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:896ac6b0335cc2a5"
+name = "hx_fuel_inlet_temperature"
+qual = "MsreModel::hx_fuel_inlet_temperature"
+hash = "sha256:007d4eeaed52014b2056765ae62c23b15cd2acc7b142b47f84ff1a7db396fc10"
+doc_hash = "sha256:0ad9224b4f7e8e90e813fd73208b8a945ae75542dcbf66a8e99daa27a382e14e"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:7b75c1d29194a30e"
+name = "hx_fuel_outlet_temperature"
+qual = "MsreModel::hx_fuel_outlet_temperature"
+hash = "sha256:7b97119d4aeae0bb7a31a073db85262bc7984979dc1b9fd517ec17a2d4ded9aa"
+doc_hash = "sha256:c609243bea7543490476cfcc6a46beb05fcf56890211f0ec8640025dcd32bbfb"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:66122537ab4811c9"
+name = "loop_parameters"
+qual = "MsreModel::loop_parameters"
+hash = "sha256:4266ec4b5de4bb792eb6ba5d61289615bfef3ea6e03b7bd8b55814a74b019129"
+doc_hash = "sha256:c77247ac4995ac330ee3e0cca7f599fb7e22f4950685128d719fea28553c5f67"
+
+[[module."model.rs".function]]
+id = "fn:78a3aa69686d4eb2"
+name = "net_reactivity_value"
+qual = "MsreModel::net_reactivity_value"
+hash = "sha256:8fc37a804c0bf2667c594e0012abd33654861e33c7079286783d91402e9dccbd"
+doc_hash = "sha256:5729245f9599f5f6407325cffe37f2f3cf5479fe9e8e775bb1151c20fbc8d82c"
+
+[[module."model.rs".function]]
+id = "fn:7d08b1e6accfc492"
+name = "new"
+qual = "MsreModel::new"
+hash = "sha256:debcc40cca657350cc7769a145e901f03571cfad10a12883604797e72525da1c"
+doc_hash = "sha256:70303bd7229cbb36140f091dacc5761bafea81d98766f15208055263be0f643a"
+
+[[module."model.rs".function]]
+id = "fn:fb518ee2206bbe82"
+name = "power"
+qual = "MsreModel::power"
+hash = "sha256:7058adbe3501c47a40f8e3ec80cc5ca48c422f9a88fa5068a31df70b491913d2"
+doc_hash = "sha256:d0db5d870a2e04bba57af938fd3921fa4c96378448c7591aa99afa2680029d13"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:0969e3a5be3ae506"
+name = "radiator_air_flow_fraction"
+qual = "MsreModel::radiator_air_flow_fraction"
+hash = "sha256:8ebb320924fd98de42219e308627503c3fb1e277f0a97a2e1c614950802191bf"
+doc_hash = "sha256:89902c1e05a5eb0952908a4358fc56439d0109a20950e3c34e63ce1eb1888348"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:1e2fceeadb94ef3d"
+name = "radiator_air_outlet_temperature"
+qual = "MsreModel::radiator_air_outlet_temperature"
+hash = "sha256:dc94d8b375a158a1a55c333bca5e42e8fe82b99be4e551e71cb35a1cdc6b569b"
+doc_hash = "sha256:beaa256a842c2e565ce4def1a89f5700bcbd9349374e1279d67c615f84dbde16"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:91048a468072a018"
+name = "radiator_coolant_outlet_temperature"
+qual = "MsreModel::radiator_coolant_outlet_temperature"
+hash = "sha256:9f8a74ca3234346aefcf6d77379b2b0f351a719dfe8f97b07f65e37b45151d9c"
+doc_hash = "sha256:97832d3ee85476441548941bafe119b08750e12bf3b59abd0e9db73801226ae2"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:d1877589c6b355c4"
+name = "reactivity"
+qual = "MsreModel::reactivity"
+hash = "sha256:88230c762d03b837d3f4cf5d067ca1fbb0c4bc1cb8b950e6d92fcba886c5eb7e"
+doc_hash = "sha256:d7c3d383af374985277c1ac071513d85119bfdc10d9093f16a11ee5401291fb1"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:2c1b0069643e465b"
+name = "rebuild_network"
+qual = "MsreModel::rebuild_network"
+hash = "sha256:799ca32500c380490662f3131bd4e6d6dd61e6825558f14db9ab5ef93cf41d2e"
+doc_hash = "sha256:2f502e76fbd6ce7ce8e6c3c3cd7b8970aaf276499b36eb595d20ff2805a989b6"
+
+[[module."model.rs".function]]
+id = "fn:64fd7b848bed3253"
+name = "rod_reactivity"
+qual = "MsreModel::rod_reactivity"
+hash = "sha256:ecb11845d39019d258f7ca417e2b6af3fe361b3127c30f1ce55a601b738f7eca"
+doc_hash = "sha256:ab42f0d29c5eaa20199ba5f1742f1ac783cc8e9a0ea9169713caaadc645d7a2b"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:7e51c71b9754dcc8"
+name = "set_coolant_flow_fraction"
+qual = "MsreModel::set_coolant_flow_fraction"
+hash = "sha256:b2f973c3a49c18dc26d02c13d5d62d78a94b7a336f3b76fb9163d55f28341b7a"
+doc_hash = "sha256:e8c28eaf937c9b96be6ae40134385cad55bebf364573e7c4339a697b93e762f8"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:df75927993ebd103"
+name = "set_fuel_flow_fraction"
+qual = "MsreModel::set_fuel_flow_fraction"
+hash = "sha256:f76a11ff5c073c3352b0bd4bcd60dbc111e28739738ff8f88355201e825f162f"
+doc_hash = "sha256:85f663d86372409c4341797d0a3a7e813edd02c2a1013e5a9e6daaf1ce9842d0"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:1c2ea6d0da868b73"
+name = "set_radiator_air_flow_fraction"
+qual = "MsreModel::set_radiator_air_flow_fraction"
+hash = "sha256:0d1f593f8f417a26eeb8acf4230182242e155b1dad0d31ea3b0018fad43acb0e"
+doc_hash = "sha256:59abd2e937c12e58600cec92ffc1b5aacd9d320037e347b0a2cad234343baf00"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:7cf488c42dfb6c48"
+name = "set_radiator_air_inlet"
+qual = "MsreModel::set_radiator_air_inlet"
+hash = "sha256:0f31a07197559d793eb6fe911a3c9a25b3f3527fb4ca750ac9d7940f32e3e19a"
+doc_hash = "sha256:766ce94b3d490a94128da20beef7acc85b6d3da4e804784be2eded8f0b41691a"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:d17b6936b7a21fc7"
+name = "set_rod_reactivity"
+qual = "MsreModel::set_rod_reactivity"
+hash = "sha256:9f3bf5a5d9a746ff3532c4d6f83a449fbd65b0d4b54ffca1568940858eeaf890"
+doc_hash = "sha256:efbb778f8de2bd7d8d20949bf9119459c898cf47d29acdcdb4a5007ab1481d04"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:c23d81eb3552753d"
+name = "set_temperature_coefficients"
+qual = "MsreModel::set_temperature_coefficients"
+hash = "sha256:50dc6a140973580b2bf50310e2079155be2b67c7c459f6bbbd963c72372e5f65"
+doc_hash = "sha256:c66560abf8942a9a8bf20af9deb37c61517b31d519bdda6c8793d423e9a16d93"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:e5572a34f0e5433e"
+name = "start_coolant_pump"
+qual = "MsreModel::start_coolant_pump"
+hash = "sha256:780b34e6fd8702e7f4b45331e646866c2c018f4f7f34ba3acaedf5b11d7751bb"
+doc_hash = "sha256:ae197892d4537c1a18c48e4e66694d24f5cac4e216c8881bad6ff76aae311eb8"
+
+[[module."model.rs".function]]
+id = "fn:a81e9e31956a07dc"
+name = "start_fuel_pump"
+qual = "MsreModel::start_fuel_pump"
+hash = "sha256:e1d17e023170580991dcfdd51f72fb1d3fc795e603bff1f8f96ab37a2ff9b040"
+doc_hash = "sha256:c0baa09d9048556cd65a505f9b2d7755da02c573e07e806650cb7f658673defe"
+
+[[module."model.rs".function]]
+id = "fn:a384997c6b5ccb36"
+name = "step"
+qual = "MsreModel::step"
+hash = "sha256:fa20a5f61784f3e6b3f2b53bd6e8ee0862d94c7d7bcb392b16d8c851bb128b41"
+doc_hash = "sha256:2ac153a367dcce13d770f5c2caa8a382a45597ab4776ae36bcef912ae5d9bc75"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:36ab83bc25c8f622"
+name = "step_once"
+qual = "MsreModel::step_once"
+hash = "sha256:c3311d36f1f817faddb8b8bf47f8231a187597c1cbe31257cac92599a8bcfb37"
+doc_hash = "sha256:5b1b9a46d36f939a2ec7ab41168767f7f48e9963af779381784f50669dabe264"
+
+[[module."model.rs".function]]
+id = "fn:b2479bbffba211a4"
+name = "thermal_lumping_within_validity"
+qual = "MsreModel::thermal_lumping_within_validity"
+hash = "sha256:2c0c016021ef04e9a66b1a4a85e6fdaf36626012fa243b37c4fca1acbbff955d"
+doc_hash = "sha256:3aa52ec5862e1956fb5a9e16d58dd91a9b4b0ebffe4aa2ccfe23ebfb188bacb3"
+
+[[module."model.rs".function]]
+id = "fn:ce4c031821690b1a"
+name = "time"
+qual = "MsreModel::time"
+hash = "sha256:28d549238c371035772c7b6685cee2bc06a125dd5598219d0fc9852daf3eff63"
+doc_hash = "sha256:c661ae8140897e6a04ac77f70721985c3b445b7e2622115962c1ff31a8f35f68"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:885a709fb873d269"
+name = "trip_coolant_pump"
+qual = "MsreModel::trip_coolant_pump"
+hash = "sha256:f7d4730e4e3f52aa90da24e6e0833e5969a0b0e5aae713db6650d5edba4a1dcd"
+doc_hash = "sha256:583588be3a37b981fa31e84806fc665e966db0769f434eb58056e895489d5c55"
+
+[[module."model.rs".function]]
+id = "fn:a8b6d3d73c2ea7aa"
+name = "trip_fuel_pump"
+qual = "MsreModel::trip_fuel_pump"
+hash = "sha256:15d9f29843dd3162106dc8146ed0408dec6744caacddc4f8dec6578aea61825e"
+doc_hash = "sha256:74cc952d7b0dbebadd4200f7becd82fbe9c1456a187e4d5cf265784afe356cfe"
+
+[[module."model.rs".function]]
+id = "fn:cac3405ce8ab0931"
+name = "MsreModelError"
+qual = "MsreModelError"
+item = "type"
+shape = "enum"
+hash = "sha256:a6d9d820ab7426e626615003439c7e96af4b3cd4cab0991f823a0a8532456d26"
+doc_hash = "sha256:0b3c68f90105b23ff15eec40dfa7b3eda31b4c6ced30f36c10e8c182ef495eba"
+
+[[module."model.rs".function]]
+id = "fn:9b53229fd5de1d2c"
+name = "N"
+qual = "N"
+item = "const"
+shape = "const"
+hash = "sha256:0701774b3dafa0c97c7952cad8b6d2857e2c582ee55cf3a1e9c6d8c77e83ab23"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:b896842e033b7ff0"
+name = "NU"
+qual = "NU"
+item = "const"
+shape = "const"
+hash = "sha256:716fa36a178d4ac76b0df7020150c2a7c95c9c562a3f4686d06da5de31192c91"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:beea7d4c04f9485e"
+name = "Network"
+qual = "Network"
+item = "type"
+shape = "struct"
+hash = "sha256:60ae61dca1e1af64109950d4b829471cecfbc7492c3f155e1914b0d5f0d30e66"
+doc_hash = "sha256:890595f4b12a074efd6f83b5040922018c152787e79a357794002162d0cc9147"
+
+[[module."model.rs".function]]
+id = "fn:01ebc2bdd5ecdb5b"
+name = "at_flows"
+qual = "Network::at_flows"
+hash = "sha256:2603f2e440705c52fbc197ab38b810a501923140ed421d32cecaaa41e6475f03"
+doc_hash = "sha256:009228eb24fce052b0557ca9d69920de43693d35fedf48220140770301ca66e1"
+
+[[module."model.rs".function]]
+id = "fn:b9c2606eb9d60195"
+name = "new"
+qual = "Network::new"
+hash = "sha256:aa223f49dbbb9b1a2bc9a56b4b600918b7b2e3c77c197b272b4a6b050c8bc0c5"
+doc_hash = "sha256:4d9421918a91a88e5cead01881844d209d385a8b4e4d273c620edfd6736db987"
+
+[[module."model.rs".function]]
+id = "fn:b6193c135658760a"
+name = "P_CORE_HX"
+qual = "P_CORE_HX"
+item = "const"
+shape = "const"
+hash = "sha256:f334aaaeb26569bcb99e6ff6a532fd9375b6dbc1137c8deb1b112f70638a4fa4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:810e63f951028e9f"
+name = "P_HX_CORE"
+qual = "P_HX_CORE"
+item = "const"
+shape = "const"
+hash = "sha256:f00f93bca09c20ac36c9d21cd55e5973be08321dd56c3fa913093d85b2d60641"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:3045328b3d28c72f"
+name = "P_HX_RAD"
+qual = "P_HX_RAD"
+item = "const"
+shape = "const"
+hash = "sha256:6805ea92c119e90890f4c06ce3c680c811981fd29d948af4d4aa269648edf80e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:73f32abab01a3ad6"
+name = "P_RAD_HX"
+qual = "P_RAD_HX"
+item = "const"
+shape = "const"
+hash = "sha256:59a5e8ce9a05349920ac13580febb3d2df80e6fac745f9b0053099aed23b0db3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:de35c4b05e9ed0ee"
+name = "Pipe"
+qual = "Pipe"
+item = "type"
+shape = "struct"
+hash = "sha256:82c5887ed467bcff68281f3583bf4c79807ec527be4682a76c31b624447cc616"
+doc_hash = "sha256:20bd064de0f61b52251ffa8869523475710e3cd3e5e6c94a5db9390ebab66aee"
+
+[[module."model.rs".function]]
+id = "fn:7586e24a7c0fa124"
+name = "advance"
+qual = "Pipe::advance"
+hash = "sha256:e132e3a23b79e1e20deb5a415c0e939e478fe752c21b02ecba54c9c8790d5bed"
+doc_hash = "sha256:07e0c357bd85abbd3ef07260a7dd887a886e3ef52d418e363c7200903b9c0cd3"
+
+[[module."model.rs".function]]
+id = "fn:28239e1918937b25"
+name = "full_at"
+qual = "Pipe::full_at"
+hash = "sha256:daf00fe630e09a9fae7ae7b2182b1f27647607ecb7ebe95b49e48b9cd9a88fb3"
+doc_hash = "sha256:93b2bf67bc9659d0c951ce64cc02bbacb1b9203d78ba3a5346c2d5feebfede60"
+
+[[module."model.rs".function]]
+id = "fn:7a7dd68030f15f28"
+name = "outlet"
+qual = "Pipe::outlet"
+hash = "sha256:c23d74b7675dc56be194686e6c3482068e02d7a5bcb5c9c9f0b1591d7f215ec6"
+doc_hash = "sha256:bc173dde450f4debb0d478ead88996aca75bc8f773818214869e631120038237"
+
+[[module."model.rs".function]]
+id = "fn:e34b91acb3430d1d"
+name = "PumpDrive"
+qual = "PumpDrive"
+item = "type"
+shape = "enum"
+hash = "sha256:d64a19755cb2d0847c107ea114cdf91a95f9770f7bff3143fa59b9fe6be96969"
+doc_hash = "sha256:4e423e483ed16f4895d9977c54a5753fffc7ba19bc9a0075781a61a34608d025"
+
+[[module."model.rs".function]]
+id = "fn:0fb8508a5baa5173"
+name = "next"
+qual = "PumpDrive::next"
+hash = "sha256:157d3904bbbc6055186d4665d06a964be3973352610a23d0a70a34b6f90766ff"
+doc_hash = "sha256:0087647a6a5c7d7048eee9098fd63ec5c4874333e067e0136ffee239fe8a1e0f"
+
+[[module."model.rs".function]]
+id = "fn:5ea38f4df086aef5"
+name = "peek"
+qual = "PumpDrive::peek"
+hash = "sha256:787fb6b4b06c9c00354d973a56ad63fff0be9fea94f63748b8184292028aaa48"
+doc_hash = "sha256:c2ff83609a553484009486b6d3ca4a5c3fe2301d7d66fbf74a1156e61dbcfe4b"
+
+[[module."model.rs".function]]
+id = "fn:56dc2a292f6fa22a"
+name = "RAD"
+qual = "RAD"
+item = "const"
+shape = "const"
+hash = "sha256:91882fd317dc69874bbf4231f4eec1269557c97957b49d524ca0494b41bbd3e9"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:1b92f5dddc6e6a29"
+name = "RADIATOR_REFERENCE_MW"
+qual = "RADIATOR_REFERENCE_MW"
+item = "const"
+shape = "const"
+hash = "sha256:24d4b673907ebba2647f36dfd90c864f2bd3d94a0a4209a99c4ed575cf00ef39"
+doc_hash = "sha256:6c6cad583876ec78efbc272a3e6e26bd8736868b88f814c5c4d2dd1a6e775565"
+
+[[module."model.rs".function]]
+id = "fn:a86ba79d3b89fa8c"
+name = "SideFlow"
+qual = "SideFlow"
+item = "type"
+shape = "struct"
+hash = "sha256:521980cc613da169958e62b55bd64ec9a4a5f59149a596001aa103d616239991"
+doc_hash = "sha256:4e516be41f6323b1c04cb30ee85e8f594d2738da72572778a6bc629f7353cc4e"
+
+[[module."model.rs".function]]
+id = "fn:199dfed7e2a014d5"
+name = "U_AIR_IN"
+qual = "U_AIR_IN"
+item = "const"
+shape = "const"
+hash = "sha256:d9c40b477e4c713c85e70f509add80e01145fa3c6510d5efb255e963e880b711"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:ccb642ac4842964e"
+name = "U_CORE_IN"
+qual = "U_CORE_IN"
+item = "const"
+shape = "const"
+hash = "sha256:f334aaaeb26569bcb99e6ff6a532fd9375b6dbc1137c8deb1b112f70638a4fa4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:de6d772b4ed69421"
+name = "U_HX_COOLANT_IN"
+qual = "U_HX_COOLANT_IN"
+item = "const"
+shape = "const"
+hash = "sha256:6805ea92c119e90890f4c06ce3c680c811981fd29d948af4d4aa269648edf80e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:2d8d64b0fd525e4d"
+name = "U_HX_FUEL_IN"
+qual = "U_HX_FUEL_IN"
+item = "const"
+shape = "const"
+hash = "sha256:f00f93bca09c20ac36c9d21cd55e5973be08321dd56c3fa913093d85b2d60641"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:31897cb59b0a4107"
+name = "U_RAD_COOLANT_IN"
+qual = "U_RAD_COOLANT_IN"
+item = "const"
+shape = "const"
+hash = "sha256:59a5e8ce9a05349920ac13580febb3d2df80e6fac745f9b0053099aed23b0db3"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."model.rs".function]]
+id = "fn:c7e9a25aba11fc87"
+name = "factor"
+qual = "factor"
+hash = "sha256:c2d068f5c0b3cd6d6f5adee9a7198de7762a0959ed29786d94b84cca709e5755"
+doc_hash = "sha256:4d5f1e65e39740b3a55c117fd64cc3351273bd06cf893052bc12a43f4fe00e36"
+
+[[module."model.rs".function]]
+id = "fn:459eff32a093c6b3"
+name = "fahrenheit"
+qual = "fahrenheit"
+hash = "sha256:c5bd208b1c4a77a3defea92e2def4a524c48b3c5a1395288a2bc767e7dbe5cf1"
+doc_hash = "sha256:d7f4c51f4ef1094321e4f90b8bfd9ff26bfb2868c7eef1150db91ae87d54444e"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:1a1cb36331657604"
+name = "flow_value"
+qual = "flow_value"
+hash = "sha256:f4d1a040842c800bcfd0e3721d324a357ff870ef1f904577100a3c7cdb9b4529"
+doc_hash = "sha256:2362dd3f5abde9635c60952a66039d32078478b3ec7213d6044353667a753951"
+physical_interface = true
+
+[[module."model.rs".function]]
+id = "fn:66301173915c716f"
+name = "implicit_matrix"
+qual = "implicit_matrix"
+hash = "sha256:9a24f4f0100231fc5459e001f752524dab9eb870e11a9a4a0ecf91b76b11dbb4"
+doc_hash = "sha256:d9e2e7470be869b8a47b7389a5ec3486ec8b50a8c53bf5e91aedff6aee98d427"
+
+[[module."model.rs".function]]
+id = "fn:674ed2e043b19689"
+name = "lump_valid"
+qual = "lump_valid"
+hash = "sha256:6c50eb0f87bfce1f4f66a9dddfc74cb0e2a72d006c324ad908440e65c1bd5fb1"
+doc_hash = "sha256:fabe689f8b041289ce8272879eabde53a94bcf158daa7186d44779562e08eb4a"
+
+[[module."model.rs".function]]
+id = "fn:85e483bf2f5bea12"
+name = "salt_h_ratio"
+qual = "salt_h_ratio"
+hash = "sha256:43402692e5cbabe5de8374f82007dffa5798a70e7cb86ede9bd26e2bdb6b8b77"
+doc_hash = "sha256:424e44394b5a7a2a4602c004939a5a8d0a647b97e607c2c47b2f129fc4ac29c0"
+
+[[module."model.rs".function]]
+id = "fn:c03d23968f88cd16"
+name = "section"
+qual = "section"
+hash = "sha256:6602570c67407fbac8fbbca187444db2993a00434c494e1f7b0e9a3f6153caf9"
+doc_hash = "sha256:85d25bf9b0f73a31203156eb061f560976a29b33c4961715c21d02cdba8c4ae2"
+
+[[module."model.rs".function]]
+id = "fn:731794d0247fde89"
+name = "solve_dense"
+qual = "solve_dense"
+hash = "sha256:a3480facc886bdc57ca7c9fa1e1137914bf3ad6bb5508bf611a2aec29f66a8ae"
+doc_hash = "sha256:8e43bc477b3e8b418868df1b3787f609c8d042d8f7623e986ec5a543374fa32b"
+
+[[module."model.rs".function]]
+id = "fn:0f661169afbc89f7"
+name = "steady_state"
+qual = "steady_state"
+hash = "sha256:ddadc0f9cd39773fe2dae6814914fd5d973e1fde4f224abd9779dcad389a5645"
+doc_hash = "sha256:ec88146333dd95153b8d64b4ff0d6634f6059e706bc739af3eb0ca7f8057366b"
+
+[[module."model.rs".function]]
+id = "fn:505c1222db1cda70"
+name = "whole_steps"
+qual = "whole_steps"
+hash = "sha256:381c26ce2dfc9f5751eb8d4a17cfb828a2f3b9546eadb3cc1a2737b41ab458a1"
+doc_hash = "sha256:797afef5304d860429eca95e6cd4c69f72b982b52e03db091219d2d0ec398fec"
+
+[module."moltres_drift.rs"]
+path = "crate::msre::moltres_drift"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:821a971efa9d9bde"
+name = "LOOP_DRIFT_CELLS"
+qual = "LOOP_DRIFT_CELLS"
+item = "const"
+shape = "const"
+hash = "sha256:9265e4cc7d383a44b3328f9e053bee093e6392920975bf2927f871f82a734701"
+doc_hash = "sha256:b036ac03099ef30f8b46b1b09d3096caca94fb42af949d004f975ecac1354021"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:bffc3dd20d9362ac"
+name = "LoopDrift"
+qual = "LoopDrift"
+item = "type"
+shape = "struct"
+hash = "sha256:eb45aa4b73d5ad485f27757551c6fe1c48ffd862dd3a6f7837932808c0a45d36"
+doc_hash = "sha256:00d76d3b86688b40de47a386495a6dbef7921e70594826479e58e0f75188cc3e"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:23b7679abb53a433"
+name = "advance"
+qual = "LoopDrift::advance"
+hash = "sha256:ddff621d35741813cf8853d989414fa3c99ede51a8bcc2141ccec13b483a22cf"
+doc_hash = "sha256:d87bd0f2b8adce4945992ab6f850d75acd1f88ae592a8ee85fff504922884147"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:b6d2e2afe432b3d5"
+name = "emission"
+qual = "LoopDrift::emission"
+hash = "sha256:5df8292f6d3f54a2c0d5cd8ac201550f97a704eb783033d5a3024e02f2a4cdf7"
+doc_hash = "sha256:f7da56cd3dacee66dbb7dc25e56016a0ddd937f0784eb3bf21ae8a5fb053479d"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:26722f048b55660c"
+name = "emission_binned"
+qual = "LoopDrift::emission_binned"
+hash = "sha256:735595a1e3de767fa7d0395401f3dc7fec80a0e58d9ff9a1ceb3d774e6f3d16c"
+doc_hash = "sha256:f6f313b2ebfa2b5a6d06fc9c39f7e3ad2aac67132f75677ba2832037ab2507e2"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:049bd5ca2a573344"
+name = "loss"
+qual = "LoopDrift::loss"
+hash = "sha256:8773d7b96583ba5e947bae7376edf61a2575ca97831cb92a1ac98e913239ef66"
+doc_hash = "sha256:ae92e4ca3772bcad2267f92c73296214a36b18749647acdc1b5a4aafb1a2ccad"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:bec4fbbbd8908cc9"
+name = "new"
+qual = "LoopDrift::new"
+hash = "sha256:6c22da7efee7c08263eed1e4e6f24f60c7129484f3933d01b952c6ce1d37cf62"
+doc_hash = "sha256:42983faf739b2903375c37d8e75628369dd67c0cce32406fe952414703bbec1f"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:c0069ce70e68fb02"
+name = "region_starts"
+qual = "LoopDrift::region_starts"
+hash = "sha256:5913748280ee446b04fcec39433d5f1c79429c789ada810f243bf3ad9275a42a"
+doc_hash = "sha256:7c1dbf64ec7f2712b477911e9076fa08887d180dd76d2a865888038622b30dbd"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:c048258070c92e26"
+name = "source"
+qual = "LoopDrift::source"
+hash = "sha256:f7198d6e81bc29e75c67caf1cbaadffbe0f1ee0d5681e695ef89902fc2187e2f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:0fabbd0ba6984a50"
+name = "time"
+qual = "LoopDrift::time"
+hash = "sha256:87f5dee3845a9f2b9d52e0479f0b817b6496a65d771129e2236bce59c3824604"
+doc_hash = "sha256:a67c4ce805ab4054e154d71d7fb837062f7b47655501313aff99e15522e26eef"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:063cb141ebfa3de5"
+name = "MAX_STEPS_PER_ADVANCE"
+qual = "MAX_STEPS_PER_ADVANCE"
+item = "const"
+shape = "const"
+hash = "sha256:18a19d19caf6a1d9557fd7ca855c0287ef8d7a19ed259e5cf1d9e9c70c428f05"
+doc_hash = "sha256:beefa5e91a4dd00777fa303138aaea426a119ec442773741b8da147d272f13ce"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:3a4d80ff021453ae"
+name = "check_inputs"
+qual = "check_inputs"
+hash = "sha256:b119567e43ef398a8219d6bdb36dd8a21f9e120e1a39c9d84f7b6c0e6bdc1f32"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:a81c6742135b8e9d"
+name = "line_loss"
+qual = "line_loss"
+hash = "sha256:623af27b46889a633d9bdb8d9ea713b50fdf644f9ab10f8da2cbbe7a242f601b"
+doc_hash = "sha256:76c031ec024b1cee11bbfdbd614a57a1b8de95273c40c2ba557be37c2187be2c"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:9e82b0aa2fe4043c"
+name = "tm1626_families"
+qual = "tm1626_families"
+hash = "sha256:a7604566e3c3659c8bb98a08291818caeb75cb0c46e8c8c8fa2b319df8881fe0"
+doc_hash = "sha256:dd109b0348a4db861d324734c77caa2c6d9f2576c9c435ba1a9eec43e1844f5a"
+
+[[module."moltres_drift.rs".function]]
+id = "fn:9ad90e3111521223"
+name = "tm1626_loop_time"
+qual = "tm1626_loop_time"
+hash = "sha256:d67e9172c0eba060ce98b34deff6ffd6a225a5c92a6f5e41e9336549cb2746a5"
+doc_hash = "sha256:b0e0598e7a9de3545b81d8e85dcf3658b7760752cc85067ce6a15bf355beed83"
+
+[module."pumps.rs"]
+path = "crate::msre::pumps"
+
+[[module."pumps.rs".function]]
+id = "fn:9bdac82f261be24b"
+name = "FlowSchedule"
+qual = "FlowSchedule"
+item = "type"
+shape = "enum"
+hash = "sha256:bcbea036ab38b85c2c7bbb435f36cd47bbb3669a2bf645f02c7ff2a9c59768f3"
+doc_hash = "sha256:01108bb7c70df2d24f4048cbee5f636922b26d60429f5ff6da2627ffd5bcc60d"
+
+[[module."pumps.rs".function]]
+id = "fn:17cfbfb8ae7a71c0"
+name = "flow_fraction"
+qual = "FlowSchedule::flow_fraction"
+hash = "sha256:7dcbc0eda336fbf8477129fc5c769a4fd8020aa4b570deac0499a023c0951fb9"
+doc_hash = "sha256:9e4b29d85a9a5eeff8703e6bfe11562a5b3ddb5e1107da7a0a796f50a383599d"
+physical_interface = true
+
+[[module."pumps.rs".function]]
+id = "fn:941c80e0972a813a"
+name = "ornl4233_coolant_pump_speed_coastdown"
+qual = "FlowSchedule::ornl4233_coolant_pump_speed_coastdown"
+hash = "sha256:428ce3f46ba5bc68f8bde3c96662304c4b0f551b17670d86fae017bc73ade12a"
+doc_hash = "sha256:32a7a5377d82e776fac5463d96e208ec090db334d2e0317ca3bb318f28e17ecc"
+
+[[module."pumps.rs".function]]
+id = "fn:43e3b9fb5eb04d2d"
+name = "ornl4233_coolant_salt_flow_coastdown"
+qual = "FlowSchedule::ornl4233_coolant_salt_flow_coastdown"
+hash = "sha256:bfcc1e99b5778bf55468aa617ba36ea773f6d227255375e6fec36da21d10c244"
+doc_hash = "sha256:c0f8d030af59516a12461f91b2da488c90ff0d2c62f67c9c0b44a283b45a2734"
+
+[[module."pumps.rs".function]]
+id = "fn:4819a9f102fbc620"
+name = "ornl4233_fuel_pump_speed_coastdown"
+qual = "FlowSchedule::ornl4233_fuel_pump_speed_coastdown"
+hash = "sha256:fad8c797870e0475084e75ff09bd49081ad528496a9b00a293b840f0fbad7dad"
+doc_hash = "sha256:013131d37012dfa9b35d68776544269ab302e2da84b060d2c9325b5157c18fda"
+
+[[module."pumps.rs".function]]
+id = "fn:dd910665353cd3d7"
+name = "table"
+qual = "FlowSchedule::table"
+hash = "sha256:20e44f97a4cd37478eed98a01d76df98d9d266a6737a7b66077eeaa436ea26c8"
+doc_hash = "sha256:1f2edcec442f24124d1d98b9468e8bc7d5b7e466425f9fa246a6ae8cb448bbd8"
+physical_interface = true
+
+[[module."pumps.rs".function]]
+id = "fn:ee17463bc65f79c1"
+name = "tm0728_fuel_flow_startup"
+qual = "FlowSchedule::tm0728_fuel_flow_startup"
+hash = "sha256:bce2875578bdab465f68c64267637770abafe3e49b80f5720130f7d9935e647c"
+doc_hash = "sha256:62dbe194d000d9283aa0824d77869c338d87492d23f3840f72c09436ae969663"
+
+[[module."pumps.rs".function]]
+id = "fn:bcd2312d4c808f65"
+name = "ORNL4233_FIG23_COOLANT_PUMP_SPEED"
+qual = "ORNL4233_FIG23_COOLANT_PUMP_SPEED"
+item = "const"
+shape = "const"
+hash = "sha256:dcdd90ce211e33f944f763ea31a5bfc46333b9fc99ec3b67f7d083272dcc9b5d"
+doc_hash = "sha256:9163341be513e7b4356ded87846ff1438a0af119c805d56608ac9875592408cc"
+
+[[module."pumps.rs".function]]
+id = "fn:7789059fa04e990c"
+name = "ORNL4233_FIG23_COOLANT_SALT_FLOW"
+qual = "ORNL4233_FIG23_COOLANT_SALT_FLOW"
+item = "const"
+shape = "const"
+hash = "sha256:795b866770b090bfc3c795c8e25274237c98b909241d19d857c0bb14754a51a6"
+doc_hash = "sha256:44659f7f8291df127a03385babeecfab9b1562d685bd3f8fda54be94d2d21567"
+
+[[module."pumps.rs".function]]
+id = "fn:ec17b8ebba236077"
+name = "ORNL4233_FIG23_FUEL_PUMP_SPEED"
+qual = "ORNL4233_FIG23_FUEL_PUMP_SPEED"
+item = "const"
+shape = "const"
+hash = "sha256:ae4d41a31ae2d6a1a24eb3d06a107f41b8c0eef9e1f575fe604601b99011b2f7"
+doc_hash = "sha256:8221ce4f4ca9146ba1efb278e2b1d90d0940f49b1ebe3ec9a36d361c29922770"
+
+[[module."pumps.rs".function]]
+id = "fn:f6c9d37bb26490eb"
+name = "TM0728_FUEL_FLOW_STARTUP"
+qual = "TM0728_FUEL_FLOW_STARTUP"
+item = "const"
+shape = "const"
+hash = "sha256:b73bcb0b4c6e0e517bb246ba775281a3beed91cd04b322667da9a44a8ed5fbea"
+doc_hash = "sha256:75c173d023b866fde24611c73bc5680453f1af9e445241797e75366a6ece3824"
+
+[[module."pumps.rs".function]]
+id = "fn:d1e2991915689380"
+name = "at"
+qual = "at"
+hash = "sha256:ca91458e64ff365e301985b5deeb02d5c6c41e34b229a5580a4b08814f94c1aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."pumps.rs".function]]
+id = "fn:927216d5c6f8da60"
+name = "interpolate"
+qual = "interpolate"
+hash = "sha256:503598c458c32dd1a06b5141be3f231fc1bb4c4f79b1dd3ee70e0df125aaa61f"
+doc_hash = "sha256:b34c78135b8a6476ec122fde7bdc5bffc19808c3721f4978bebca7d16d42b9c8"
+
+[[module."pumps.rs".function]]
+id = "fn:54a7f00bf097aa8c"
+name = "percent_table"
+qual = "percent_table"
+hash = "sha256:4481b760fead995b638d9f24cd15cab82c5dc5c44f33578e49374329af884181"
+doc_hash = "sha256:275d93868a76990846ad5b8f7418227935a85066a8487c111b113aad0f0c699c"
+
+[[module."pumps.rs".function]]
+id = "fn:a6526cacd6d4fe34"
+name = "the_inertial_schedule_is_tampines_coastdown"
+qual = "the_inertial_schedule_is_tampines_coastdown"
+hash = "sha256:ed06de0950a4f88e29fcaf1d58d6cd7b6c9275f0825ee3c9ba2fde6afdcfa35c"
+doc_hash = "sha256:7513abcb479032f3c3cbeb877383730ed3c5e798032577e25b4bda9dbec69f6f"
+test = true
+
+[[module."pumps.rs".function]]
+id = "fn:848d06294fd53384"
+name = "the_schedules_reproduce_their_tables"
+qual = "the_schedules_reproduce_their_tables"
+hash = "sha256:15ca0da7623d9de7fa98ab78596bd9c7035e6e79d0c82056667f76b774a20d80"
+doc_hash = "sha256:a72933884e99524da505bf6ceee5f73a6c755f84f8e75c9e4c4db1a16f1f0a00"
+test = true
+
+[module."session.rs"]
+path = "crate::msre::session"
+
+[[module."session.rs".function]]
+id = "fn:0f8724dd7c669bfc"
+name = "AIR_INLET_F"
+qual = "AIR_INLET_F"
+item = "const"
+shape = "const"
+hash = "sha256:25b0b6b5855bff81efdd2c33e76639d4f6b12b2a83c4f0341a39d6b3275a474f"
+doc_hash = "sha256:e1a90d0d12674a67df72cf5aa0c00d0d71fc569f05d389ad645a643543e031e0"
+
+[[module."session.rs".function]]
+id = "fn:48343d791bf35c9a"
+name = "Advance"
+qual = "Advance"
+item = "type"
+shape = "enum"
+hash = "sha256:a620124b360c14f1dfe2881ec9b2b97fa13a03aeb8699801398ebe27a0242486"
+doc_hash = "sha256:e51bf378b02936bf48a60343390027a3ddfd0b8552b92487baa68b35ff872744"
+
+[[module."session.rs".function]]
+id = "fn:f6d797fd3fe35277"
+name = "COOLANT_LIQUIDUS_F"
+qual = "COOLANT_LIQUIDUS_F"
+item = "const"
+shape = "const"
+hash = "sha256:b9240972ee8c480969d28ae16a3352f7c91b492d4498b400aca837e5e1e10fe8"
+doc_hash = "sha256:6067dbb474e4e52732fa5b685cbafdf892281ffba263a041ca826509199bd00a"
+
+[[module."session.rs".function]]
+id = "fn:49e2ce5bad6ff1a6"
+name = "Coefficients"
+qual = "Coefficients"
+item = "type"
+shape = "enum"
+hash = "sha256:5ccad742f2087cc9a9a19ee85a3aadbb7b9ae1162b16a0637576e01e99959453"
+doc_hash = "sha256:c928d26364c31f34be3b0e2753e84398f4db280961d9b525184f7dbb7aa09597"
+
+[[module."session.rs".function]]
+id = "fn:cb50d755c9e7aaaa"
+name = "describe"
+qual = "Coefficients::describe"
+hash = "sha256:c091baa4305ab69c99a870daec1a75b362e6b81905fdb00eff2cce569967cfeb"
+doc_hash = "sha256:af1a059e61ae0e400b08f464eb2f52e213db833217dae7f14149ed8557e93aad"
+
+[[module."session.rs".function]]
+id = "fn:09afde5551bf6bf3"
+name = "per_f"
+qual = "Coefficients::per_f"
+hash = "sha256:d1ac408b19f1f57ef2686d625e6de285812bd6d7dd0379664fe7526691a5a635"
+doc_hash = "sha256:fbe0e44dffe6c324bc4c9a583c6fabea6023c5a86f4d64a20dcb29d875772a3e"
+
+[[module."session.rs".function]]
+id = "fn:f5b7e8b07e0f72f5"
+name = "Command"
+qual = "Command"
+item = "type"
+shape = "enum"
+hash = "sha256:f196429b5b0903475bbcb1f0592d17410d59c14d098379b4b130aec0ac6ab7a2"
+doc_hash = "sha256:d65f3ac6c813252f0d43164bc17edff95db8c9f8225936a05fbf8625a16a6f87"
+
+[[module."session.rs".function]]
+id = "fn:876688fa7eab712a"
+name = "FUEL_LIQUIDUS_F"
+qual = "FUEL_LIQUIDUS_F"
+item = "const"
+shape = "const"
+hash = "sha256:7bc30daf02005c36ba31b011f1254abe348ddb75bd49b400b2ed16a6660fd8cd"
+doc_hash = "sha256:940b01a7904bd4824096394efa6ba352e20ca87ab30c39651cf3042bafdda5d3"
+
+[[module."session.rs".function]]
+id = "fn:05dc35aecb7e584e"
+name = "Freeze"
+qual = "Freeze"
+item = "type"
+shape = "struct"
+hash = "sha256:69d02a8d4b442b33a9b3a153ff636e3557993c9751c520ccb062a35104395bc1"
+doc_hash = "sha256:756d83074661445f6c3eec8c50007cb2fe1937625616d2d6d7ee0974a9306d95"
+
+[[module."session.rs".function]]
+id = "fn:a272d6fecdf8bb0e"
+name = "headline"
+qual = "Freeze::headline"
+hash = "sha256:cfa2f28069e50e199c7298ed519144da98624be022a1c31be047747539735a18"
+doc_hash = "sha256:69008a569166b8f5d372de5642fc5079302bb276ef59e99ddcf0eb56fb3ad517"
+
+[[module."session.rs".function]]
+id = "fn:0355bf1ca860506f"
+name = "FreezeLocation"
+qual = "FreezeLocation"
+item = "type"
+shape = "enum"
+hash = "sha256:3a453f52acb6e474b0702950475676c10352a94b6db7a7524f7955cd026feafb"
+doc_hash = "sha256:29abc5ba473277280178ee7b7ef0e306ef6faac988296a8ddcb208427dd283c8"
+
+[[module."session.rs".function]]
+id = "fn:18f340cf0628aa5e"
+name = "code"
+qual = "FreezeLocation::code"
+hash = "sha256:ecd9caaf41f9336537f47fa321e1d12a7138f5668a201dde882338f8b1397542"
+doc_hash = "sha256:5365f461dcee95c9441c423fce2155b50f031d5c3564637bcdebf4090789bb9f"
+
+[[module."session.rs".function]]
+id = "fn:f90739c150d1fdd2"
+name = "from_code"
+qual = "FreezeLocation::from_code"
+hash = "sha256:a65bfb9126d66af67697d57fc8ccab8f40387225e9a5c9106cf1dc26c770664f"
+doc_hash = "sha256:7d3c523b600c32ace62ba47f976a2dc4e6495c0f8682a0c7e7336973324e4781"
+
+[[module."session.rs".function]]
+id = "fn:5e4870556e4a4504"
+name = "is_fuel"
+qual = "FreezeLocation::is_fuel"
+hash = "sha256:b6e46d3d33d52950dc6810657258dad5354947398c6ccb51cb169a4f2d2a4ef1"
+doc_hash = "sha256:c0fdf573428eb71819acec83528ee79a9889ad2ea36a55629e1da4a889be0035"
+
+[[module."session.rs".function]]
+id = "fn:bb1ee5ed7b51af16"
+name = "liquidus_f"
+qual = "FreezeLocation::liquidus_f"
+hash = "sha256:7dd901578f77192b48a10202fcd5a06b16e7556bbb206ad0997bb23c7e197fe0"
+doc_hash = "sha256:2cd858e6590cb11050684870c717750177a8b5c0df59af82ff2e44a4cff46248"
+
+[[module."session.rs".function]]
+id = "fn:2210acdc6eb835bd"
+name = "name"
+qual = "FreezeLocation::name"
+hash = "sha256:e6622b9812358b343fa9ba6d3eb0a9ad6c9a071b4402cdedc20c0df454485add"
+doc_hash = "sha256:3518266bd02b657e1a9d72c82d9c1af43e13fd5751f537e70446a63b3f22c86b"
+
+[[module."session.rs".function]]
+id = "fn:6c4e99b3b8bf64f0"
+name = "salt_name"
+qual = "FreezeLocation::salt_name"
+hash = "sha256:9cdb38066786f0f2b12c2cbfc5b4eba60b5ea23398585675a2f07db591e61cef"
+doc_hash = "sha256:2d9b38eb09886d4f3d608cb0b7e0116d112a5feabbac66646490bf74d8445150"
+
+[[module."session.rs".function]]
+id = "fn:01d739d1e5ec5d79"
+name = "MAX_ADVANCE_S"
+qual = "MAX_ADVANCE_S"
+item = "const"
+shape = "const"
+hash = "sha256:0001c7d3151dbfd354fb8704a8c85f0677ff0bb522a0021d7eabedf168c50966"
+doc_hash = "sha256:564270a42eef6b203629876b212e6a518f8dabb2fda54feedbfb592269b0892f"
+
+[[module."session.rs".function]]
+id = "fn:3ab1b5235739c2ea"
+name = "MAX_WALL_GAP_S"
+qual = "MAX_WALL_GAP_S"
+item = "const"
+shape = "const"
+hash = "sha256:6d7f3683adbc5710b2aaffb354990a41ab3caa190ef3b61aabf11c026e496398"
+doc_hash = "sha256:f35809340110bfda77a88999b7dd8c906c7c4a58711c77d0ffe3037bb101157a"
+
+[[module."session.rs".function]]
+id = "fn:6025dc8d0f1dafae"
+name = "MC_N3_FUEL_PER_F"
+qual = "MC_N3_FUEL_PER_F"
+item = "const"
+shape = "const"
+hash = "sha256:2bbcfc3fc742aed7c1612be19bb662bed8a3a201253bd392472f3a0ff8af2301"
+doc_hash = "sha256:4478b90dd2ba52f5ff6d818b885163c008599256464a07e37511fc89099d8b1e"
+
+[[module."session.rs".function]]
+id = "fn:8bd81f9283dadb96"
+name = "MC_N3_GRAPHITE_PER_F"
+qual = "MC_N3_GRAPHITE_PER_F"
+item = "const"
+shape = "const"
+hash = "sha256:f0b05e6bfc651c098c93b230853b03cffb4a6ddb6c951abbe23007dd862318ac"
+doc_hash = "sha256:7de730029b7585f3cf28eb55330731116c0eff6ddb0c883a418e5b0df3482235"
+
+[[module."session.rs".function]]
+id = "fn:893f19fa6c3a3a25"
+name = "Pacer"
+qual = "Pacer"
+item = "type"
+shape = "struct"
+hash = "sha256:403840f0d89cd484b226db7380b626e9f95f49f6104ad0ef5875cfdc9c1a3a70"
+doc_hash = "sha256:1eb389432db89069f655270ec75a125e3dec3cead23eb15ba89abbe9d3db7cc3"
+
+[[module."session.rs".function]]
+id = "fn:20f533a36d350f47"
+name = "new"
+qual = "Pacer::new"
+hash = "sha256:3f8a9ab365e184937a622be7958b8eaf35cf430747fd78b21503af919ce0b2fd"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."session.rs".function]]
+id = "fn:84a933bd98afe340"
+name = "plant_seconds"
+qual = "Pacer::plant_seconds"
+hash = "sha256:19e22feb7229b6339ac78f444221c18b605cea3c29d60912719d264b9d6d790f"
+doc_hash = "sha256:1d99323bb1335cb381850b73f28df81638483ae847434dae8c5b742a680a5ac1"
+
+[[module."session.rs".function]]
+id = "fn:7d46d4586dcd7171"
+name = "PeriodRow"
+qual = "PeriodRow"
+item = "type"
+shape = "alias"
+hash = "sha256:289d2e2a99c450c225e3fc4c4b796bd42630d38a34af44abb640d29ec9ebdd5b"
+doc_hash = "sha256:e4e0992185e41ac580328129268cfb779b6d71260e67d969a124525fb08812dd"
+
+[[module."session.rs".function]]
+id = "fn:e774f824189b23e6"
+name = "SPLIT_BASE_F"
+qual = "SPLIT_BASE_F"
+item = "const"
+shape = "const"
+hash = "sha256:e15ae8aaf54dcc1120f1fdf7511130389f7304631b74bbf9adc1a66e66b102e2"
+doc_hash = "sha256:30b549e44fedaa283ec63ce5f9c1aacaca2048c218813e334bd57297a238b726"
+
+[[module."session.rs".function]]
+id = "fn:6997c88984c0aa87"
+name = "SPLIT_STEP_F"
+qual = "SPLIT_STEP_F"
+item = "const"
+shape = "const"
+hash = "sha256:25b0b6b5855bff81efdd2c33e76639d4f6b12b2a83c4f0341a39d6b3275a474f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."session.rs".function]]
+id = "fn:0988f2801cb9f8de"
+name = "STEP_S"
+qual = "STEP_S"
+item = "const"
+shape = "const"
+hash = "sha256:f12d53df162d97b5c14e423d547aafe0154243b252bb55f705532f33cde36e4f"
+doc_hash = "sha256:e26c5b54d1b97de120f69e8064e7fe0afe0fe17d46366b3367dd3f053ac6b3ab"
+
+[[module."session.rs".function]]
+id = "fn:90957fdbc7234d63"
+name = "Session"
+qual = "Session"
+item = "type"
+shape = "struct"
+hash = "sha256:9dd63fcdf65fc5285adec5c69c10585510a32f2704e1a7c122838bdfeb065db7"
+doc_hash = "sha256:51ea6d761d64e193695d54f62d7e7ed554f5ec03a0e74fbd508068440092116d"
+
+[[module."session.rs".function]]
+id = "fn:d89b5aa8055e2cf0"
+name = "advance"
+qual = "Session::advance"
+hash = "sha256:9b8a8493a9363e63279ff7aaf46955c6540723ef940ce670eddf5b1283f6d783"
+doc_hash = "sha256:ca4ffe3e5bf858ed350b849ea5533578998fd47aea3e1efca73a3dfd299db1c0"
+
+[[module."session.rs".function]]
+id = "fn:9b28082a635d8e34"
+name = "advance_guarded"
+qual = "Session::advance_guarded"
+hash = "sha256:611ebe56e6eb027b15fd14f344d345d78c6816cbb1195b0123561be7fea20acb"
+doc_hash = "sha256:c4af3f6d27b7871d09f10a563d182ae4faa0b087038549ef9735c4096b225106"
+
+[[module."session.rs".function]]
+id = "fn:1eaa8e3b2e0927c8"
+name = "apply"
+qual = "Session::apply"
+hash = "sha256:61af46b474b125b8fee70e0c7cb1f08ea9912c3932dbe3083a25a879e1ca1152"
+doc_hash = "sha256:d7666960b01421de4f11e498166ded4960c199c9438a4059c6304d6201a9960a"
+
+[[module."session.rs".function]]
+id = "fn:b70ed88fb3670c55"
+name = "config"
+qual = "Session::config"
+hash = "sha256:66ecbd76845c7ff7c33e04a4f8218e46884ce35f01c28e6e780d42939de2b52e"
+doc_hash = "sha256:718b8a9854a7067789acde02a57316990dfb15c48d504560de3a22cfa21bf1dd"
+
+[[module."session.rs".function]]
+id = "fn:0a38e5c8c8161c98"
+name = "frozen"
+qual = "Session::frozen"
+hash = "sha256:ce887a8c54a102b56fb88dbdc6ad572596e23c4b36db98c4ea457c6ade76814a"
+doc_hash = "sha256:49fac0ff8826963d78123ff198e8620ac64f059ec5da62035ca0066587884739"
+
+[[module."session.rs".function]]
+id = "fn:749bb5af6b23cdcd"
+name = "new"
+qual = "Session::new"
+hash = "sha256:af6d9a407121625137c5486c1e5ddfdd833ca3d3185bfb20372e24de453e44fc"
+doc_hash = "sha256:cdf5ba573c14f198691ab2e25cf60e4c1f6676067c386e0db2cfd986769f08b7"
+
+[[module."session.rs".function]]
+id = "fn:b5feca1f495c72f9"
+name = "snapshot"
+qual = "Session::snapshot"
+hash = "sha256:cc553bb25cd6b37f67701064510cd3ed7cfed4e2ecf58a57bc19861c4ee4d88e"
+doc_hash = "sha256:2db77dc1a766cecb8581631c73321796b59d78eb17019f88cf50b482dc37b9b5"
+
+[[module."session.rs".function]]
+id = "fn:54820aa0418188f7"
+name = "thaw"
+qual = "Session::thaw"
+hash = "sha256:406fb8001df99f30efca36002f0b13f4d1b66222e87b867efcc69fdea8022c84"
+doc_hash = "sha256:7039d2bfbc758319a36218f0744e2228427885c6dc183a502a921f831eef484d"
+
+[[module."session.rs".function]]
+id = "fn:21a3ded210c74352"
+name = "SessionConfig"
+qual = "SessionConfig"
+item = "type"
+shape = "struct"
+hash = "sha256:e9bca5358b41a4dbde6973e4a51190873be9e57ce513eda244d2ddd4744381ec"
+doc_hash = "sha256:c9d4c5c0d02bfdb1e992c216fbc45c2845a9a8d3791a8dc1686237e304abc2a7"
+
+[[module."session.rs".function]]
+id = "fn:e2f34b89fe41629f"
+name = "default"
+qual = "SessionConfig::default"
+hash = "sha256:579e88fdc657dd25242eec0cc2440cf01ec8fe675560d062f46f49f63493b900"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."session.rs".function]]
+id = "fn:facff8a4d4f76ca4"
+name = "model_config"
+qual = "SessionConfig::model_config"
+hash = "sha256:66f3c09481f8c6498cbea40ce2374144fe9974ca0fa416bf912d7ffb4e25e890"
+doc_hash = "sha256:264d92e7b17e2926d1063eebb407d4582b29afcdfd512483e0d19fd0244a27e7"
+
+[[module."session.rs".function]]
+id = "fn:fb65b059bcaf7183"
+name = "Snapshot"
+qual = "Snapshot"
+item = "type"
+shape = "struct"
+hash = "sha256:3ab2e908e9e75a76e4bbd5962ef170832bac5444ce87ed2818b60295ee8c1af3"
+doc_hash = "sha256:8653f4a9015d3a6cfec365b6bf779a4de364207ad7bacb445dd58e3b097fa369"
+
+[[module."session.rs".function]]
+id = "fn:b986a6be75b4cfdf"
+name = "below_liquidus"
+qual = "Snapshot::below_liquidus"
+hash = "sha256:3b83c2b117030f00483ff9cfa9cd5938083119a787b086cc07cf66b7294f4e52"
+doc_hash = "sha256:c367192c5a4712e2beaee907c3e4e5fca03c712b098f366848072efe2cfff30a"
+
+[[module."session.rs".function]]
+id = "fn:5ee3b67fe11197fb"
+name = "freeze"
+qual = "Snapshot::freeze"
+hash = "sha256:ef2af1083dede2d7f6be2bb95892b97e81b01074e7446810388b0a4843280cb3"
+doc_hash = "sha256:4977de8a67e10cf409273d3b526d20a329f755e249c1e39831a5d578a04ca50e"
+
+[[module."session.rs".function]]
+id = "fn:11fd9b7b6295fcfb"
+name = "from_slice"
+qual = "Snapshot::from_slice"
+hash = "sha256:46622577638b11aaea4c9303d90c1d3714d7823244b18bcf92b7812ff0ede84a"
+doc_hash = "sha256:c64bfb18fd421fca8f87788d6f3ea55c35c33d54968c3ab09a6cf6cc1ed264af"
+
+[[module."session.rs".function]]
+id = "fn:cf53bfab090deffd"
+name = "to_vec"
+qual = "Snapshot::to_vec"
+hash = "sha256:8b16df2e26b61dde28fdba8d0daea5139e0fec8a97e7b2ca642bf0afc233cff0"
+doc_hash = "sha256:94f50265bae4a9aa1720454168892c89773de8284f4e5b27882502545a516422"
+
+[[module."session.rs".function]]
+id = "fn:04616eed21147752"
+name = "coefficient_from_pair"
+qual = "coefficient_from_pair"
+hash = "sha256:4c192f95941c9e1b4ad4644839ab1adc6aba1ebfab31d024929de60bdb73d79e"
+doc_hash = "sha256:1b2e5d86684f105a836d41c8bb1ec014c27671e8bfe043e88de1eb959ed97401"
+
+[[module."session.rs".function]]
+id = "fn:896596538605b97e"
+name = "demo_script"
+qual = "demo_script"
+hash = "sha256:dd00f694d9d3f328d7178f0ee5ee072ac6248ca6960b2893b76ee2e2f3091773"
+doc_hash = "sha256:d2f18d490c0ba4079d4f57ceeaff1e703a3dfb1da34dec8668df40b4cf705fad"
+
+[[module."session.rs".function]]
+id = "fn:166fadd7bc912321"
+name = "headless_csv"
+qual = "headless_csv"
+hash = "sha256:5a41a73e7ff8857235e20b2ab87865c9c67a37154fff7fea596a68174aa676a9"
+doc_hash = "sha256:5e97c25cc710c2ea76c75e32d7772367f80ae15518968fcbb89a0f480a3929ec"
+
+[[module."session.rs".function]]
+id = "fn:7e2ade5914c2352e"
+name = "natural_periods"
+qual = "natural_periods"
+hash = "sha256:cd68ccd8c7e3bcb2962f826b74a341b5b39c27f8eda6b0dcdc4a32d619757dc1"
+doc_hash = "sha256:fef3e94e591189d1575abd569997c33ee72fccc66f890c938e3dcaf5377ba219"
+
+[[module."session.rs".function]]
+id = "fn:eaa97445e271254d"
+name = "run"
+qual = "run"
+hash = "sha256:a6fd63aca8dc22b4f5258515bfc5fb9db6d31f4dc7823c1f10a083959dc730aa"
+doc_hash = "sha256:490fe814ff54d37150331310db312ba4d3974319117b11e0bd117eb45355e0c3"
+
+[module."twin.rs"]
+path = "crate::msre::twin"
+
+[[module."twin.rs".function]]
+id = "fn:82925e57df6dafad"
+name = "MULTIPHYSICS_ISSUE"
+qual = "MULTIPHYSICS_ISSUE"
+item = "const"
+shape = "const"
+hash = "sha256:1893b4c202cba7ce75571dcf21144fd58079760510073ed4291b9170b74bddc8"
+doc_hash = "sha256:22d0b58634dd1ed2ee61dccf79682acf12bd22f6f2fe607b8e5a3b32c67fad43"
+
+[[module."twin.rs".function]]
+id = "fn:c5f628e3bf82c9dc"
+name = "MsrePlant"
+qual = "MsrePlant"
+item = "type"
+shape = "struct"
+hash = "sha256:a35a23f38846d32778586d2cdc1d5a71222204dcd851816e4b465efacc081624"
+doc_hash = "sha256:e2efa54ee516b5b66e74a21d53135bf6420aad6884c578ba5ea8048253914155"
+
+[[module."twin.rs".function]]
+id = "fn:a6f84a7df28ed8a6"
+name = "advance"
+qual = "MsrePlant::advance"
+hash = "sha256:41f26e2ed34e109c1cd95b7ad01782172814cf9185f9a1cfe125c157ca9c2425"
+doc_hash = "sha256:1558cbf5d492260b18ecd05179a4f0feeda954e727be2a183d76be7d1bccd2d0"
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:6aada8f96f04a0d7"
+name = "apply"
+qual = "MsrePlant::apply"
+hash = "sha256:9a34dc82c24573e71a355783c19859342e9ab8ddc8ecc69294f22a6d0f8fc862"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:064dcec3c833c7c2"
+name = "build"
+qual = "MsrePlant::build"
+hash = "sha256:f36c2c8ac22ba687f4e0502835e1e60654d8af75763e49d789efb497b1773b86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:3accc702300b89b6"
+name = "control_volumes"
+qual = "MsrePlant::control_volumes"
+hash = "sha256:d85409fc7d911dd47d676ff4b7289a4040212d7d238ae13526b3f54a753d531c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:d3e969a0295750b9"
+name = "session"
+qual = "MsrePlant::session"
+hash = "sha256:319a37a23649cc56d56b50cbc22c84d9462da00745af835a36d6d0ec8d746d70"
+doc_hash = "sha256:f4a2e0aec8ec45a18d6149807071c79572fbfd2a8b3c8a22cf6b8999daca11af"
+
+[[module."twin.rs".function]]
+id = "fn:8e9a105790982047"
+name = "set_coefficients"
+qual = "MsrePlant::set_coefficients"
+hash = "sha256:e505413abfa6d14d83e0c2c5ce4d679ebddbc63931c826b1d19c13ee65520f06"
+doc_hash = "sha256:45f2a16757142f6e68804e0e8dbde290adea9260aa68ff5fad3e00c4be74c916"
+
+[[module."twin.rs".function]]
+id = "fn:d31fd4c66882ffc1"
+name = "snapshot"
+qual = "MsrePlant::snapshot"
+hash = "sha256:c7714534963f856421113c6363a136ea8f974c01c426dd8d3f4fd34c6f5854fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:74184f89a42f37cb"
+name = "MsreSplit"
+qual = "MsreSplit"
+item = "type"
+shape = "struct"
+hash = "sha256:d825856bbf6bf057b24a3012b58b93b869c0c4f603d99888836d42997654383b"
+doc_hash = "sha256:4450b684433de0261c479d5c85f246f76d691b037867bea544ead5c8c69240cd"
+
+[[module."twin.rs".function]]
+id = "fn:577afb8995dc88eb"
+name = "coefficients"
+qual = "MsreSplit::coefficients"
+hash = "sha256:8fe3a9510798fe48e3f0b1e4935cc893fc7a3040691a9d0b81817b24b845520c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:9b3bc11a42060eee"
+name = "describe"
+qual = "MsreSplit::describe"
+hash = "sha256:0dc00e3c4fa7a0ed52e072be462c7ad91f7c70ea5f6e4c800062cc6fc2efb172"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:5e52ab9e794d5b6a"
+name = "run"
+qual = "MsreSplit::run"
+hash = "sha256:66a681732c107f0b666a9ab3be4a2138bddcc1c98674608a9b0531309ded2746"
+doc_hash = "sha256:a31919c70517ca74cc3515e007377093b29565c3a45ca06f9923b35471c5903f"
+
+[[module."twin.rs".function]]
+id = "fn:328a2c0612cd098a"
+name = "runs"
+qual = "MsreSplit::runs"
+hash = "sha256:a4c9f7180c8e386c1a637fb00cf9f1c002a514785202d65707894b1f2de8c7a6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:1148f68acfa3cbcf"
+name = "study"
+qual = "MsreSplit::study"
+hash = "sha256:fb15b74dfd4f5d2cd10f77cd9626172cf6cd0876d68c432bdf1570d75088bea5"
+doc_hash = "sha256:283c8e17654b73e256530b9edbd27dfbc6a6dd39cf18a549f43ef50a7e73419f"
+
+[[module."twin.rs".function]]
+id = "fn:e89c920e956dec79"
+name = "MsreTwin"
+qual = "MsreTwin"
+item = "type"
+shape = "alias"
+hash = "sha256:890652aaf126f1a46825805c87587bb5ede7963e580bcae0931480bf68a35957"
+doc_hash = "sha256:1c4ec959baaa3f34a3234ba4327a57583bc65ef6aa86fc4b761b3202c86f8d21"
+
+[[module."twin.rs".function]]
+id = "fn:168e618794bf7c4c"
+name = "N3_RECORD"
+qual = "N3_RECORD"
+item = "const"
+shape = "const"
+hash = "sha256:319677afa72c961844c8ccd8ab97911e307e25e5105ee448a4cd07197a075d75"
+doc_hash = "sha256:17a74c5a6f0f5849a145e89d460376b8a7bdeaccdceb7be5e0ca02d49b1267a5"
+
+[[module."twin.rs".function]]
+id = "fn:bb9d402a17a660da"
+name = "ORNL_1965_CITATION"
+qual = "ORNL_1965_CITATION"
+item = "const"
+shape = "const"
+hash = "sha256:0046c6ea50baf2b879b7b3d5ddb9701f30748e9070d18a868995d63a9400bfd3"
+doc_hash = "sha256:050aae1ba76843cd12b53d0ec706e3286cf15877b373618409d4ab3e566f0e6d"
+
+[[module."twin.rs".function]]
+id = "fn:ee44d72b5b86c044"
+name = "columns"
+qual = "Snapshot::columns"
+hash = "sha256:4716bbaf9fe48a49936fc8b57c78faedf9d51363c3483e2804ce1be7cc18ee0b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:770a80c41368376b"
+name = "values"
+qual = "Snapshot::values"
+hash = "sha256:f5a8b8e3ec23035c57232223ae323cba65238c45b8772494f5cf4a1cbbca16a8"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:2649f52ce86a69c5"
+name = "demo_script"
+qual = "demo_script"
+hash = "sha256:66786980d6c8b47c5de3c98cb62e13081148e979e95fa0b78e2a131771481acd"
+doc_hash = "sha256:cd757923c5390c45bba3f3515cbdfdbd0bf7342bcc20213e1fb5b9887d61cba7"
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:e36f1ee70ec339f8"
+name = "f_to_t"
+qual = "f_to_t"
+hash = "sha256:cc9290aa915aa22cbdfb3afdd8b755aa3eb2aaf42260b992b50f1d734f39b557"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."twin.rs".function]]
+id = "fn:712f8444e51c8ba4"
+name = "msre_twin"
+qual = "msre_twin"
+hash = "sha256:c341903b3aecedb031206c464c807db5cd98e369e77232eba7980ac7bf1bddd4"
+doc_hash = "sha256:31013230460308eed9696d6ba57237b0a6395dd75d9ce05b6c4f196602fe46a8"
+
+[[module."twin.rs".function]]
+id = "fn:e0cfc5a172ecf64c"
+name = "native_keff"
+qual = "native_keff#1"
+hash = "sha256:ddc022ea82f8881cb0caf6c7dd5ef4cf07d59ffd2cc53680a33955ce2d491dee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:e24db33d1f2fc3da"
+name = "native_keff"
+qual = "native_keff#2"
+hash = "sha256:d0b04cca8a51d0398960e931f4892e33f0bdd221a08567c267af165832b6fd40"
+doc_hash = "sha256:8afc5925ff57c3aef57db412157042c615d28487d9d5d010790877b36ce0c7ab"
+
+[[module."twin.rs".function]]
+id = "fn:9d0271abfc1a2f3e"
+name = "plant_error"
+qual = "plant_error"
+hash = "sha256:0f01e7aa65aab61eda1cf264f05f5c51d204d069dd921da177c9c103dfb1890d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."twin.rs".function]]
+id = "fn:395fb8b4be2c7bb6"
+name = "quick_split"
+qual = "quick_split"
+hash = "sha256:5327c5ebe565e7e74ef0f531c42ea2e5a7bd2617ae86c72491aaa31b2bc7329c"
+doc_hash = "sha256:35e51a86be1f2235ce82302e8dedd59903511ecb609a2299529d79fa09b2ed51"

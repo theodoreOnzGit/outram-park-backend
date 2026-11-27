@@ -18,7 +18,9 @@
 //! > **⚠️ No human V&V has been performed yet — use at your own risk.** The
 //! > automated tests here are self-consistency and primary-standard checks; no
 //! > human-reviewed validation against CoolProp reference outputs exists yet
-//! > (planned, bead op-kbc.3). Not for nuclear facility operation, reactor
+//! > ~~(planned, bead op-kbc.3)~~ (**CORRECTED 2026-11-27:** a code-to-code
+//! > differential test against CoolProp itself exists,
+//! > `tests/coolprop_differential.rs`; it is not human-reviewed V&V). Not for nuclear facility operation, reactor
 //! > control, safety-critical, or licensing decisions.
 //!
 //! - **Enum dispatch, no trait objects.** Fluids are a [`Fluid`] enum and
@@ -28,7 +30,9 @@
 //!   `const` Rust in [`fluids`], generated once from CoolProp's fluid JSON by
 //!   `dev/gen_fluid.py` (the CoolProp clone lives in the gitignored
 //!   `reference/` for development only). A few KB per fluid.
-//! - **Pure `std`, no BLAS / C deps** — so it builds on Android too.
+//! - ~~**Pure `std`, no BLAS / C deps**~~ **CORRECTED 2026-11-27:** `no_std` +
+//!   `alloc` with a default `std` feature since gh:#1598, no BLAS / C deps
+//!   (`Cargo.toml`) — so it builds on Android too.
 //!
 //! ## Status
 //!
@@ -51,7 +55,10 @@
 //!   `μ`/`λ` getters.
 //! - **Transient flow** ([`openfoam_algorithms`]): a vendored pure-Rust
 //!   OpenFOAM finite-volume layer + the 1-D compressible `OPCPFluidArray`
-//!   solver (no `outram-foam-basic-lib` dependency), driven by this crate's EOS.
+//!   solver ~~(no `outram-foam-basic-lib` dependency)~~ (**CORRECTED
+//!   2026-11-27:** its mesh and tensor primitives are re-exported from
+//!   `outram-foam-basic-lib` since 2026-10-03, GitHub #492; `Cargo.toml`),
+//!   driven by this crate's EOS.
 //!
 //! The **non-analytic** critical-region residual term is evaluated (verified
 //! to `5.2e-14` at Water's exact critical point — see
@@ -171,7 +178,9 @@ pub mod mixtures;
 pub mod transport_corresponding_states;
 
 /// Vendored pure-Rust OpenFOAM finite-volume layer + 1-D compressible solvers,
-/// copied from `tampines-steam-tables` (no `outram-foam-basic-lib` dependency).
+/// copied from `tampines-steam-tables` ~~(no `outram-foam-basic-lib`
+/// dependency)~~ (**CORRECTED 2026-11-27:** mesh and tensor primitives are
+/// re-exported from `outram-foam-basic-lib` since GitHub #492).
 /// The transient-flow backbone whose thermo plug-in point is backed by this
 /// crate's CoolProp EOS. See its module `CLAUDE.md` for provenance.
 pub mod openfoam_algorithms;

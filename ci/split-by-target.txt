@@ -21,6 +21,12 @@
 #
 # One package name per line; `#` starts a comment. The script fails if a name
 # here is not a workspace member, so the list cannot rot silently.
+#
+# `name batch` (added 2026-11-24) puts `batch` consecutive test targets in one
+# job instead of one each (the lib shard stays alone). GitHub caps a matrix at
+# 256 jobs; the full tier reached 296 (run 45082263111), so outram-mc-libs runs
+# two test binaries per job. Its slowest binaries take ~12 min, far inside a
+# job's 6 hours.
 
 # 139 shards (lib + 137 integration tests + 1 bin, 2026-11-10). Evidence:
 # full-tests run 42136324698 (2026-11-06, ubuntu-latest, whole workspace in
@@ -28,8 +34,7 @@
 # inside this crate (`majorant_temperature_cover`) when the 6-hour limit
 # cancelled it. Its own binaries include ablation_hook_controls (703 s),
 # majorant_bounds_endf (579 s), hybrid_tracking_equivalence (490 s).
-outram-mc-libs
-
+outram-mc-libs 2
 # 12 shards (lib + 11 integration tests). Evidence: the measured runtimes in
 # its own `long-tests` ignore messages sum to 5344 s for three tests alone
 # (angle_of_repose 2313 s, htr10_pebble_bed 2714 s, pebble_bed_bulk 317 s;

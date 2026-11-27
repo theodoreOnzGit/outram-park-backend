@@ -15,6 +15,44 @@ into a catalogue of symbols and Markdown summaries.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+**Scope.** Turning source trees and literature libraries into structured,
+linkable records: code symbols, a typed graph of engineering concepts,
+condensed API bundles for chat agents, and Zotero duplicate detection,
+relations and merge. **The one question it answers:** what does this
+repository (or library) contain, and how do its pieces relate?
+
+**Knowledge it makes studyable.** The symbol catalogue is what lets KOVAN
+link a paper to the function that implements it; the regex extractors in
+`src/extract/` state their own per-language limits, so a reader can see
+exactly which definitions they miss. The `ontology` module is a small typed
+vocabulary connecting concepts (for example "Boussinesq Approximation") to
+the methods, software and literature that support them. The Zotero port can
+be read beside upstream's `duplicates.js`, `relations.js` and
+`mergeItems.mjs`, with every deviation listed in
+[`docs/zotero-port.md`](docs/zotero-port.md).
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`), not human-reviewed;
+the language-server tier is a scaffold.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | No physics literature. Ported upstream: Zotero commit `9cbba8c4d281` and Zotero utilities commit `4051881d59c6` (AGPL-3.0; see [`NOTICE`](NOTICE) and [`docs/zotero-port.md`](docs/zotero-port.md)). The `ontology` test fixture is informally drawn from an Ong dissertation, IAEA TECDOC-1694 and a TUAS paper (`src/ontology.rs` module doc). |
+| Mathematical equations | None. |
+| Source code | `extract` (`rust`, `cpp`, `python`, `fortran`), `ontology`, `agent_docs`, `adapters` (scaffold), `zotero` (`duplicates`, `relations`, `merge`, `kovan_map`, `text`), private `outputs`. |
+| Interactive simulations | None yet. CLI: `kovan-cli symbols`, `kovan-cli summary`, `kovan-cli agent-docs-gen`; example `examples/adapters.rs`. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `tests/zotero_upstream.rs` ports upstream Zotero's tests: "77 passed, 0 failed", module unit tests "20 passed" (2026-10-07, [`docs/zotero-port.md`](docs/zotero-port.md)). No code-to-code run against Zotero (#752). Extractors and ontology: unit tests in `src/`. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. |
+
+The Zotero port has ported-upstream-test evidence; the symbol extractors are
+unit-tested with documented limits; nothing is human-reviewed.
+
+## What the crate is
+
 A repository-understanding engine that runs **deterministically and offline**.
 It does not reimplement a compiler or build a universal AST. The default tier
 finds definition lines with `kovan-discovery`'s ripgrep engine and pulls out

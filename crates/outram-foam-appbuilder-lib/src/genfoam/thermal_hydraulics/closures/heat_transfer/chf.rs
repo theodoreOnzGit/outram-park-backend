@@ -77,9 +77,10 @@
 //!   Transfer* 124, 2002, pp. 717-728.
 //! - P. Saha and N. Zuber, "Point of net vapor generation and vapor void
 //!   fraction in subcooled boiling," *Proc. 5th Int. Heat Transfer Conf.*,
-//!   Tokyo, 1974, paper B4.7 (the published `Δ T_sub` correlation this port
-//!   reproduces — see [`SubcooledBoilingFraction::SahaZuber`]'s doc for why
-//!   it deviates from upstream's literal C++).
+//!   Tokyo, 1974, paper B4.7 (the published `Δ T_sub` correlation, kept as
+//!   [`SubcooledBoilingFraction::SahaZuberPublished`]; ~~the port's default~~
+//!   **CORRECTED 2026-11-26** — the default [`SubcooledBoilingFraction::SahaZuber`]
+//!   is upstream's literal C++, which lacks the `k` division).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -225,7 +226,7 @@ impl OnsetOfNucleateBoilingTemperature {
             } => {
                 let theta = contact_angle.get::<uom::si::angle::radian>();
                 let a = 2.0 * surface_tension.get::<newton_per_meter>()
-                    / (1.0 - (-theta.r_powi(3) - 0.5 * theta).r_exp()).r_powi(2);
+                    / (1.0 - (-theta.r_powf(3.0) - 0.5 * theta).r_exp()).r_powi(2);
 
                 let htc = htc_forced_convection_enhanced.get::<watt_per_square_meter_kelvin>();
                 let t_sat_k = t_sat.get::<kelvin>();
@@ -427,8 +428,18 @@ pub enum SubcooledBoilingFraction {
         /// The fixed fraction (upstream dictionary entry `value`).
         value: Ratio,
     },
-    /// Saha & Zuber (1974) point-of-net-vapour-generation correlation.
+    /// GeN-Foam's `SahaZuber::value()` AS WRITTEN (the default, gh:#1222, maintainer 2026-11-26
+    /// "follow upstream"): `T_ld = max(T_sat - q Dh / (0.0065 max(Re Pr, 7e4)), 0)` with NO division by
+    /// the thermal conductivity. Dimensionally that is not a temperature (the `k` of the published
+    /// correlation is missing), which is why `uom` cannot type it and it is evaluated on plain scalars;
+    /// `thermal_conductivity` is ignored. ~~The earlier port form~~ **CORRECTED 2026-11-26**: the
+    /// published-correlation form, which the port used before this date, stays callable as
+    /// [`SubcooledBoilingFraction::SahaZuberPublished`].
     SahaZuber,
+    /// The Saha & Zuber (1974) published correlation `T_ld = T_sat - q Dh / (0.0065 k max(Re Pr, 7e4))`
+    /// (with the `k` division upstream's code lacks): the port's form until 2026-11-26, now an explicit
+    /// option.
+    SahaZuberPublished,
 }
 
 impl SubcooledBoilingFraction {
@@ -436,7 +447,10 @@ impl SubcooledBoilingFraction {
     /// bubble growth; `thermal_conductivity`, `re`, `pr` are the liquid
     /// phase's properties.
     ///
-    /// **Deviation from upstream's literal C++, documented:** Saha & Zuber's
+    /// ~~**Deviation from upstream's literal C++, documented:**~~ **CORRECTED 2026-11-26** (gh:#1222,
+    /// "follow upstream"): [`SubcooledBoilingFraction::SahaZuber`] is now upstream's literal expression
+    /// (no `k`); the paragraph below describes [`SubcooledBoilingFraction::SahaZuberPublished`], the
+    /// earlier port form. Saha & Zuber's
     /// published correlation for the sub-cooling `Delta T_sub,d` at the point
     /// of net vapour generation is `Delta T_sub,d = q'' * D_h / (0.0065 * k *
     /// Pe)` for `Pe = Re*Pr > 70000` (`k` the liquid thermal conductivity).
@@ -466,6 +480,16 @@ impl SubcooledBoilingFraction {
         match *self {
             Self::Constant { value } => value,
             Self::SahaZuber => {
+                let q = heat_flux.get::<watt_per_square_meter>();
+                let dh = hydraulic_diameter.get::<meter>();
+                let peclet = (re.get::<ratio>() * pr.get::<ratio>()).max(7e4);
+                let t_sat_k = t_sat.get::<kelvin>();
+                // SahaZuberSubCooledBoilingFraction.C: `qi*Dh/(0.0065*max(Re*Pr, 7e4))`, no `k`.
+                let t_ld = (t_sat_k - q * dh / (0.0065 * peclet)).max(0.0);
+                let frac = ((t_fluid.get::<kelvin>() - t_ld) / (t_sat_k - t_ld).max(1e-3)).max(0.0).min(1.0);
+                Ratio::new::<ratio>(frac)
+            }
+            Self::SahaZuberPublished => {
                 let q = heat_flux.get::<watt_per_square_meter>();
                 let k = thermal_conductivity.get::<watt_per_meter_kelvin>();
                 let dh = hydraulic_diameter.get::<meter>();

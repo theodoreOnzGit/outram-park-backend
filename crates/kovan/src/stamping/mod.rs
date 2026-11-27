@@ -321,7 +321,10 @@ fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<W
         part.iter()
             .map(|(dir, toml_path)| {
                 let text = std::fs::read_to_string(toml_path).ok()?;
-                let fi = FolderIndex::parse(&text).ok()?;
+                // The tracked file merged with its derived cache (#1778).
+                let derived_path = root.join(kovan_common::code_index::derived::derived_rel(dir));
+                let derived_text = std::fs::read_to_string(&derived_path).ok();
+                let fi = kovan_common::code_index::derived::load(root, &text).ok()?;
                 if fi.dir != *dir {
                     return None; // a fixture or a copy, not this folder's index
                 }
@@ -339,6 +342,7 @@ fn load_workspace_with(root: &Path, cache: &mut ws_cache::RootCache) -> Result<W
                 Some(ws_cache::CachedFolder {
                     cached_at: now,
                     toml: ws_cache::Seen::of(toml_path, &text),
+                    derived: derived_text.map(|t| ws_cache::Seen::of(&derived_path, &t)),
                     files: files
                         .iter()
                         .map(|(n, t)| (n.clone(), ws_cache::Seen::of(&root.join(dir).join(n), t)))
@@ -842,6 +846,16 @@ pub fn write_review(
     let old = std::fs::read_to_string(&path).unwrap_or_default();
     let w = upsert_review(&old, entry, comments).map_err(|e| e.to_string())?;
     write_text(&path, &w.text)?;
+    // The folder's tracked kovan.toml keeps reached_by of reviewed
+    // functions (#1776), so the stamp's commit holds the tests its rung is
+    // judged on. Best effort: the review is written either way, and the
+    // next `kovan-cli index` brings the cache in line.
+    let dir = path
+        .parent()
+        .and_then(|d| d.strip_prefix(root).ok())
+        .map(|d| d.to_string_lossy().replace('\\', "/"))
+        .unwrap_or_default();
+    let _ = kovan_common::code_index::derived::sync_reviews(root, &dir, &w.text);
     Ok(WrittenEntry {
         review_md: path,
         replaced: w.replaced,

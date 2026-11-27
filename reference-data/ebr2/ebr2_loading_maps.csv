@@ -1,0 +1,638 @@
+position,ring,sector,index,q,r,run138b_type,run138b_id,run138b_code,run138b_label,run138b_proposed_type,run138b_proposed_id,run129c_type,run129c_id
+1A1,1,A,1,0,0,half-worth driver,2881H,C,MK2AI,partial (half) driver,2881H,partial (half) driver,2875H!
+2A1,2,A,1,-1,0,half-worth driver,2880H,C,MK2AI,partial (half) driver,2880H,driver,2786G
+2B1,2,B,1,0,-1,SST dummy,K016,-,SST,SST dummy (K016),9016,experiment (X406),9406
+2C1,2,C,1,1,-1,half-worth driver,2882H,C,MK2AI,partial (half) driver,2882H,driver,2853G
+2D1,2,D,1,1,0,SST dummy,K015,-,SST,SST dummy (K015),9015,driver,2854G!
+2E1,2,E,1,0,1,half-worth driver,2895H,C,MK2AI,partial (half) driver,2895H,driver,2854G!
+2F1,2,F,1,-1,1,SST dummy,K017,-,SST,SST dummy (K017),9017,experiment (X407),9407
+3A1,3,A,1,-2,0,safety rod,677,S,SAFETY,safety rod,677,safety rod,675
+3A2,3,A,2,-1,-1,half-worth driver,2878H,C,MK2AI,partial (half) driver,2878H,driver,2856G
+3B1,3,B,1,0,-2,driver,2762C,C,MK2AI,driver,2762,driver,2787G
+3B2,3,B,2,1,-2,SST dummy,K013,-,SST,SST dummy (K013),9013,driver,2858G?
+3C1,3,C,1,2,-2,driver,2771E?,C,MK2A,driver,2999,driver,2751G
+3C2,3,C,2,2,-1,half-worth driver,2883H,C,MK2AI,partial (half) driver,2883H,driver,2842G?
+3D1,3,D,1,2,0,safety rod,678,S,SAFETY,safety rod,678,safety rod,676
+3D2,3,D,2,1,1,half-worth driver,2877H,C,MK2AI,partial (half) driver,2877H,driver,2857G
+3E1,3,E,1,0,2,driver,2773R,C,MK2AI,driver,2773,driver,2785G
+3E2,3,E,2,-1,2,half-worth driver,2879H,C,MK2AI,partial (half) driver,2879H,driver,2859G
+3F1,3,F,1,-2,2,driver,2893E,C,MK2A,driver,2893,driver,2855G
+3F2,3,F,2,-2,1,SST dummy,K014,-,SST,SST dummy (K014),9014,driver,2753G
+4A1,4,A,1,-3,0,driver,2792E,C,MK2A,driver,2792,driver,2755G
+4A2,4,A,2,-2,-1,driver,2891X,C,MK2AI,driver,2891,experiment (X393),9393
+4A3,4,A,3,-1,-2,driver,2760C,C,MK2AI,driver,2760,driver,2759C?
+4B1,4,B,1,0,-3,driver,2800E?,C,MK2A,driver,2793,experiment (X408),9408
+4B2,4,B,2,1,-3,driver,2770E,C,MK2A,driver,2999,experiment (X390),9390
+4B3,4,B,3,2,-3,driver,2769C,C,MK2AI,driver,2769,driver,2758C?
+4C1,4,C,1,3,-3,driver,2894E?,C,MK2A,driver,2894,experiment (X409),9409
+4C2,4,C,2,3,-2,experiment,2776A,C,XETAGS,driver,2776,driver,2783G
+4C3,4,C,3,3,-1,driver,2796E,C,MK2A,driver,2796,driver,2782X
+4D1,4,D,1,3,0,driver,2768R,C,MK2AI,driver,2768,driver,2788G
+4D2,4,D,2,2,1,experiment,X320C,-,EXP,experiment (X320),9320,driver,2849G
+4D3,4,D,3,1,2,driver,2775,C,MK2AI,driver,2775,driver,2752G
+4E1,4,E,1,0,3,driver,2790E,C,MK2A,driver,2790,driver,2861G
+4E2,4,E,2,-1,3,driver,2761C,C,MK2AI,driver,2761,driver,2756C
+4E3,4,E,3,-2,3,driver,2797E,C,MK2A,driver,2797,driver,2784G
+4F1,4,F,1,-3,3,driver,2798E,C,MK2A,driver,2999,driver,2860G
+4F2,4,F,2,-3,2,driver,2799E,C,MK2A,driver,2999,partial (half) driver,2875H!
+4F3,4,F,3,-3,1,driver,2774,C,MK2AI,driver,2774,experiment (X400),9400
+5A1,5,A,1,-4,0,control rod,4227S,L,HW CNTR,control rod,4227,control rod,4213S
+5A2,5,A,2,-3,-1,driver,2794E,C,MK2A,driver,2794,partial (half) driver,2879H
+5A3,5,A,3,-2,-2,SST dummy,LUM-2,-,SST,SST dummy (K002),9002,SST dummy (LUM2),9002
+5A4,5,A,4,-1,-3,driver,2789E,C,MK2A,driver,2789,experiment (X399),9399
+5B1,5,B,1,0,-4,control rod,4230S,L,HW CNTR,control rod,4230,control rod,4215S
+5B2,5,B,2,1,-4,driver,2766C,C,MK2AI,driver,2766,SST dummy (K013),9013
+5B3,5,B,3,2,-4,control rod,4229S,L,HW CNTR,control rod,4229,control rod,4216S
+5B4,5,B,4,3,-4,driver,2793E,C,MK2A,experiment (X411),9411,partial (half) driver,2877H
+5C1,5,C,1,4,-4,instrumented,XX10,-,EXP,instrumented (XX10),9910,instrumented (XX10),9910
+5C2,5,C,2,4,-3,driver,2764C,C,MK2AI,driver,2764,driver,2850G
+5C3,5,C,3,4,-2,control rod,4228S,L,HW CNTR,control rod,4228,control rod,4214S
+5C4,5,C,4,4,-1,driver,2777A,C,MK2AI,driver,2777,SST dummy (K012),9012
+5D1,5,D,1,4,0,control rod,4302N,L,CONTROL,control rod,4302,control rod,4098N
+5D2,5,D,2,3,1,driver,2767C,C,MK2AI,driver,2767,partial (half) driver,2876H
+5D3,5,D,3,2,2,instrumented,XX09,-,EXP-XE,instrumented (XX09),9909,instrumented (XX09),9909
+5D4,5,D,4,1,3,driver,2765C,C,MK2AI,driver,2765,SST dummy (K011),9011
+5E1,5,E,1,0,4,control rod,4224S,L,HW CNTR,control rod,4224,control rod,4217S
+5E2,5,E,2,-1,4,driver,2795E,C,MK2A,driver,2795,SST dummy (K014),9014
+5E3,5,E,3,-2,4,control rod,4225S,L,HW CNTR,control rod,4225,control rod,4211S
+5E4,5,E,4,-3,4,driver,2763C,C,MK2AI,driver,2763,SST dummy (K015),9015
+5F1,5,F,1,-4,4,control rod,4226S,L,HW CNTR,control rod,4226,control rod,4212S
+5F2,5,F,2,-4,3,driver,2791E,C,MK2A,driver,2791,driver,2757C
+5F3,5,F,3,-4,2,experiment,XY-16,-,EXP,experiment (XY16),9716,experiment (XY-16),9716
+5F4,5,F,4,-4,1,driver,2758C,C,MK2AI,driver,2758,driver,2851G
+6A1,6,A,1,-5,0,high-flow driver,6020G,F,MK2AI,high-flow driver,6020,experiment (X401),9401
+6A2,6,A,2,-4,-1,high-flow driver,6025E,F,MK2A,high-flow driver,6025,high-flow driver,6017G
+6A3,6,A,3,-3,-2,high-flow driver,6009C,F,MK2AI,high-flow driver,6009,high-flow driver,6018G
+6A4,6,A,4,-2,-3,high-flow driver,6021G,F,MK2AI,high-flow driver,6021,high-flow driver,6023G
+6A5,6,A,5,-1,-4,high-flow driver,6012E,F,MK2A,high-flow driver,6012,high-flow driver,6003G
+6B1,6,B,1,0,-5,driver,3428C,B,MK2AI,driver,3428,SST reflector,7
+6B2,6,B,2,1,-5,high-flow driver,6031E,F,MK2A,high-flow driver,6031,partial (half) driver,3530H
+6B3,6,B,3,2,-5,experiment,X402A,-,EXP-XE,experiment (X402),9402,high-flow driver,6004G
+6B4,6,B,4,3,-5,half-worth driver,3535H,B,MK2AI,partial (half) driver,3535H,high-flow driver,6020G
+6B5,6,B,5,4,-5,high-flow driver,6011A,F,MK2AI,high-flow driver,6011,high-flow driver,6000G
+6C1,6,C,1,5,-5,driver,3429C?,B,MK2AI,driver,3429,driver,3388G
+6C2,6,C,2,5,-4,high-flow driver,6028E,F,MK2A,high-flow driver,6028,high-flow driver,6015G
+6C3,6,C,3,5,-3,high-flow driver,6007C,F,MK2AI,high-flow driver,6007,partial (half) driver,3531H
+6C4,6,C,4,5,-2,high-flow driver,6013E,F,MK2AI,high-flow driver,6013,high-flow driver,6019G
+6C5,6,C,5,5,-1,half-worth driver,3534H,B,MK2AI,partial (half) driver,3534H,high-flow driver,6014G
+6D1,6,D,1,5,0,experiment,X412,-,EXP,experiment (X412),9412,SST reflector,7
+6D2,6,D,2,4,1,high-flow driver,6010A,F,MK2AI,high-flow driver,6010,high-flow driver,6021G
+6D3,6,D,3,3,2,high-flow driver,6027E,F,MK2A,high-flow driver,6027,high-flow driver,6005G
+6D4,6,D,4,2,3,high-flow driver,6030E,F,MK2A,high-flow driver,6030,experiment (X402),9402
+6D5,6,D,5,1,4,high-flow driver,6035E,F,MK2A,high-flow driver,6035,high-flow driver,6006C
+6E1,6,E,1,0,5,driver,3426C,B,MK2AI,driver,3426,driver,3392G
+6E2,6,E,2,-1,5,high-flow driver,6034C,F,MK2AI,high-flow driver,6034,high-flow driver,6007C
+6E3,6,E,3,-2,5,high-flow driver,6032E,F,MK2A,high-flow driver,6032,partial (half) driver,3533H!
+6E4,6,E,4,-3,5,half-worth driver,3536H,B,MK2AI,high-flow driver,6029,high-flow driver,6022G
+6E5,6,E,5,-4,5,high-flow driver,6026E,F,MK2A,high-flow driver,6026,high-flow driver,6016G
+6F1,6,F,1,-5,5,driver,3493E,B,MK2A,driver,3493,driver,3389G
+6F2,6,F,2,-5,4,high-flow driver,6008C,F,MK2AI,high-flow driver,6008,partial (half) driver,3533H!
+6F3,6,F,3,-5,3,half-worth driver,3537H,B,MK2AI,partial (half) driver,3537H,high-flow driver,6002G
+6F4,6,F,4,-5,2,high-flow driver,6033E,F,MK2A,high-flow driver,6033,partial (half) driver,3534H
+6F5,6,F,5,-5,1,high-flow driver,6024E,F,MK2A,high-flow driver,6024,high-flow driver,6001G
+7A1,7,A,1,-6,0,SST reflector,8749,A,SSR,SST reflector,,SST reflector,
+7A2,7,A,2,-5,-1,SST reflector,8766,A,SSR,SST reflector,,SST reflector,
+7A3,7,A,3,-4,-2,SST reflector,8755,A,SSR,SST reflector,,SST reflector,
+7A4,7,A,4,-3,-3,SST reflector,8754,A,SSR,SST reflector,,SST reflector,
+7A5,7,A,5,-2,-4,half-worth driver,3532H,B,MK2AI,partial (half) driver,3532H,SST reflector,
+7A6,7,A,6,-1,-5,driver,3397G,B,MK2AI,driver,3397,SST reflector,
+7B1,7,B,1,0,-6,driver,3410G,B,MK2AI,driver,3410,experiment (X328),9328
+7B2,7,B,2,1,-6,SST reflector,8767,A,SSR,SST reflector,,SST reflector,
+7B3,7,B,3,2,-6,driver,3408R,B,MK2AI,driver,3408,SST reflector,
+7B4,7,B,4,3,-6,SST reflector,8752,A,SSR,SST reflector,,SST reflector,
+7B5,7,B,5,4,-6,driver,3409R,B,MK2AI,driver,3409,SST reflector,
+7B6,7,B,6,5,-6,SST reflector,8760,A,SST,SST reflector,,SST reflector,
+7C1,7,C,1,6,-6,high-flow driver,6029E,F,MK2A,high-flow driver,6999,SST reflector,
+7C2,7,C,2,6,-5,SST reflector,8743,A,SSR,SST reflector,,SST reflector,
+7C3,7,C,3,6,-4,driver,3413G,B,MK2AI,driver,3413,SST reflector,
+7C4,7,C,4,6,-3,driver,3406G,B,MK2AI,driver,3406,SST reflector,
+7C5,7,C,5,6,-2,SST reflector,8756,A,SSR,SST reflector,,unidentified (BES),1999
+7C6,7,C,6,6,-1,SST reflector,8746?,A,SSR,SST reflector,,SST reflector,
+7D1,7,D,1,6,0,SST reflector,8753,A,SSR,SST reflector,,SST reflector,
+7D2,7,D,2,5,1,SST reflector,8751,A,SSR,SST reflector,,SST reflector,
+7D3,7,D,3,4,2,driver,3492C,B,MK2AI,driver,3492,SST reflector,
+7D4,7,D,4,3,3,driver,3404G,B,MK2AI,driver,3404,SST reflector,
+7D5,7,D,5,2,4,SST reflector,8744,A,SSR,SST reflector,,SST reflector,
+7D6,7,D,6,1,5,SST reflector,8762,A,SSR,SST reflector,,SST reflector,
+7E1,7,E,1,0,6,high-flow driver,6022G,F,MK2AI,high-flow driver,6022,SST reflector,
+7E2,7,E,2,-1,6,SST reflector,8747,A,SSR,SST reflector,,SST reflector,
+7E3,7,E,3,-2,6,SST reflector,8761,A,SSR,partial (half) driver,3536H,SST reflector,
+7E4,7,E,4,-3,6,driver,3405G,B,MK2AI,driver,3405,SST reflector,
+7E5,7,E,5,-4,6,high-flow driver,6023G,F,MK2AI,high-flow driver,6023,SST reflector,
+7E6,7,E,6,-5,6,SST reflector,8738,A,SSR,SST reflector,,experiment (X320),9320B
+7F1,7,F,1,-6,6,SST reflector,8759,A,SSR,SST reflector,,SST reflector,
+7F2,7,F,2,-6,5,SST reflector,8763,A,SSR,SST reflector,,experiment (X319),9319B
+7F3,7,F,3,-6,4,SST reflector,8758,A,SSR,SST reflector,,SST reflector,
+7F4,7,F,4,-6,3,driver,3400G,B,MK2AI,driver,3400,SST reflector,
+7F5,7,F,5,-6,2,driver,3427C,B,MK2AI,driver,3427,SST reflector,
+7F6,7,F,6,-6,1,SST reflector,8745,A,SSR,SST reflector,,SST reflector,
+8A1,8,A,1,-7,0,SST reflector,9843,U,SSR,SST reflector,,SST reflector,
+8A2,8,A,2,-6,-1,SST reflector,9841,U,SSR,SST reflector,,SST reflector,
+8A3,8,A,3,-5,-2,SST reflector,9807,U,SSR,SST reflector,,SST reflector,
+8A4,8,A,4,-4,-3,SST reflector,9811,U,SSR,SST reflector,,SST reflector,
+8A5,8,A,5,-3,-4,SST reflector,9846,U,SSR,SST reflector,,SST reflector,
+8A6,8,A,6,-2,-5,SST reflector,9835,U,SSR,SST reflector,,SST reflector,
+8A7,8,A,7,-1,-6,SST reflector,8898?,U,SSR,SST reflector,,SST reflector,
+8B1,8,B,1,0,-7,SST reflector,9829,U,SSR,SST reflector,,SST reflector,
+8B2,8,B,2,1,-7,SST reflector,9817,U,SSR,SST reflector,,SST reflector,
+8B3,8,B,3,2,-7,SST reflector,9805,U,SSR,SST reflector,,SST reflector,
+8B4,8,B,4,3,-7,SST reflector,9826,U,SSR,SST reflector,,SST reflector,
+8B5,8,B,5,4,-7,SST reflector,9837,U,SSR,SST reflector,,SST reflector,
+8B6,8,B,6,5,-7,SST reflector,9806,U,SSR,SST reflector,,SST reflector,
+8B7,8,B,7,6,-7,SST reflector,9827,U,SSR,SST reflector,,SST reflector,
+8C1,8,C,1,7,-7,SST reflector,9812,U,SSR,SST reflector,,SST reflector,
+8C2,8,C,2,7,-6,SST reflector,9832,U,SSR,SST reflector,,SST reflector,
+8C3,8,C,3,7,-5,SST reflector,9818,U,SSR,SST reflector,,SST reflector,
+8C4,8,C,4,7,-4,SST reflector,9828,U,SSR,SST reflector,,SST reflector,
+8C5,8,C,5,7,-3,SST reflector,9838,U,SSR,SST reflector,,SST reflector,
+8C6,8,C,6,7,-2,SST reflector,9808,U,SSR,SST reflector,,SST reflector,
+8C7,8,C,7,7,-1,SST reflector,9816,U,SSR,SST reflector,,SST reflector,
+8D1,8,D,1,7,0,SST reflector,9823,U,SSR,SST reflector,,SST reflector,
+8D2,8,D,2,6,1,SST reflector,9815,U,SSR,SST reflector,,SST reflector,
+8D3,8,D,3,5,2,SST reflector,9824,U,SSR,SST reflector,,SST reflector,
+8D4,8,D,4,4,3,SST reflector,9819,U,SSR,SST reflector,,unidentified (BETH),1929
+8D5,8,D,5,3,4,SST reflector,9813,U,SSR,SST reflector,,SST reflector,
+8D6,8,D,6,2,5,SST reflector,1951,S,-,SST reflector,,SST reflector,
+8D7,8,D,7,1,6,SST reflector,9803,U,SSR,SST reflector,,SST reflector,
+8E1,8,E,1,0,7,SST reflector,9831,U,SSR,SST reflector,,SST reflector,
+8E2,8,E,2,-1,7,SST reflector,9820,U,SSR,SST reflector,,SST reflector,
+8E3,8,E,3,-2,7,SST reflector,9809,U,SSR,SST reflector,,SST reflector,
+8E4,8,E,4,-3,7,SST reflector,9834,U,SSR,SST reflector,,SST reflector,
+8E5,8,E,5,-4,7,SST reflector,9833,U,SSR,SST reflector,,SST reflector,
+8E6,8,E,6,-5,7,SST reflector,9810,U,SSR,SST reflector,,SST reflector,
+8E7,8,E,7,-6,7,SST reflector,9821,U,SSR,SST reflector,,SST reflector,
+8F1,8,F,1,-7,7,SST reflector,9801,U,SSR,SST reflector,,SST reflector,
+8F2,8,F,2,-7,6,SST reflector,9822,U,SSR,SST reflector,,SST reflector,
+8F3,8,F,3,-7,5,SST reflector,9836,U,SSR,SST reflector,,SST reflector,
+8F4,8,F,4,-7,4,SST reflector,9830,U,SSR,SST reflector,,SST reflector,
+8F5,8,F,5,-7,3,SST reflector,9825,U,SSR,SST reflector,,SST reflector,
+8F6,8,F,6,-7,2,SST reflector,9804,U,SSR,SST reflector,,SST reflector,
+8F7,8,F,7,-7,1,SST reflector,9814,U,SSR,SST reflector,,SST reflector,
+9A1,9,A,1,-8,0,SST reflector,,,,SST reflector,,SST reflector,
+9A2,9,A,2,-7,-1,SST reflector,,,,SST reflector,,SST reflector,
+9A3,9,A,3,-6,-2,SST reflector,,,,SST reflector,,SST reflector,
+9A4,9,A,4,-5,-3,SST reflector,,,,SST reflector,,SST reflector,
+9A5,9,A,5,-4,-4,SST reflector,,,,SST reflector,,SST reflector,
+9A6,9,A,6,-3,-5,SST reflector,,,,SST reflector,,SST reflector,
+9A7,9,A,7,-2,-6,SST reflector,,,,SST reflector,,SST reflector,
+9A8,9,A,8,-1,-7,SST reflector,,,,SST reflector,,SST reflector,
+9B1,9,B,1,0,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B2,9,B,2,1,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B3,9,B,3,2,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B4,9,B,4,3,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B5,9,B,5,4,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B6,9,B,6,5,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B7,9,B,7,6,-8,SST reflector,,,,SST reflector,,SST reflector,
+9B8,9,B,8,7,-8,SST reflector,,,,SST reflector,,SST reflector,
+9C1,9,C,1,8,-8,SST reflector,,,,SST reflector,,SST reflector,
+9C2,9,C,2,8,-7,SST reflector,,,,SST reflector,,SST reflector,
+9C3,9,C,3,8,-6,SST reflector,,,,SST reflector,,SST reflector,
+9C4,9,C,4,8,-5,SST reflector,,,,SST reflector,,SST reflector,
+9C5,9,C,5,8,-4,SST reflector,,,,SST reflector,,SST reflector,
+9C6,9,C,6,8,-3,SST reflector,,,,SST reflector,,SST reflector,
+9C7,9,C,7,8,-2,SST reflector,,,,SST reflector,,SST reflector,
+9C8,9,C,8,8,-1,SST reflector,,,,SST reflector,,SST reflector,
+9D1,9,D,1,8,0,SST reflector,,,,SST reflector,,SST reflector,
+9D2,9,D,2,7,1,SST reflector,,,,SST reflector,,SST reflector,
+9D3,9,D,3,6,2,SST reflector,,,,SST reflector,,SST reflector,
+9D4,9,D,4,5,3,SST reflector,,,,SST reflector,,SST reflector,
+9D5,9,D,5,4,4,SST reflector,,,,SST reflector,,SST reflector,
+9D6,9,D,6,3,5,SST reflector,,,,SST reflector,,SST reflector,
+9D7,9,D,7,2,6,SST reflector,,,,SST reflector,,SST reflector,
+9D8,9,D,8,1,7,SST reflector,,,,SST reflector,,SST reflector,
+9E1,9,E,1,0,8,SST reflector,,,,SST reflector,,SST reflector,
+9E2,9,E,2,-1,8,SST reflector,,,,SST reflector,,SST reflector,
+9E3,9,E,3,-2,8,SST reflector,,,,SST reflector,,SST reflector,
+9E4,9,E,4,-3,8,SST reflector,,,,SST reflector,,SST reflector,
+9E5,9,E,5,-4,8,SST reflector,,,,SST reflector,,SST reflector,
+9E6,9,E,6,-5,8,SST reflector,,,,SST reflector,,SST reflector,
+9E7,9,E,7,-6,8,SST reflector,,,,SST reflector,,SST reflector,
+9E8,9,E,8,-7,8,SST reflector,,,,SST reflector,,SST reflector,
+9F1,9,F,1,-8,8,SST reflector,,,,SST reflector,,SST reflector,
+9F2,9,F,2,-8,7,SST reflector,,,,SST reflector,,SST reflector,
+9F3,9,F,3,-8,6,SST reflector,,,,SST reflector,,SST reflector,
+9F4,9,F,4,-8,5,SST reflector,,,,SST reflector,,SST reflector,
+9F5,9,F,5,-8,4,SST reflector,,,,SST reflector,,SST reflector,
+9F6,9,F,6,-8,3,SST reflector,,,,SST reflector,,SST reflector,
+9F7,9,F,7,-8,2,SST reflector,,,,SST reflector,,SST reflector,
+9F8,9,F,8,-8,1,SST reflector,,,,SST reflector,,SST reflector,
+10A1,10,A,1,-9,0,SST reflector,,,,SST reflector,,SST reflector,
+10A2,10,A,2,-8,-1,SST reflector,,,,SST reflector,,SST reflector,
+10A3,10,A,3,-7,-2,SST reflector,,,,SST reflector,,SST reflector,
+10A4,10,A,4,-6,-3,SST reflector,,,,SST reflector,,SST reflector,
+10A5,10,A,5,-5,-4,SST reflector,,,,SST reflector,,SST reflector,
+10A6,10,A,6,-4,-5,SST reflector,,,,SST reflector,,SST reflector,
+10A7,10,A,7,-3,-6,SST reflector,,,,SST reflector,,SST reflector,
+10A8,10,A,8,-2,-7,SST reflector,,,,SST reflector,,SST reflector,
+10A9,10,A,9,-1,-8,SST reflector,,,,SST reflector,,SST reflector,
+10B1,10,B,1,0,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B2,10,B,2,1,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B3,10,B,3,2,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B4,10,B,4,3,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B5,10,B,5,4,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B6,10,B,6,5,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B7,10,B,7,6,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B8,10,B,8,7,-9,SST reflector,,,,SST reflector,,SST reflector,
+10B9,10,B,9,8,-9,SST reflector,,,,SST reflector,,SST reflector,
+10C1,10,C,1,9,-9,SST reflector,,,,SST reflector,,SST reflector,
+10C2,10,C,2,9,-8,SST reflector,,,,SST reflector,,SST reflector,
+10C3,10,C,3,9,-7,SST reflector,,,,SST reflector,,SST reflector,
+10C4,10,C,4,9,-6,SST reflector,,,,SST reflector,,SST reflector,
+10C5,10,C,5,9,-5,SST reflector,,,,SST reflector,,SST reflector,
+10C6,10,C,6,9,-4,SST reflector,,,,SST reflector,,SST reflector,
+10C7,10,C,7,9,-3,SST reflector,,,,SST reflector,,SST reflector,
+10C8,10,C,8,9,-2,SST reflector,,,,SST reflector,,SST reflector,
+10C9,10,C,9,9,-1,SST reflector,,,,SST reflector,,SST reflector,
+10D1,10,D,1,9,0,SST reflector,,,,SST reflector,,SST reflector,
+10D2,10,D,2,8,1,SST reflector,,,,SST reflector,,SST reflector,
+10D3,10,D,3,7,2,SST reflector,,,,SST reflector,,SST reflector,
+10D4,10,D,4,6,3,SST reflector,,,,SST reflector,,SST reflector,
+10D5,10,D,5,5,4,SST reflector,,,,SST reflector,,SST reflector,
+10D6,10,D,6,4,5,SST reflector,,,,SST reflector,,SST reflector,
+10D7,10,D,7,3,6,SST reflector,,,,SST reflector,,SST reflector,
+10D8,10,D,8,2,7,SST reflector,,,,SST reflector,,SST reflector,
+10D9,10,D,9,1,8,SST reflector,,,,SST reflector,,SST reflector,
+10E1,10,E,1,0,9,SST reflector,,,,SST reflector,,SST reflector,
+10E2,10,E,2,-1,9,SST reflector,,,,SST reflector,,SST reflector,
+10E3,10,E,3,-2,9,SST reflector,,,,SST reflector,,SST reflector,
+10E4,10,E,4,-3,9,SST reflector,,,,SST reflector,,SST reflector,
+10E5,10,E,5,-4,9,SST reflector,,,,SST reflector,,SST reflector,
+10E6,10,E,6,-5,9,SST reflector,,,,SST reflector,,SST reflector,
+10E7,10,E,7,-6,9,SST reflector,,,,SST reflector,,SST reflector,
+10E8,10,E,8,-7,9,SST reflector,,,,SST reflector,,SST reflector,
+10E9,10,E,9,-8,9,SST reflector,,,,SST reflector,,SST reflector,
+10F1,10,F,1,-9,9,SST reflector,,,,SST reflector,,SST reflector,
+10F2,10,F,2,-9,8,SST reflector,,,,SST reflector,,SST reflector,
+10F3,10,F,3,-9,7,SST reflector,,,,SST reflector,,SST reflector,
+10F4,10,F,4,-9,6,SST reflector,,,,SST reflector,,SST reflector,
+10F5,10,F,5,-9,5,SST reflector,,,,SST reflector,,SST reflector,
+10F6,10,F,6,-9,4,SST reflector,,,,SST reflector,,SST reflector,
+10F7,10,F,7,-9,3,SST reflector,,,,SST reflector,,SST reflector,
+10F8,10,F,8,-9,2,SST reflector,,,,SST reflector,,SST reflector,
+10F9,10,F,9,-9,1,SST reflector,,,,SST reflector,,SST reflector,
+11A1,11,A,1,-10,0,outer blanket,1708,,,outer blanket,1708,outer blanket,1381
+11A2,11,A,2,-9,-1,outer blanket,1564,,,outer blanket,1564,outer blanket,1564
+11A3,11,A,3,-8,-2,outer blanket,1738,,,outer blanket,1738,outer blanket,1589
+11A4,11,A,4,-7,-3,outer blanket,1586,,,outer blanket,1586,outer blanket,1586
+11A5,11,A,5,-6,-4,outer blanket,1582,,,outer blanket,1582,outer blanket,1582
+11A6,11,A,6,-5,-5,outer blanket,1595,,,outer blanket,1595,outer blanket,1595
+11A7,11,A,7,-4,-6,outer blanket,1714,,,outer blanket,1714,outer blanket,1702
+11A8,11,A,8,-3,-7,outer blanket,1590,,,outer blanket,1590,outer blanket,1590
+11A9,11,A,9,-2,-8,outer blanket,1565,,,outer blanket,1565,outer blanket,1565
+11A10,11,A,10,-1,-9,outer blanket,1702,,,outer blanket,1702,outer blanket,1444
+11B1,11,B,1,0,-10,outer blanket,1589,,,outer blanket,1589,outer blanket,1297
+11B2,11,B,2,1,-10,outer blanket,1711,,,outer blanket,1711,outer blanket,1711
+11B3,11,B,3,2,-10,outer blanket,1566,,,outer blanket,1566,outer blanket,1566
+11B4,11,B,4,3,-10,outer blanket,1587,,,outer blanket,1587,outer blanket,1587
+11B5,11,B,5,4,-10,outer blanket,1577,,,outer blanket,1577,outer blanket,1577
+11B6,11,B,6,5,-10,outer blanket,1596,,,outer blanket,1596,outer blanket,1596
+11B7,11,B,7,6,-10,outer blanket,1703,,,outer blanket,1703,outer blanket,1703
+11B8,11,B,8,7,-10,outer blanket,1591,,,outer blanket,1591,outer blanket,1591
+11B9,11,B,9,8,-10,outer blanket,1575,,,outer blanket,1575,outer blanket,1575
+11B10,11,B,10,9,-10,outer blanket,1507,,,outer blanket,1507,outer blanket,1507
+11C1,11,C,1,10,-10,outer blanket,1709,,,outer blanket,1709,outer blanket,1709
+11C2,11,C,2,10,-9,outer blanket,1736,,,outer blanket,1736,outer blanket,1299
+11C3,11,C,3,10,-8,outer blanket,1567,,,outer blanket,1567,outer blanket,1567
+11C4,11,C,4,10,-7,outer blanket,1588,,,outer blanket,1588,outer blanket,1588
+11C5,11,C,5,10,-6,outer blanket,1578,,,outer blanket,1578,outer blanket,1578
+11C6,11,C,6,10,-5,outer blanket,1597,,,outer blanket,1597,outer blanket,1597
+11C7,11,C,7,10,-4,outer blanket,1704,,,outer blanket,1704,outer blanket,1704
+11C8,11,C,8,10,-3,outer blanket,1592,,,outer blanket,1592,outer blanket,1592
+11C9,11,C,9,10,-2,outer blanket,1739,,,outer blanket,1739,outer blanket,1708
+11C10,11,C,10,10,-1,outer blanket,1333,,,outer blanket,1333,outer blanket,1333
+11D1,11,D,1,10,0,outer blanket,1712,,,outer blanket,1712,outer blanket,1712
+11D2,11,D,2,9,1,outer blanket,1740,,,outer blanket,1740,outer blanket,1083
+11D3,11,D,3,8,2,outer blanket,1568,,,outer blanket,1568,outer blanket,1568
+11D4,11,D,4,7,3,outer blanket,1583,,,outer blanket,1583,outer blanket,1583
+11D5,11,D,5,6,4,outer blanket,1579,,,outer blanket,1579,outer blanket,1579
+11D6,11,D,6,5,5,outer blanket,1598,,,outer blanket,1598,outer blanket,1598
+11D7,11,D,7,4,6,outer blanket,1705,,,outer blanket,1705,outer blanket,1705
+11D8,11,D,8,3,7,outer blanket,1593,,,outer blanket,1593,outer blanket,1593
+11D9,11,D,9,2,8,outer blanket,1571,,,outer blanket,1571,outer blanket,1571
+11D10,11,D,10,1,9,outer blanket,1363,,,outer blanket,1363,outer blanket,1363
+11E1,11,E,1,0,10,outer blanket,1701,,,outer blanket,1701,outer blanket,1701
+11E2,11,E,2,-1,10,outer blanket,1741,,,outer blanket,1741,outer blanket,1288
+11E3,11,E,3,-2,10,outer blanket,1569,,,outer blanket,1569,outer blanket,1569
+11E4,11,E,4,-3,10,outer blanket,1584,,,outer blanket,1584,outer blanket,1584
+11E5,11,E,5,-4,10,outer blanket,1576,,,outer blanket,1576,outer blanket,1576
+11E6,11,E,6,-5,10,outer blanket,1599,,,outer blanket,1599,outer blanket,1599
+11E7,11,E,7,-6,10,outer blanket,1715,,,outer blanket,1715,outer blanket,1706
+11E8,11,E,8,-7,10,outer blanket,1581,,,outer blanket,1581,outer blanket,1581
+11E9,11,E,9,-8,10,outer blanket,1574,,,outer blanket,1574,outer blanket,1574
+11E10,11,E,10,-9,10,outer blanket,1706,,,outer blanket,1706,outer blanket,1395
+11F1,11,F,1,-10,10,outer blanket,1710,,,outer blanket,1710,outer blanket,1710
+11F2,11,F,2,-10,9,outer blanket,1742,,,outer blanket,1742,outer blanket,1366
+11F3,11,F,3,-10,8,outer blanket,1570,,,outer blanket,1570,outer blanket,1570
+11F4,11,F,4,-10,7,outer blanket,1585,,,outer blanket,1585,outer blanket,1585
+11F5,11,F,5,-10,6,outer blanket,1580,,,outer blanket,1580,outer blanket,1580
+11F6,11,F,6,-10,5,outer blanket,1700,,,outer blanket,1700,outer blanket,1700
+11F7,11,F,7,-10,4,outer blanket,1707,,,outer blanket,1707,outer blanket,1707
+11F8,11,F,8,-10,3,outer blanket,1594,,,outer blanket,1594,outer blanket,1594
+11F9,11,F,9,-10,2,outer blanket,1572,,,outer blanket,1572,outer blanket,1572
+11F10,11,F,10,-10,1,outer blanket,1542,,,outer blanket,1542,outer blanket,1542
+12A1,12,A,1,-11,0,outer blanket,1728,,,outer blanket,1728,outer blanket,1496
+12A2,12,A,2,-10,-1,outer blanket,1436,,,outer blanket,1436,outer blanket,1436
+12A3,12,A,3,-9,-2,outer blanket,1130,,,outer blanket,1130,outer blanket,1130
+12A4,12,A,4,-8,-3,outer blanket,1490,,,outer blanket,1490,outer blanket,1490
+12A5,12,A,5,-7,-4,outer blanket,1131,,,outer blanket,1131,outer blanket,1131
+12A6,12,A,6,-6,-5,outer blanket,1270,,,outer blanket,1270,outer blanket,1270
+12A7,12,A,7,-5,-6,outer blanket,1536,,,outer blanket,1536,outer blanket,1536
+12A8,12,A,8,-4,-7,outer blanket,1036,,,outer blanket,1036,outer blanket,1036
+12A9,12,A,9,-3,-8,outer blanket,1033,,,outer blanket,1033,outer blanket,1033
+12A10,12,A,10,-2,-9,outer blanket,1155,,,outer blanket,1155,outer blanket,1155
+12A11,12,A,11,-1,-10,outer blanket,1321,,,outer blanket,1321,outer blanket,1321
+12B1,12,B,1,0,-11,outer blanket,1320,,,outer blanket,1320,outer blanket,1421
+12B2,12,B,2,1,-11,outer blanket,1045,,,outer blanket,1045,outer blanket,1045?
+12B3,12,B,3,2,-11,outer blanket,1375,,,outer blanket,1375,outer blanket,1375
+12B4,12,B,4,3,-11,outer blanket,1188,,,outer blanket,1188,outer blanket,1188
+12B5,12,B,5,4,-11,outer blanket,1176,,,outer blanket,1176,outer blanket,1176
+12B6,12,B,6,5,-11,outer blanket,1031,,,outer blanket,1031,outer blanket,1078
+12B7,12,B,7,6,-11,outer blanket,1369,,,outer blanket,1369,outer blanket,1369?
+12B8,12,B,8,7,-11,outer blanket,1370,,,outer blanket,1370,outer blanket,1370
+12B9,12,B,9,8,-11,outer blanket,1445,,,outer blanket,1445,outer blanket,1179
+12B10,12,B,10,9,-11,outer blanket,1541,,,outer blanket,1541,outer blanket,1541
+12B11,12,B,11,10,-11,outer blanket,1144,,,outer blanket,1144,outer blanket,1144
+12C1,12,C,1,11,-11,outer blanket,1729,,,outer blanket,1729,outer blanket,1233
+12C2,12,C,2,11,-10,outer blanket,1150,,,outer blanket,1150,outer blanket,1150
+12C3,12,C,3,11,-9,outer blanket,1410,,,outer blanket,1410,outer blanket,1410
+12C4,12,C,4,11,-8,outer blanket,1538,,,outer blanket,1538,outer blanket,1538
+12C5,12,C,5,11,-7,outer blanket,1081,,,outer blanket,1081,outer blanket,1081
+12C6,12,C,6,11,-6,outer blanket,1230,,,outer blanket,1230,outer blanket,1230
+12C7,12,C,7,11,-5,outer blanket,1086,,,outer blanket,1086,outer blanket,1086
+12C8,12,C,8,11,-4,outer blanket,1018,,,outer blanket,1018,outer blanket,1018
+12C9,12,C,9,11,-3,outer blanket,1055,,,outer blanket,1055,outer blanket,1055
+12C10,12,C,10,11,-2,outer blanket,1190,,,outer blanket,1190,outer blanket,1190
+12C11,12,C,11,11,-1,outer blanket,1470,,,outer blanket,1470,outer blanket,1470
+12D1,12,D,1,11,0,outer blanket,1109,,,outer blanket,1109,outer blanket,1109
+12D2,12,D,2,10,1,outer blanket,1203,,,outer blanket,1203,outer blanket,1203
+12D3,12,D,3,9,2,outer blanket,1134,,,outer blanket,1134,outer blanket,1134
+12D4,12,D,4,8,3,outer blanket,1510,,,outer blanket,1510,outer blanket,1510
+12D5,12,D,5,7,4,outer blanket,1531,,,outer blanket,1531,outer blanket,1531
+12D6,12,D,6,6,5,outer blanket,1484,,,outer blanket,1484,outer blanket,1484
+12D7,12,D,7,5,6,outer blanket,1544,,,outer blanket,1544,outer blanket,1544
+12D8,12,D,8,4,7,outer blanket,1526,,,outer blanket,1526,outer blanket,1526
+12D9,12,D,9,3,8,outer blanket,1238,,,outer blanket,1238,outer blanket,1238
+12D10,12,D,10,2,9,outer blanket,1393,,,outer blanket,1393,outer blanket,1393
+12D11,12,D,11,1,10,outer blanket,1373,,,outer blanket,1373,outer blanket,1373
+12E1,12,E,1,0,11,outer blanket,1396,,,outer blanket,1396,outer blanket,1149
+12E2,12,E,2,-1,11,outer blanket,1499,,,outer blanket,1499,outer blanket,1499
+12E3,12,E,3,-2,11,outer blanket,1405,,,outer blanket,1405,outer blanket,1405
+12E4,12,E,4,-3,11,outer blanket,1247,,,outer blanket,1247,outer blanket,1247
+12E5,12,E,5,-4,11,outer blanket,1453,,,outer blanket,1453,outer blanket,1453
+12E6,12,E,6,-5,11,outer blanket,1064,,,outer blanket,1064,outer blanket,1064
+12E7,12,E,7,-6,11,outer blanket,1266,,,outer blanket,1266,outer blanket,1266
+12E8,12,E,8,-7,11,outer blanket,1083,,,outer blanket,1083,SST reflector,9888
+12E9,12,E,9,-8,11,outer blanket,1193,,,outer blanket,1193,outer blanket,1400
+12E10,12,E,10,-9,11,outer blanket,1135,,,outer blanket,1135,outer blanket,1135
+12E11,12,E,11,-10,11,outer blanket,1065,,,outer blanket,1065,outer blanket,1065
+12F1,12,F,1,-11,11,outer blanket,1727,,,outer blanket,1727,outer blanket,1240
+12F2,12,F,2,-11,10,outer blanket,1518,,,outer blanket,1518,outer blanket,1518
+12F3,12,F,3,-11,9,outer blanket,1004,,,outer blanket,1004,outer blanket,1004
+12F4,12,F,4,-11,8,outer blanket,1260,,,outer blanket,1260,outer blanket,1260
+12F5,12,F,5,-11,7,outer blanket,1294,,,outer blanket,1294,outer blanket,1294
+12F6,12,F,6,-11,6,outer blanket,1360,,,outer blanket,1360,outer blanket,1360
+12F7,12,F,7,-11,5,outer blanket,1287,,,outer blanket,1287,outer blanket,1287
+12F8,12,F,8,-11,4,outer blanket,1096,,,outer blanket,1096,outer blanket,1096
+12F9,12,F,9,-11,3,outer blanket,1475,,,outer blanket,1475,outer blanket,1520
+12F10,12,F,10,-11,2,outer blanket,1372,,,outer blanket,1372,outer blanket,1372
+12F11,12,F,11,-11,1,outer blanket,1249,,,outer blanket,1249,outer blanket,1249
+13A1,13,A,1,-12,0,SST reflector,,,,SST reflector,,outer blanket,1243
+13A2,13,A,2,-11,-1,outer blanket,1165,,,outer blanket,1165,outer blanket,1165
+13A3,13,A,3,-10,-2,outer blanket,1519,,,outer blanket,1519,outer blanket,1519
+13A4,13,A,4,-9,-3,outer blanket,1133,,,outer blanket,1133,outer blanket,1133
+13A5,13,A,5,-8,-4,outer blanket,1408,,,outer blanket,1408,outer blanket,1408
+13A6,13,A,6,-7,-5,outer blanket,1259,,,outer blanket,1259,outer blanket,1259
+13A7,13,A,7,-6,-6,outer blanket,1070,,,outer blanket,1070,outer blanket,1070
+13A8,13,A,8,-5,-7,outer blanket,1392,,,outer blanket,1392,outer blanket,1392
+13A9,13,A,9,-4,-8,outer blanket,1329,,,outer blanket,1329,outer blanket,1329
+13A10,13,A,10,-3,-9,outer blanket,1157,,,outer blanket,1157,outer blanket,1157
+13A11,13,A,11,-2,-10,SST reflector,,,,SST reflector,,outer blanket,1278
+13A12,13,A,12,-1,-11,outer blanket,1482,,,outer blanket,1482,outer blanket,1482
+13B1,13,B,1,0,-12,outer blanket,1008,,,outer blanket,1008,outer blanket,1008
+13B2,13,B,2,1,-12,outer blanket,1078,,,outer blanket,1078,outer blanket,1031
+13B3,13,B,3,2,-12,outer blanket,1025,,,outer blanket,1025,outer blanket,1025
+13B4,13,B,4,3,-12,outer blanket,1432,,,outer blanket,1432,outer blanket,1432
+13B5,13,B,5,4,-12,outer blanket,1012,,,outer blanket,1012,outer blanket,1012
+13B6,13,B,6,5,-12,outer blanket,1257,,,outer blanket,1257,outer blanket,1257
+13B7,13,B,7,6,-12,outer blanket,1545,,,outer blanket,1545,outer blanket,1545
+13B8,13,B,8,7,-12,outer blanket,1409,,,outer blanket,1409,outer blanket,1409
+13B9,13,B,9,8,-12,outer blanket,1442,,,outer blanket,1442,outer blanket,1442
+13B10,13,B,10,9,-12,outer blanket,1054,,,outer blanket,1054,outer blanket,1054
+13B11,13,B,11,10,-12,SST reflector,,,,SST reflector,,outer blanket,1310
+13B12,13,B,12,11,-12,outer blanket,1246,,,outer blanket,1246,outer blanket,1246
+13C1,13,C,1,12,-12,outer blanket,1718,,,outer blanket,1718,outer blanket,1489
+13C2,13,C,2,12,-11,outer blanket,1279,,,outer blanket,1279,outer blanket,1279
+13C3,13,C,3,12,-10,outer blanket,1522,,,outer blanket,1522,outer blanket,1522
+13C4,13,C,4,12,-9,outer blanket,1111,,,outer blanket,1111,outer blanket,1111
+13C5,13,C,5,12,-8,outer blanket,1184,,,outer blanket,1184,outer blanket,1184
+13C6,13,C,6,12,-7,outer blanket,1217,,,outer blanket,1217,outer blanket,1217
+13C7,13,C,7,12,-6,SST reflector,,,,SST reflector,,outer blanket,1309
+13C8,13,C,8,12,-5,outer blanket,1159,,,outer blanket,1159,outer blanket,1159
+13C9,13,C,9,12,-4,outer blanket,1301,,,outer blanket,1301,outer blanket,1301
+13C10,13,C,10,12,-3,outer blanket,1713,,,outer blanket,1713,outer blanket,1108
+13C11,13,C,11,12,-2,SST reflector,,,,SST reflector,,SST reflector,9888
+13C12,13,C,12,12,-1,outer blanket,1099,,,outer blanket,1099,outer blanket,1099
+13D1,13,D,1,12,0,outer blanket,1103,,,outer blanket,1103,outer blanket,1209
+13D2,13,D,2,11,1,outer blanket,1050,,,outer blanket,1050,outer blanket,1050
+13D3,13,D,3,10,2,outer blanket,1268,,,outer blanket,1268,outer blanket,1268
+13D4,13,D,4,9,3,outer blanket,1302,,,outer blanket,1302,outer blanket,1302
+13D5,13,D,5,8,4,outer blanket,1523,,,outer blanket,1523,outer blanket,1523
+13D6,13,D,6,7,5,SST reflector,,,,SST reflector,,outer blanket,1513
+13D7,13,D,7,6,6,outer blanket,1037,,,outer blanket,1037,outer blanket,1037
+13D8,13,D,8,5,7,outer blanket,1483,,,outer blanket,1483,outer blanket,1483
+13D9,13,D,9,4,8,outer blanket,1394,,,outer blanket,1394,outer blanket,1394
+13D10,13,D,10,3,9,outer blanket,1231,,,outer blanket,1231,outer blanket,1231
+13D11,13,D,11,2,10,outer blanket,1225,,,outer blanket,1225,outer blanket,1225
+13D12,13,D,12,1,11,outer blanket,1252,,,outer blanket,1252,outer blanket,1252
+13E1,13,E,1,0,12,outer blanket,1035,,,outer blanket,1035,outer blanket,1035
+13E2,13,E,2,-1,12,SST reflector,,,,SST reflector,,outer blanket,1433
+13E3,13,E,3,-2,12,outer blanket,1220,,,outer blanket,1220,outer blanket,1220
+13E4,13,E,4,-3,12,outer blanket,1052,,,outer blanket,1052,outer blanket,1052
+13E5,13,E,5,-4,12,outer blanket,1104,,,outer blanket,1104,outer blanket,1104
+13E6,13,E,6,-5,12,outer blanket,1467,,,outer blanket,1467,outer blanket,1467
+13E7,13,E,7,-6,12,outer blanket,1069,,,outer blanket,1069,outer blanket,1069
+13E8,13,E,8,-7,12,outer blanket,1261,,,outer blanket,1261,outer blanket,1261
+13E9,13,E,9,-8,12,outer blanket,1158,,,outer blanket,1158,outer blanket,1158
+13E10,13,E,10,-9,12,outer blanket,1163,,,outer blanket,1163,outer blanket,1163
+13E11,13,E,11,-10,12,SST reflector,,,,SST reflector,,outer blanket,1540
+13E12,13,E,12,-11,12,outer blanket,1716,,,outer blanket,1716,outer blanket,1132
+13F1,13,F,1,-12,12,outer blanket,1222,,,outer blanket,1222,outer blanket,1222
+13F2,13,F,2,-12,11,outer blanket,1717,,,outer blanket,1717,outer blanket,1300
+13F3,13,F,3,-12,10,SST reflector,,,,SST reflector,,outer blanket,1005
+13F4,13,F,4,-12,9,outer blanket,1306,,,outer blanket,1306,outer blanket,1306
+13F5,13,F,5,-12,8,outer blanket,1328,,,outer blanket,1328,outer blanket,1328
+13F6,13,F,6,-12,7,outer blanket,1085,,,outer blanket,1085,outer blanket,1085
+13F7,13,F,7,-12,6,outer blanket,1256,,,outer blanket,1256,outer blanket,1256
+13F8,13,F,8,-12,5,outer blanket,1028,,,outer blanket,1028,outer blanket,1028
+13F9,13,F,9,-12,4,outer blanket,1307,,,outer blanket,1307,outer blanket,1307
+13F10,13,F,10,-12,3,outer blanket,1053,,,outer blanket,1053,outer blanket,1053
+13F11,13,F,11,-12,2,SST reflector,,,,SST reflector,,outer blanket,1362
+13F12,13,F,12,-12,1,outer blanket,1723,,,outer blanket,1723,outer blanket,1345
+14A1,14,A,1,-13,0,outer blanket,1289,,,outer blanket,1289,outer blanket,1289
+14A2,14,A,2,-12,-1,outer blanket,1305,,,outer blanket,1305,outer blanket,1305
+14A3,14,A,3,-11,-2,SST reflector,,,,SST reflector,,SST reflector,9888
+14A4,14,A,4,-10,-3,outer blanket,1439,,,outer blanket,1439,outer blanket,1439
+14A5,14,A,5,-9,-4,outer blanket,1381,,,outer blanket,1381,outer blanket,1143
+14A6,14,A,6,-8,-5,outer blanket,1504,,,outer blanket,1504,outer blanket,1504
+14A7,14,A,7,-7,-6,outer blanket,1323,,,outer blanket,1323,outer blanket,1323
+14A8,14,A,8,-6,-7,outer blanket,1720,,,outer blanket,1720,outer blanket,1030
+14A9,14,A,9,-5,-8,outer blanket,1297,,,outer blanket,1297,outer blanket,1357
+14A10,14,A,10,-4,-9,outer blanket,1205,,,outer blanket,1205,outer blanket,1205
+14A11,14,A,11,-3,-10,outer blanket,1121,,,outer blanket,1121,outer blanket,1121
+14A12,14,A,12,-2,-11,outer blanket,1180,,,outer blanket,1180,outer blanket,1180
+14A13,14,A,13,-1,-12,outer blanket,1000,,,outer blanket,1000,outer blanket,1000
+14B1,14,B,1,0,-13,outer blanket,1530,,,outer blanket,1530,outer blanket,1530
+14B2,14,B,2,1,-13,SST reflector,,,,SST reflector,,outer blanket,1365
+14B3,14,B,3,2,-13,SST reflector,,,,SST reflector,,SST reflector,9888
+14B4,14,B,4,3,-13,outer blanket,1283,,,outer blanket,1283,outer blanket,1283
+14B5,14,B,5,4,-13,outer blanket,1168,,,outer blanket,1168,outer blanket,1168
+14B6,14,B,6,5,-13,outer blanket,1543,,,outer blanket,1543,outer blanket,1543
+14B7,14,B,7,6,-13,outer blanket,1528,,,outer blanket,1528,outer blanket,1528
+14B8,14,B,8,7,-13,outer blanket,1719,,,outer blanket,1719,outer blanket,1322
+14B9,14,B,9,8,-13,outer blanket,1042,,,outer blanket,1042,outer blanket,1042
+14B10,14,B,10,9,-13,outer blanket,1452,,,outer blanket,1452,outer blanket,1452
+14B11,14,B,11,10,-13,outer blanket,1417,,,outer blanket,1417,outer blanket,1417
+14B12,14,B,12,11,-13,outer blanket,1469,,,outer blanket,1469,outer blanket,1469
+14B13,14,B,13,12,-13,SST reflector,,,,SST reflector,,SST reflector,9888
+14C1,14,C,1,13,-13,outer blanket,1147,,,outer blanket,1147,outer blanket,1147
+14C2,14,C,2,13,-12,outer blanket,1112,,,outer blanket,1112,outer blanket,1112
+14C3,14,C,3,13,-11,outer blanket,1074,,,outer blanket,1074,outer blanket,1074
+14C4,14,C,4,13,-10,outer blanket,1262,,,outer blanket,1262,outer blanket,1262
+14C5,14,C,5,13,-9,outer blanket,1730,,,outer blanket,1730,outer blanket,1119
+14C6,14,C,6,13,-8,outer blanket,1444,,,outer blanket,1444,outer blanket,1498
+14C7,14,C,7,13,-7,outer blanket,1351,,,outer blanket,1351,outer blanket,1361
+14C8,14,C,8,13,-6,outer blanket,1359,,,outer blanket,1359,outer blanket,1359
+14C9,14,C,9,13,-5,outer blanket,1264,,,outer blanket,1264,outer blanket,1264
+14C10,14,C,10,13,-4,outer blanket,1167,,,outer blanket,1167,outer blanket,1167
+14C11,14,C,11,13,-3,outer blanket,1414,,,outer blanket,1414,outer blanket,1414
+14C12,14,C,12,13,-2,outer blanket,1299,,,outer blanket,1299,outer blanket,1141
+14C13,14,C,13,13,-1,outer blanket,1245,,,outer blanket,1245,outer blanket,1245
+14D1,14,D,1,13,0,SST reflector,,,,SST reflector,,outer blanket,1487
+14D2,14,D,2,12,1,outer blanket,1527,,,outer blanket,1527,outer blanket,1527
+14D3,14,D,3,11,2,outer blanket,1722,,,outer blanket,1722,outer blanket,1376
+14D4,14,D,4,10,3,outer blanket,1390,,,outer blanket,1390,outer blanket,1390
+14D5,14,D,5,9,4,outer blanket,1288,,,outer blanket,1288,outer blanket,1451
+14D6,14,D,6,8,5,outer blanket,1153,,,outer blanket,1153,outer blanket,1153
+14D7,14,D,7,7,6,outer blanket,1431,,,outer blanket,1431,outer blanket,1431
+14D8,14,D,8,6,7,outer blanket,1118,,,outer blanket,1118,outer blanket,1118
+14D9,14,D,9,5,8,outer blanket,1352,,,outer blanket,1352,outer blanket,1352
+14D10,14,D,10,4,9,outer blanket,1326,,,outer blanket,1326,outer blanket,1326
+14D11,14,D,11,3,10,outer blanket,1721,,,outer blanket,1721,outer blanket,1349
+14D12,14,D,12,2,11,SST reflector,,,,SST reflector,,SST reflector,9888
+14D13,14,D,13,1,12,outer blanket,1024,,,outer blanket,1024,outer blanket,1024
+14E1,14,E,1,0,13,outer blanket,1016,,,outer blanket,1016,outer blanket,1016
+14E2,14,E,2,-1,13,outer blanket,1113,,,outer blanket,1113,outer blanket,1113
+14E3,14,E,3,-2,13,outer blanket,1456,,,outer blanket,1456,outer blanket,1456
+14E4,14,E,4,-3,13,outer blanket,1395,,,outer blanket,1395,outer blanket,1355
+14E5,14,E,5,-4,13,SST reflector,,,,SST reflector,,outer blanket,1486
+14E6,14,E,6,-5,13,outer blanket,1458,,,outer blanket,1458,outer blanket,1458
+14E7,14,E,7,-6,13,outer blanket,1416,,,outer blanket,1416,outer blanket,1416
+14E8,14,E,8,-7,13,outer blanket,1148,,,outer blanket,1148,outer blanket,1148
+14E9,14,E,9,-8,13,outer blanket,1378,,,outer blanket,1378,outer blanket,1378
+14E10,14,E,10,-9,13,SST reflector,,,,SST reflector,,SST reflector,9888
+14E11,14,E,11,-10,13,outer blanket,1169,,,outer blanket,1169,outer blanket,1169
+14E12,14,E,12,-11,13,SST reflector,,,,SST reflector,,outer blanket,1274
+14E13,14,E,13,-12,13,outer blanket,1077,,,outer blanket,1077,outer blanket,1077
+14F1,14,F,1,-13,13,outer blanket,1223,,,outer blanket,1223,outer blanket,1223
+14F2,14,F,2,-13,12,outer blanket,1304,,,outer blanket,1304,outer blanket,1304
+14F3,14,F,3,-13,11,SST reflector,,,,SST reflector,,SST reflector,9888
+14F4,14,F,4,-13,10,outer blanket,1330,,,outer blanket,1330,outer blanket,1330
+14F5,14,F,5,-13,9,outer blanket,1366,,,outer blanket,1366,outer blanket,1271
+14F6,14,F,6,-13,8,outer blanket,1027,,,outer blanket,1027,outer blanket,1027
+14F7,14,F,7,-13,7,outer blanket,1415,,,outer blanket,1415,outer blanket,1415
+14F8,14,F,8,-13,6,outer blanket,1263,,,outer blanket,1263,outer blanket,1263
+14F9,14,F,9,-13,5,outer blanket,1258,,,outer blanket,1258,outer blanket,1258
+14F10,14,F,10,-13,4,outer blanket,1403,,,outer blanket,1403,outer blanket,1403
+14F11,14,F,11,-13,3,outer blanket,1313,,,outer blanket,1313,outer blanket,1313
+14F12,14,F,12,-13,2,SST reflector,,,,SST reflector,,SST reflector,9888
+14F13,14,F,13,-13,1,outer blanket,1387,,,outer blanket,1387,outer blanket,1387
+15A3,15,A,3,-12,-2,outer blanket,1724,,,outer blanket,1724,outer blanket,1244
+15A4,15,A,4,-11,-3,outer blanket,1044,,,outer blanket,1044,outer blanket,1044
+15A5,15,A,5,-10,-4,outer blanket,1125,,,outer blanket,1125,outer blanket,1125
+15A6,15,A,6,-9,-5,outer blanket,1183,,,outer blanket,1183,outer blanket,1183
+15A7,15,A,7,-8,-6,outer blanket,1731,,,outer blanket,1731,outer blanket,1101
+15A8,15,A,8,-7,-7,outer blanket,1160,,,outer blanket,1160,outer blanket,1160
+15A9,15,A,9,-6,-8,outer blanket,1172,,,outer blanket,1172,outer blanket,1172
+15A10,15,A,10,-5,-9,outer blanket,1068,,,outer blanket,1068,outer blanket,1181
+15A11,15,A,11,-4,-10,outer blanket,1224,,,outer blanket,1224,outer blanket,1224
+15A12,15,A,12,-3,-11,outer blanket,1198,,,outer blanket,1198,outer blanket,1198
+15A13,15,A,13,-2,-12,outer blanket,1051,,,outer blanket,1051,outer blanket,1051
+15B3,15,B,3,2,-14,outer blanket,1341,,,outer blanket,1341,outer blanket,1341
+15B4,15,B,4,3,-14,outer blanket,1494,,,outer blanket,1494,outer blanket,1494
+15B5,15,B,5,4,-14,outer blanket,1446,,,outer blanket,1446,outer blanket,1446
+15B6,15,B,6,5,-14,outer blanket,1232,,,outer blanket,1232,outer blanket,1232
+15B7,15,B,7,6,-14,outer blanket,1228,,,outer blanket,1228,outer blanket,1228
+15B8,15,B,8,7,-14,outer blanket,1107,,,outer blanket,1107,outer blanket,1107
+15B9,15,B,9,8,-14,outer blanket,1156,,,outer blanket,1156,outer blanket,1156
+15B10,15,B,10,9,-14,outer blanket,1535,,,outer blanket,1535,outer blanket,1535
+15B11,15,B,11,10,-14,outer blanket,1253,,,outer blanket,1253,outer blanket,1253
+15B12,15,B,12,11,-14,outer blanket,1368,,,outer blanket,1368,outer blanket,1368
+15B13,15,B,13,12,-14,outer blanket,1725,,,outer blanket,1725,outer blanket,1020
+15C3,15,C,3,14,-12,outer blanket,1503,,,outer blanket,1503,outer blanket,1503
+15C4,15,C,4,14,-11,outer blanket,1038,,,outer blanket,1038,outer blanket,1038
+15C5,15,C,5,14,-10,outer blanket,1460,,,outer blanket,1460,outer blanket,1460
+15C6,15,C,6,14,-9,outer blanket,1471,,,outer blanket,1471,outer blanket,1471
+15C7,15,C,7,14,-8,outer blanket,1462,,,outer blanket,1462,outer blanket,1462
+15C8,15,C,8,14,-7,outer blanket,1525,,,outer blanket,1525,outer blanket,1525
+15C9,15,C,9,14,-6,outer blanket,1477,,,outer blanket,1477,outer blanket,1477
+15C10,15,C,10,14,-5,outer blanket,1340,,,outer blanket,1340,outer blanket,1340
+15C11,15,C,11,14,-4,outer blanket,1501,,,outer blanket,1501,outer blanket,1501
+15C12,15,C,12,14,-3,outer blanket,1199,,,outer blanket,1199,outer blanket,1199
+15C13,15,C,13,14,-2,outer blanket,1354,,,outer blanket,1354,outer blanket,1354
+15D3,15,D,3,12,2,outer blanket,1060,,,outer blanket,1060,outer blanket,1060
+15D4,15,D,4,11,3,outer blanket,1239,,,outer blanket,1239,outer blanket,1239
+15D5,15,D,5,10,4,outer blanket,1196,,,outer blanket,1196,outer blanket,1196
+15D6,15,D,6,9,5,outer blanket,1282,,,outer blanket,1282,outer blanket,1282
+15D7,15,D,7,8,6,outer blanket,1175,,,outer blanket,1175,outer blanket,1175
+15D8,15,D,8,7,7,outer blanket,1364,,,outer blanket,1364,outer blanket,1364
+15D9,15,D,9,6,8,outer blanket,1277,,,outer blanket,1277,outer blanket,1277
+15D10,15,D,10,5,9,SST reflector,,,,SST reflector,,outer blanket,1505
+15D11,15,D,11,4,10,outer blanket,1226,,,outer blanket,1226,outer blanket,1226
+15D12,15,D,12,3,11,outer blanket,1269,,,outer blanket,1269,outer blanket,1269
+15D13,15,D,13,2,12,outer blanket,1497,,,outer blanket,1497,outer blanket,1497
+15E3,15,E,3,-2,14,outer blanket,1476,,,outer blanket,1476,outer blanket,1476
+15E4,15,E,4,-3,14,outer blanket,1189,,,outer blanket,1189,outer blanket,1189
+15E5,15,E,5,-4,14,outer blanket,1472,,,outer blanket,1472,outer blanket,1472
+15E6,15,E,6,-5,14,outer blanket,1276,,,outer blanket,1276,outer blanket,1276
+15E7,15,E,7,-6,14,outer blanket,1422,,,outer blanket,1422,outer blanket,1422
+15E8,15,E,8,-7,14,outer blanket,1437,,,outer blanket,1437,outer blanket,1437
+15E9,15,E,9,-8,14,outer blanket,1013,,,outer blanket,1013,outer blanket,1013
+15E10,15,E,10,-9,14,SST reflector,,,,SST reflector,,outer blanket,1291
+15E11,15,E,11,-10,14,outer blanket,1177,,,outer blanket,1177,outer blanket,1177
+15E12,15,E,12,-11,14,outer blanket,1512,,,outer blanket,1512,outer blanket,1512
+15E13,15,E,13,-12,14,outer blanket,1466,,,outer blanket,1466,outer blanket,1218
+15F3,15,F,3,-14,12,outer blanket,1076,,,outer blanket,1076,outer blanket,1076
+15F4,15,F,4,-14,11,outer blanket,1533,,,outer blanket,1533,outer blanket,1533
+15F5,15,F,5,-14,10,outer blanket,1537,,,outer blanket,1537,outer blanket,1537
+15F6,15,F,6,-14,9,outer blanket,1093,,,outer blanket,1093,outer blanket,1093
+15F7,15,F,7,-14,8,outer blanket,1058,,,outer blanket,1058,outer blanket,1058
+15F8,15,F,8,-14,7,outer blanket,1418,,,outer blanket,1418,outer blanket,1418
+15F9,15,F,9,-14,6,outer blanket,1210,,,outer blanket,1210,outer blanket,1210
+15F10,15,F,10,-14,5,SST reflector,,,,SST reflector,,outer blanket,1429
+15F11,15,F,11,-14,4,outer blanket,1066,,,outer blanket,1066,outer blanket,1066
+15F12,15,F,12,-14,3,outer blanket,1473,,,outer blanket,1473,outer blanket,1473
+15F13,15,F,13,-14,2,outer blanket,1726,,,outer blanket,1726,outer blanket,1082
+16A7,16,A,7,-9,-6,SST reflector,,,,SST reflector,,outer blanket,1320
+16A8,16,A,8,-8,-7,outer blanket,1737,,,outer blanket,1737,outer blanket,1423
+16A9,16,A,9,-7,-8,outer blanket,1734,,,outer blanket,1734,outer blanket,1151
+16A10,16,A,10,-6,-9,outer blanket,1197,,,outer blanket,1197,outer blanket,1197
+16B7,16,B,7,6,-15,SST reflector,,,,SST reflector,,outer blanket,1396
+16B8,16,B,8,7,-15,outer blanket,1743,,,outer blanket,1743,outer blanket,1097
+16B9,16,B,9,8,-15,SST reflector,,,,SST reflector,,outer blanket,1356
+16B10,16,B,10,9,-15,SST reflector,,,,SST reflector,,outer blanket,1445
+16C7,16,C,7,15,-9,outer blanket,1508,,,outer blanket,1508,outer blanket,1508
+16C8,16,C,8,15,-8,SST reflector,,,,SST reflector,,outer blanket,1500
+16C9,16,C,9,15,-7,outer blanket,1732,,,outer blanket,1732,outer blanket,1142
+16C10,16,C,10,15,-6,outer blanket,1367,,,outer blanket,1367,outer blanket,1367
+16D7,16,D,7,9,6,SST reflector,,,,SST reflector,,outer blanket,1488
+16D8,16,D,8,8,7,outer blanket,1746,,,outer blanket,1746,outer blanket,1002
+16D9,16,D,9,7,8,outer blanket,1733,,,outer blanket,1733,outer blanket,1241
+16D10,16,D,10,6,9,SST reflector,,,,SST reflector,,SST reflector,9888
+16E7,16,E,7,-6,15,SST reflector,,,,SST reflector,,SST reflector,9888
+16E8,16,E,8,-7,15,outer blanket,1744,,,outer blanket,1744,outer blanket,1413
+16E9,16,E,9,-8,15,outer blanket,1735,,,outer blanket,1735,outer blanket,1105
+16E10,16,E,10,-9,15,SST reflector,,,,SST reflector,,outer blanket,1029
+16F7,16,F,7,-15,9,SST reflector,,,,SST reflector,,outer blanket,1193
+16F8,16,F,8,-15,8,outer blanket,1745,,,outer blanket,1745,outer blanket,1358
+16F9,16,F,9,-15,7,SST reflector,,,,SST reflector,,SST reflector,9888
+16F10,16,F,10,-15,6,SST reflector,,,,SST reflector,,outer blanket,1475

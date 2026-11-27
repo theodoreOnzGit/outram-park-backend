@@ -49,6 +49,16 @@ pub struct HConstThermo<E: EquationOfState> {
     hsref: f64, // sensible enthalpy at Tref [J/kg]
 }
 
+impl HConstThermo<crate::thermophysics::eos::PerfectGas> {
+    /// The same model with the perfect gas's universal gas constant set to `gas_constant` (gh:#1361 round 13:
+    /// GeN-Foam's vapour `perfectGas` against the ESI v2506 binary).
+    #[must_use]
+    pub fn with_gas_constant(mut self, gas_constant: crate::thermophysics::constants::GasConstant) -> Self {
+        self.eos = self.eos.with_gas_constant(gas_constant);
+        self
+    }
+}
+
 impl<E: EquationOfState> HConstThermo<E> {
     /// Construct a constant-Cp thermo model wrapping `eos`, with heat capacity
     /// `cp` `[J/(kg·K)]`, heat of formation `hf` `[J/kg]`, sensible-enthalpy

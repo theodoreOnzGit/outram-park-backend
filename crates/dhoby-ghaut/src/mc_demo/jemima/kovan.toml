@@ -1,0 +1,142 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/mc_demo/jemima"
+
+[module."mod.rs"]
+path = "crate::mc_demo::jemima"
+
+[[module."mod.rs".function]]
+id = "fn:f540e4d592e5fe3f"
+name = "CORE"
+qual = "CORE"
+item = "const"
+shape = "const"
+hash = "sha256:9eb0623803273fac926b6d805d7228d9e01ba180700c27198c4fb8483a8cf4fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:b3c5540ec03fc88a"
+name = "draw"
+qual = "Jemima::draw"
+hash = "sha256:4e4d00891150b71876fe9cc6d928d5da099fbaf69a27a89166ff192215ca466e"
+doc_hash = "sha256:f89c4e52af2827a162abd65a02932d6c4c1b485542dd03909e5d785b488dd44a"
+
+[[module."mod.rs".function]]
+id = "fn:32029930ea92d26d"
+name = "half_extent"
+qual = "Jemima::half_extent"
+hash = "sha256:bc884e32ea4f79f8f941e7cceefd165f76862cfb0e953415641b85f004ce4259"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:07af9a8487c04b88"
+name = "job_weights"
+qual = "Jemima::job_weights"
+hash = "sha256:633917947242e8bda42711c90aeea3a6e486f5fcf7cd2bb4c4e1de4cfd338be8"
+doc_hash = "sha256:fd8a0cd4460a96c95473f54843641a8eb7959fc1c8ddebce82a89b2b6ec57387"
+
+[[module."mod.rs".function]]
+id = "fn:f4d012e21835dc87"
+name = "jobs"
+qual = "Jemima::jobs"
+hash = "sha256:cea2b898215efe6006f6fc30c29bc043dd0515ada032895a38163c1f47a8a288"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:9e9df24f7e4f7993"
+name = "legend"
+qual = "Jemima::legend"
+hash = "sha256:198ca9e64f38b8d6c097550f1d085e6f4bcf6485c68709e2c31affc985cf506b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:e0dc9c998f555f23"
+name = "loading_note"
+qual = "Jemima::loading_note"
+hash = "sha256:a3d704a1d698c8a6e7e1858b43cb24be75d89e026f0ca61d562ec97834a5af53"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:6ea3c18eb1fa1650"
+name = "notes"
+qual = "Jemima::notes"
+hash = "sha256:424fa7b2a8253b006e1e1bf84b77ebe75853b75b8feb3de10fc612d17494a732"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:cb4478673eb35a15"
+name = "recorded_tracks"
+qual = "Jemima::recorded_tracks"
+hash = "sha256:d148a21ed812f31eb31033af0944a63a9a04c2c1c43c79d4c338057cc9a1737b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:8c9a510ca2366940"
+name = "reference"
+qual = "Jemima::reference#1"
+hash = "sha256:674e357cee740a8a1871d8f4503e07da63d95eef3514dd88fadc3537a802d738"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:47b1bed0155450e9"
+name = "reference"
+qual = "Jemima::reference#2"
+hash = "sha256:12954808a158892ba5e198af5f91df682d19a22ea7b38410aaec53aeccea9f7c"
+doc_hash = "sha256:6df21757b2b489640212d4f295d96bca5e5d54a5f5c05863ee79dcecc2bccf40"
+
+[[module."mod.rs".function]]
+id = "fn:dc76decd6b93e683"
+name = "run_default"
+qual = "Jemima::run_default"
+hash = "sha256:2e0875270abd5ecfd95fa8abac75b4e546fa57670aabc3b5fccc034c77b9dc00"
+doc_hash = "sha256:2a87e3a0c1931944f08595ec80b9d177c85c7d22e9cc543be9fd41cfceba2f79"
+
+[[module."mod.rs".function]]
+id = "fn:b8f453455ff287b4"
+name = "run_pool_mb"
+qual = "Jemima::run_pool_mb"
+hash = "sha256:7f1b9e2e9dafa514d0d5277b09a48e014f1d5c9b217c64945baeee0aed5b9260"
+doc_hash = "sha256:1f1086550d364c9334090b8e96567e99ea47d12e6561be9a848e9452efa8c665"
+
+[[module."mod.rs".function]]
+id = "fn:07944b2486fe84f4"
+name = "tier"
+qual = "Jemima::tier"
+hash = "sha256:956a8be6ce9dc64ef9d6d866b7eadae611ea100f53c4128c2f95a8992688022f"
+doc_hash = "sha256:516efac3402bf4edb3bf292badab5f5960522789b3da7e12e48152de8ec78ea4"
+
+[[module."mod.rs".function]]
+id = "fn:4234ca2c4e907b23"
+name = "watch_generations"
+qual = "Jemima::watch_generations"
+hash = "sha256:05d293df3c6189696d9d5b9adcfcbbc2c1ed1d63b8b5c84069e7b4d1a0e0dbee"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:1e10b06e9da1ff5a"
+name = "RECORDED_TRACKS"
+qual = "RECORDED_TRACKS"
+item = "const"
+shape = "const"
+hash = "sha256:a0b768c3ed6f34613ea8e585593ea49cdcde0b963f7785b587f34011b395cbf7"
+doc_hash = "sha256:ac0cec5bc3fa2ba0c689415b6d8ddd8d2aec21c36c8743b89357704b88b8fb08"
+
+[[module."mod.rs".function]]
+id = "fn:62b4b5cdec9999da"
+name = "REFLECTOR"
+qual = "REFLECTOR"
+item = "const"
+shape = "const"
+hash = "sha256:a1d5d545dc037bd801b07e71c73b8c5898370dead1b1587a5a68c3ae90d5f92d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."render.rs"]
+path = "crate::mc_demo::jemima::render"
+
+[[module."render.rs".function]]
+id = "fn:cdc348108cbb7c3f"
+name = "render_all"
+qual = "render_all"
+hash = "sha256:4b65437d3aad7b897296f4accb8d0a86cf20811a78ba396c4897f658d8d09e4c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

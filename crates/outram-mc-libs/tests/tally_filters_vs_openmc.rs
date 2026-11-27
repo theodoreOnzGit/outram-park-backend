@@ -553,6 +553,66 @@ fn real_a2_mesh_surface_vs_openmc() {
     }
 }
 
+/// **A mesh-surface filter combined with single-bin filters (gh:#1713).**
+///
+/// Methodology: on every Experiment A site (one analog particle of weight 1
+/// per run, so every per-bin sum is a small integer and summation order cannot
+/// change the bits), the live runner scores (a) the plain 6x2x1 mesh-surface
+/// tally, (b) `Energy [1e-5, 1e5, 2e7] eV x MeshSurface`, (c)
+/// `MeshSurface x Cell [1, 2]` (the two leaf cells, which cover the model).
+/// Pass: (b) summed over its energy bins and (c) summed over its cell bins
+/// equal (a) bit for bit on every site and face, (a) is not all zero, both
+/// energy groups receive some score, and the
+/// history driver (`score_history`, the oracle) gives (b) bit for bit too.
+/// Prediction (written before running, V&V README
+/// `mesh_surface_delta_and_filters_1713`, P3 and P5): exact everywhere.
+///
+/// Results (2026-11-22): see that README.
+#[test]
+fn real_mesh_surface_combined_with_energy_and_cell_sums_to_plain() {
+    let Some(m) = model() else { return };
+    let ms = || FilterKind::MeshSurface(MeshSurfaceFilter::new(MeshKind::Regular(mesh())).unwrap());
+    let plain = tally(vec![ms()], ScoreType::Current);
+    let by_e = tally(
+        vec![FilterKind::Energy(outram_mc_libs::tally::filter::EnergyFilter { bins: vec![1.0e-5, 1.0e5, 2.0e7] }), ms()],
+        ScoreType::Current,
+    );
+    let by_cell = tally(
+        vec![ms(), FilterKind::Cell(outram_mc_libs::tally::filter::CellFilter { cell_indices: vec![1, 2] })],
+        ScoreType::Current,
+    );
+    let n_ms = plain.bins.len();
+    let mut total = 0.0;
+    let mut in_group = [0.0f64; 2];
+    let mut in_cell = [0.0f64; 2];
+    for (i, s) in load_sites().iter().enumerate() {
+        let a = via_runner(m, &plain, s, &[], i);
+        let b = via_runner(m, &by_e, s, &[], i);
+        let c = via_runner(m, &by_cell, s, &[], i);
+        let b_driver = via_driver(m, &by_e, s, &[], i);
+        assert_eq!(b, b_driver, "site {i}: live and driver differ on Energy x MeshSurface");
+        for f in 0..n_ms {
+            let sum_e = b[f] + b[n_ms + f];
+            assert_eq!(sum_e.to_bits(), a[f].to_bits(), "site {i} face {f}: energy-summed {sum_e} vs plain {}", a[f]);
+            let sum_c = c[2 * f] + c[2 * f + 1];
+            assert_eq!(sum_c.to_bits(), a[f].to_bits(), "site {i} face {f}: cell-summed {sum_c} vs plain {}", a[f]);
+            for k in 0..2 {
+                in_group[k] += b[k * n_ms + f];
+                in_cell[k] += c[2 * f + k];
+            }
+            total += a[f];
+        }
+    }
+    println!("[mesh_surface x energy/cell] total plain current {total}, per energy group {in_group:?}, per cell {in_cell:?}");
+    assert!(total > 0.0, "the plain mesh-surface tally scored nothing");
+    // Measured 2026-11-22: groups [18, 38], cells [0, 56]. The sphere cell
+    // never scores: in this dilute model every mesh-surface event on these
+    // sites is a vacuum leak, made from the outer cell. So the cell split is
+    // checked for the sum only; the energy split also scores both bins.
+    assert!(in_group.iter().all(|&x| x > 0.0), "an energy group never scored: {in_group:?}");
+    assert_eq!(in_cell[1], total, "every score lands in the outer cell (see above)");
+}
+
 /// **The geometry, drawn from the assembled model** (AGENTS.md drawing rule),
 /// with the ported plotter (`geometry::plot`), PNGs committed beside the record:
 /// the xy slice at z = 0 through the three sphere centres, the xz slice at
@@ -610,9 +670,12 @@ fn draw_the_experiment_a_geometry() {
 // ── Experiment B: statistical, CE O-16 gas sphere ────────────────────────────
 //
 // Sphere r = 10 cm, vacuum, O-16 0.03 atoms/b-cm, isotropic 1 MeV point source,
-// analog; 20 batches x 50 000 histories per code. Pass: every |z| <= 2,
+// analog; 20 batches x 50 000 histories per code. ~~Pass: every |z| <= 2,~~
 // z = (a-b)/sqrt(sa^2+sb^2), sa/sb the batch standard errors. Prediction:
-// `prediction_before_measuring.md`, "Experiment B".
+// `prediction_before_measuring.md`, "Experiment B". **Since 2026-11-22
+// (gh:#1711, amendment 6) the gate is χ² = Σ z² per tally, pass at p >= 0.01,
+// judged on fresh seeds 2001..2004 (the `chi2_*` tests at the end of the
+// file); the seen-seed tests below are reports.**
 
 fn load_stat(name: &str) -> Vec<(f64, f64)> {
     let txt = std::fs::read_to_string(ref_dir().join(format!("expB_{name}.txt"))).expect("expB reference");
@@ -700,15 +763,19 @@ fn z_report(name: &str, batches: &[Vec<Vec<f64>>], ti: usize, theirs: &[(f64, f6
     (theirs.len(), worst)
 }
 
-/// First run of Experiment B, gate |z| <= 2 on every bin.
+/// First run of Experiment B (seed 261), **a REPORT since 2026-11-22**.
 ///
-/// ~~A miss leaves the test red.~~ **CHANGED 2026-11-22 (gh:#1709, maintainer
-/// decision: "Follow registered plan"):** one run gated bin by bin on 10 bins
-/// fails a correct code about 37 % of the time (1 - 0.9545^10). The
-/// registered protocol reports a first-run miss and decides it with the 8-seed
-/// pooled replication at the same |z| <= 2, so the test now does exactly that.
-/// The threshold is unchanged. Recorded: first run 2.87 (collision bin 4),
-/// pooled 1.54 (collision) and 1.19 (legendre); the README has the numbers.
+/// ~~Gate |z| <= 2 on every bin. A miss leaves the test red.~~ ~~**CHANGED
+/// 2026-11-22 (gh:#1709, maintainer decision: "Follow registered plan"):** a
+/// first-run miss is decided by the 8-seed pooled replication at the same
+/// |z| <= 2.~~ **CHANGED AGAIN 2026-11-22 (gh:#1711, maintainer: "Bin by bin
+/// shldnt make sense"):** a bin-by-bin |z| <= 2 gate fails a correct code
+/// 1 - 0.9545^k of the time, and seed 261 has been seen and used for
+/// decisions, so it cannot test a new gate. The registered χ² gate
+/// (amendment 6) is applied to fresh seeds 2001..2004 in
+/// [`chi2_b_driver_fresh_seeds_vs_openmc`]. This test prints the bin-by-bin z
+/// and the same χ² for seed 261 and gates nothing. Recorded: worst |z| 2.87
+/// (collision bin 4), 1.49 (legendre); χ² in the README.
 #[test]
 fn b_collision_and_legendre_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
@@ -717,22 +784,14 @@ fn b_collision_and_legendre_vs_openmc() {
     let tl = tally(vec![FilterKind::Legendre(LegendreFilter { order: 3 })], ScoreType::Scatter);
     let t0 = std::time::Instant::now();
     let batches = run_b(&geom, &mats, nuc, &[tc, tl], 50_000, 261);
-    println!("[B] 1e6 histories in {:.1} s (4 logical cores, single thread, shared host)", t0.elapsed().as_secs_f64());
+    println!("[B] 1e6 histories in {:.1} s (single thread; hardware in the README)", t0.elapsed().as_secs_f64());
     let (n1, w1) = z_report("collision", &batches, 0, &load_stat("collision"));
     let (n2, w2) = z_report("legendre", &batches, 1, &load_stat("legendre"));
     println!("[B] collision: {n1} bins worst |z| {w1:.2}; legendre: {n2} bins worst |z| {w2:.2}");
-    if w1 <= 2.0 && w2 <= 2.0 {
-        return;
-    }
-    // The registered protocol (`prediction_before_measuring.md`, amendment 2,
-    // fixed before the replication was run): a first-run miss is reported and
-    // decided by the 8-seed pooled replication at the same |z| <= 2 (gh:#1709).
-    let pooled = b_pooled_worst(&geom, &mats, nuc);
-    println!("[B] first run missed (collision {w1:.2}, legendre {w2:.2}); pooled replication {pooled:?}");
-    assert!(
-        pooled[0] <= 2.0 && pooled[1] <= 2.0,
-        "first run worst |z| collision {w1} legendre {w2}, and the registered pooled replication {pooled:?}"
-    );
+    let c1 = chi2_gate(&batch_stats(&batches, 0), &load_stat("collision"));
+    let c2 = chi2_gate(&batch_stats(&batches, 1), &load_stat("legendre"));
+    print_chi2("B seen s261 collision", &c1);
+    print_chi2("B seen s261 legendre", &c2);
 }
 
 fn load_stat_file(stem: &str) -> Vec<f64> {
@@ -743,12 +802,18 @@ fn load_stat_file(stem: &str) -> Vec<f64> {
 /// Replication of Experiment B (plan fixed in `prediction_before_measuring.md`
 /// before it was run): 8 further independent runs of each code, seeds
 /// 1001..1008, pooled per bin from the scatter of the 8 run means.
+///
+/// ~~Gate: pooled |z| <= 2 on every bin.~~ **A REPORT since 2026-11-22
+/// (gh:#1711):** these seeds were seen and used to decide gh:#1709, and the
+/// bin-by-bin gate is replaced by the registered χ² gate on fresh seeds
+/// ([`chi2_b_driver_fresh_seeds_vs_openmc`]). Recorded: pooled worst |z| 1.54
+/// (collision), 1.19 (legendre).
 #[test]
 fn b_replicates_pooled_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
     let nuc = &model().unwrap().nuclides;
     let worst = b_pooled_worst(&geom, &mats, nuc);
-    assert!(worst[0] <= 2.0 && worst[1] <= 2.0, "pooled worst |z| {worst:?}");
+    println!("[B pooled, seen seeds, report only] worst |z| {worst:?}");
 }
 
 /// The pooled worst |z| of the Experiment B replication (collision, legendre).
@@ -851,12 +916,16 @@ fn z_pairs(name: &str, ours: &[(f64, f64)], theirs: &[(f64, f64)]) -> f64 {
     worst
 }
 
-/// First run of Experiment B through the real runner, gate |z| <= 2 on every
-/// bin. **CHANGED 2026-11-22 (gh:#1709, maintainer decision):** a miss falls
-/// back to the replication registered in amendment 5 (8 seed pairs pooled,
-/// same |z| <= 2), as for [`b_collision_and_legendre_vs_openmc`]; 6 bins fail
-/// a correct code about 24 % of the time in one run. Recorded: first run
-/// 2.56, pooled 1.39.
+/// First run of Experiment B through the real runner (seed 261), **a REPORT
+/// since 2026-11-22**.
+///
+/// ~~Gate |z| <= 2 on every bin; a miss falls back to the replication
+/// registered in amendment 5 (8 seed pairs pooled, same |z| <= 2) (gh:#1709).~~
+/// **CHANGED 2026-11-22 (gh:#1711, maintainer: "Bin by bin shldnt make
+/// sense"):** seed 261 has been seen; the registered χ² gate (amendment 6) is
+/// applied to fresh seeds in [`chi2_real_b_fresh_seeds_vs_openmc`]. This test
+/// prints the bin-by-bin z and the χ² and gates nothing. Recorded: worst |z|
+/// 2.56.
 #[test]
 fn real_b_collision_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
@@ -864,28 +933,24 @@ fn real_b_collision_vs_openmc() {
     let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
     let t0 = std::time::Instant::now();
     let ours = real_stats(&geom, &mats, nuc, &tc, Default::default(), 1.0e6, 50_000, 261);
-    println!("[real B] 1e6 histories in {:.1} s (4 logical cores, single thread, shared host)", t0.elapsed().as_secs_f64());
+    println!("[real B] 1e6 histories in {:.1} s (single thread; hardware in the README)", t0.elapsed().as_secs_f64());
     let w = z_pairs("collision", &ours, &load_stat("collision"));
     println!("[real B] collision worst |z| {w:.2}");
-    if w <= 2.0 {
-        return;
-    }
-    // The registered protocol (amendment 5, fixed before the replication was
-    // run): a first-run miss is decided by the 8-seed pooled replication at the
-    // same |z| <= 2 (gh:#1709).
-    let pooled = real_b_pooled_worst(&geom, &mats, nuc);
-    println!("[real B] first run missed ({w:.2}); pooled replication {pooled:.2}");
-    assert!(pooled <= 2.0, "first run worst |z| {w}, and the registered pooled replication {pooled}");
+    print_chi2("real B seen s261 collision", &chi2_gate(&ours, &load_stat("collision")));
 }
 
 /// Replication plan of amendment 5 (fixed before it was run): 8 seed pairs,
 /// 1001..1008, pooled per bin from the scatter of the 8 run means.
+///
+/// ~~Gate: pooled |z| <= 2 on every bin.~~ **A REPORT since 2026-11-22
+/// (gh:#1711):** seen seeds; the χ² gate runs on fresh seeds in
+/// [`chi2_real_b_fresh_seeds_vs_openmc`]. Recorded: pooled worst |z| 1.39.
 #[test]
 fn real_b_replicates_pooled_vs_openmc() {
     let Some((geom, mats)) = model_b() else { return };
     let nuc = &model().unwrap().nuclides;
     let worst = real_b_pooled_worst(&geom, &mats, nuc);
-    assert!(worst <= 2.0, "pooled worst |z| {worst}");
+    println!("[real B pooled, seen seeds, report only] worst |z| {worst:.2}");
 }
 
 /// The pooled worst |z| of the real-transport Experiment B replication.
@@ -963,14 +1028,19 @@ fn load_stat_c(name: &str) -> Vec<(f64, f64)> {
         .collect()
 }
 
-/// Experiment C: WeightFilter under survival biasing (Li-6, 300 keV).
+/// Experiment C: WeightFilter under survival biasing (Li-6, 300 keV), seed
+/// 261, **a REPORT since 2026-11-22**.
+///
+/// ~~Gate |z| <= 2 on every bin.~~ **CHANGED 2026-11-22 (gh:#1711):** seed
+/// 261 has been seen; the registered χ² gate (amendment 6) is applied to fresh
+/// seeds in [`chi2_real_c_fresh_seeds_vs_openmc`]. Recorded: worst |z| 1.06.
 #[test]
 fn real_c_weight_vs_openmc() {
     let Some((geom, mats, nuc)) = model_c() else { return };
     let ours = real_stats(&geom, &mats, &nuc, &weight_tally(), survival_biasing(), 3.0e5, 50_000, 261);
     let w = z_pairs("weight", &ours, &load_stat_c("weight"));
     println!("[real C] weight worst |z| {w:.2}");
-    assert!(w <= 2.0, "weight filter through real transport: worst |z| {w}");
+    print_chi2("real C seen s261 weight", &chi2_gate(&ours, &load_stat_c("weight")));
 }
 
 /// Wiring the history fields must not perturb the transport: a tally binned by
@@ -992,4 +1062,270 @@ fn history_tallies_do_not_perturb_the_run() {
     let c = real_stats(&geom, &mats, nuc, &coll, Default::default(), 1.0e6, 500, 7);
     let total: f64 = c.iter().map(|x| x.0).sum();
     assert!((total - a[0].0).abs() <= 1.0e-12 * a[0].0, "collision bins sum {total} vs {}", a[0].0);
+}
+
+// ── The χ² gate on FRESH seeds (gh:#1711, 2026-11-22) ─────────────────────────
+//
+// Registered before any fresh run: `prediction_before_measuring.md`,
+// amendment 6 (commit 62de0c6a1). Per tally, per seed: z_i from both codes'
+// batch standard errors, χ² = Σ z_i² over the bins with nonzero combined
+// variance (k of them), p = Q(k/2, χ²/2); pass at p >= 0.01. A bin with zero
+// combined variance must hold the same value in both codes. The pooled
+// statistics over the four seeds are reported, not gated.
+
+/// The fresh seeds of amendment 6, never run by either code before it was
+/// committed. OpenMC files: `openmc_reference/exp{B,C}_*_s<seed>.txt`.
+const FRESH_SEEDS: [u64; 4] = [2001, 2002, 2003, 2004];
+
+/// The registered gate: the upper-tail probability must be at least this.
+const CHI2_P_MIN: f64 = 0.01;
+
+/// Upper-tail probability of χ² with `k` degrees of freedom,
+/// `P(χ²_k >= chi2) = Q(k/2, chi2/2)`, through the workspace's regularised
+/// upper incomplete gamma (`outram_foam_basic_lib::math::inc_gamma_ratio_q`,
+/// the DiDonato-Morris port of OpenFOAM's `incGammaRatio_Q`).
+fn chi2_upper_p(chi2: f64, k: usize) -> f64 {
+    if k == 0 {
+        return 1.0;
+    }
+    outram_foam_basic_lib::math::inc_gamma_ratio_q(0.5 * k as f64, 0.5 * chi2)
+}
+
+/// One tally's χ² comparison.
+#[derive(Clone, Debug)]
+struct Chi2 {
+    chi2: f64,
+    k: usize,
+    p: f64,
+    /// Bins with zero combined variance whose values differ (a fail).
+    deterministic_misses: usize,
+    /// Per bin: `Some(z)` where the combined variance is nonzero.
+    z: Vec<Option<f64>>,
+}
+
+impl Chi2 {
+    fn passes(&self) -> bool {
+        self.deterministic_misses == 0 && self.p >= CHI2_P_MIN
+    }
+}
+
+/// The registered statistic for one tally from `(mean, standard error)` pairs.
+fn chi2_gate(ours: &[(f64, f64)], theirs: &[(f64, f64)]) -> Chi2 {
+    assert_eq!(ours.len(), theirs.len(), "bin count differs between the codes");
+    let mut chi2 = 0.0;
+    let mut k = 0usize;
+    let mut deterministic_misses = 0usize;
+    let mut z = Vec::with_capacity(ours.len());
+    for (&(a, sa), &(o, so)) in ours.iter().zip(theirs) {
+        let var = sa * sa + so * so;
+        if var > 0.0 {
+            let zi = (a - o) / var.sqrt();
+            chi2 += zi * zi;
+            k += 1;
+            z.push(Some(zi));
+        } else {
+            if a != o {
+                deterministic_misses += 1;
+            }
+            z.push(None);
+        }
+    }
+    Chi2 { chi2, k, p: chi2_upper_p(chi2, k), deterministic_misses, z }
+}
+
+fn print_chi2(label: &str, c: &Chi2) {
+    let zs: Vec<String> = c.z.iter().map(|z| z.map_or("-".to_string(), |v| format!("{v:+.2}"))).collect();
+    println!(
+        "[chi2 {label}] chi2 {:.3} k {} chi2/k {:.3} p {:.4} det-misses {} {}  z [{}]",
+        c.chi2,
+        c.k,
+        if c.k > 0 { c.chi2 / c.k as f64 } else { 0.0 },
+        c.p,
+        c.deterministic_misses,
+        if c.passes() { "PASS" } else { "FAIL" },
+        zs.join(" ")
+    );
+}
+
+/// The two pooled statistics of amendment 6 over the seeds of one tally,
+/// reported: (a) Σ χ² with Σ k dof; (b) the bias statistic Σ_i z̄_i² with
+/// z̄_i = Σ_s z_si / sqrt(n_s), over the bins defined on every seed.
+fn print_pooled(label: &str, per_seed: &[Chi2]) -> (f64, f64) {
+    let chi2: f64 = per_seed.iter().map(|c| c.chi2).sum();
+    let k: usize = per_seed.iter().map(|c| c.k).sum();
+    let p_sum = chi2_upper_p(chi2, k);
+    let nb = per_seed[0].z.len();
+    let ns = per_seed.len() as f64;
+    let mut bias = 0.0;
+    let mut kb = 0usize;
+    let mut zbar = Vec::new();
+    for b in 0..nb {
+        let zs: Option<Vec<f64>> = per_seed.iter().map(|c| c.z[b]).collect();
+        if let Some(zs) = zs {
+            let zb = zs.iter().sum::<f64>() / ns.sqrt();
+            bias += zb * zb;
+            kb += 1;
+            zbar.push(format!("{zb:+.2}"));
+        } else {
+            zbar.push("-".to_string());
+        }
+    }
+    let p_bias = chi2_upper_p(bias, kb);
+    println!(
+        "[chi2 pooled {label}] sum chi2 {chi2:.3} k {k} p {p_sum:.4}; bias chi2 {bias:.3} k {kb} p {p_bias:.4} z-bar [{}]",
+        zbar.join(" ")
+    );
+    (p_sum, p_bias)
+}
+
+/// Per bin `(mean, standard error)` of one tally from `run_b`'s batches.
+fn batch_stats(batches: &[Vec<Vec<f64>>], ti: usize) -> Vec<(f64, f64)> {
+    let n = batches.len() as f64;
+    let nb = batches[0][ti].len();
+    (0..nb)
+        .map(|b| {
+            let xs: Vec<f64> = batches.iter().map(|bt| bt[ti][b]).collect();
+            let mean = xs.iter().sum::<f64>() / n;
+            let var = xs.iter().map(|x| (x - mean) * (x - mean)).sum::<f64>() / (n - 1.0);
+            (mean, (var / n).sqrt())
+        })
+        .collect()
+}
+
+/// The independence diagnostic of amendment 6 (reported, not gated): the
+/// bin-to-bin correlation matrix of our batch values (every batch of every
+/// seed pooled) and the variance-inflation factor Σ_ij ρ_ij² / k, which is 1
+/// for independent bins and is var(χ²) / 2k when both codes share ρ.
+fn print_correlation(label: &str, rows: &[Vec<f64>]) -> f64 {
+    let n = rows.len() as f64;
+    let nb = rows[0].len();
+    let mean: Vec<f64> = (0..nb).map(|b| rows.iter().map(|r| r[b]).sum::<f64>() / n).collect();
+    let cov = |i: usize, j: usize| rows.iter().map(|r| (r[i] - mean[i]) * (r[j] - mean[j])).sum::<f64>() / (n - 1.0);
+    let live: Vec<usize> = (0..nb).filter(|&b| cov(b, b) > 0.0).collect();
+    let mut inflation = 0.0;
+    for &i in &live {
+        let row: Vec<String> = live
+            .iter()
+            .map(|&j| {
+                let rho = cov(i, j) / (cov(i, i) * cov(j, j)).sqrt();
+                inflation += rho * rho;
+                format!("{rho:+.2}")
+            })
+            .collect();
+        println!("[corr {label}] bin {i}: [{}]", row.join(" "));
+    }
+    let f = inflation / live.len() as f64;
+    println!("[corr {label}] {} batches, variance-inflation factor sum rho^2 / k = {f:.3}", rows.len());
+    f
+}
+
+/// The p-value routine against closed forms before it is trusted
+/// (amendment 6): k = 2 gives `exp(-x/2)`, k = 1 gives `erfc(sqrt(x/2))`,
+/// k = 4 gives `exp(-x/2) (1 + x/2)`; and the tabulated 1 % point of χ²_6.
+#[test]
+fn chi2_p_value_matches_closed_forms() {
+    for &x in &[0.1, 1.0, 3.0, 9.21, 20.0, 40.0] {
+        let k2 = chi2_upper_p(x, 2);
+        let e2 = (-0.5 * x).exp();
+        assert!((k2 - e2).abs() <= 1e-12 * e2, "k=2 x={x}: {k2} vs {e2}");
+        let k1 = chi2_upper_p(x, 1);
+        let e1 = petir::real::erfc((0.5 * x).sqrt());
+        assert!((k1 - e1).abs() <= 1e-10 * e1, "k=1 x={x}: {k1} vs {e1}");
+        let k4 = chi2_upper_p(x, 4);
+        let e4 = (-0.5 * x).exp() * (1.0 + 0.5 * x);
+        assert!((k4 - e4).abs() <= 1e-12 * e4, "k=4 x={x}: {k4} vs {e4}");
+    }
+    // 16.811893829770931 is the 0.99 quantile of χ² with 6 dof.
+    let p = chi2_upper_p(16.811893829770931, 6);
+    assert!((p - 0.01).abs() < 1e-9, "chi2_6 1% point: {p}");
+    // The gate's bookkeeping: an empty bin in both codes is excluded, a
+    // zero-variance disagreement fails.
+    let c = chi2_gate(&[(0.0, 0.0), (1.0, 0.1)], &[(0.0, 0.0), (1.1, 0.0)]);
+    assert_eq!((c.k, c.deterministic_misses), (1, 0));
+    assert!((c.chi2 - 1.0).abs() < 1e-12);
+    let d = chi2_gate(&[(0.5, 0.0)], &[(0.0, 0.0)]);
+    assert!(!d.passes());
+}
+
+/// **Experiment B, history driver, χ² gate on fresh seeds 2001..2004
+/// (gh:#1711, amendment 6).** COLLISION (k = 6) and LEGENDRE (k = 4) per seed,
+/// each must give p >= 0.01; pooled statistics and the bin-correlation
+/// diagnostic are printed. Results: README, "χ² gate on fresh seeds".
+#[test]
+fn chi2_b_driver_fresh_seeds_vs_openmc() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
+    let tl = tally(vec![FilterKind::Legendre(LegendreFilter { order: 3 })], ScoreType::Scatter);
+    let names = ["collision", "legendre"];
+    let mut per: Vec<Vec<Chi2>> = vec![Vec::new(), Vec::new()];
+    let mut rows: Vec<Vec<Vec<f64>>> = vec![Vec::new(), Vec::new()];
+    let mut failures = Vec::new();
+    for &seed in &FRESH_SEEDS {
+        let t0 = std::time::Instant::now();
+        let batches = run_b(&geom, &mats, nuc, &[tc.clone(), tl.clone()], 50_000, seed);
+        println!("[chi2 B driver] seed {seed}: 1e6 histories in {:.1} s (single thread)", t0.elapsed().as_secs_f64());
+        for ti in 0..2 {
+            let c = chi2_gate(&batch_stats(&batches, ti), &load_stat(&format!("{}_s{seed}", names[ti])));
+            print_chi2(&format!("B driver s{seed} {}", names[ti]), &c);
+            if !c.passes() {
+                failures.push(format!("seed {seed} {}: chi2 {:.3} k {} p {:.4}", names[ti], c.chi2, c.k, c.p));
+            }
+            per[ti].push(c);
+            rows[ti].extend(batches.iter().map(|bt| bt[ti].clone()));
+        }
+    }
+    for ti in 0..2 {
+        print_pooled(&format!("B driver {}", names[ti]), &per[ti]);
+        print_correlation(&format!("B driver {}", names[ti]), &rows[ti]);
+    }
+    assert!(failures.is_empty(), "registered chi2 gate (p >= {CHI2_P_MIN}) failed: {failures:?}");
+}
+
+/// **Experiment B through the real runner, χ² gate on fresh seeds 2001..2004
+/// (gh:#1711, amendment 6).** COLLISION (k = 6), p >= 0.01 per seed. The real
+/// runner exposes no per-batch values here, so the correlation diagnostic is
+/// the driver's (same physics, same tally).
+#[test]
+fn chi2_real_b_fresh_seeds_vs_openmc() {
+    let Some((geom, mats)) = model_b() else { return };
+    let nuc = &model().unwrap().nuclides;
+    let tc = tally(vec![FilterKind::Collision(CollisionFilter { bins: vec![0, 1, 2, 3, 4, 5] })], ScoreType::Flux);
+    let mut per = Vec::new();
+    let mut failures = Vec::new();
+    for &seed in &FRESH_SEEDS {
+        let t0 = std::time::Instant::now();
+        let ours = real_stats(&geom, &mats, nuc, &tc, Default::default(), 1.0e6, 50_000, seed);
+        println!("[chi2 real B] seed {seed}: 1e6 histories in {:.1} s (single thread)", t0.elapsed().as_secs_f64());
+        let c = chi2_gate(&ours, &load_stat(&format!("collision_s{seed}")));
+        print_chi2(&format!("real B s{seed} collision"), &c);
+        if !c.passes() {
+            failures.push(format!("seed {seed}: chi2 {:.3} k {} p {:.4}", c.chi2, c.k, c.p));
+        }
+        per.push(c);
+    }
+    print_pooled("real B collision", &per);
+    assert!(failures.is_empty(), "registered chi2 gate (p >= {CHI2_P_MIN}) failed: {failures:?}");
+}
+
+/// **Experiment C (WEIGHT, survival biasing, Li-6) through the real runner,
+/// χ² gate on fresh seeds 2001..2004 (gh:#1711, amendment 6).** Bins
+/// [0, 0.1) and [0.1, 0.25) are expected empty in both codes (k = 3); p >=
+/// 0.01 per seed.
+#[test]
+fn chi2_real_c_fresh_seeds_vs_openmc() {
+    let Some((geom, mats, nuc)) = model_c() else { return };
+    let mut per = Vec::new();
+    let mut failures = Vec::new();
+    for &seed in &FRESH_SEEDS {
+        let ours = real_stats(&geom, &mats, &nuc, &weight_tally(), survival_biasing(), 3.0e5, 50_000, seed);
+        let c = chi2_gate(&ours, &load_stat_c(&format!("weight_s{seed}")));
+        print_chi2(&format!("real C s{seed} weight"), &c);
+        if !c.passes() {
+            failures.push(format!("seed {seed}: chi2 {:.3} k {} p {:.4} det {}", c.chi2, c.k, c.p, c.deterministic_misses));
+        }
+        per.push(c);
+    }
+    print_pooled("real C weight", &per);
+    assert!(failures.is_empty(), "registered chi2 gate (p >= {CHI2_P_MIN}) failed: {failures:?}");
 }

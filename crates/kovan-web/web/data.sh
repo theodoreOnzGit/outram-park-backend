@@ -295,6 +295,22 @@ while read -r c key; do
   docs+=("$f")
 done <<< "$all_keys"
 echo "data.sh: call graph of ${#docs[@]} crates, $fresh re-indexed, $((SECONDS - t0)) s"
+# The derived kovan.toml cache (GitHub #1776, #1780): tracked kovan.toml
+# files no longer carry callees / uses / most reached_by, and the stamp
+# states written with the split graph below are judged on them. Build the
+# cache from the SCIP index at hand (Pages: the merged partition index);
+# without one the states read "index out of date", said loudly.
+derived_scip="${KOVAN_SCIP_FROM:-$SCIP}"
+if [[ -f "$derived_scip" ]]; then
+  t1=$SECONDS
+  if "$kc" index --workspace . --scip "$derived_scip" > "$SCIP_DIR/index-derived.log" 2>&1; then
+    echo "data.sh: derived kovan.toml cache built from $derived_scip, $((SECONDS - t1)) s"
+  else
+    loud "derived kovan.toml cache NOT built (see $SCIP_DIR/index-derived.log): stamp states read functions as index out of date"
+  fi
+elif [[ ! -d target/kovan/derived ]]; then
+  loud "no SCIP index and no derived kovan.toml cache: stamp states read functions as index out of date"
+fi
 if (( ${#docs[@]} > 0 )); then
   "$kc" call-graph --workspace . --merge "${docs[@]}" --split-dir "$out/graph"
 fi

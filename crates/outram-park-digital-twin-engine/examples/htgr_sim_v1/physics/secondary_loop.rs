@@ -1352,6 +1352,29 @@ fn piping_inventory(
     }
 }
 
+/// Volumes of the three secondary pipe runs, the same (**invented**)
+/// constants [`SteamSecondaryLoop::piping_run_inventories`] fills:
+/// [`MAIN_STEAM_LINE_VOLUME_M3`], [`EXHAUST_DUCT_VOLUME_M3`] and
+/// [`FEEDWATER_LINE_VOLUME_M3`]. Read by the control-volume map (gh:#1718).
+pub fn piping_run_volumes() -> PipingRunVolumes {
+    PipingRunVolumes {
+        main_steam: Volume::new::<cubic_meter>(MAIN_STEAM_LINE_VOLUME_M3),
+        exhaust: Volume::new::<cubic_meter>(EXHAUST_DUCT_VOLUME_M3),
+        feedwater: Volume::new::<cubic_meter>(FEEDWATER_LINE_VOLUME_M3),
+    }
+}
+
+/// The three secondary pipe-run volumes: see [`piping_run_volumes`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PipingRunVolumes {
+    /// Main steam line.
+    pub main_steam: Volume,
+    /// Turbine exhaust duct.
+    pub exhaust: Volume,
+    /// Condensate/feedwater line.
+    pub feedwater: Volume,
+}
+
 /// Water/steam mass in each of the three secondary pipe runs \[kg\], each
 /// `V_run / v` at its own IF97 state (2026-10-01). The drawn runs map onto
 /// them as: main steam line -> [`Self::main_steam`]; turbine exhaust duct ->

@@ -119,8 +119,9 @@
 //! the old run under-collided in the U-238 resonances. On host B, `k` went
 //! 1.68081 +/- 0.00802 -> **1.53201 +/- 0.01085** (-14880 pcm, 11 combined
 //! sigma), the sign #589 predicted. Swapping in the ablation
-//! `from_materials_without_breakpoints` gives back host B's pre-#589 bits
-//! exactly (`k = 0x3ffae49b6a9aea9d`), so #589 is the only mover on top of
+//! `from_materials_without_breakpoints` gave back host B's pre-#589 bits
+//! exactly (`k = 0x3ffae49b6a9aea9d`; that ablation was removed 2026-11-26 (gh:#1819),
+//! so the swap needs a build at `625e964655` or earlier), so #589 is the only mover on top of
 //! the libm difference. #585 (`Majorant::bounding`) did not move it: the bits
 //! were unchanged from `785fcd1ce` to `1e9ee8b25`. Host A's pre-#589 pin is
 //! superseded; ~~its post-#589 value has not been measured; host A adds its
@@ -238,6 +239,10 @@
 //! | `csg_nested_lattice_navigation` | `0x8c30242091a4ade8` | `0x652daec672ff2e60` | counts unchanged; the hash includes `hit.distance` of every located point and flight event |
 //! | `csg_nested_lattice_keff` | `0x8931164ebf355c38` | `0x20e5b4eeeede18f1` | k 1.72559 +/- 0.01517 -> **1.72835 +/- 0.01486** (+276 pcm, 0.1 combined sigma) |
 //!
+// The deprecated port of OpenMC's mesh-surface raytrace (gh:#1715) is used here
+// on purpose: it is the code-to-code oracle these tests pin or compare against.
+#![allow(deprecated)]
+
 #![cfg(feature = "std")] // needs files, threads or reports (gh:#1605)
 
 use petir::mathf::RealMath;

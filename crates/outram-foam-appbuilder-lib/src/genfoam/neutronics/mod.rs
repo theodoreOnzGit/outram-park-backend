@@ -147,6 +147,14 @@ pub enum NeutronicsError {
     /// `with_cross_sections` to obtain a working model.
     #[error("neutronics model {0:?} was built without cross sections (state-only); use with_cross_sections to solve")]
     ModelNotImplemented(NeutronicsModelKind),
+
+    /// The upstream transient step (`solveNeutronics.H`, `eigenvalueNeutronics
+    /// false`, `liquidFuel true`) was called without what it needs: the
+    /// circulating-fuel transport ([`diffusion::DiffusionNeutronics::set_precursor_drift`])
+    /// or `precStar` ([`diffusion::DiffusionNeutronics::set_prec_star`]), or with
+    /// a feedback array not sized to the mesh.
+    #[error("upstream transient step: {0}")]
+    UpstreamTransient(&'static str),
 }
 
 /// A 0-D point-kinetics model wrapped as a [`NeutronicsModel`] variant.

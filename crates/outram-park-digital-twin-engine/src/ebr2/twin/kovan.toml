@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/ebr2/twin"
+
+[module."tests.rs"]
+path = "crate::ebr2::twin::tests"
+
+[[module."tests.rs".function]]
+id = "fn:8749152d86f35e86"
+name = "the_cv_map_is_the_live_plant"
+qual = "the_cv_map_is_the_live_plant"
+hash = "sha256:0de52b826538757081b7cd32754e9ad69ce452587ee0c9d3a8ee284173154f27"
+doc_hash = "sha256:c4b1334da0838cd2bd9f0537f1aacb2eb3eada5272baa8128904a1defeaaaca7"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:23846f2f71790b38"
+name = "the_sources_and_pages_are_named"
+qual = "the_sources_and_pages_are_named"
+hash = "sha256:b5d4c474b2d0481592225db6f8d526c38a99a7395b1ba8fd43dbe5184ef2e12c"
+doc_hash = "sha256:203c72e9c23a6cb62323184e5b448502e6790cd2d584e84652756a3aa95b21ab"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:0438a76d9475d41a"
+name = "the_twin_plant_is_the_session_bit_for_bit"
+qual = "the_twin_plant_is_the_session_bit_for_bit"
+hash = "sha256:7373436ac714fdc36b9ec4a7b67fbc41c6d8de2fac5d7c854dbfc4423675ade1"
+doc_hash = "sha256:208fe3d86f21e48d67db750328c0a202716118f9266665f3a25a147d7a2ed61e"
+test = true

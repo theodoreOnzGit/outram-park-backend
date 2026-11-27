@@ -2713,7 +2713,7 @@ mod tests {
     #[ignore]
     fn diagnose_laplace_pc_against_smart_laplacian() {
         use crate::pipeline::{sphere_tet_dual, TetDualOptions};
-        let o = TetDualOptions { cell_size: 1.0, refinement_levels: 1, refinement_band: 1.0, n_layers: 0, ..TetDualOptions::default() };
+        let o = TetDualOptions { cell_size: 1.0, refinement_levels: 1, refinement_band: 1.0, n_layers: 0, tet_source: crate::pipeline::TetSource::CarvedCentroid, ..TetDualOptions::default() };
         let (m0, _) = sphere_tet_dual(Vec3::ZERO, 3.0, 24, 48, &o).expect("graded sphere");
         let q0 = check_quality(&m0);
         let opt = MeshOptimizer::new(&m0);

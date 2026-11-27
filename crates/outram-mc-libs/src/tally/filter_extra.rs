@@ -28,7 +28,6 @@
 use crate::nostd_prelude::*;
 use super::filter::{Filter, FilterEvent};
 use crate::tally::mesh::MeshKindExt;
-use crate::tally::mesh::RegularMeshExt;
 
 // ── MT summation rules (src/endf.cpp) ───────────────────────────────────────
 
@@ -631,11 +630,25 @@ impl Filter for ParticleProductionFilter {
 /// says so instead of leaving the partial answer to be found later.
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeshSurfaceFilter {
-    /// The mesh whose faces are binned. Only [`MeshKind::Regular`] is
-    /// supported — the cylindrical and spherical meshes carry no face
-    /// crossing routine yet, and [`Self::new`] refuses them rather than
-    /// returning an empty bin list that reads as "this track crossed nothing".
-    pub mesh: crate::tally::mesh::RegularMesh,
+    /// The mesh whose faces are binned: any of the four structured kinds.
+    /// ~~Only [`MeshKind::Regular`] is supported~~ **CHANGED 2026-11-22
+    /// (gh:#1712):** rectilinear, cylindrical and spherical meshes are walked
+    /// by the same port of `raytrace_mesh`
+    /// ([`MeshKindExt::surface_bins_crossed_openmc`]). [`Self::new`] still
+    /// refuses an unstructured mesh, as upstream does, rather than returning an
+    /// empty bin list that reads as "this track crossed nothing". The field
+    /// was a `RegularMesh` before gh:#1712.
+    ///
+    /// [`MeshKindExt::surface_bins_crossed_openmc`]: crate::tally::mesh::MeshKindExt::surface_bins_crossed_openmc
+    pub mesh: MeshKind,
+    /// Which raytrace bins the faces (gh:#1715). The default,
+    /// [`MeshSurfaceRaytrace::Corrected`], fixes three upstream defects on
+    /// curvilinear meshes; [`Self::with_openmc_raytrace`] selects the port, for
+    /// code-to-code comparison with OpenMC. The two are identical on regular
+    /// and rectilinear meshes.
+    ///
+    /// [`MeshSurfaceRaytrace::Corrected`]: crate::tally::mesh::MeshSurfaceRaytrace::Corrected
+    pub raytrace: crate::tally::mesh::MeshSurfaceRaytrace,
 }
 
 impl MeshSurfaceFilter {
@@ -643,44 +656,64 @@ impl MeshSurfaceFilter {
     ///
     /// # Errors
     ///
-    /// A non-regular mesh. See the field docs for why that is an error rather
-    /// than a silent zero.
+    /// An unstructured mesh (upstream `fatal_error`s: "Unstructured mesh
+    /// surface tallies are not implemented", `src/mesh.cpp:1087`), or a
+    /// rectilinear / cylindrical / spherical mesh with an axis of fewer than two
+    /// grid points (upstream `set_grid` refuses those).
     pub fn new(mesh: MeshKind) -> Result<Self, String> {
-        match mesh {
-            MeshKind::Regular(m) => Ok(Self { mesh: m }),
-            other => Err(format!(
-                "mesh-surface currents need a regular mesh; {} has no face-crossing \
-                 routine ported yet, and returning no crossings would read as a track \
-                 that crossed nothing",
-                match other {
-                    MeshKind::Rectilinear(_) => "a rectilinear mesh",
-                    MeshKind::Cylindrical(_) => "a cylindrical mesh",
-                    MeshKind::Spherical(_) => "a spherical mesh",
-                    // Upstream fatal_errors too: "Unstructured mesh surface
-                    // tallies are not implemented." (`src/mesh.cpp:1029`).
-                    MeshKind::Unstructured(_) => "an unstructured mesh",
-                    MeshKind::Regular(_) => unreachable!(),
-                }
-            )),
+        let axes_ok = |g: [usize; 3]| g.iter().all(|&n| n >= 1);
+        match &mesh {
+            MeshKind::Regular(_) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Rectilinear(m) if axes_ok(m.dimension()) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Cylindrical(m) if axes_ok(m.dimension()) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Spherical(m) if axes_ok(m.dimension()) => Ok(Self { mesh, raytrace: Default::default() }),
+            MeshKind::Unstructured(_) => Err("mesh-surface currents are not implemented on an \
+                 unstructured mesh (upstream fatal_errors too); returning no crossings \
+                 would read as a track that crossed nothing"
+                .into()),
+            _ => Err("mesh-surface currents need at least two grid points on every axis".into()),
         }
     }
 
     /// Every surface bin the track `ev.position_last -> ev.position` (direction
     /// `ev.direction`) crosses, in order of travel, by the port of upstream's
-    /// `raytrace_mesh` ([`RegularMeshExt::surface_bins_crossed_openmc`]).
+    /// `raytrace_mesh` ([`MeshKindExt::surface_bins_crossed_openmc`]).
     /// ~~By the re-derivation `surface_bins_crossed`~~ **CHANGED 2026-11-22
     /// (gh:#1709):** that counted crossings on the open interval and broke
     /// ties at a track end differently from upstream.
     ///
-    /// [`RegularMeshExt::surface_bins_crossed_openmc`]: crate::tally::mesh::RegularMeshExt::surface_bins_crossed_openmc
+    /// [`MeshKindExt::surface_bins_crossed_openmc`]: crate::tally::mesh::MeshKindExt::surface_bins_crossed_openmc
+    ///
+    /// **CHANGED 2026-11-23 (gh:#1715):** by [`Self::raytrace`], the corrected
+    /// route by default; the port is [`Self::with_openmc_raytrace`].
     pub fn matches(&self, ev: &FilterEvent) -> Vec<usize> {
-        self.mesh.surface_bins_crossed_openmc(ev.position_last, ev.position, ev.direction)
+        crate::tally::mesh::mesh_surface_bins_crossed(
+            &self.mesh,
+            ev.position_last,
+            ev.position,
+            ev.direction,
+            self.raytrace,
+        )
+        .unwrap_or_default()
+    }
+
+    /// The same filter binned by the port of upstream's `raytrace_mesh`,
+    /// defects included (gh:#1712 findings A, B, C): for code-to-code
+    /// comparison with OpenMC (gh:#1715).
+    #[must_use]
+    #[deprecated(note = "deprecated 2026-11-23 (gh:#1715, maintainer): the port of OpenMC's raytrace_mesh carries three upstream defects; use the corrected route (MeshSurfaceFilter::new, or mesh_surface_bins_crossed with MeshSurfaceRaytrace::Corrected). Kept only as the OpenMC code-to-code oracle.")]
+    pub fn with_openmc_raytrace(mut self) -> Self {
+        // The oracle route, kept by name.
+        #[allow(deprecated)]
+        let port = crate::tally::mesh::MeshSurfaceRaytrace::OpenMc;
+        self.raytrace = port;
+        self
     }
 }
 
 impl Filter for MeshSurfaceFilter {
     fn n_bins(&self) -> usize {
-        self.mesh.n_surface_bins()
+        self.mesh.n_surface_bins().unwrap_or(0)
     }
     fn get_bin(&self, ev: &FilterEvent) -> Option<usize> {
         // Genuinely partial when a track crosses several faces. `matches` is

@@ -276,7 +276,8 @@ thermal class's own integer/real walk, the comment, and `throut`'s directory lin
 sections, mubar, ebar, and for `IFENG = 2` the four 3-D pages and the angle-energy pages).
 `aceth` has its own `ascll` without the "make sure amin and amax differ" step, so `tplots`
 has its own copy. Not ported (`NotPorted`): a ZAID suffix and `nxtra != 0` on a thermal
-file, `nmix > 1`, an ENDF-4/5 thermal tape, mcnpx formats, Type 2.
+file, ~~`nmix > 1`~~ (**CORRECTED 2026-11-24**, gh:#866: ported, §41), an ENDF-4/5 thermal
+tape, mcnpx formats, Type 2.
 
 **Result** (`tests/deck_driver_tapes_vs_njoy2016.rs`,
 `test_{25,49,67,68,69,70,74}_thermal_ace_and_directory`): 0 differing lines on every unit
@@ -1364,7 +1365,7 @@ were run before a prediction was posted for them**; that is said on gh:#1369.
 |---|---|---|
 | `DECK_GETY4_GETZ` (Fe-56 JEFF-3.3) | `gety4`; ratio plot from two units (`getz`) | plot 9 241 lines, PostScript 10 275: identical |
 | `DECK_AUTO` (C-12 ENDF/B-V, `mtd = 0`) | automatic loop, passes, `rname`, `findf` up | plot 6 591, PostScript 28 075: identical |
-| `DECK_MF7` (H in H2O) | MF=7 against alpha and beta | plot 153: identical. VIEWR not compared: this port's VIEWR panics on NJOY's own plot file of it, gh:#1543 |
+| `DECK_MF7` (H in H2O) | MF=7 against alpha and beta | plot 153: identical. ~~VIEWR not compared: this port's VIEWR panics on NJOY's own plot file of it, gh:#1543~~ **CORRECTED 2026-11-24 (gh:#1543):** VIEWR unit 46 compared, 1 176 lines identical (`axis3`'s log branch now wraps `i-1` as gfortran does) |
 | deck 01 + `DECK_GENDF_TAIL` | GENDF MF=3 (coded and binary unit), flux per lethargy, MF=6 spectrum, `gg3d` | plot 172, MODER copy 1 330: identical |
 | `DECK_MF6` (Al-27 ENDF/B-VIII.0 MT=16) | `gety6` | **refused**: undefined upstream (below) |
 
@@ -1732,9 +1733,9 @@ redefines a standard; the first match wins.
 `CovarianceReactions::standards`, `mf31::run_cov_gendf_nstan`, and card 11 in
 `deck::errorr::read_errorr`.
 
-**Refused by name:** a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
+**Refused by name:** ~~a negative `matb(1)` (the third-reaction mode: `kmtb`, the `ety`
 window, `grist`'s later subsections); `nstan` on the PENDF route (`mfcov = 33`,
-`ngout = 0`); `nstan` with `iread = 2`.
+`ngout = 0`); `nstan` with `iread = 2`.~~ **CORRECTED 2026-11-24 (gh:#1371):** all three run now (§40, §42).
 
 **Gates** (`tests/deck_driver_errorr_mf40_nstan_vs_njoy2016.rs`; prediction posted on
 gh:#1371 first). JENDL-3.3 U-235 (`J33U235`): MF=33 MT 102 refers to `(9228, 18)` with
@@ -1774,11 +1775,12 @@ RECONR, BROADR 293.6 K, GROUPR LANL-30 `iwt = 3`, `lord = 3`, `8 51/` to `8 56/`
 - Unit 25 identical, 332 of 332 lines, first run.
 - Ablation: with CM isotropy in place of the records, 181 of 332 lines differ.
 
-**Not done:** `getdis`'s Coulomb term (`:9529-9548`). It runs only for `mtd = 2` with
+~~**Not done:** `getdis`'s Coulomb term (`:9529-9548`). It runs only for `mtd = 2` with
 `izap > 1` (an incident charged particle's elastic, File-6 `LAW = 5`), together with
 `lidp`, `wcut`, `spi` and `mft = 8` for `mfd = 3`. That is the incident charged-particle
 GROUPR path; the tape driver carries no `izap`/`izat`/`aprime` for it (it sets `izap = 1`
-for every MF=6 feed), so the term is not self-contained and was not started.
+for every MF=6 feed), so the term is not self-contained and was not started.~~
+**CORRECTED 2026-11-24:** ported for `mfd = 3`, `mtd = 2`; see §43.
 
 ### 35a. GROUPR `getmf6` LAW = 4 and LAW = 5 neutrons, on a synthetic tape (2026-11-14, gh:#1370)
 
@@ -1867,9 +1869,17 @@ two-body, the MT 251-253 ratios) used the PENDF MF=3 head's AWR. Upstream `getfl
 the only tape held here, in `tests/resources` or `reference-data/endf`, where the two differ
 (checked by script over all of them). So no gated deck moves.
 - Be-9 alone at 0 K: MF=6 MT=2 differed in 39 of 395 lines; with the fix, 6.
-- The 6 remaining lines are in the 7th figure, at the energies where Be-9's Legendre
+- ~~The 6 remaining lines are in the 7th figure, at the energies where Be-9's Legendre
   order changes. They are **not resolved**; `be9_alone_control` is `#[ignore]`d with that
-  reason.
+  reason.~~ **CORRECTED 2026-11-24 (gh:#1370):** the 6 lines came from the other half of
+  the split. `getsig(e = 0)` runs first and sets `thresh` and `alpha` from the MF=3 AWR
+  (`:6751-6752`), and `getfle` replaces only the module `awr`. The port took `alpha` from
+  MF=4's AWR too, so the critical energies `ech = egn/alpha` were 1e-6 high, the panel
+  called `getdis` at about six different energies near each, and `ff`'s 7-decimal
+  rounding showed it. Found by printing `getdis`'s `ff` before rounding in a scratch
+  NJOY2016 build and in the port: every value equal where both called it, the energies
+  apart only at `ech`. `TwoBodyFeed::with_getsig_awr` fixes it; Be-9 alone is identical
+  (395 lines), and `be9_alone_control` pins 0.
 
 **Gates** (`tests/deck_driver_groupr_materials_vs_njoy2016.rs`; predictions posted on
 gh:#1370 before each run). The tapes are ENDF/B-VIII.0 H-2 (128) + Li-6 (325), joined in
@@ -1916,10 +1926,11 @@ with `3 103/ 21 103/ 21 28/ 25 22/ 25 107/`.
   `aprime /= 1` and the `mf4r` lists (`conver`, `:11000-11150`). Neither is translated, so
   an `mfd = 21-26` request for an MT with no MF=6 section is refused by name instead of
   reaching `getmf6`. `mfd = 31-36` stay refused.
-- **`getdis`'s Coulomb term** (`:9529-9548`) runs for an incident charged particle only
+- ~~**`getdis`'s Coulomb term** (`:9529-9548`) runs for an incident charged particle only
   (`izap > 1`, `mtd = 2`, `mft = 8` with `mfd = 3`). The tape driver fixes `izap = 1`,
   `aprime = 1` and the neutron `izat`, so the incident-charged sublibrary (#1511) has to
-  come first.
+  come first.~~ **CORRECTED 2026-11-24:** it did not need #1511; the `mfd = 3` path is
+  ported (§43).
 - The automatic lists `21/`-`26/` (`nextr`'s charged lists) stay refused.
 
 ## 36. THERMR's second SCT atom: `gatef2` wired (2026-11-14, gh:#1375)
@@ -1962,7 +1973,7 @@ NC sub-subsection still merges its two energies into `eni` but its formula is dr
 `deck::errorr::read_card8`.
 
 **Refused by name:** `iread = 1` on any route but `mfcov = 33` from a PENDF; with
-MF=32 on the tape (no deck exercises `resprx` with a card-8a list); `nmt <= 0` or
+~~MF=32 on the tape (no deck exercises `resprx` with a card-8a list)~~ (**CORRECTED 2026-11-24**, gh:#1371: runs, §42); `nmt <= 0` or
 `nek < 0`; a card 8a, 8b or 9 shorter than its count (upstream reads unset words).
 
 **Gates** (`tests/deck_driver_covr_vs_njoy2016.rs`, prediction on gh:#1371 first), deck
@@ -2004,7 +2015,9 @@ name. By logic, and by what the held evaluations reach (the surveys cover
 - **`tabize`** (`acefc.f90:813-1059`): present inline. It copies an `LNU = 1`
   polynomial unchanged (`:848-856`; deck 10, `t404`, is identical whole). Its
   linearization of a tabulated nubar with `INT > 2` is reached by nothing: every
-  MF=1/MT=452/455/456 held is `INT = 2`.
+  MF=1/MT=452/455/456 held is `INT = 2`. ~~(the linearization was not ported)~~
+  **CORRECTED 2026-11-24 (gh:#1372):** ported (`acer::tabize`) and gated on a
+  synthetic nubar, §41.
 - **`cptab`** (`:2868-2975`): a copy. Its one call (`:2438`) runs with `mfh = 6`, where
   it sets `nr = 1, int = 2`, so its linearization branch is dead upstream.
 - **`terpc`** (`:15181-15213`): feeds only `consis`' listing (`nsyso`) check of the
@@ -2132,3 +2145,190 @@ Repairing `cpm` would be a change to NJOY, which is the maintainer's call.
 `nina = 1, ires = 1` variants through both codes. It asserts that NJOY2016 exits non-zero
 with unit 27 empty and the recorded stop message, and that the port refuses `lib = 3` at
 POWR. If upstream ever wrote a `lib = 3` library, this test would fail and point here.
+
+## 40. Survey close-out: GROUPR `mfd = 31-36` and charged lists, `igg = 1`; ERRORR `nstan`/`nin` on the PENDF route; OpenMC's thermal deck (2026-11-24, gh:#1370, #1371, #866)
+
+Every case runs the same deck through NJOY2016.80 (`build/njoy`, `ab27c64`) and
+`run_deck`, release, compared line for line as strings. Predictions were written in
+the tests' doc comments and committed (`7caaba962`, `af6a7ec4a`) before the first run,
+except `AU`, which says so.
+
+| deck | what | gate | result |
+|---|---|---|---|
+| `GG1` | GROUPR `igg = 1` (arbitrary photon groups, `gengpg` `:4747-4751`) on Pu-240 | `deck_driver_groupr_weights_vs_njoy2016::gg1_…` | unit 24 identical, 145 lines, first run |
+| `CP1` | GROUPR `21 600`, `25 800`, `26 2`, `26 600`, `26 800` on O-16 VIII.0: `conver`'s `mf4r`, `mfchk2`, `parts`, `getdis` with `aprime /= 1` and the `law = 4` flip, written as MF = `mfd - 10` | `deck_driver_groupr_materials_vs_njoy2016::cp1_…` | unit 24 identical, 306 lines, first run |
+| `AU` | GROUPR automatic `21/`, `25/`, `26/` (`nextr`'s `mf6p` then `mf4r`) on O-16 and F-19 | `…::au_…` | identical, 909 and 1 525 lines (run before a prediction was written) |
+| `N3`, `N4` | ERRORR `nstan` on the PENDF route (`mfcov = 33`, `ngout = 0`), J33 U-235, card 11 `0/` and `9228 18 9228 102/` | `deck_driver_errorr_mf40_nstan_vs_njoy2016::n3_n4_…` | unit 27 identical, 8 654 and 8 588 lines, first run |
+| `NI1` | deck 05 plus a second ERRORR with `nin = 33` (PENDF route) | `deck_driver_covr_vs_njoy2016::ni1_…` | units 33 and 36 identical (21 471, 42 940 lines), first run |
+| `OM1` | OpenMC's `make_ace_thermal` deck, H in H2O, 293.6 and 600 K, free-gas THERMR then bound THERMR, ACER `iwt = 2`, 64 bins, all text units | `deck_driver_thermal_openmc_vs_njoy2016::om1_…` | ACE units 28-31 and BROADR's 23 identical; THERMR units 24, 25 identical in columns 1-75 after one fix; sequence numbers pinned (below) |
+
+**`OM1` missed on its first run.** Units 24 and 25 differed in the last digit of the
+MF=6 density on 7 949 and 18 661 lines. `calcem` writes to `nscr`, text when `nout`
+is (`thermr.f90:297-298`), and `tpend` scales the density read back from it; the deck
+driver skipped that read for text units. Fixed in `deck::thermr`. Decks run THERMR on
+binary units before this (01, 67-69) and are unaffected. ~~**Open:** the sequence numbers
+of 1 559 (unit 24) and 515 485 (unit 25) lines, where `tpend`'s copies keep a running
+count through copied SEND/FEND lines; pinned exactly by the test.~~ **CORRECTED
+2026-11-24 (gh:#866):** fixed; every line of units 24 and 25 is identical (§41).
+
+**`mfd = 21-26` with no MF=6 that `mfchk2` leaves alone** (an MT inside a stored range,
+e.g. O-16 `21 601`): NJOY2016 stops in `findf` (exit 77, run 2026-11-24); the port now
+stops there by name too.
+
+**Classified, not ported** (each checked 2026-11-24):
+- ERRORR `mfcov = 33` with `ngout = 0` and `npend = 0`: NJOY2016 crashes ("Fortran
+  runtime error: Missing format", deck 05 with `npend = 0`); kept refused.
+- ACER `fndar1`/`fndar2`: F-19 ENDF/B-VIII.0 MT=16 (two neutron LAW=1, LANG=1
+  subsections) with `newfor = 0` is the closest held case; the port never calls
+  `fndar*`, and its ACE differs from NJOY2016's in 5 of 49 285 lines, all
+  equiprobable AND cosines in the 6th figure, so `fndar` contributes nothing there.
+  Those 5 lines are an open residual of `newfor = 0` (gh:#1372).
+
+## 41. ACER `nmix > 1`, THERMR's sequence numbers, F-19 `newfor = 0`, `tabize` (2026-11-24, gh:#866, #1372)
+
+Each was read upstream first, predicted, then run against NJOY2016.80 (`ab27c64`).
+
+| item | upstream | port | gate | result |
+|---|---|---|---|---|
+| ACER `nmix > 1` | `thrlod` divides ITIX (`aceth.f90:830`), ITCX (`:730`) and the incoherent `sigma` (`:804`) by `nmix`, nothing else | `deck::acer_thermal::thrlod_nmix` on the finished table | deck 67 with `nmix = 2`, deck 49 with `nmix = 3` (`deck_driver_tapes_vs_njoy2016::test_{67_nmix_2,49_nmix_3}_…`) | 0 differing lines on every unit. NJOY's deck 49 table at `nmix = 3` differs from `nmix = 1` in 105 of 272 558 lines, so the gate can fail |
+| THERMR sequence numbers | a record a routine writes takes the running count; `asend` writes 99999, `afend`/`amend` 0, each restarting it; a closer `tosend`/`tofend`/`tomend`/`totend` copies takes the running count. `tpend` copies MF=1, MF=2, the kept MF=3 sections, each new MF=6 SEND (from `nscr`) and everything from MF=4 on; THERMR ends with `totend` | `deck::thermr::tpend_copied_closers`; a copied TEND (`Tape`'s `{-1, 0, 0}` mark) | `OM1` | units 24 and 25 identical in every line (was 1 559 and 515 485 lines in columns 76-80) |
+| F-19 `newfor = 0`, 5 AND lines | `pttab`'s `slpe` is a routine-level local: the `aneed < 1e-4` branch leaves it as the previous bin set it, and `p(k)` moves by it | the port reset it to 0 on every bin. **Port defect, fixed** (`acer::photon_angular::pttab`) | `acer_newfor0_and_tabize_vs_njoy2016::f19_newfor0_…` | 0 of 49 285 lines (was 5: MT=16 at 13 MeV, 6th figure) |
+| `tabize` linearization | `first` linearises a nubar TAB1 with any `INT > 2` to lin-lin (`err = 0.01`, `errlim = 1e-5`, midpoints at `sigfig(.,7)`, the midpoint pushed with its lin-lin value, `ndim = 100`, stop at 20 MeV) on `mscr`, which is text when `npend > 0` | `acer::tabize` | F-19 with a synthetic MF=1/MT=452 (`INT` 2, 3, 4, 5), binary and text units (`…::tabize_…`) | 0 of 41 950 lines on both; NJOY's NU block is `NR = 0`, 10 points (the evaluation has 6) |
+
+## 42. ERRORR `nstan` with `iread = 1/2`, card 11's third-reaction mode, `iread = 1` with MF=32 (2026-11-24, gh:#1371)
+
+**Upstream, read first.**
+- `nstan` with `iread = 1` or `2`: `gridd` (`errorr.f90:1250-1300`) and `covcal`
+  (`:1913-2030`) apply the card-8a / card-10 selection and the standards
+  independently; nothing in either is specific to the pair.
+- Third-reaction mode, card 11 `matb(1) < 0` (`:283-290`): the standard
+  `(-matb(1), -mtb(1))` must be a card-10 pair. `grist` then walks every subsection
+  of the standard when its window is open (`:1670-1675`), and an `LTY = 3`
+  sub-subsection in a later subsection with `(MAT1, MT1) = (matc(1), mtc(1))` sets
+  the module pair `ety1`/`ety2` and merges its two energies (`:1612-1628`).
+  `covcal` relabels the standard's subsection `(matc(1), mtc(1))`, reads its
+  `rdsig`, sets `kmtb` (`:1999-2008`), applies the `ety` window to the columns of
+  records with `ltyi` 0 or 2 (`:2119-2123`), and at the end sets `mats(kmtb)`,
+  `mts(kmtb)` (`:2386-2390`).
+- `iread = 1` with MF=32: `resprx` uses `mts` and `akxy` as `gridd` left them
+  (`:3626-3656`).
+- `iread = 1` from a GENDF: `ngchk` condenses each card-8a "material" `mats(i) = 0`
+  (`:11114-11128`), reaches the tape end and stops, "ngout = 92 is not a gendf
+  tape" (`:10923-10927`). Run 2026-11-24 on J33 U-235's GENDF, `mfcov = 33` and
+  `31`, binary and text: exit 77 each time. Classified (b): upstream stops.
+
+**Code.** `standards::grist` (the walk and `ety`), `Standards::third_reaction`,
+`CovarianceReactions::ety`, `covcal`'s relabel and window, `covcal::relabel_kmtb`,
+`mf31::run_cov_gendf_card10_nstan`; the deck reader's three refusals removed.
+**One defect found on the way:** on the `iread = 2` route, `rdsig(mat1, …)` with
+`mat1 = matd` (J33 U-235's MT 102 has a subsection `(9228, 18)`) gave zeros, because
+only other materials' records were kept under `other_key`. `matd`'s are now too.
+
+**An unset upstream variable, kept as upstream has it.** `ety1`/`ety2` are module
+variables never initialised; gfortran puts them in static storage, so they are 0
+until a `grist` sets them, and they persist between ERRORR runs of one job. The
+port starts each run at `(0, 0)`. A deck that sets them in one ERRORR and relies on
+them in a later one would differ; no deck here does.
+
+**Gates** (predictions in the tests' doc comments, written before the first run;
+the pre-run commit was refused by this session's permission settings, so
+predictions and results land together):
+
+| deck | what | test | result |
+|---|---|---|---|
+| `NS1` | J33 U-235 PENDF route, `nstan`, `iread = 1`, card 8a `18 102` | `deck_driver_errorr_mf40_nstan_vs_njoy2016::ns1_…` | unit 27 identical, 174 lines |
+| `NS2` | J33 U-235 GENDF route, `nstan`, `iread = 2`, card 10 `9228 18` | `…::ns2_…` | identical, 8 900 lines (`N1`: 8 654) |
+| `T1` | `NS2` with card 11 `-9228 -18 9228 4` (third reaction U-235 MT 4) | `…::t1_…` | identical, 8 768 lines |
+| `T2` | `T1` with the `nstan` tape edited: MT 18's `(9237, 18)` subsection made `(9228, 4)` with an `LTY = 3` window `[1e5, 1e7)` (synthetic) | `…::t2_…` | identical, 8 866 lines |
+| `IM1` | deck 16 (J33 U-238, MF=32 `LRF = 3`), first ERRORR with `iread = 1`, `2 18 102`, cut after it | `deck_driver_covr_vs_njoy2016::im1_…` | unit 26 identical, 385 lines |
+| `IM2` | deck 20 (Cl-35, MF=32 `LRF = 7`), ERRORR from the PENDF, `iread = 1`, card 9 MT 1 = MT 2 + MT 102 | `…::im2_…` | units 25, 26, 27 identical (749, 8 949, 26 168 lines) |
+| — | `iread = 1` from a GENDF | `…::iread1_from_a_gendf_is_refused_where_njoy_stops` | refused by name in ERRORR, naming `ngchk` |
+
+All six identical on the first run. `NS1`'s first run tripped the test helper's
+1000-line sanity floor (the comparison itself was 0 of 174); that floor is 100 for
+`NS1`. Controls: NJOY's `T2` differs from its `T1` (98 more lines), so the `ety`
+window acts; `NS2` differs from `N1`. Not ablated: the `rdsig(matd)` fix alone.
+
+**Still not done (synthetic only):** `iverf = 4` (ENDF-4 layout through `gridd`,
+`covcal` and cards 4-6), MF=34 `LVT = 1` (`egtlgc`), a sub-subsection with `NI = 0`,
+and `MAT1 /= 0` or `MT1 /= 2` (a second reaction's `rdlgnd`). Each is a port of its
+own plus a hand-built tape; none was attempted.
+
+## 43. GROUPR for an incident charged particle: `getdis`'s Coulomb term; the Be-9 residual (2026-11-24, gh:#1370)
+
+**The Coulomb term.** `mfd = 3`, `mtd = 2` with `izap > 1` follows upstream:
+- `conver` reads `izap = NSUB/10` and `awrp = AWI` from MF=1 and `spi` from the `LAW = 5`
+  TAB2;
+- `getsig` divides the MF=3 AWR by `awrp` and gives 1 on a `1.1 e` grid;
+- `getff` label 800 sends `getmf6` (`zad = izap`) to `getdis` with `mft = 8`;
+- `getdis` adds the Coulomb cross section, cuts the cosines at `wcut = 0.94` (`-wcut`
+  too for identical particles), adds 6 and `lord` to `npo`, and accumulates every band
+  into one column.
+
+Code: `groupr::charged_elastic` (`projectile`, `from_mf6_mt2`, `getco` label 360),
+`TwoBodyFeed::with_charged_elastic`, `deck/groupr/charged_elastic.rs`. `getco` label 360
+builds its complex coefficients with `cmplx(re, im)`, which is **single precision**
+(no `kind`): the port rounds them to `f32` and halves them in `f32`, as gfortran does.
+
+**Upstream overruns `ff` with more than two groups.** `getmf6`'s normal entry zeroes
+`ans(l, 1..ngn)` (`:7965-7969`), but `getff`'s `ff` was allocated `(nlg, ng2g = 2)` for
+`mfd = 3`. With six groups NJOY2016 aborts with `free(): invalid pointer` on p + H-1,
+p + H-2, p + H-3, d + H-2 and He-4; valgrind on a scratch `-fcheck=bounds -g` build points
+at `groupr.f90:7966`. With two groups it writes nothing out of bounds (valgrind: 0
+errors), so the gates use two groups.
+
+**Gates** (`tests/deck_driver_groupr_charged_elastic_vs_njoy2016.rs`, unit 24 compared as
+strings, 13 lines each). The ENDF/B-VIII.0 tapes are from NJOY2016's `tests/resources`.
+
+| deck | tape | records | result |
+|---|---|---|---|
+| `C1` | d + He-3 (225) | `LTP = 1` (one `LTP = 0`), `LIDP = 0` | identical (run before a prediction was written) |
+| `C2` | d + H-2 (128) | `LTP = 1`, identical particles, `SPI = 1` | identical (run before a prediction was written) |
+| `C3` | p + H-1 (125) | `LTP = 1`, identical, `SPI = 1/2` | identical, first run, as predicted |
+| `C4` | p + H-3 (131) | `LTP = 1`, `LIDP = 0` | identical, first run, as predicted |
+| `C5` | p + H-1, 0.1-1 MeV | as `C3` | identical, first run, as predicted |
+
+**Below the printed figures.** A scratch NJOY2016 build printed every `getco` label-360
+coefficient (`%.17e`); the port printed its own.
+- Of 7 210 coefficients on the four tapes, 8 differ, all `fl(1)` (which `getco` does not
+  round), by at most 1.4e-15 relative.
+- With glibc's `cos`, `sin` and `ln` in place of PETIR's, all 7 210 are bit-identical.
+  So the 8 are the transcendental's last bit, below the 1e-9 code-to-code allowance.
+- Ablation, `cmplx` in double precision: 414 coefficients move, at the 1e-8 `toler`
+  level, though none of the five decks' printed values does.
+- Ablation, no Coulomb term: both cross-section lines differ in every deck.
+
+**Refused by name:** tabulated records, `LTP > 2` (He-4, p + H-2). `conver` converts them
+through `getco` label 352, whose search reads `c(ipc+7)` past the record's last cosine,
+up to `ipm = 6 + 2 nmu`. So for each Gauss node above the last cosine (He-4 stops at
+0.94: 6 of 64 nodes) it reads words of `conver`'s `scr` left from earlier records.
+Also refused: `LCT = 1`, a `Z = 0` target, and a projectile subsection that is not
+`LAW = 5` (a recoil's `LAW = 4`, say), and `26 2/`.
+
+**The elastic matrix.** For a charged projectile, the matrix is card 9 `21 2/` to
+`25 2/`, with `zad` the projectile. NJOY2016 stops on the other requests (run 2026-11-24
+on d + He-3): `6 2/` in `findf` (there is no MF=4), `8 2/` in `getmf6` ("desired particle
+not found"), and the automatic `6/` finds no reaction. `getdis` runs with the Coulomb term,
+`wcut` and one band per sink group. Here upstream allocates `ff` for every group, so the
+gates use six groups (valgrind: 0 errors).
+Code: `deck/groupr/charged_elastic.rs::write_mt2_matrix`, `TwoBodyFeed::with_coulomb`.
+
+| deck | tape, card 9 | result |
+|---|---|---|
+| `M1` | d + He-3, `22 2/` | identical, 27 lines, first run, as predicted |
+| `M2` | p + H-1, `21 2/` | identical, 27 lines, first run, as predicted |
+| `M3` | d + H-2, `22 2/` | identical, 27 lines, first run, as predicted |
+| `M4` | p + H-3, `21 2/` | identical, 26 lines, first run, as predicted |
+
+**The Be-9 residual (§35b) is found and fixed.** Upstream's `getsig(e = 0)` sets
+`thresh` and `alpha` from the MF=3 AWR before `getfle` replaces the module `awr` with
+MF=4's. The port took `alpha` from MF=4's too, so `ech = egn/alpha` was 1e-6 high.
+Found by printing `getdis`'s `ff` before rounding in both codes:
+- the values agreed wherever both called `getdis`;
+- the energies differed only next to each `ech`.
+
+With `TwoBodyFeed::with_getsig_awr`:
+- both codes call `getdis` 8 994 times, at the same energies, with every `ff` bit-identical;
+- Be-9 alone is identical in all 395 lines.
+
+`be9_alone_control` now pins 0 lines.

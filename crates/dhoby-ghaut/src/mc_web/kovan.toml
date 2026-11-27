@@ -1,0 +1,2128 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/mc_web"
+
+[module."keff.rs"]
+path = "crate::mc_web::keff"
+
+[[module."keff.rs".function]]
+id = "fn:bb74d7a5164faa3d"
+name = "CONSOLE_HEADER"
+qual = "CONSOLE_HEADER"
+item = "const"
+shape = "const"
+hash = "sha256:9ebc3cb8a424cc153447a7656d3fbaa66facec93d59836f3cd07228cabe442f0"
+doc_hash = "sha256:bd6d6095414ab0cbc9c96445053ac04eea2819e076f632e2f30d8c1db6579300"
+
+[[module."keff.rs".function]]
+id = "fn:26310b09e9c06513"
+name = "CodeReference"
+qual = "CodeReference"
+item = "type"
+shape = "struct"
+hash = "sha256:1348007539bdade136e91b7bab4b4573e19ba04f26be0115d5796125f3556179"
+doc_hash = "sha256:4c8e6abac0f30335b5bfb0de9b7f7613404793dbfcca85feacad9914c96a4e71"
+
+[[module."keff.rs".function]]
+id = "fn:02e8196c1f8b3afd"
+name = "FIVE_ROUTE_SUMMARY"
+qual = "FIVE_ROUTE_SUMMARY"
+item = "const"
+shape = "const"
+hash = "sha256:5807906ead5293995d2ca7849bf865d53a867e135e21fcb1b26f1b6652da4da2"
+doc_hash = "sha256:5d4e955d9b0f96559e801c200f099043bea18dc9bbde73a11f6e4c504022a684"
+
+[[module."keff.rs".function]]
+id = "fn:222572abab18ad9a"
+name = "Generation"
+qual = "Generation"
+item = "type"
+shape = "struct"
+hash = "sha256:30f75c3f30263296ca7a76c345709978a8dbf820b8ece91b04fbf67c32485186"
+doc_hash = "sha256:9eaa76d962f8099642dc60eb0912d691084b4d78f70c5f26f84be06f003ced77"
+
+[[module."keff.rs".function]]
+id = "fn:0280c17de43005fc"
+name = "KeffConfig"
+qual = "KeffConfig"
+item = "type"
+shape = "struct"
+hash = "sha256:3436508f3eeb939d8fae002496693594ac00498081652cc07d8b96833b55e100"
+doc_hash = "sha256:3cba5ecb93f40ece1c42d5d8c3a029d5b6c0ef4ff5c4871834b2cba654881d50"
+
+[[module."keff.rs".function]]
+id = "fn:796073cf8a00f09a"
+name = "KinfCase"
+qual = "KinfCase"
+item = "type"
+shape = "struct"
+hash = "sha256:02d7f23c07c9b179a0f1cb898a555e46629c839c1b0bce2f9921cd252434fa5b"
+doc_hash = "sha256:46fe88a6bf0b59bc4a96f721e02abd4e43afa89dfbb38112c001ac302901d06a"
+
+[[module."keff.rs".function]]
+id = "fn:5db47f790b9d661f"
+name = "KinfGeneration"
+qual = "KinfGeneration"
+item = "type"
+shape = "struct"
+hash = "sha256:9827b3199ced59ababffad53af6dd0c82c2929e65038713b500fa193c9ea1002"
+doc_hash = "sha256:50fda3f23b6934fd93ee4035e639d5a1563608178b6aad1b78e6e06816d30718"
+
+[[module."keff.rs".function]]
+id = "fn:7d42fc0db6c4da2f"
+name = "LineStyle"
+qual = "LineStyle"
+item = "type"
+shape = "enum"
+hash = "sha256:fe035844b026cc0678e269137df05273afd8a90f29e52387f00161ff4156f200"
+doc_hash = "sha256:730fa59c4ae23c8c09ae8ebf06779c55cd92a639bbef56fc52331f8b38ef14b4"
+
+[[module."keff.rs".function]]
+id = "fn:a7a5e29471233453"
+name = "MAX_GENERATIONS"
+qual = "MAX_GENERATIONS"
+item = "const"
+shape = "const"
+hash = "sha256:8858e8a920ff80eca441957569fc55987e1cfa6d1d3a3686e1b7fdb1c1075428"
+doc_hash = "sha256:9b6e30041823ef2c29111c6d4c41fae737114e760eaf207c54f291c380d22476"
+
+[[module."keff.rs".function]]
+id = "fn:31eae28ebe42fe2a"
+name = "MAX_PARTICLES"
+qual = "MAX_PARTICLES"
+item = "const"
+shape = "const"
+hash = "sha256:1eaa93ea366da03e88f6d2fafdc78d5b2c200ce2e557fe695fa84ebacf8d3fe5"
+doc_hash = "sha256:d7d1e7702535fa5a15057b34f295632b5c0a21a700506a379da1f754e0d86807"
+
+[[module."keff.rs".function]]
+id = "fn:a9d01b21e4c33064"
+name = "MAX_SEED"
+qual = "MAX_SEED"
+item = "const"
+shape = "const"
+hash = "sha256:0bcdc88ac1d9dc9d2860e3b62d80a1af2abec17eba00a98e6dfeb0185c622787"
+doc_hash = "sha256:6ce060d7a5cc9af3215ff484c945428dec8e1c1bad462b8081563701b4181a84"
+
+[[module."keff.rs".function]]
+id = "fn:14304da623539f40"
+name = "MAX_SITES_SHOWN"
+qual = "MAX_SITES_SHOWN"
+item = "const"
+shape = "const"
+hash = "sha256:b2a5a36a486e85560496fa581502f5a7d3b2f2e2a6552b943e9f850f40ccf1fc"
+doc_hash = "sha256:4e945c80368de32e0bd2762e8ea8322b1346295f313081ed8e61becb51312e9d"
+
+[[module."keff.rs".function]]
+id = "fn:5173e822f9acc0d2"
+name = "MIN_ACTIVE"
+qual = "MIN_ACTIVE"
+item = "const"
+shape = "const"
+hash = "sha256:1fba0217c1208464f6c0a2ea135aa119eb08f382185bf5d94d463b493951c232"
+doc_hash = "sha256:4908bc2298f06b299a2d241d229c4051165404647d8b6aff24213797d2966ce6"
+
+[[module."keff.rs".function]]
+id = "fn:98f29d4745fe4194"
+name = "POOL_TIP"
+qual = "POOL_TIP"
+item = "const"
+shape = "const"
+hash = "sha256:b8c357ca79154dfff279620dc67932cc8f69c05e5938445c9de19a098d8486e1"
+doc_hash = "sha256:0b047aeb82f1213997aea4212c6e152fad1e1aaedb00dcd7bf1c83f3f39ad7ac"
+
+[[module."keff.rs".function]]
+id = "fn:a8e1f8296b28bc55"
+name = "ROUTE1_LABEL_32X10000_ALL35"
+qual = "ROUTE1_LABEL_32X10000_ALL35"
+item = "const"
+shape = "const"
+hash = "sha256:0f5754a857448bf74189fddbcb0ad7a2e14c19dcc8eb2760c95ea3e73a35f322"
+doc_hash = "sha256:09ccdeec540181769b8e6898d5a168f2c8d86eb2e0db50e917e86e4799f475fb"
+
+[[module."keff.rs".function]]
+id = "fn:335178ea086747ce"
+name = "ROUTE1_LABEL_32X5000"
+qual = "ROUTE1_LABEL_32X5000"
+item = "const"
+shape = "const"
+hash = "sha256:dde2680df72140e495c35927baa673e682a95b333a9b4252a78291c980393f40"
+doc_hash = "sha256:18e752c7a095e2779d0c2ffa33061185b5c2bd28bb111d5d6075699fcec86846"
+
+[[module."keff.rs".function]]
+id = "fn:be39314381d9bcb4"
+name = "RecordedCurve"
+qual = "RecordedCurve"
+item = "type"
+shape = "struct"
+hash = "sha256:2d88e3ef2d4c2b1651c9f2c82d2c5d949e8ee2838346a9d028a249e5f862357c"
+doc_hash = "sha256:bd92afe360bebd81dbc5bd35ff81dccb4109da0b548f37a7e92166f3fb83ab39"
+
+[[module."keff.rs".function]]
+id = "fn:f6778163d159a73f"
+name = "Reference"
+qual = "Reference"
+item = "type"
+shape = "struct"
+hash = "sha256:744024fb8e29077c172a5e2c11da15b118a150fac12242e187030581c87f3e95"
+doc_hash = "sha256:a2915428f7832d023efc71d5cace50a5833b24c14e94e97d9313c1409fada5a6"
+
+[[module."keff.rs".function]]
+id = "fn:809d0404a47b0442"
+name = "build_stamp"
+qual = "build_stamp"
+hash = "sha256:4defc026779c1ace407c0da9bac2b76a9f8f1a40216f1550195c0ea734089ce8"
+doc_hash = "sha256:959b580817c259ebecdba9d2b6664cdd99ee3d1dced40f88231d29d644f0382a"
+
+[[module."keff.rs".function]]
+id = "fn:8ba52fb038ecd99d"
+name = "cfg"
+qual = "cfg"
+hash = "sha256:023699c7c3d5ac20f6555035f3a6db5b106a0b5b2094f354344c1d3fc014ed86"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."keff.rs".function]]
+id = "fn:666d034da8b64545"
+name = "clamp_to_caps"
+qual = "clamp_to_caps"
+hash = "sha256:8789a80aa3c9becd1a51a55a7352f861cb38a0bb002ec37cb1658db5d44228cd"
+doc_hash = "sha256:859f0ea54eecd896b7e10ac8b86c73fc74826a8240411386f7f693fe647810ff"
+
+[[module."keff.rs".function]]
+id = "fn:0fe1c8ec8190b32b"
+name = "console_line"
+qual = "console_line"
+hash = "sha256:872f88dcbc6db549da0348a7922c9b1b0746f0320011469cf8ffa7706dc8d66c"
+doc_hash = "sha256:ee0b0dfcedf42c659f7254e364ac883f1b5915febd3255a098069f034961bfb8"
+
+[[module."keff.rs".function]]
+id = "fn:f8f7bc89cd627a48"
+name = "csv_points"
+qual = "csv_points"
+hash = "sha256:8d2f1339b94cedb4e51c97576f382295a378a5b293ec23e631d18b66ebeacc71"
+doc_hash = "sha256:132c406b48d4d4aebfaf880e22d0eaf0107807f13f1bdb67d96793b7467dc007"
+
+[[module."keff.rs".function]]
+id = "fn:afa518ae4ad61724"
+name = "eta_line"
+qual = "eta_line"
+hash = "sha256:02fcbf4b8a7aa18284ee552cac0a4ab0769fd0337c761723f0106960ad06d7d1"
+doc_hash = "sha256:aab34f01fe6ad455fe5fd3c79a80cd9eab25339a65c40413db2903940d824bb7"
+
+[[module."keff.rs".function]]
+id = "fn:bfca614de3ab5020"
+name = "five_route_reference"
+qual = "five_route_reference"
+hash = "sha256:22d7491f2626d0800e09b5cb7c490d984e8b5c9e5d9bf747594e7e38dc4ec16d"
+doc_hash = "sha256:e3a968fccce775227b13e1ba588c5a82a72c4488c92480b270480b19a99d53e5"
+
+[[module."keff.rs".function]]
+id = "fn:c1b97ff5f5b46fa5"
+name = "five_route_row"
+qual = "five_route_row"
+hash = "sha256:679d866fe0c500286d30e441a631f2197d1c128644f6b07566fcb9e3d5fd9123"
+doc_hash = "sha256:8fb0dcc719225a0804f25fa313e11b4dac98d2802c5c22648fcf4740b9f2b7c9"
+
+[[module."keff.rs".function]]
+id = "fn:c97dbcd2ec040ffe"
+name = "five_route_summary_is_outram_mc_libs_record"
+qual = "five_route_summary_is_outram_mc_libs_record"
+hash = "sha256:bac45739f9ad458178ab319d4e0326c0bc2e44181b75905d04feda10a60cc424"
+doc_hash = "sha256:416ce295b4fcfe3d39b0600affccdcec7cbe7db2fc9d6a7bfba0c02d269b6d6d"
+test = true
+
+[[module."keff.rs".function]]
+id = "fn:d943a48965fc6624"
+name = "human_duration"
+qual = "human_duration"
+hash = "sha256:9cba270160a0eee844dfebae2f57de810d1bf3502139b4c0b464d8d9dd9323d9"
+doc_hash = "sha256:a79a48bd53265bfbbf87f402b2251a8aa08c2f039c9505cfeb2005fc4b5b470e"
+
+[[module."keff.rs".function]]
+id = "fn:02a4951f54092cf5"
+name = "plan_line"
+qual = "plan_line"
+hash = "sha256:7d926d7f2cbcccc5849efa6febd8bde95a3f5843761831fdbb915a221c1289ff"
+doc_hash = "sha256:54045dbeecbe8ab94ba47474fc6710850a205ad626320de471035b8516efef84"
+
+[[module."keff.rs".function]]
+id = "fn:d30cd87b5772fd04"
+name = "reference_lines"
+qual = "reference_lines"
+hash = "sha256:17dd2517565d8a0c2b4aea982436b7366d50c759b303d9dbfe79fcbfbce621ca"
+doc_hash = "sha256:4be2340f0ceb4d516399613ad8a7e31f27e6e4985eb5ac760b6f41dc5f50bfd8"
+
+[[module."keff.rs".function]]
+id = "fn:64fef6c5100572c2"
+name = "route1_reference"
+qual = "route1_reference"
+hash = "sha256:95e923f3d88308ccc983456076b61f9aa407d53611f476c7a78f7d81d166dd92"
+doc_hash = "sha256:a09cb0dc11f9305479b4df583f09a66c9fa7ed13b7f1e55c71927c0ff1cc764a"
+
+[[module."keff.rs".function]]
+id = "fn:897d90f8e583f5c7"
+name = "sample_sites"
+qual = "sample_sites"
+hash = "sha256:0f9d2b4199a4424c07a0e0204a7683f06bc8091ba33543949e19c4c2e7015071"
+doc_hash = "sha256:f808dcf6417b842cd2a2a327ae0e92dace2b9357234f6055f88a5e9b20ee591a"
+
+[[module."keff.rs".function]]
+id = "fn:9aa5f6e0188c3302"
+name = "settings_are_held_to_the_caps"
+qual = "settings_are_held_to_the_caps"
+hash = "sha256:195c30a4cc364af5b597c2555587d141cb1b3b1094401fcc921e0880e34cf8b4"
+doc_hash = "sha256:ebc5ebfa4cf47a858b556dfd13fbc3030ed56318859431eecfa01a00939804d7"
+test = true
+
+[[module."keff.rs".function]]
+id = "fn:799b7fec09bf87c1"
+name = "settings_line"
+qual = "settings_line"
+hash = "sha256:edd0d17d3f51e03654b3c983264f7cbad003c6a304c5a56018bed225e6ed748b"
+doc_hash = "sha256:c59736fcd9bd64e64ada733a97006201003f8ea1c22b9ce804fa26edcfb73b93"
+
+[[module."keff.rs".function]]
+id = "fn:49d77bf1de01a155"
+name = "settings_link"
+qual = "settings_link"
+hash = "sha256:1031b6ebda7e47c30d2027d3b6965277acf89583144ed7077b0489dde72c14f9"
+doc_hash = "sha256:adf2b07fe4844596ee0583f4e9c212f7554631aa885c7a41d5e43a2797b3afc9"
+
+[[module."keff.rs".function]]
+id = "fn:276b8baf5b45e385"
+name = "settings_link_row"
+qual = "settings_link_row"
+hash = "sha256:790b2d6773c95ed9974aaf4ce7045ba0b567321f21c8d90542ee1088ce25e3a0"
+doc_hash = "sha256:8d51f67904d76f439919fb945edc200174a6cc839b59b54d6931633b8b181a3a"
+
+[[module."keff.rs".function]]
+id = "fn:b0bfdfe3d83af048"
+name = "summary_lines"
+qual = "summary_lines"
+hash = "sha256:7fadbb7550d002921f3643828bdb7fcb115b188667ef974189f532d0f3ca40b2"
+doc_hash = "sha256:31d65b63b5d6c14d2d8d499d886d8ca7857761b7692de7beba97e1faa66908e3"
+
+[[module."keff.rs".function]]
+id = "fn:616ed21f77bb9b18"
+name = "the_time_left_is_measured_not_assumed"
+qual = "the_time_left_is_measured_not_assumed"
+hash = "sha256:25298fc34fd317b9e48d4bb89cad62e5e8f9e70471e0a46221ffeabfcd1bf698"
+doc_hash = "sha256:43fc6a4bad8db8d5d7df847b172a68334cb279dcabc27f69219d6dd05eb60496"
+test = true
+
+[module."keffplot.rs"]
+path = "crate::mc_web::keffplot"
+
+[[module."keffplot.rs".function]]
+id = "fn:ab7ec2ad54ed6aca"
+name = "AMBER"
+qual = "AMBER"
+item = "const"
+shape = "const"
+hash = "sha256:8538324e29fac772e0909704955757325d41ee0b5c8b90e253912abe5afbd237"
+doc_hash = "sha256:475d0236dfb32ae2cd0d47afc686608d5ec5642cdf0d520051d0c0f83568879c"
+
+[[module."keffplot.rs".function]]
+id = "fn:eff7e3732c24e42e"
+name = "Axes"
+qual = "Axes"
+item = "type"
+shape = "struct"
+hash = "sha256:000bae9fc7243c94afa55d370a4489e1b3c5ffdda66eabc433b58abaa3789283"
+doc_hash = "sha256:b92bb680c7b6d240ee3d284304ea7b870fcaed70e4416a3ddd17b874709dc202"
+
+[[module."keffplot.rs".function]]
+id = "fn:1832ab1093596a7a"
+name = "frame"
+qual = "Axes::frame"
+hash = "sha256:244e21585f3d66b9d84b1e04de693c51f8c4be70e750edcc05ffe758afab5545"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."keffplot.rs".function]]
+id = "fn:fddf600158204c1c"
+name = "p"
+qual = "Axes::p"
+hash = "sha256:056f7b8d2926d50604713ab0bea8d3b0812c60b9139e649e563023098b19913a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."keffplot.rs".function]]
+id = "fn:ea00b033c4ad67ec"
+name = "shade_inactive"
+qual = "Axes::shade_inactive"
+hash = "sha256:a4c86dd7ebc77a3fc122e6d36975990d2c567c0be6881caab0ede0bf1346ffad"
+doc_hash = "sha256:4813d239b9b6a620dce9bb9ae49d11fdb45bc79072180510a8270369e278d0ed"
+
+[[module."keffplot.rs".function]]
+id = "fn:8b380997d7a743a4"
+name = "ENTROPY_COLOUR"
+qual = "ENTROPY_COLOUR"
+item = "const"
+shape = "const"
+hash = "sha256:508299dc02a4a732aa56020de935244df9e0cf0e81884ce4ae389c4f5231d7e6"
+doc_hash = "sha256:3f27113c743efc9b433ebca0cef7b87dea2d2cfe9ac580f6011d7a1ac0d43c13"
+
+[[module."keffplot.rs".function]]
+id = "fn:693ac2c108e2a907"
+name = "GenPoint"
+qual = "GenPoint"
+item = "type"
+shape = "struct"
+hash = "sha256:9e82e477b6d546db31bd83636d80c37ae9b16e1b260a7315d35f24c25096d50b"
+doc_hash = "sha256:5ebff4e9784a4dda01fe28a54770b60e5cdc6219d49eb1d99d42e1d9516093ee"
+
+[[module."keffplot.rs".function]]
+id = "fn:f33980abe22ebb3f"
+name = "from"
+qual = "GenPoint::from#1"
+hash = "sha256:438b87cd1c856e178dced9ab8fd99d2a42a99490faa5c6de2aac5c5937f7a298"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."keffplot.rs".function]]
+id = "fn:096bc5489a64e88c"
+name = "from"
+qual = "GenPoint::from#2"
+hash = "sha256:17e5dc6483ef8328e6b4ab594a0f843e83fc33ebc3e1c7da2d07f11d40ff7fe2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."keffplot.rs".function]]
+id = "fn:09028e554d8ab6e9"
+name = "K_COLOUR"
+qual = "K_COLOUR"
+item = "const"
+shape = "const"
+hash = "sha256:ee959a44d7055ae0a64a73af5655358e878a79c14e8b5cf2772b7249e549e63b"
+doc_hash = "sha256:46dd914562f5b418c0dc00ba7e4558347ac9a485d33831f5270837bcbfc2847e"
+
+[[module."keffplot.rs".function]]
+id = "fn:fa5e2974d0133c0c"
+name = "LIVE"
+qual = "LIVE"
+item = "const"
+shape = "const"
+hash = "sha256:d982c47a466dad19e48ff0fc00a85b33cfd9e5b718f411cab9100a0eaf1814e4"
+doc_hash = "sha256:b6eaecf928fbb40c5717acf9988de6a443a06201de35f6811d19692838fe0d5a"
+
+[[module."keffplot.rs".function]]
+id = "fn:ce38b387cff5bd85"
+name = "MEAN_COLOUR"
+qual = "MEAN_COLOUR"
+item = "const"
+shape = "const"
+hash = "sha256:ae571a44b68e8bcca4b55249e080464887ec5dc4e27b8ac98683399d32298bec"
+doc_hash = "sha256:3d6a9577d5ce0626ea02bb3596d0cf0b00e1b94e17713cb6115583046674bb90"
+
+[[module."keffplot.rs".function]]
+id = "fn:15a3cd03891121a6"
+name = "RECORD_COLOUR"
+qual = "RECORD_COLOUR"
+item = "const"
+shape = "const"
+hash = "sha256:ee959a44d7055ae0a64a73af5655358e878a79c14e8b5cf2772b7249e549e63b"
+doc_hash = "sha256:7ccdcd94cef43686535933c4fa63405f222fa0283f58335f4f0ba8ff1b1b0724"
+
+[[module."keffplot.rs".function]]
+id = "fn:fd3ec4b2612dd53f"
+name = "RED"
+qual = "RED"
+item = "const"
+shape = "const"
+hash = "sha256:1b8a782c3d4a654569c885dafbd03e56330a4ef238ceba919d8f7570dd1f48ef"
+doc_hash = "sha256:1322e6994cd12186a05053c2264d68392fab4907bbdc8db31668ef4464979265"
+
+[[module."keffplot.rs".function]]
+id = "fn:bc45a1abc1bfcac3"
+name = "REFERENCE_COLOUR"
+qual = "REFERENCE_COLOUR"
+item = "const"
+shape = "const"
+hash = "sha256:cdcc8da2267d1ece06e1efcde4834cd970ef4679eb0e552727b5f0255d81a59f"
+doc_hash = "sha256:91fbb93273bdaa110a5a0fc5d74d20055a465bd592468d3d46215d5090b005e5"
+
+[[module."keffplot.rs".function]]
+id = "fn:8b407f67b682cdd3"
+name = "RefLine"
+qual = "RefLine"
+item = "type"
+shape = "struct"
+hash = "sha256:25c1f3c3e52578813dd346201c9da7687888c5e17ee630502d2f6316e39e1e30"
+doc_hash = "sha256:2ece33a505889094a324d75a20e155f3127375d152ac68ead0ab75894fdaeef4"
+
+[[module."keffplot.rs".function]]
+id = "fn:614d950d403c55b4"
+name = "RunShape"
+qual = "RunShape"
+item = "type"
+shape = "struct"
+hash = "sha256:31007b280e890e45c998341c830043a3a49dd78b68b15124c88eb9567508e86a"
+doc_hash = "sha256:3d64f9c1c5caed4fbaab4aa388a4cae28d1d6d1c7c6a323492f898493117a618"
+
+[[module."keffplot.rs".function]]
+id = "fn:a8924ad6a2f62a53"
+name = "STATUS"
+qual = "STATUS"
+item = "const"
+shape = "const"
+hash = "sha256:a3eb1a9a15e9f85b441635dd9046f7538fd0241854e2aaef3ebb0bd8fd812b5e"
+doc_hash = "sha256:67cefa15b98c23ac00045152babdddb479b62125c3be7df94cffad9a4215c4ff"
+
+[[module."keffplot.rs".function]]
+id = "fn:d3728798893ea1c5"
+name = "StatusLine"
+qual = "StatusLine"
+item = "type"
+shape = "alias"
+hash = "sha256:180485e801e74d608cf55c5fb5bf5ca203d97f4482903628805c5b1436e1756a"
+doc_hash = "sha256:b0a4ebf08192e4652cc56a899b0ca7a1eee48771e1e31f2f5da564cde387031b"
+
+[[module."keffplot.rs".function]]
+id = "fn:b6eadcb904425adb"
+name = "body_layout"
+qual = "body_layout"
+hash = "sha256:757df3a5d11bfd12cd26ea65de9749176c324003002bb076db0fdfc6b1efd573"
+doc_hash = "sha256:9c3d1a4e4b0900c0e4fad78bba345d9fe70adbe10dac1f158375607cc8a72400"
+
+[[module."keffplot.rs".function]]
+id = "fn:ffb31c0ea08e62cc"
+name = "draw_entropy"
+qual = "draw_entropy"
+hash = "sha256:5d4253c13bd3374a5e54d535ccf516bc3b20e2d34347ca856c9bdef1ab21fd68"
+doc_hash = "sha256:24706ce4fb34188dd864e80171ed02e8625794820c37f152ea0791c57d276ef9"
+
+[[module."keffplot.rs".function]]
+id = "fn:89845983c4fcc5b4"
+name = "draw_k"
+qual = "draw_k"
+hash = "sha256:464dce55b6eb048084ddaebb4e8e67f391ba82eb803848290ae9d96bf5a7c148"
+doc_hash = "sha256:a4bf8a3ab17e56baf125e291b0fd3a00e5887d5d91ea23c786d7e98c12756c1d"
+
+[[module."keffplot.rs".function]]
+id = "fn:ebdd09acf4981734"
+name = "draw_pair"
+qual = "draw_pair"
+hash = "sha256:1d485b4e149ee86d7b1acb62e2e0e725a536f281d65e9c21cc0d81e480fd3dab"
+doc_hash = "sha256:e63aee391b09e59033f39c3a6a51a7850741e507d0db8007b0854c42a94ac3c1"
+
+[[module."keffplot.rs".function]]
+id = "fn:6085d41832d28e6c"
+name = "draw_strip"
+qual = "draw_strip"
+hash = "sha256:b61248a4c1ada90a8c0287ab5b4f0b6ca81a78e03e65765dab671ac8355ba6e9"
+doc_hash = "sha256:363c72f391862ef1b2960b0fdc9f13e04d3e325a2d9cf66d6ad3a9845163e526"
+
+[[module."keffplot.rs".function]]
+id = "fn:2434a6fe18dedb90"
+name = "draw_text_pane"
+qual = "draw_text_pane"
+hash = "sha256:d1c2975d332af7e0e3284f5cbe8cb71d9c50e714f07a0fe4807a1c2f5b950e1d"
+doc_hash = "sha256:76fe6940b0edaa796b324f24e4bbbe847d93969a04287d21a6b4ee8913fcf5d1"
+
+[[module."keffplot.rs".function]]
+id = "fn:29e83af55b20d326"
+name = "entropy_range"
+qual = "entropy_range"
+hash = "sha256:0efb68b1b68cb1f9eae48bd8ee5a0dd356c6d3473339d28da841d4f6f5331d77"
+doc_hash = "sha256:809f513f50931a8bf63886dd3c57e7904254e77fa3d0c5df09b7b37c7b9a5a55"
+
+[[module."keffplot.rs".function]]
+id = "fn:1d4e6dfaf023ae02"
+name = "g"
+qual = "g"
+hash = "sha256:761bfa17043aa5556f021cb08b237224f9d2a7ae06c4262ca3c2af33423b07b1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."keffplot.rs".function]]
+id = "fn:13575c64343fc67e"
+name = "k_range"
+qual = "k_range"
+hash = "sha256:99924e1416aa434fdda4498feceed6962bc3bb0bcad15e53bf22278285a1010a"
+doc_hash = "sha256:8be03e2c266d1e50a8f7497976272f6522d901261f3d6d41f40f9baffa8d81e0"
+
+[[module."keffplot.rs".function]]
+id = "fn:bdd5b13810c95004"
+name = "named_colours_take_the_theme"
+qual = "named_colours_take_the_theme"
+hash = "sha256:12a5a8ee8f7e8fdbf9c5f7c4856b545653ddae0f85ee827baf3bbfd8827fb28e"
+doc_hash = "sha256:aedee330446672f39f0cac43264f4cab7ac5068a0d7290dae5fffabb3eda7cb5"
+test = true
+
+[[module."keffplot.rs".function]]
+id = "fn:28624cf64e45d43a"
+name = "pair_rects"
+qual = "pair_rects"
+hash = "sha256:8414e4de6f4992973625c4ee9b74a954b8e3fc6ab1fe71a95119bdd11cf72fd8"
+doc_hash = "sha256:ae0a656d5ad68d0adc5fe48f5d19575291e950c526443288745e282cdad800c2"
+
+[[module."keffplot.rs".function]]
+id = "fn:541e193c7fd63d37"
+name = "the_body_has_room_for_plots_text_and_the_references_button"
+qual = "the_body_has_room_for_plots_text_and_the_references_button"
+hash = "sha256:e738cea52d58f4dfdd103c5863586dd9ba8c8fe8a3a8d1b768f95070102419cc"
+doc_hash = "sha256:f661cb379189fd011182d9bf74c16b46fef2448ce788d72bfae4390b5916c871"
+test = true
+
+[[module."keffplot.rs".function]]
+id = "fn:191d3951f4572dd5"
+name = "the_entropy_range_reaches_the_ceiling"
+qual = "the_entropy_range_reaches_the_ceiling"
+hash = "sha256:f0a32bb3fc3a09c788bdc1098886e8de47a24fd7c36e97ab4ad9500cc2cfbf30"
+doc_hash = "sha256:39ff93f9751500b890559b06b37c4c82de0ea2637bee42dbb2f8f0ae6ae285f8"
+test = true
+
+[[module."keffplot.rs".function]]
+id = "fn:d52c805138a421ab"
+name = "the_k_range_skips_the_guessed_source_and_holds_the_references"
+qual = "the_k_range_skips_the_guessed_source_and_holds_the_references"
+hash = "sha256:5a7293f731e9ea2f8327ced7a5709e4fb9f63d541ae8636cc174155146d501c2"
+doc_hash = "sha256:f7785abb57fa1c7effa56addd3b2ca89c1bb622a6703808022ee7fafa983a7be"
+test = true
+
+[[module."keffplot.rs".function]]
+id = "fn:b76ab93ceea7448e"
+name = "the_pair_stacks_on_a_phone"
+qual = "the_pair_stacks_on_a_phone"
+hash = "sha256:187144051d1089865ea023c76bd670f2b72387978fbd9ba67636320393c072b7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."keffplot.rs".function]]
+id = "fn:4e71432a2b3d2e0a"
+name = "themed"
+qual = "themed"
+hash = "sha256:1870609f1cdffa30c2a008f5624351e0acf5b3c7c6ce00dae27c5cdb61d169b2"
+doc_hash = "sha256:94b7924314a429eaf2c399afe1fc45299ee0bce2ec3b26bb55a45090a31cfa65"
+
+[module."mod.rs"]
+path = "crate::mc_web"
+
+[module."pool.rs"]
+path = "crate::mc_web::pool"
+
+[[module."pool.rs".function]]
+id = "fn:d9a9b2402e41726a"
+name = "CHUNKS_PER_WORKER"
+qual = "CHUNKS_PER_WORKER"
+item = "const"
+shape = "const"
+hash = "sha256:7de2928f91964ccdb15b9e11085118907ab9bd75ab27528aed6f5024582721d6"
+doc_hash = "sha256:1931420616022d9bc35ef74346f2b5c935e75f62b4e042560a1fa2fe3a2448f5"
+
+[[module."pool.rs".function]]
+id = "fn:cb475fb6d8f4f918"
+name = "DataOut"
+qual = "DataOut"
+item = "type"
+shape = "enum"
+hash = "sha256:57a347f477dfb444ca8983c169ce635271d873e4979f8a8ac18de797fcbbf2d5"
+doc_hash = "sha256:309102a860e319f663743e30d183e9cb9519b7549ce2d8342566ed40363dea47"
+
+[[module."pool.rs".function]]
+id = "fn:84f44058fba2e740"
+name = "DataRelay"
+qual = "DataRelay"
+item = "type"
+shape = "struct"
+hash = "sha256:c73dc5aa2216a612611a92899b3820dfaba041522c938d5812a782ce1db788b1"
+doc_hash = "sha256:7f7148a8daa7d00bd992be056a67f04ee982f86fd30a210edcc9ca0af704893f"
+
+[[module."pool.rs".function]]
+id = "fn:505200039acff000"
+name = "all_processed"
+qual = "DataRelay::all_processed"
+hash = "sha256:cf629260344f9da92e7a722a32d7adef11edce77b54f9c53053fa6b1bf6dc77b"
+doc_hash = "sha256:23e2b60ca2f0dbd4aff5c0cc226e760e6b511a58de7c57d22759adc03626a506"
+
+[[module."pool.rs".function]]
+id = "fn:911fb46f5b1e3b99"
+name = "data_source"
+qual = "DataRelay::data_source"
+hash = "sha256:bb03dd6aa7fb5eda79ca643ad5211e77cb704958543524fab023c03e4b3bc190"
+doc_hash = "sha256:f5aafb4ab09584461716ba1de87106a0c39298cad6cde6c69c9f0f621ab49e95"
+
+[[module."pool.rs".function]]
+id = "fn:5e6bbd70132e5fdf"
+name = "new"
+qual = "DataRelay::new"
+hash = "sha256:1767af6f69edc4146963e8a7ce5b8691c448e2c3f113536e57aa1b7db2b8a2d6"
+doc_hash = "sha256:60b5a142a0909075973ce3e5c835ff491e9d885b8260f4464b71524c6a1a38fb"
+
+[[module."pool.rs".function]]
+id = "fn:6afe2e2c698e9e9e"
+name = "none"
+qual = "DataRelay::none"
+hash = "sha256:e6321c88e4b092d135c564387b817dc3980c81f07a234d0bbbec50f1417065ae"
+doc_hash = "sha256:6610750a41148e68c61fcd1123a9ca9073fe5d581e495529c340e8b18fefb689"
+
+[[module."pool.rs".function]]
+id = "fn:77754e9061cb582d"
+name = "on_product"
+qual = "DataRelay::on_product"
+hash = "sha256:0b6eecd7f5e4a9acb99ddc18c66971ab184c7b9bb5c4aa74ef85174c872a98a4"
+doc_hash = "sha256:0ce7f9952864cf9df32c56b3f5a96a658a905d5ea1d131103049b088effd1403"
+
+[[module."pool.rs".function]]
+id = "fn:0c0eab68946eae0d"
+name = "on_started"
+qual = "DataRelay::on_started"
+hash = "sha256:3934a551820499e31e613c0e5502de054196839ab24a84c97e3a8bf006b08d15"
+doc_hash = "sha256:5fb2b8e75932069cdbb53f4877cf4e797f17099719fdb1a85d05e70d04da2177"
+
+[[module."pool.rs".function]]
+id = "fn:b24bed7bc75895d6"
+name = "outbox"
+qual = "DataRelay::outbox"
+hash = "sha256:0f6e47b8fe4067e763e14996fd8eb19cc1b3f5b38cb0b02997e8d752309882fe"
+doc_hash = "sha256:0a55f8c4d56174c9edb86ac62444c9f8e0848de045ccae28fa2eec27885549c2"
+
+[[module."pool.rs".function]]
+id = "fn:98e26616d6463ffe"
+name = "processed"
+qual = "DataRelay::processed"
+hash = "sha256:f151744e0e3ca5abe3a0914f47c673426322d8792aeb6f6a3671c0e59871c6f7"
+doc_hash = "sha256:525dbd167f0d51026dd32f25802d8ef35cbd482df011b4b0349457397a6b381f"
+
+[[module."pool.rs".function]]
+id = "fn:f9283d8a521ef3ea"
+name = "GenSummary"
+qual = "GenSummary"
+item = "type"
+shape = "struct"
+hash = "sha256:0e949fd1484e83adf5e3f0fde37abcdb2c468bce1ace2ac97882976740234f7c"
+doc_hash = "sha256:185c7ef25e2c32bbcb8f769277ee741a1221dd9999fc43ae002aaaee6a094f97"
+
+[[module."pool.rs".function]]
+id = "fn:9213655debe448cd"
+name = "without_tracks"
+qual = "GenSummary::without_tracks"
+hash = "sha256:2d63b06302b68ebaeff1db2278c6ee1964a9a743ebb9341698d29a224e088f15"
+doc_hash = "sha256:c80e8772438f3f0572d3059ce59db96308a4f59ee1699d40cd1a254b8de9e900"
+
+[[module."pool.rs".function]]
+id = "fn:4d71cb3f5b5d56f6"
+name = "KeffPool"
+qual = "KeffPool"
+item = "type"
+shape = "struct"
+hash = "sha256:0fb1ea68373df902acf2de0bc4a9d3c3952cb66e9c0d00f77221da13b05189c5"
+doc_hash = "sha256:2da914683c7bf78c2746a523722bc123891cc4767fdbba208ad1e65bc073a279"
+
+[[module."pool.rs".function]]
+id = "fn:21ffb72e0525a51f"
+name = "current_run"
+qual = "KeffPool::current_run"
+hash = "sha256:dfc1fe9e2fe27ecc2834a5b54c05c7e09914e0d4cf6e18d06a12be3b291ea3ed"
+doc_hash = "sha256:ba2068be8ef9d6855464f622cfe9faaa5bd83002c5c914126bb7043d50d3c1d2"
+
+[[module."pool.rs".function]]
+id = "fn:7b36cd711ce57fd5"
+name = "cut"
+qual = "KeffPool::cut"
+hash = "sha256:53b8a9f7026c1843b954214ebd2dbd94930ace594f1fb7a87bf132b2cee33c7b"
+doc_hash = "sha256:d8b799def5dfce9b46af0ede47a913269587bf22675fdd4e8008bfb7f92c09e2"
+
+[[module."pool.rs".function]]
+id = "fn:4907ba9b963f1af1"
+name = "dealing"
+qual = "KeffPool::dealing"
+hash = "sha256:8e3c460f581fb5c73161adf70344b85f0095d4e3de27bba460ec3ab2a410820c"
+doc_hash = "sha256:04d1e748c1bc4357cbd30511f56f067fa18d9e853c0a24096ad700dd4d2c872c"
+
+[[module."pool.rs".function]]
+id = "fn:4b870464be31c46a"
+name = "discard"
+qual = "KeffPool::discard"
+hash = "sha256:b70b9d34162672cedd33061d242238dfab173c511542e7980569c4fa02420b27"
+doc_hash = "sha256:8146eb8003d6bfafcc71536c5cb714132bb926c1da9d85a901f7db9fe9b1baab"
+
+[[module."pool.rs".function]]
+id = "fn:e1dd0a19987df0cc"
+name = "going"
+qual = "KeffPool::going"
+hash = "sha256:aa8afc1f0a87eb1c8b7c5bb979f124da6703199bbac799911831f990df70f366"
+doc_hash = "sha256:c174c529fb10984174fbdb1c989f9dd087e95c6f96a8b5e43ea3f8a4b4b719ea"
+
+[[module."pool.rs".function]]
+id = "fn:dfaed62aa6b612fe"
+name = "idle"
+qual = "KeffPool::idle"
+hash = "sha256:82f5ceaf7f2bb85b6f26cdbc5617c26a4c899e99f1a1055ae39e1458be8e3f1a"
+doc_hash = "sha256:076ecdd88a6d0e54411be9a68eb296be05fbee967f3be9eb1233914bcd1a2c9d"
+
+[[module."pool.rs".function]]
+id = "fn:c5f5aa6858caa769"
+name = "is_busy"
+qual = "KeffPool::is_busy"
+hash = "sha256:be46186072bfb20fb39ac6acc48292c0b5f592a0977d78381f278ed481e3d46b"
+doc_hash = "sha256:85ef288c6d4583da1b77632c0213b35df19dfe5d68d0e8e196e7e756cb447f50"
+
+[[module."pool.rs".function]]
+id = "fn:49f5acdd0fe96bd2"
+name = "live_workers"
+qual = "KeffPool::live_workers"
+hash = "sha256:c8388ba6b80fe0ca2c892d7ef902e014b55a7e71abb44b5d024873a8b8a820db"
+doc_hash = "sha256:e4976014bf285fc4bf2595652a116f824b69a75b9a06a598d1b00916ff444faf"
+
+[[module."pool.rs".function]]
+id = "fn:bc4a5bbea7483c6e"
+name = "new"
+qual = "KeffPool::new"
+hash = "sha256:22fc7152fcd980176d7eb2609bb292508ba10d155a0139e6cf538b01f47990c7"
+doc_hash = "sha256:90b00008c69721c29b1f2c59f26daa61e664b3b8bdb6da71de41d714750c0bbb"
+
+[[module."pool.rs".function]]
+id = "fn:4c2da73f4f3dcbd5"
+name = "next_epoch"
+qual = "KeffPool::next_epoch"
+hash = "sha256:1f0d04e4650a5ec0b6ec33dcc5e86fc9bd1aa6090dbe9e7eba066a9c22ec29b1"
+doc_hash = "sha256:11ca4f8caff9bd517ad8957b8902f3b4aed35d9e1f35d99fd2bbcb385043ad60"
+
+[[module."pool.rs".function]]
+id = "fn:ef27af752ad8092a"
+name = "note"
+qual = "KeffPool::note"
+hash = "sha256:004360cb85b49fe391804f56918afa55bebf0f3b8629203f74793ad85d2b84c2"
+doc_hash = "sha256:5789129760eea8b36b2a9de02410f5cd46701b1fb3524ec8ea9f3eba4ffac943"
+
+[[module."pool.rs".function]]
+id = "fn:da8e0c77d4541cbb"
+name = "on_chunk_done"
+qual = "KeffPool::on_chunk_done"
+hash = "sha256:ad98759ac1c2080da7d2591f59acff7da26e58497c8f761b4275f249c0a21bb0"
+doc_hash = "sha256:d184b716d39a45d30323852e0940e20f0bf92ec5e41760de30de6b0843ec1e30"
+
+[[module."pool.rs".function]]
+id = "fn:17ebf8be68c5a966"
+name = "on_error"
+qual = "KeffPool::on_error"
+hash = "sha256:b3a9d06d3c43916a00b74e4450cc46c1f89c1116fb9b6577ba7cbb23a3c6570f"
+doc_hash = "sha256:173e96e10e6099e0778b278af9702f19a9e2bfc4f7388b52cb20125789553102"
+
+[[module."pool.rs".function]]
+id = "fn:3ff6ac1a80118a0c"
+name = "on_failed"
+qual = "KeffPool::on_failed"
+hash = "sha256:2fb0d7a3cde73a15e5fb6196fd335301a2da5accc6b6aab75da8f4644a180fc0"
+doc_hash = "sha256:daa9bfc66f77ec4ef7775471e12611b5d86274a8647b51d98b403a70c77afa04"
+
+[[module."pool.rs".function]]
+id = "fn:1395304622088990"
+name = "on_source"
+qual = "KeffPool::on_source"
+hash = "sha256:5448316700e3861d16d7afd5fccf8322d74b3bbb14426d849400dea013dc5180"
+doc_hash = "sha256:fa78374f01adc2d2d7cd2d5fc6aec2729b11b761f21997abe6b3ca48ce5e47d6"
+
+[[module."pool.rs".function]]
+id = "fn:b32af864206fca44"
+name = "outbox"
+qual = "KeffPool::outbox"
+hash = "sha256:7f5262ead194ce10d19f67840e1929283f6a87bc0770cae8ca3612a122ab9748"
+doc_hash = "sha256:8eff65f49c5ed9ea0a312242e819b4cc26fb5e4decf1f5b0112ec9c82a419653"
+
+[[module."pool.rs".function]]
+id = "fn:3f0d6be9f04c14a1"
+name = "restart_run"
+qual = "KeffPool::restart_run"
+hash = "sha256:2da57a6a44513032a1e33f8860c54421290ef6255669bff72da55324b11857b5"
+doc_hash = "sha256:b0a36a617fc94ea8670cdfcdb1fec31e79f64db2ae2fd088fa5f0ba95513be9c"
+
+[[module."pool.rs".function]]
+id = "fn:36e59fd6fab2cdc5"
+name = "set_paused"
+qual = "KeffPool::set_paused"
+hash = "sha256:6d852fe476550e50baaf29bb2f95f602493adc4d5f6214eb0c8e1f5d733efd2d"
+doc_hash = "sha256:572f521fc01a87a33cb1d02bfcf6eab67dbded0c9e724a5e075e8482fd03b86a"
+
+[[module."pool.rs".function]]
+id = "fn:f071ea3ca1cadfc9"
+name = "start_run"
+qual = "KeffPool::start_run"
+hash = "sha256:a1ab22bb17219c3ef0be0d53c3eee233af9855b2242db07bdb5cc480a0cc26bc"
+doc_hash = "sha256:b0fa24e5ca447a1d90c0ce5c84f7e9cca86ec0b2d5d74143c7173f48a7ac8ae6"
+
+[[module."pool.rs".function]]
+id = "fn:64322d8a1177c8a2"
+name = "stop_run"
+qual = "KeffPool::stop_run"
+hash = "sha256:6ee53342e17d7a762fdba7c0be973765921cdf2fb0ab1e7844423d9432dc2697"
+doc_hash = "sha256:81d8da11171d43b954b233a3680a9cc0ff8e73e073ba8dbee87f3bfdc045bee8"
+
+[[module."pool.rs".function]]
+id = "fn:6f497dbea3079d47"
+name = "NO_RUN"
+qual = "NO_RUN"
+item = "const"
+shape = "const"
+hash = "sha256:9bdf2e1fd23c9a1c1cbe9674f83b09fa032d69e61d3beb51a838836b1ee1672a"
+doc_hash = "sha256:5fe427b1be9082fb52b26e19ad88cc1508599900ef819896fceb29e7b2df79f2"
+
+[[module."pool.rs".function]]
+id = "fn:2721325e96695632"
+name = "Note"
+qual = "Note"
+item = "type"
+shape = "enum"
+hash = "sha256:96c1111c539d08742689e8b201bba35bd0183323992c25228e630a77c3648f9a"
+doc_hash = "sha256:04941497c838cfcf9e9f017e64ef1142dcb3ebfbe38784db977c36898c45e189"
+
+[[module."pool.rs".function]]
+id = "fn:7c061a5585004034"
+name = "PoolSource"
+qual = "PoolSource"
+item = "type"
+shape = "struct"
+hash = "sha256:560f7965133717211e395c7d265b7f8d4039b11babfff847ffef67b7c0ed82ff"
+doc_hash = "sha256:f2fa827fc8ad26264371c6810266d30d4972fd786c79405aedf55407b75d1fd9"
+
+[[module."pool.rs".function]]
+id = "fn:89b577a83e836309"
+name = "RELAY_WORDS_PER_FRAME"
+qual = "RELAY_WORDS_PER_FRAME"
+item = "const"
+shape = "const"
+hash = "sha256:b50690ac53ebf962d86f977eee75b7bb7ed96a9dcbc1020671004c9b9ee9bc40"
+doc_hash = "sha256:7e220f216d08325b55a20ad0daa0073e2cf4fedf9ca18c1cfaa22c198ad5af0d"
+
+[[module."pool.rs".function]]
+id = "fn:1fb65b0a89632d98"
+name = "REPORT"
+qual = "REPORT"
+item = "const"
+shape = "const"
+hash = "sha256:79deaf64bd4a3ed8e2993bea01f685f674873d8cf4ca98261757bfe37da2e7f1"
+doc_hash = "sha256:5d30095f28f2c9bb7624661bcf16d65f84445d48e4b3bb5f2e332a023091026d"
+
+[[module."pool.rs".function]]
+id = "fn:effb4b349677b134"
+name = "RestartKind"
+qual = "RestartKind"
+item = "type"
+shape = "enum"
+hash = "sha256:8e40508fbd4e3efc816b16af30081b3f1aa633a59c6f057f05f2d32acc07f631"
+doc_hash = "sha256:72c0e87f9fc298a7ec9a93cef550cb9a17ca98b01759193bf2eacb00be0377ab"
+
+[[module."pool.rs".function]]
+id = "fn:e8610f2f81d60fa6"
+name = "RunOrigin"
+qual = "RunOrigin"
+item = "type"
+shape = "enum"
+hash = "sha256:c9588c3cb6a8550066ab5fb0becd229aff7b66d4333960d3986fe0e6c04675ef"
+doc_hash = "sha256:f36dae407786503945ea1d2949b88b56bf030cc8f328b2a57ccd716a6a4bf948"
+
+[[module."pool.rs".function]]
+id = "fn:15d8765860aa9314"
+name = "RunReq"
+qual = "RunReq"
+item = "type"
+shape = "enum"
+hash = "sha256:7cf24555dfef83840ec255af868c5c6b2804715f401f49547f250cca38f680ce"
+doc_hash = "sha256:0a421ef8b0e537f6ed3a452db8d5d7cd6793f0a5906280aac30f0c7c92a6a941"
+
+[[module."pool.rs".function]]
+id = "fn:2ef967cb272adcaf"
+name = "RunState"
+qual = "RunState"
+item = "type"
+shape = "struct"
+hash = "sha256:062c507ab058e76867744879902bab86aa7c6a2630a58b6cf3a5be8d8e90a563"
+doc_hash = "sha256:786d6a6706f4e16f569652a45caa86cfac0f0fa756dfdc155d62095cecf17eb2"
+
+[[module."pool.rs".function]]
+id = "fn:f81babd0936cbe57"
+name = "describe"
+qual = "RunState::describe"
+hash = "sha256:ac2ccf40df3b4e5e17c8c79cfbcba785033292c2581f6a4dd5f58ee66993c24e"
+doc_hash = "sha256:aeb0982b01072668f7b27de83a43263d495d8be8a4b83b001c2951150775d959"
+
+[[module."pool.rs".function]]
+id = "fn:b37f63ab70349302"
+name = "entropy_bins"
+qual = "RunState::entropy_bins"
+hash = "sha256:19e53e5a8f42e0c6ed1e35d5e77f2d95ae922fa74603a2fde947e0f9c1386895"
+doc_hash = "sha256:60b7aa83eb8d4bfa01b8089b7a0fbca418e232fdd1bb7a48ad9e79b1c1ba1345"
+
+[[module."pool.rs".function]]
+id = "fn:73085172fd5e738a"
+name = "fail"
+qual = "RunState::fail"
+hash = "sha256:3453865fdef07c063e552ab74585060f26fed7369274e60edc84928ad6c7bed7"
+doc_hash = "sha256:b9ba5de0dedc9bf011405feefd28ce608a6dc1a34d2debc45a5c6bfeda4eada1"
+
+[[module."pool.rs".function]]
+id = "fn:2d9b8df332c0c16e"
+name = "finished"
+qual = "RunState::finished"
+hash = "sha256:dc09398eec31f1dc636e66331037956b21906c84b58dcf7b9f365a4b7693407c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."pool.rs".function]]
+id = "fn:1c9cf70a146a4764"
+name = "going"
+qual = "RunState::going"
+hash = "sha256:bfa996724cec0692fc93b2d7303b7343929fe2ab9f7166657e34c24ac270ba6d"
+doc_hash = "sha256:71e6f5dff0806339c9afc644e55a85a3ec82ff21d15e1abddbde98565f846e1c"
+
+[[module."pool.rs".function]]
+id = "fn:a9e569670eff4a5c"
+name = "new"
+qual = "RunState::new"
+hash = "sha256:0772dfc2313d4711d379a431b796a7270072a4e049a91eebaea378df6e1ff390"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."pool.rs".function]]
+id = "fn:b11112f9dfef421d"
+name = "csg_chunk"
+qual = "csg_chunk"
+hash = "sha256:7be3e9c8f8cb368d94449d6737a839038eecc162e50ef8f6d499b850d38e1157"
+doc_hash = "sha256:99da51916f925ac406ad524289e3f48d0218e8fb84cb66ee02948acbb120e920"
+
+[[module."pool.rs".function]]
+id = "fn:5821ce40e97c7de0"
+name = "csg_source"
+qual = "csg_source"
+hash = "sha256:667271f34a10f5571c0ef5e72a7725bd0dbab24b4d4df8e95e28e27b795b5f3a"
+doc_hash = "sha256:11e8433e43f4a2712bda9a72a5959b522daa6eb292b1e193dc4bfdbab2a8ca03"
+
+[[module."pool.rs".function]]
+id = "fn:28b6b1745461e4cb"
+name = "mesh_from_words"
+qual = "mesh_from_words"
+hash = "sha256:d4535bd816e519eafc940557c402ca30c90f0bfa0848e26a86e07da781e47a48"
+doc_hash = "sha256:3cf9d9bf5e7a07e531111024f6cb2bbd4354d207cab45c4342d8649e9590f02e"
+
+[[module."pool.rs".function]]
+id = "fn:e128428250f52704"
+name = "mesh_words"
+qual = "mesh_words"
+hash = "sha256:36d8fd1d22466262a2db5d8e1d4cc4f833c9caf1f163a8025eea252c6454773c"
+doc_hash = "sha256:5fabda89c5a6f1015f1c64069861ee13f24453bb14854b7d29019bae7cc132d4"
+
+[[module."pool.rs".function]]
+id = "fn:51e1ac3cd7a4fa72"
+name = "not_added_up"
+qual = "not_added_up"
+hash = "sha256:06034d8de4174e7440667c501359ad57c8b2f921076590be82196d71d341ccc0"
+doc_hash = "sha256:0d3007dd200affd7b2f12a09c84d7c174b15c31e326a686b8fde7a9ad1b220c0"
+
+[[module."pool.rs".function]]
+id = "fn:04dbd0b9d1a3b6a9"
+name = "schedule"
+qual = "schedule"
+hash = "sha256:dbb02be0b242b8a922a08943888b986fd4d924e33c656caa4f27f0cabdab1f3c"
+doc_hash = "sha256:1f703c5491444e9ca197d35dc4ddf17a92045a7553127a861079de588bddf88f"
+
+[[module."pool.rs".function]]
+id = "fn:f2f4249ffdffc751"
+name = "thin_tracks"
+qual = "thin_tracks"
+hash = "sha256:212c8af3f1f5dd6f527021de3867168bcc7748afdd6b672e7113b23ece71c1f9"
+doc_hash = "sha256:468efe001a9a8ea1fb71f41ebe5bcf203ae08169a568f7dd9229c70e7fd91f6d"
+
+[[module."pool.rs".function]]
+id = "fn:61c9846e5bd7f901"
+name = "unreadable"
+qual = "unreadable"
+hash = "sha256:da0b0b0724c5586636928f5a8348cec301be659855cbca8ad79c47a5ff45e24a"
+doc_hash = "sha256:96220ec8a686fa717bdea49102be9a4c3ec42a1fe21ae43fe096c44da7ab20cf"
+
+[module."processed_cache.rs"]
+path = "crate::mc_web::processed_cache"
+
+[[module."processed_cache.rs".function]]
+id = "fn:c186d6bcf935f942"
+name = "CODE"
+qual = "CODE"
+item = "const"
+shape = "const"
+hash = "sha256:769904a1cd64a5b11b6ad876cd28427d02b6e5ae96da8ce87544327246b4a137"
+doc_hash = "sha256:c33f20d74df7c869a45cf088fb5f6cff6b39fbba392832e614c8918e4a3de020"
+
+[[module."processed_cache.rs".function]]
+id = "fn:313c1e53422569bf"
+name = "DataStore"
+qual = "DataStore"
+item = "type"
+shape = "struct"
+hash = "sha256:281d0ab9b4a3633970a95df59d43ed17fdcd7b8a1a6414a99ebc6c5310ec0953"
+doc_hash = "sha256:418f15d70cfd31e1e52b795dd4762f70dd8d5666a325a1717aef8ea86584b053"
+
+[[module."processed_cache.rs".function]]
+id = "fn:8e880f6d9e870a1b"
+name = "begin_tape"
+qual = "DataStore::begin_tape"
+hash = "sha256:fb281ef4d480d75dee7f7d4bda325957bd4a4bb655e8ab9448f84f8ce8dcfb74"
+doc_hash = "sha256:eb29a7f589bbb8498a59ab821b4159f7f26e37119cfc4224dac5177d9cac4700"
+
+[[module."processed_cache.rs".function]]
+id = "fn:a8f12679518847ef"
+name = "browser"
+qual = "DataStore::browser"
+hash = "sha256:a62d438d51f4d79b4b522a6a65a2414c8a05c0001a037ebf5eb60d46b04fbefb"
+doc_hash = "sha256:6790270a80e8887b60b3762672355b8d87ae27b05c7d0b0c9e1c41030034c65c"
+
+[[module."processed_cache.rs".function]]
+id = "fn:917b22a304a1bd15"
+name = "clear"
+qual = "DataStore::clear"
+hash = "sha256:35c1414557aa8623a2fed32a86dd797b68d7434e7c74f4ee3a0579e0adfa91e2"
+doc_hash = "sha256:63b8a31aa0ec298112321949f41b8e4ca4fb25c39cc4102fcc5f87f9ef3c531c"
+
+[[module."processed_cache.rs".function]]
+id = "fn:1d4f7f9a2568ce4d"
+name = "default"
+qual = "DataStore::default"
+hash = "sha256:ac967c430e8b22f012b5811518e2957887d12b96356c210336fad4bd0722b116"
+doc_hash = "sha256:43d0a71202353e2342021698232e770bc4fc3021b7d346ca01d8b38fbaebde62"
+
+[[module."processed_cache.rs".function]]
+id = "fn:c4b9c3380ff62a6a"
+name = "enabled"
+qual = "DataStore::enabled"
+hash = "sha256:86ea42f983c1bc33f2234f52638b97b411976fad4e025a889738cd6b6c0357b5"
+doc_hash = "sha256:5731cb47787391404d886661a43af6a569a2dd317e5b98b7c441d31f86189bdc"
+
+[[module."processed_cache.rs".function]]
+id = "fn:10aaf49305d1ee18"
+name = "evaluation"
+qual = "DataStore::evaluation"
+hash = "sha256:3a76e05c7122fd74765572ed25d8b2815705801a161bd7fc0adefe0ebecf3701"
+doc_hash = "sha256:889c36c53ae74fe149a5cb1249ade6e229cd3813bf14152001a19d548bee7766"
+
+[[module."processed_cache.rs".function]]
+id = "fn:6425df508acefab7"
+name = "forget_offered"
+qual = "DataStore::forget_offered"
+hash = "sha256:06abf944d5f12f43b3ed0efdbbc3e1c9b201d45be4e3540347c12a941b5b4d81"
+doc_hash = "sha256:2c1af86500fa15157770f7277f380237f8a623b7ff737b32f032c539f259a398"
+
+[[module."processed_cache.rs".function]]
+id = "fn:09e87d986c5870ee"
+name = "keeping_stages"
+qual = "DataStore::keeping_stages"
+hash = "sha256:f7d7cec944a0871b21ec1abd3bdf36c0e1d0ac83ab3c70310b95b4eac826016b"
+doc_hash = "sha256:3d02ecfee617c8ccac019eb7bfb8d5319becabb47c042adf85b1b63f29db7eb7"
+
+[[module."processed_cache.rs".function]]
+id = "fn:1dfb88e52140d179"
+name = "law"
+qual = "DataStore::law"
+hash = "sha256:7f840d4271355f2a20f5058ac622402c38cf1cf65398f6cd0eb8cbd5afb55fe0"
+doc_hash = "sha256:218b285c935cfbcfe77f973b8b94c6d7c63c8475abcd52c51a86399a58204b41"
+
+[[module."processed_cache.rs".function]]
+id = "fn:1a0c21290724a3f2"
+name = "lookup"
+qual = "DataStore::lookup"
+hash = "sha256:24cc95c6a4370ac91aa08ac2fa82f10b3e9fe9799d6f716cfa08764e329c45a0"
+doc_hash = "sha256:c641fe5cafb3c9f5544517afd6be23da56c03c3bf73174f3ffd329112bb9db9b"
+
+[[module."processed_cache.rs".function]]
+id = "fn:27cba298bbf58ef4"
+name = "made"
+qual = "DataStore::made"
+hash = "sha256:b00462533439eba99323c39b44addd2089d7936e2f6b9164921bfd5025aecb11"
+doc_hash = "sha256:cccb80e9127defac17981a0c1552c6bc0bee05ae234d4d545dd4727c450046f0"
+
+[[module."processed_cache.rs".function]]
+id = "fn:6199b7828946b0d8"
+name = "memory"
+qual = "DataStore::memory"
+hash = "sha256:a06fe1b3f1e7155829fd5c45da096ffb601ddbdbac34b7a4e63c8b653b85802a"
+doc_hash = "sha256:708abb7a497ad1b31a930dc4e569ae13de2dfb6f982a4d7b4aaf77998a7f62bb"
+
+[[module."processed_cache.rs".function]]
+id = "fn:647a1a202c745548"
+name = "note"
+qual = "DataStore::note"
+hash = "sha256:a37e69a68d0a2a2887ca307cd4168b16ceb169f28ae45689e3355caffc3a4dc1"
+doc_hash = "sha256:9f47f2543d60d030c838c8428863382c6fc0849b19bd7c1356d60d17fed81d08"
+
+[[module."processed_cache.rs".function]]
+id = "fn:b3fa2de566856b74"
+name = "nuclide"
+qual = "DataStore::nuclide"
+hash = "sha256:2f036e106a8f16cbd8f9e96798ed30238c3f5d7d92115fa27be96f85feea65c2"
+doc_hash = "sha256:8589d106c463071415bfabf86d36f1abe6eb16427fda445dbab10aeac9d60642"
+
+[[module."processed_cache.rs".function]]
+id = "fn:ce8a3ccde162ea79"
+name = "off"
+qual = "DataStore::off"
+hash = "sha256:2e1ca6b2dcce3e6304cd64f78d86660eccbb80be70714d69c5df33379bbf7cab"
+doc_hash = "sha256:23c9d8d331a64f332757997c33d347693cfffefd478b70ebe18457ec828b985d"
+
+[[module."processed_cache.rs".function]]
+id = "fn:d8dc8e56fd9d1d31"
+name = "offer"
+qual = "DataStore::offer"
+hash = "sha256:9194018a57cfab546f5901fad076b34d78cc459203550cd6eca943fe6b3b5386"
+doc_hash = "sha256:c27d3c5b33a395bad11359d3c6a2bc7562f5708ff08ffb23b99b32bec0f694a3"
+
+[[module."processed_cache.rs".function]]
+id = "fn:f6f7669948689904"
+name = "reconstruction"
+qual = "DataStore::reconstruction"
+hash = "sha256:d4465f16e08c10f3b42cc79bbef3bf62ee7d2a4de5ad83c23aed77fdd709c5d0"
+doc_hash = "sha256:947d482a7c524236195075552d15648e6a42580fe88cdf5fd100791effa75531"
+
+[[module."processed_cache.rs".function]]
+id = "fn:9e5bc6b3d88e40a2"
+name = "sha_of"
+qual = "DataStore::sha_of"
+hash = "sha256:63778a062b11b3c238a4c4f73e56b0b9216b6dada1921d29bda6defbd12da3aa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."processed_cache.rs".function]]
+id = "fn:c0c9f684f9992bd7"
+name = "summary"
+qual = "DataStore::summary"
+hash = "sha256:da8116c15575ebff5d8704cc896b9d4e124c1557bd8bae987f7f0f3d452db246"
+doc_hash = "sha256:6742456b263fb0834bc4863996680d21665bc1aadf809bb52dbbe31989693727"
+
+[[module."processed_cache.rs".function]]
+id = "fn:afda8477c8cdf2cd"
+name = "take_fresh"
+qual = "DataStore::take_fresh"
+hash = "sha256:6ee73c5e6c99d0d16da1edca33587be0a0c16c260253064a35896b245e366c4f"
+doc_hash = "sha256:8e4006cdc118eae3dd7f3ce1f942c9e53d7090cf0619f392279508ab85e353ee"
+
+[[module."processed_cache.rs".function]]
+id = "fn:f264e52419b66a35"
+name = "take_report"
+qual = "DataStore::take_report"
+hash = "sha256:6b6752699356cbd0bbf706ba0c624a506e530d4cc067db8a386373548f33a8b7"
+doc_hash = "sha256:dc64bc17f158478e9d647bdfc3147cb4b5e2952cb9ef5020a37ff579200fe543"
+
+[[module."processed_cache.rs".function]]
+id = "fn:9638d5b151277a19"
+name = "take_stages"
+qual = "DataStore::take_stages"
+hash = "sha256:a0ff0ffc988cb510f77fff72d2f0c99eb8d75eed2fecda8757bf2fd02ca593cd"
+doc_hash = "sha256:311c56f732f3e33128c3d268e54acf004fac12c1ebb1f14eda261e18d4964623"
+
+[[module."processed_cache.rs".function]]
+id = "fn:1d48437334e77486"
+name = "tape_sha"
+qual = "DataStore::tape_sha"
+hash = "sha256:f53204dff07a0eb860383d717565f7c094f347384fc50bec0e22eb837b33f745"
+doc_hash = "sha256:3306320cd2d4a670bdbe0b729d0115c48d0456e9c5a709d8d3c9d88a29972288"
+
+[[module."processed_cache.rs".function]]
+id = "fn:f8f6ddc8790b6505"
+name = "thermal"
+qual = "DataStore::thermal"
+hash = "sha256:707ca0b6a0b858b72717ee6d1d4ae6648ca9c61b6764af88513e0f6888581c30"
+doc_hash = "sha256:eb74d3aef1f05ebd82b801d9c2d90180c5085e73c806e7e0aa52654cb9f1877a"
+
+[[module."processed_cache.rs".function]]
+id = "fn:bf686980e8c3521c"
+name = "urr_tables"
+qual = "DataStore::urr_tables"
+hash = "sha256:f52d5264a2a6b84e4028ba22ebb5b9541ee73b26fe7d48ff3c359e5e6ee7857d"
+doc_hash = "sha256:8796f356b1cc3f4220f895b9d0e09f820b0e23c9b2a8412a5d6eb1556d4540eb"
+
+[[module."processed_cache.rs".function]]
+id = "fn:91624e5eac7f4c0d"
+name = "with"
+qual = "DataStore::with"
+hash = "sha256:d04a8c4d97c1127d6eec9195bf6eb7fc49e7e2718ae4a44ac6fdd9f3bc75cc3a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."processed_cache.rs".function]]
+id = "fn:114d5ede978db02f"
+name = "Health"
+qual = "Health"
+item = "type"
+shape = "enum"
+hash = "sha256:8b32a307cf83a4ded62e12a03fb279885ff32b9caf5195648f222a92c9442288"
+doc_hash = "sha256:26b9b03ff7424a7666f3fc23e244ff537efd28df726d6cd3bd4bb1ef7c7755cd"
+
+[[module."processed_cache.rs".function]]
+id = "fn:90af17b83552fdbc"
+name = "KEYS"
+qual = "KEYS"
+item = "const"
+shape = "const"
+hash = "sha256:46836eb0d30eb9ec90b1669752e85c1933f268964f91fd03c4781e698e6c0912"
+doc_hash = "sha256:ca6a92a9e630df6b620154b31acbdd6b22589ed2223ce94b8c169c67ef206069"
+
+[[module."processed_cache.rs".function]]
+id = "fn:12c1db39b0324d5e"
+name = "a_cached_law_is_the_processed_law_bit_for_bit"
+qual = "a_cached_law_is_the_processed_law_bit_for_bit"
+hash = "sha256:af1838a46eef2cf018c0155d66c3d3e9f17a83a8fd2ec0d590268c099007ed9e"
+doc_hash = "sha256:7a7fb28354a4053164725738b944598e8c1eb9091d01a2def3eb24bf6d7b1727"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:ec5eb2f5c6690378"
+name = "a_cached_nuclide_is_the_processed_nuclide_bit_for_bit"
+qual = "a_cached_nuclide_is_the_processed_nuclide_bit_for_bit"
+hash = "sha256:a2253400ef4d8a7bdca3dac47139fb3224951a57285782ca2f68c57333f8845c"
+doc_hash = "sha256:be5e6a18cc74cce0e64a2b13d6953491a5793ac88eb5a101adc1c408e6bf4699"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:d94d5e04c163c0ad"
+name = "a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit"
+qual = "a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit"
+hash = "sha256:ce41fa830ca9575183fb7cbc9a7e56c29b7808db7d417faeeeeedb4ae85ee196"
+doc_hash = "sha256:2f28154509722831e1581bbe29c40b59df9adeec2904655817e0bbc100839cc8"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:458e1ac92418215f"
+name = "after_step"
+qual = "after_step"
+hash = "sha256:b28d2b57bbc971c2bbc8842608c9c038d8cfed3c84f4725c14ad78f5bc91b32c"
+doc_hash = "sha256:24a29de81cf73fd3113d8a460e3a9fe8bea84d3f527e890a907526d48abba5b8"
+
+[[module."processed_cache.rs".function]]
+id = "fn:6ab45c1f7311e2a8"
+name = "before_prefix"
+qual = "before_prefix"
+hash = "sha256:76c8243e28374fb9fbfa7ccca7b551b01b56c91e042dd6218db42a58f3376db8"
+doc_hash = "sha256:1b0829832111f18c2fda6eee5f57ac3babbd77e6a4ca8c8a22dab0c792741557"
+
+[[module."processed_cache.rs".function]]
+id = "fn:e2389eb4a5c4e391"
+name = "before_step"
+qual = "before_step"
+hash = "sha256:6f94ec8c2ae3a71d6d86159cfc08ba2c7c72a970d17120d20cfc952c7c077e8f"
+doc_hash = "sha256:a2551d91d77bbdbe3cb9df37ff9b858fb071ba256b5323204a7cb8a081416444"
+
+[[module."processed_cache.rs".function]]
+id = "fn:8d8298b1386b51e1"
+name = "bits"
+qual = "bits"
+hash = "sha256:7b6a37bd46ad69298da2bd07bf12a0df97ba5506eb8537d2f19da39050302ebc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:4ada0e10d23e9150"
+name = "demo_purr"
+qual = "demo_purr"
+hash = "sha256:2ed9e909637ffb90140c85cde1818eb7eca17c6c83939718ce7fb56d1203b155"
+doc_hash = "sha256:cd7479984c4737e3bc0e3f8d7a71c78456a92d3f2731b688f0f7d7be2dce43e5"
+
+[[module."processed_cache.rs".function]]
+id = "fn:a658f99c13273ac2"
+name = "demo_settings"
+qual = "demo_settings"
+hash = "sha256:fd7807884a09d543205465ea7445a6c48958395cfbe7da94f052a775c0ccb340"
+doc_hash = "sha256:308d186f0e90322a6eef164200cf0078f21223888bfc26e5f9f4e94ff7127259"
+
+[[module."processed_cache.rs".function]]
+id = "fn:6dd6c8c1a5209a54"
+name = "evaluation_key"
+qual = "evaluation_key"
+hash = "sha256:364c4cb008b7c261072f494dbb5dec12e5e3326449d2d677d7a5e946390c5b20"
+doc_hash = "sha256:7556f3e5fa81321d2996dc377072c8e9fe40eb9955e3bcc6bf8cb7e01074764a"
+
+[[module."processed_cache.rs".function]]
+id = "fn:15b09ccbc8b0f390"
+name = "evaluation_prefix"
+qual = "evaluation_prefix"
+hash = "sha256:20d9e8941378202b6497339036ac6fcceef768abd734d37e9d5c1b043c6031a7"
+doc_hash = "sha256:d5b3071f5c5df21ac132c5425c044b3ef2ebb704bf10c70a264669cff9812c14"
+
+[[module."processed_cache.rs".function]]
+id = "fn:4fe254f5f1569961"
+name = "exact"
+qual = "exact"
+hash = "sha256:77c4e15a81b65666cb24cf1dd94bf4cfc0d0752954cfab68d1bb726b429d12ad"
+doc_hash = "sha256:0a193906a34e5c34526fbdececa782950e1aa0c84dc4e5199c61e0da5bcb3a96"
+
+[[module."processed_cache.rs".function]]
+id = "fn:96fc9118817aebb1"
+name = "fingerprint"
+qual = "fingerprint"
+hash = "sha256:762d76e0936ac1b9cb7d523e3382102121531e8e9ad3345a7c49021e9e594470"
+doc_hash = "sha256:8bc552c4c7cf73854a349f12bf5888b1a8cbb7141a4cc712b1a674f07dc7a559"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:f15ca03140b13bc0"
+name = "law_key"
+qual = "law_key"
+hash = "sha256:18bf17462087de1223908594241886bf1f80924eb68434f178f6fb266f9a5cd1"
+doc_hash = "sha256:676ca4ea345bad413233f2582e6eb0dfeb6880e9efd7e0ef775339a1e88febbd"
+
+[[module."processed_cache.rs".function]]
+id = "fn:7fda97d7d2635410"
+name = "read"
+qual = "read"
+hash = "sha256:bc0a7e996bf6453c239ead1a10a2c643b4e0a63e8e50580209e4986a4abd50a7"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:84ed52cdcc123be0"
+name = "reconstruction_key"
+qual = "reconstruction_key"
+hash = "sha256:ff18e15ad756b810acfecc6048947643711cf34db147859f6e50f9175443e2be"
+doc_hash = "sha256:949aef8f12a0383eb1c4ad45f8be6622d25273b825814b451f9d45500ef3cc58"
+
+[[module."processed_cache.rs".function]]
+id = "fn:f609b7222d9d6051"
+name = "settings_tag"
+qual = "settings_tag"
+hash = "sha256:957027cdfcc79be526271809b4efa7fc3264a754e4502a16210da44dbf375e1a"
+doc_hash = "sha256:e53a31bab80548bf4e931dafd4d639f476a70ff2995955fe531f37b8ee5c4afb"
+
+[[module."processed_cache.rs".function]]
+id = "fn:840020cfb9bd2464"
+name = "tape_bytes"
+qual = "tape_bytes"
+hash = "sha256:e4f6a64ef6bd32b4cb9d00ffcb7feef720557df19e0cb6f260cd4a29e0dae00b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:39810d49f2dbe87f"
+name = "tape_prefix"
+qual = "tape_prefix"
+hash = "sha256:f92da64eb272ba48e0588f57532f545457063ef664182804d43ab7952ac394fa"
+doc_hash = "sha256:b4312378e141f17eee3d3f2194b34a48ba97be8fe29352fa54b8436b2c806907"
+
+[[module."processed_cache.rs".function]]
+id = "fn:a90959b83df0b3e7"
+name = "the_code_version_pins_the_processing_output"
+qual = "the_code_version_pins_the_processing_output"
+hash = "sha256:62087a9b8d238c6d1d8dcd46b40a91164c4f8af9af88f22089d76383c30ae0de"
+doc_hash = "sha256:02b83f812cac96be2264914221708cf54f47878a198dd3ae6f504636aed28878"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:6415f8a366925d51"
+name = "the_code_version_pins_the_thermal_law"
+qual = "the_code_version_pins_the_thermal_law"
+hash = "sha256:fa4ae462c72cd7509ccab76771e4f82d5b6c14f262c48047651dc846abac3143"
+doc_hash = "sha256:71ee5aff83a87f915bca2ebd03f82e4b4b9f8f260412c35c987cc888215108d3"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:1a32b54fbaeb5905"
+name = "the_store_is_route_4_and_process_bit_for_bit"
+qual = "the_store_is_route_4_and_process_bit_for_bit"
+hash = "sha256:4d91c1aea044d1eb45c495d87c0a32775c649949b4ffc33f8feeccb1958b9a0f"
+doc_hash = "sha256:929c6cb30f14099158ddc2b2564621d624875bf1f649cc67ff7d8fe5c4c04d14"
+test = true
+
+[[module."processed_cache.rs".function]]
+id = "fn:e5149d35cc1769e3"
+name = "urr_key"
+qual = "urr_key"
+hash = "sha256:01ed44a25138634b9961b5675b0359f685973640d175f49cdeac9e65c64b6f48"
+doc_hash = "sha256:9c759dd9cc2fc87842d916ec28fd8cbc23d0a850ad7a680b41285df48a0bd378"
+
+[[module."processed_cache.rs".function]]
+id = "fn:cba21a2ec655b191"
+name = "wall_ms"
+qual = "wall_ms"
+hash = "sha256:0c97c138dbaa7104f49997627cf08e9ec2464a2b115124d20720b72af799d3d2"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[module."raster.rs"]
+path = "crate::mc_web::raster"
+
+[[module."raster.rs".function]]
+id = "fn:90917ed1f9292b48"
+name = "Basis"
+qual = "Basis"
+item = "type"
+shape = "enum"
+hash = "sha256:717fcb5e21ab1edf6551848c90c4d6f78821a0a2d534d5e162fc08781325a116"
+doc_hash = "sha256:c70192bc7dd4a769c885e0e58d853775fc639b561a5b67e003e1abf63d44abad"
+
+[[module."raster.rs".function]]
+id = "fn:bd0d5c1f14c40cb6"
+name = "code"
+qual = "Basis::code"
+hash = "sha256:a6adee23c31dd574379082c6172859954f77b338e7210ba9df3e61d9af32639f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:159af21f79e99557"
+name = "from_code"
+qual = "Basis::from_code"
+hash = "sha256:de80659c319d800c1e65f553035c76d7e8b7edc5aac0ab111e2f8a3862a25444"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:9c6d0b4fe8f5a7a9"
+name = "origin"
+qual = "Basis::origin"
+hash = "sha256:1b31debcd901bbf41abd86d6cdc7bb49fc1d6fbb5e8c313d0358e244b752d1ed"
+doc_hash = "sha256:563edaecb90b504e8d3f89d6dc4b8dcf3f6f252a205eefcc5461b58cf610d846"
+
+[[module."raster.rs".function]]
+id = "fn:eb644a2ef512d887"
+name = "plot"
+qual = "Basis::plot"
+hash = "sha256:3ce335d6e5915e41fd9c707ef67d94b8b6b7c8e3f5d29c39980d5ba0ebc60615"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:4c60b2762f6a7f2b"
+name = "MAX_PX"
+qual = "MAX_PX"
+item = "const"
+shape = "const"
+hash = "sha256:4d615534da5810856d1256aeaf0c5ba6f58b8025fa9101d4fdfc325ebbddef99"
+doc_hash = "sha256:c1bcee591ad59d8c7dd5d3fc89aaef32ee3d22aa19b9f7a50c0d6bce648c05aa"
+
+[[module."raster.rs".function]]
+id = "fn:f5be72cd09461a7d"
+name = "NO_RODS"
+qual = "NO_RODS"
+item = "const"
+shape = "const"
+hash = "sha256:7294aa573dabc1f152931a6a88afa9c1b48bfdf60421cc9b1bf9a511ef63e8b0"
+doc_hash = "sha256:0322ec48a49c55472bf11941767fe5274dad62cfe68a9ee12793e749d92ab5a7"
+
+[[module."raster.rs".function]]
+id = "fn:0fa08739639ceb74"
+name = "OUTSIDE"
+qual = "OUTSIDE"
+item = "const"
+shape = "const"
+hash = "sha256:c75f72ce0b19b97bcdedb2897483acaed6821588d3256f6e662730e59d0a5267"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:a8ffaaed50cc0cdb"
+name = "OVERLAP"
+qual = "OVERLAP"
+item = "const"
+shape = "const"
+hash = "sha256:feee375360971f1b693e70ceb16d191ce211b723491506fae8a778230ac8e4ca"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:312fec67a099d272"
+name = "Preset"
+qual = "Preset"
+item = "type"
+shape = "struct"
+hash = "sha256:97a866fa31183e1f49022c0b0a0f136c34edf112a925940c69ce80b682990046"
+doc_hash = "sha256:5b2dca001a5304c4a659c7739e76a93b43f402928f7717725633e14691cf9fcb"
+
+[[module."raster.rs".function]]
+id = "fn:f45824ebe0685c37"
+name = "RODS"
+qual = "RODS"
+item = "const"
+shape = "const"
+hash = "sha256:de68589bd30e906af9eab4a434c6c95df83cd85ca0f38d9e78a3a4ab8e66f7c3"
+doc_hash = "sha256:2969170a44b099d2a4ddf133f5d6630f3feef3b949aca5ff7419506d2017a2f2"
+
+[[module."raster.rs".function]]
+id = "fn:7cd6c603a87a7926"
+name = "RasterInfo"
+qual = "RasterInfo"
+item = "type"
+shape = "struct"
+hash = "sha256:729dfd936469ea8c1acbad372310188a5191c271c1276daafd3db3c9ee7d60ec"
+doc_hash = "sha256:4b19f17217854bb6e7f7b6a01c6ff70bcfdcc8e773563d0ff63c6b56c0fed280"
+
+[[module."raster.rs".function]]
+id = "fn:04dc12f279e6be38"
+name = "RasterReq"
+qual = "RasterReq"
+item = "type"
+shape = "struct"
+hash = "sha256:b6563c275802eacaac61e9b97134e60cfa395c5c5cf96417a0fc49fc10175f0d"
+doc_hash = "sha256:b014973832f49a0db77b2025fd374dcd66c96bea93c46eea60a2143fc882652c"
+
+[[module."raster.rs".function]]
+id = "fn:4b379d1888cf2736"
+name = "decode"
+qual = "RasterReq::decode"
+hash = "sha256:2066ac699ed0b8d2c6dd54216743c94802ced115ea1e4e8478017896451f7adf"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:08497bc9baf27ea4"
+name = "encode"
+qual = "RasterReq::encode"
+hash = "sha256:6b4e106efc6de07d5481af8c3ced891afc49611b92b6b0fa314ef36eea7d3761"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:c8eeb22ccf1a93bb"
+name = "SETTLE_S"
+qual = "SETTLE_S"
+item = "const"
+shape = "const"
+hash = "sha256:3597d73abdc529202a7ca9d73295d0c045294b096b6b8a87c7dbf4070f5f50c7"
+doc_hash = "sha256:8a19e19c16ef0552b535c79809d9be86e76ebf22c1f95e7d33b8f2eeaabc8970"
+
+[[module."raster.rs".function]]
+id = "fn:7690919aa391ecf9"
+name = "Slicer"
+qual = "Slicer"
+item = "type"
+shape = "struct"
+hash = "sha256:b1ddd67ed099927b5ddde5d3a23cfd710f2fd0a2a151ea91131cae05e4152feb"
+doc_hash = "sha256:f162e370e840fd59a229946ec7a9a03f316bc4477552eb8910c8d5a8ff4a1382"
+
+[[module."raster.rs".function]]
+id = "fn:95ca5bf514a81087"
+name = "awaits"
+qual = "Slicer::awaits"
+hash = "sha256:2cde061051a2e4ed2d45f0bf5416a284cecb2720b1c652a7ed43ae75bbdf6bc7"
+doc_hash = "sha256:9104eafd134e456e2754e4b6336b782fce18f28ac61072f39407c87ce999d6ce"
+
+[[module."raster.rs".function]]
+id = "fn:61c8757d3f5d0e44"
+name = "busy"
+qual = "Slicer::busy"
+hash = "sha256:d970fc29c7fec565a8403c417c08f4285dccd586db96a2c1ec89badf6b5048d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:622a2ba7c8fc8f66"
+name = "colour"
+qual = "Slicer::colour"
+hash = "sha256:08b1616365b87faefa3860b24784cb858b7561490b266e5555993b16b7d5fd39"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:c43d0f467ad04de5"
+name = "draw"
+qual = "Slicer::draw"
+hash = "sha256:c6d4c39a1c116eed959aca9ab98be1f71a1a420c91b0d5cc9337aad15f8a8f51"
+doc_hash = "sha256:067d9be03dcc6c1f6cd3565aadec1b9221abc126d5cf4d58651e3b36af88558a"
+
+[[module."raster.rs".function]]
+id = "fn:35e0aef1c11626dc"
+name = "go"
+qual = "Slicer::go"
+hash = "sha256:621206ef7d3ff00d9468521018735e5f8c272260339669f73734fbcbd44f8ac3"
+doc_hash = "sha256:14bf012e7f68d217f3c03c81782afd791ff495032115b2c5df9809ce3d834cec"
+
+[[module."raster.rs".function]]
+id = "fn:a0904f94653254eb"
+name = "new"
+qual = "Slicer::new"
+hash = "sha256:03974771061c315aecc7af1c10bdd34b058cd0ba2bd8de60db7b0e10e742da8a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."raster.rs".function]]
+id = "fn:215442591941145d"
+name = "present"
+qual = "Slicer::present"
+hash = "sha256:57273a8f6217446e482c68e4302db4d4f6a9079349ff29fdf0d6f24922d8ccd5"
+doc_hash = "sha256:7804e96bf7b8e6120d5620a3a4367b3145afa3966aa930f44a768e7634902d76"
+
+[[module."raster.rs".function]]
+id = "fn:f95b8a18bf54ec16"
+name = "pump"
+qual = "Slicer::pump"
+hash = "sha256:b80822b188025838f45da56c2619dbce011c6a881b2d58ab0cbadc9263cc8c66"
+doc_hash = "sha256:46d264b044efdd8219da0ac135839ecd182588c1ca209b8d00dfe419e960c6dd"
+
+[[module."raster.rs".function]]
+id = "fn:16c9911c4da5b24c"
+name = "receive"
+qual = "Slicer::receive"
+hash = "sha256:b6e4aa88f328a71a254c3addccd8816696b78fe359347fa676405b53e8d46cfa"
+doc_hash = "sha256:57aa313b7d1f188b1a6413b0ed1f0ddaed51a55f97de90c03575819c9eadf744"
+
+[[module."raster.rs".function]]
+id = "fn:f908cd73c2ebc1af"
+name = "settled"
+qual = "Slicer::settled"
+hash = "sha256:5fc534a2debae727ce2c6c5af10d5a5b116c966b67dbf24df5f44c6e2904c1cf"
+doc_hash = "sha256:bf1d4ec8263c6c06ae84733e699f4ebdf478863b55785182de59b1f842a5d712"
+
+[[module."raster.rs".function]]
+id = "fn:9983690ac7addacb"
+name = "window"
+qual = "Slicer::window"
+hash = "sha256:b86af9120215538af25c2d72ad2b60131ce4c7ace456127e5b52eb4613b9ccaa"
+doc_hash = "sha256:293fce6b8797db41630ffe413017de45cee96f902554e892d4ea86467c156a93"
+
+[[module."raster.rs".function]]
+id = "fn:bf12d9c8ea970dab"
+name = "VOID"
+qual = "VOID"
+item = "const"
+shape = "const"
+hash = "sha256:13edb3c75c4f0b2316c87229fff0928aa3e4a32569814efed32a83bb0d975ae6"
+doc_hash = "sha256:a0c26b32cebe6fef27c90db5ad796bfa3b802f730203cc6215aa6f587e7e2604"
+
+[[module."raster.rs".function]]
+id = "fn:905a37639ed18699"
+name = "a_raster_request_crosses_the_worker_boundary"
+qual = "a_raster_request_crosses_the_worker_boundary"
+hash = "sha256:9ca6c4db691e505b5ce6f5e4de4edd3d5d6e6dab5ef371cd57874e2fa9c78de4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."raster.rs".function]]
+id = "fn:fb85cce07d444bbc"
+name = "raster"
+qual = "raster"
+hash = "sha256:cb30e54278878ac2e11361d1471da2a8ddb98a85e8e3eddfca1ce89b092683fe"
+doc_hash = "sha256:c97867c87a15fe3a4f66db32051b4df6c1a708a38f639791e576c0c99b546a32"
+
+[[module."raster.rs".function]]
+id = "fn:73abbd9051ae4045"
+name = "same"
+qual = "same"
+hash = "sha256:031d7c788dd91825e295c70889351d5198da8d13531e2faf15756f0460b181a1"
+doc_hash = "sha256:362237369ed92b372ecb71d00ab9e03dc714c82d70f99567a11d3f7aeedd19df"
+
+[module."rod_bank.rs"]
+path = "crate::mc_web::rod_bank"
+
+[[module."rod_bank.rs".function]]
+id = "fn:57167cf1753c5e4f"
+name = "BankStyle"
+qual = "BankStyle"
+item = "type"
+shape = "struct"
+hash = "sha256:f06d6e3f8309ef83022ed79ed21bbb1d6b7131655cf6c315d216ce80a320240f"
+doc_hash = "sha256:76ccad34badcc01af06bd91933507e0f9823b9b3ffe95eae03866a6ba13eefca"
+
+[[module."rod_bank.rs".function]]
+id = "fn:55ac7408d1ec5eba"
+name = "RodBank"
+qual = "RodBank"
+item = "type"
+shape = "struct"
+hash = "sha256:6b08c57cedfad08e027f9dba6bb2bd962408e1bd9a90aa064af1b8adce5a5496"
+doc_hash = "sha256:088d2de9ee1751587fa71ff56ccb5f02c8256e34b0c59e65d343faf4bc1bd0e8"
+
+[[module."rod_bank.rs".function]]
+id = "fn:7df97de61a5a2a72"
+name = "from_query"
+qual = "RodBank::from_query"
+hash = "sha256:36d47cd1049e4834590b29734a8cf7ee1e3562c2e54bbd59504e8157afbe014d"
+doc_hash = "sha256:1ce00389818f1fa06eed65b71dbad6eea9e980595485c559271c3e9fdea10652"
+
+[[module."rod_bank.rs".function]]
+id = "fn:386a4d75161ba966"
+name = "new"
+qual = "RodBank::new"
+hash = "sha256:58fe56380da38377a159d1b150f3388dcfaa4b80cebd2b186ffd0524f89e8d35"
+doc_hash = "sha256:258ce5e759ca1d0bb4890a25ba62abc0ba19fd42dd075902b666745f37a5067a"
+
+[[module."rod_bank.rs".function]]
+id = "fn:94533c0bf01ffce0"
+name = "set_master"
+qual = "RodBank::set_master"
+hash = "sha256:c42fcfbd4165f0111edec78ebc28e4662a0bbbaf4ec54778dd7690b0b95564db"
+doc_hash = "sha256:e355633d8df9e735b995bab3d9cdd2b51fb289ff7fffd52d5c2fa3df96a19498"
+
+[[module."rod_bank.rs".function]]
+id = "fn:82ba6d429f203373"
+name = "set_rod"
+qual = "RodBank::set_rod"
+hash = "sha256:aa13aeb8c90f3f5db8ae6e4d7b4e9ad788476f2f9e4b80ef2a75cef6e02b53ce"
+doc_hash = "sha256:224f2fe0a189accbfcd6142f53cd8d68550204bb2ded68d200543c47640bc17e"
+
+[[module."rod_bank.rs".function]]
+id = "fn:4bf8f62184ac04a4"
+name = "set_sync"
+qual = "RodBank::set_sync"
+hash = "sha256:1b22d9bb3003bb96bf9a33be4711c5b371ac1940b08f0c4e5736e09f40391b9c"
+doc_hash = "sha256:3427b48f507b180e221e5d25605af5159a498b739c912c702205353ea26bb7fd"
+
+[[module."rod_bank.rs".function]]
+id = "fn:cb0ac3fb6fce05fc"
+name = "withdraw_all"
+qual = "RodBank::withdraw_all"
+hash = "sha256:aba19eb6a9eced8d01e7394ef770f9b5436f03593f37c878ac23a40addf76d42"
+doc_hash = "sha256:17469bdaec9773af0a0f18c22efaaa6899a23413ee53057bf0ba9081f7e9d9e3"
+
+[[module."rod_bank.rs".function]]
+id = "fn:a1ddb16015d33d0c"
+name = "controls_ui"
+qual = "controls_ui"
+hash = "sha256:40369f7b66f2cf5b39039ed1a122c4089a7773dd5bce5d9ec9213209de381fef"
+doc_hash = "sha256:41e18c4093537d540c5884ed513a51019e015b59dfece6a3de72a77141c78311"
+
+[[module."rod_bank.rs".function]]
+id = "fn:91bd17427d9fcf5d"
+name = "count_word"
+qual = "count_word"
+hash = "sha256:9e2403d30613df5d570faa023b92584cf006b1a1efb41fc9abe5efadbc2ae472"
+doc_hash = "sha256:1e4aed3f30910382bad570d87b75698568592c31c673856b54dbfa9ac0a1b6d9"
+
+[[module."rod_bank.rs".function]]
+id = "fn:c4a5e3f5b03d7e88"
+name = "depth_axis_and_count_words"
+qual = "depth_axis_and_count_words"
+hash = "sha256:0305fdf26ded92634ee55cfb8ae3c26320714efaf5d416a7b9e96f28d17a0027"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rod_bank.rs".function]]
+id = "fn:a4eaa6a698e92757"
+name = "depth_to_y"
+qual = "depth_to_y"
+hash = "sha256:ea21617ac9c8f818c460d8165ad9a48b4d4c0b4289cfba09de9c61432c535619"
+doc_hash = "sha256:fe0e441e9bd9dc3ff4c83c32c71d141bbcbee3e823cf8af1eef5ad59210c91a1"
+
+[[module."rod_bank.rs".function]]
+id = "fn:1ee3b9c6d6b3737c"
+name = "draw_bank"
+qual = "draw_bank"
+hash = "sha256:3d2259114a371db7fb475579a3c861afa6f4e57c2234a34317bf6f061452a9a2"
+doc_hash = "sha256:fb8775f98e1c20c15ebcd3c8f9189fa15eba254948c1eeb9bd32f46e88a28ffb"
+
+[[module."rod_bank.rs".function]]
+id = "fn:5acd9a238e50fa98"
+name = "q"
+qual = "q"
+hash = "sha256:7cf5c7fb8632308300d5f3d3ed1f1c5b4b5997fe03a569b63e96ff4d8f42eba1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rod_bank.rs".function]]
+id = "fn:62dc22cc27c11c62"
+name = "rods_from_the_url"
+qual = "rods_from_the_url"
+hash = "sha256:e5bfa5091f230f5f5d4776a18e845bbd9c55d6a8f790c6e2a3b879adb8da4345"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."rod_bank.rs".function]]
+id = "fn:4b1b61c67ebd5161"
+name = "sliders_sync_unsync_and_withdraw"
+qual = "sliders_sync_unsync_and_withdraw"
+hash = "sha256:73e374c46f49da967a469de1d56026e9cb5ca9d48a2146a081988399c96ac947"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."run_settings.rs"]
+path = "crate::mc_web::run_settings"
+
+[[module."run_settings.rs".function]]
+id = "fn:fd1a8b6eb33f550f"
+name = "RunPresets"
+qual = "RunPresets"
+item = "type"
+shape = "struct"
+hash = "sha256:47d5e278d1ea082cade46c259bcddba6eb725e58797c9a0a9412d5a852cf75e8"
+doc_hash = "sha256:8e0321e707c3896d472dc981ed04960923a1d4e1bd34fb5a5156db3b23bfaf35"
+
+[[module."run_settings.rs".function]]
+id = "fn:d11e14f15216c928"
+name = "cfg"
+qual = "cfg"
+hash = "sha256:d7b9d941c0ced8cf5697f92822e7dc367fca67ac1acfc7f2fedcac8da3401358"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."run_settings.rs".function]]
+id = "fn:69c96394ebdbfd80"
+name = "generation_bounds"
+qual = "generation_bounds"
+hash = "sha256:028b4120cc8ca2251630eeaae9184b18fbcc7f6bf74ea6dfc98ce5d4cb5a6dd2"
+doc_hash = "sha256:d38fdf6ee4ebc2e0d0787706a970bd58935cd379736ac5e279cf745f1fcb3b80"
+
+[[module."run_settings.rs".function]]
+id = "fn:bd57587a795e8c78"
+name = "run_settings_ui"
+qual = "run_settings_ui"
+hash = "sha256:a6c5c26e232e8b22b9b51dac7a66d88ce98d99801d5d2cfe7b0ade6431ee3786"
+doc_hash = "sha256:942fc6d4d2a9e3fb4b73b6350f176fd689bdc4b013cb8b2639a4451cd8ff22b5"
+
+[[module."run_settings.rs".function]]
+id = "fn:5ef5d95ba3e5ff0c"
+name = "the_bounds_share_the_generation_cap"
+qual = "the_bounds_share_the_generation_cap"
+hash = "sha256:86143e6829b1299040bdc9f5e4de7a0f504a70ef0608552957c4f4f874825c39"
+doc_hash = "sha256:31fb430dc999549f9d68fa0b90735c20a81bbac2f65fa95c3167366d2b023241"
+test = true
+
+[module."sweep.rs"]
+path = "crate::mc_web::sweep"
+
+[[module."sweep.rs".function]]
+id = "fn:eb790c9d798c334c"
+name = "CFG"
+qual = "CFG"
+item = "const"
+shape = "const"
+hash = "sha256:974485eb23bb167511f2fcb25522d26101b55d6339c9c30821c348390d779b1a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:71766fbb9381069f"
+name = "Fake"
+qual = "Fake"
+item = "type"
+shape = "struct"
+hash = "sha256:c9c859c8f321a96abae60a9f421e822b416050729913f50e9a6741b4e5db7c6c"
+doc_hash = "sha256:93ba413875a77c1ce3d06b6b62802ea8507acf22070fbff9944cf24cede677a1"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:ed4d9484ba513c2d"
+name = "finish_rebuild"
+qual = "Fake::finish_rebuild"
+hash = "sha256:010936c5f6c966442169ec5bd5d683f0b3df1d08a9b2aecdcf2df4c3ef84384a"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:9b9c9f6b5cdb00d7"
+name = "holds"
+qual = "Fake::holds"
+hash = "sha256:446e4a14be7a56d6b1cd1bcdf4c40782d3ce281da933af7270453c86d244d0fa"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:0655088ea203e0f5"
+name = "keff"
+qual = "Fake::keff"
+hash = "sha256:d63e39cbf1d6dc9ef85cda2fe133ff65c3b43e73336284dd16ac58ab7a621293"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:e28145e238a8f71a"
+name = "new"
+qual = "Fake::new"
+hash = "sha256:7b6f581b1e08f2f0716c3474249f13f92e1fa074a8dcbf852255e6a074f24c1c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:c2789984038c1718"
+name = "not_ready"
+qual = "Fake::not_ready"
+hash = "sha256:346ad2b26e0107815e6436e6c9ab677b0906cb4908e759d4767aa4eb9785bfb1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:f3aaa54cde03130b"
+name = "rebuild"
+qual = "Fake::rebuild"
+hash = "sha256:374e6533cd58a7e943a409bf9d9fab192a26aa3ab10f54e8dae4c096b04aeedb"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:91f8f2c470e5a8e7"
+name = "start"
+qual = "Fake::start"
+hash = "sha256:1072c0efaeb6a4ef876779dda3733d512ac09e32461241f20534acce8f00de00"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:4b2a2666ad7acfc5"
+name = "Sweep"
+qual = "Sweep"
+item = "type"
+shape = "struct"
+hash = "sha256:b76ce4f9828f0d3bb8d9978506c68cce8bfca91b7b9f3d9d65da7db824f4d5bd"
+doc_hash = "sha256:cfe7dec8048253530dc718fd0cabb22d700d71c489cd232aa0dda6f8620b1205"
+
+[[module."sweep.rs".function]]
+id = "fn:63d82329dfe2d343"
+name = "done"
+qual = "Sweep::done"
+hash = "sha256:0b7968912cfb28261206af539aa9b2bdcc1823e6e872abf7414b16aa9ae9a2d4"
+doc_hash = "sha256:7e99522165796f5b53aff241bd381b42b1ee0e1c8eb1d0fc1f4438bd1487dc5d"
+
+[[module."sweep.rs".function]]
+id = "fn:975053f45ae0bcf2"
+name = "fail"
+qual = "Sweep::fail"
+hash = "sha256:7933d1e1d016408c4b3fe4edcfbd24a98a11361b2bbfc3770212a50022daa7d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."sweep.rs".function]]
+id = "fn:033075ce7cc4ca13"
+name = "new"
+qual = "Sweep::new"
+hash = "sha256:64092411fc0e56ba3a3d27bbcda1bdc5be48b621ab7962b35335e11e8d89fb50"
+doc_hash = "sha256:06a57fa8dbe5b699492512b93618fcbdfeeab0a0e6849fb6d32c7740bd9b3adb"
+
+[[module."sweep.rs".function]]
+id = "fn:efb58485713de4a6"
+name = "progress"
+qual = "Sweep::progress"
+hash = "sha256:f56f0cbdf343f50f8cbfef6e7431f5480050de7c5d484aaa4798da24495e3bb1"
+doc_hash = "sha256:8fd9c611a436bac375facf40caa20ec3bf105c72ba05f13810a8ea29ff00f184"
+
+[[module."sweep.rs".function]]
+id = "fn:323b5c1ca7829b75"
+name = "step"
+qual = "Sweep::step"
+hash = "sha256:304949ea30fb0110de9b6b0deeb0976e78cc600d688733ad856f85733d1ea9da"
+doc_hash = "sha256:6c8213437e3292c93646925910dab0bf453df23fcae6c94433d786c63233e6a9"
+
+[[module."sweep.rs".function]]
+id = "fn:05b9e10af5d0c48d"
+name = "SweepPool"
+qual = "SweepPool"
+item = "type"
+shape = "trait"
+hash = "sha256:52e360f7e64c1d9078eae2bd3b6950ce9c3b25e6f469a87aec0a665a5eb9ea90"
+doc_hash = "sha256:67145ed8d8d0c2dc93a1a0c7fb6e9ce7d5f84b56f5a57ad1f8a77d096e04ec6d"
+
+[[module."sweep.rs".function]]
+id = "fn:699a462bcdb7b45e"
+name = "holds"
+qual = "SweepPool::holds"
+hash = "sha256:f1d574bfdeec347946cd925c0a487244753c6e8649d7455c260293aaecc9a3a7"
+doc_hash = "sha256:0d24ea3e28d039dca8d9e2e8b57e3b43ef9a04ab7e3a9c644fcd080bf3dc3dc8"
+
+[[module."sweep.rs".function]]
+id = "fn:01fd47036fd64e97"
+name = "keff"
+qual = "SweepPool::keff"
+hash = "sha256:42cc7e2e766e478d82ad1696a0664875937e59015347f13a4170e3da550b6179"
+doc_hash = "sha256:0a162e234a29ceec8f2e7c3ed2db2ac8d2d0179c88603fe3c97fdeb59da4b321"
+
+[[module."sweep.rs".function]]
+id = "fn:ce020141c289a652"
+name = "not_ready"
+qual = "SweepPool::not_ready"
+hash = "sha256:9b339f073ddecac7bf55914f1a5d82972b0dea591bc37fa302fd031d3b4dc42d"
+doc_hash = "sha256:8270743f7fd88f59135678c6807680f355a89da9a5edb8a2f68cd39f74b5964e"
+
+[[module."sweep.rs".function]]
+id = "fn:3b9fff1b6ffd0ece"
+name = "rebuild"
+qual = "SweepPool::rebuild"
+hash = "sha256:af3da097cdc772cb0da6db85742e09d14465aa852bf7214f527035db2732448b"
+doc_hash = "sha256:66772264a1cb9f710fec26626694aeee5847e23377da69209e89b8d5384313eb"
+
+[[module."sweep.rs".function]]
+id = "fn:52a5cab789517ab8"
+name = "rebuilding_note"
+qual = "SweepPool::rebuilding_note"
+hash = "sha256:ea347e3c6dcd196996ebecd33fdbc11445f439f002acb3848ac5ab5a0b532280"
+doc_hash = "sha256:0e6c9a27f39ef77999afec56ce0b8544104cf73686cc9495b56902cfde232bef"
+
+[[module."sweep.rs".function]]
+id = "fn:dc1be810ba3ae658"
+name = "start"
+qual = "SweepPool::start"
+hash = "sha256:a8833ba362178584759fb6e2c8b0d6af46066c53f8a502fc2dc32fc8e2963e72"
+doc_hash = "sha256:07a1d0c1eb0b428d9558faf912b99f9fced5ebdf3297faf23f2fd4ff929c60b0"
+
+[[module."sweep.rs".function]]
+id = "fn:dc3b6c362a8ee716"
+name = "SweepResult"
+qual = "SweepResult"
+item = "type"
+shape = "struct"
+hash = "sha256:6b730a902018ca5d1b6ecafda64926c2319ce22b0a86cae2f6373be1898cf169"
+doc_hash = "sha256:f9a517666e9c66a9b59402c3a8b036d3712ce7bf5df97ec6239451469159a72e"
+
+[[module."sweep.rs".function]]
+id = "fn:e5548ad3d0cd4587"
+name = "SweepStep"
+qual = "SweepStep"
+item = "type"
+shape = "enum"
+hash = "sha256:3daa82e25e8cda5f69bf8c78d588f071c915aa141b9540a1cac603f1deef7984"
+doc_hash = "sha256:3c9c22ae84b7112396e25a2253621990e1cd3924271c5bff5ebd5f9bcb1cf3ba"
+
+[[module."sweep.rs".function]]
+id = "fn:88f0ff449628bfa5"
+name = "a_replaced_run_or_a_refused_setting_ends_the_sweep"
+qual = "a_replaced_run_or_a_refused_setting_ends_the_sweep"
+hash = "sha256:83ea4f07ae0e0fbac7e68bee57c481045957602f3cc10705d1ae1a51ce72a307"
+doc_hash = "sha256:2779a560dbfa5351840b5c9783bca14faef58c9d1948838ef30ba41a37410a98"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:d3f1f2fce37e5d92"
+name = "a_sweep_rebuilds_then_runs_and_stops_with_its_run"
+qual = "a_sweep_rebuilds_then_runs_and_stops_with_its_run"
+hash = "sha256:e37db79301f00e8c466ae99aa042ede0a33fa36d058fe9bf10f6ad15450606e9"
+doc_hash = "sha256:e3a9bfe48451635daab646816817f25dc8f601478105b82ab3e6dfc2dd606a76"
+test = true
+
+[[module."sweep.rs".function]]
+id = "fn:7b57a0ff44455aad"
+name = "settings"
+qual = "settings"
+hash = "sha256:f142998ddd94f8c294cf895a641655e866b2eb9a6b4abb24acabbeb127e49652"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[module."tapes.rs"]
+path = "crate::mc_web::tapes"
+
+[[module."tapes.rs".function]]
+id = "fn:feed5782238bda67"
+name = "LEAPR_H_IN_H2O"
+qual = "LEAPR_H_IN_H2O"
+item = "const"
+shape = "const"
+hash = "sha256:6a9d486384bae3ffe683ae5df5eb921b01c158998ed049ef0fa3bb2c49baf170"
+doc_hash = "sha256:4c6506a6267844173c04d344d8ddb10d2aeae17ea346f19c7d5f3273a4ebcdb2"
+
+[[module."tapes.rs".function]]
+id = "fn:fda6dc823727ab7d"
+name = "compress"
+qual = "compress"
+hash = "sha256:96d01d52afc42b35ad8c69ca2099a5ea1bba182f63d9c93339260b233f3b0a69"
+doc_hash = "sha256:31a3a4db9d5c31d1aa1e09faedd291b8d15ec8c79dc70d8b7de28b2f2da6f054"
+
+[[module."tapes.rs".function]]
+id = "fn:fa3ac4a501baff9f"
+name = "decompress"
+qual = "decompress"
+hash = "sha256:c7f7b252885ec6f719f6b68d066546b1b736a1713b7c5cc0d84a3fd2bac7fb64"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tapes.rs".function]]
+id = "fn:2d67db224b065622"
+name = "generated_source"
+qual = "generated_source"
+hash = "sha256:c8e6645336ff5bd4a1935cd010d60dd6b75dcf41679738c808fca21dd4f464aa"
+doc_hash = "sha256:f2641ebfd002437be26fd566fc6a2d902b33659565ef6b07321f4c9bf5b99629"
+
+[[module."tapes.rs".function]]
+id = "fn:7a4de983c938e95e"
+name = "is_generated"
+qual = "is_generated"
+hash = "sha256:91316f3a7ff89e28c5d38890d216ffa93ca31bda196d69cdc868bf9cf07a095f"
+doc_hash = "sha256:d831c3652f701ec7766d6b128ea991d11c20f04e1c1dc4b19a231f9e5c655b57"
+
+[[module."tapes.rs".function]]
+id = "fn:92081f7411bdaf65"
+name = "leapr_h_in_h2o"
+qual = "leapr_h_in_h2o"
+hash = "sha256:637b899b213c33bd46e24b76548c85b1b51de7fa56267857dd8c83fa7161dfba"
+doc_hash = "sha256:1887fdd0695d59c7e71b945eeaddb8751c7e180932aa9f94c504a18c85b5f7dd"
+
+[[module."tapes.rs".function]]
+id = "fn:7f9f013dd4814c01"
+name = "read_tape"
+qual = "read_tape"
+hash = "sha256:9256566ae18d00011104a43997d5c4fcb69df30f386ea4e9cc89f7b270f2a89e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."tapes.rs".function]]
+id = "fn:d5a823d416e74860"
+name = "strip_covariances"
+qual = "strip_covariances"
+hash = "sha256:72c53a0218b53d22247b17d44b4a0d4bc4c29a1f5a8525336c4deceb1769acb3"
+doc_hash = "sha256:e9c20423355700624d727a40a3cdd9b2a34ddfb709a3a9c281b777e08034b42d"
+
+[[module."tapes.rs".function]]
+id = "fn:8e81b080ce86d5d5"
+name = "wire_name"
+qual = "wire_name"
+hash = "sha256:a3cf078c666c28b56aaf0ce4ea2245af5640998195d5cc853d1749988b96c01a"
+doc_hash = "sha256:cda928a37bb9b53fc460ebcdd4a6769cc51e5ec4b95fcac59b017eb807ad9475"

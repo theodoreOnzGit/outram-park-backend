@@ -1,0 +1,47 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/msre/twin"
+
+[module."tests.rs"]
+path = "crate::msre::twin::tests"
+
+[[module."tests.rs".function]]
+id = "fn:062c92db8b4ec68d"
+name = "the_cv_map_is_the_live_plant"
+qual = "the_cv_map_is_the_live_plant"
+hash = "sha256:7dfd7f587c1fbae66ed130003c37e03610768c2659bb67c68f1570d732ca8cf7"
+doc_hash = "sha256:98d48f146bf632860ce41090b927fab7feaad5fd56e7acab5842e274bd7af706"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:405a62f52414b3e1"
+name = "the_live_split_reaches_the_plant"
+qual = "the_live_split_reaches_the_plant"
+hash = "sha256:22c8613f8d40d408643e5b15251585c4ef8c1c199b00dc8fafd5d2d6c27da24c"
+doc_hash = "sha256:406d6d6fdaee609931bde811eb33cb5b860f6889abdd588f1d89f34549fc9b07"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:200ff1693e609589"
+name = "the_sources_and_pages_are_named"
+qual = "the_sources_and_pages_are_named"
+hash = "sha256:5646d70bc3ebdf15ab82a8800f0821fd3da1121202c3ecfbb36bcd08465ada6d"
+doc_hash = "sha256:491402bee39e0d69d796f1acdf4b97c7e217b49663895a1fe32f428515a3c4f1"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:2bd283bce5b2a5c7"
+name = "the_split_is_the_k_eff_tabs"
+qual = "the_split_is_the_k_eff_tabs"
+hash = "sha256:72b201845fff0d108761a3070918ef7e8ed91501294f291979cdc92bcd4752ca"
+doc_hash = "sha256:7ea0b489db8f65ab4b17aa34f8e28e369136f7baaf35772521960150d20f43a7"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:ecbfc1d54a49baa8"
+name = "the_twin_plant_is_the_session_bit_for_bit"
+qual = "the_twin_plant_is_the_session_bit_for_bit"
+hash = "sha256:f549c9dd4c06f7cf7cc65163acced9d14286375718637e08fba3282b6e441978"
+doc_hash = "sha256:63031bc1504162c25a0f239001646610e2b5ae8f1766b4ac7daad33a2654da26"
+test = true

@@ -15,6 +15,42 @@ types every other `kovan-*` crate speaks in.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+**Scope.** The shared data model of KOVAN: documents, symbols, benchmarks,
+the code map, the call graph, code-review stamps, annotation anchors and
+Zotero items. **The one question it answers:** what is the canonical shape
+of a piece of knowledge that every `kovan-*` crate and the web view agree on?
+
+**Knowledge it makes studyable.** This crate is where OUTRAM PARK's own
+record-keeping is defined: what a reviewed function is (`review::hash`,
+`review::signing`), how a citation is stored (`KovanDocument`, `zotero`),
+and how a note stays attached to text after the text changes
+(`anchoring`, a port of the Hypothesis client). The two third-party ports
+can be read beside their upstream TypeScript and JavaScript files, and the
+upstream tests are ported with the same inputs and expected outputs, so a
+reader can check each translation and challenge each deviation the module
+docs list.
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`), not human-reviewed.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | No physics literature. Ported upstreams (commits and licences in [`NOTICE`](NOTICE)): Zotero (`zotero/zotero` commit `9cbba8c4d281`, `zotero/utilities` commit `4051881d59c6`, `zotero/zotero-schema` commit `b86c79b56479`; AGPL-3.0); Hypothesis client (commit `b4d085a2f893aa6de3b61d8b8bc3ae4d0f24fc1a`, BSD-2-Clause); `approx-string-match` 2.0.0 (commit `fe814eba4d6b6daf88d38179331a14d156a0b5a0`, MIT), which implements Myers' bit-parallel edit-distance search. |
+| Mathematical equations | None of physics. The anchoring score (50 quote, 20 prefix, 20 suffix, 2 nearness, normalised to [0, 1]) is stated below and in `src/anchoring/` module docs. |
+| Source code | `document`, `symbol`, `knowledge`, `code_map`, `call_graph`, `code_index`, `geometry`, `mindmap_view`, `fuzzy`, `artifact`, `review`, `anchoring`, `zotero` (see the table below). |
+| Interactive simulations | None yet. The `build_document` example builds and prints a `KovanDocument`. |
+| Visualisations | None committed. `code_map::svg` draws the workspace code map that `kovan` and `kovan-web` show. |
+| Verification and validation evidence | `tests/zotero_port.rs` (expected values from Zotero's own test data; results recorded 2026-10-07 in each test's doc comment); `tests/kovan_document_schema_compat.rs` and `tests/review_schema_compat.rs` (stored documents still parse); `src/anchoring/tests/upstream_*.rs` (Hypothesis and `approx-string-match` tests ported) and `src/anchoring/tests/kovan_uses.rs` (predictions written before the run; two score predictions refuted, anchors all correct). No code-to-code run against upstream Zotero yet (#752). |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp (the three `kind = "review"` blocks under `tests/fixtures/review/` are test fixtures). No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections in this README and `src/lib.rs` record the module moves of 2026-10-06/07. |
+
+The Zotero and anchoring ports have ported-test evidence; the rest of the
+crate is checked by round-trip unit tests only, and nothing is human-reviewed.
+
+## What the crate is
+
 A plain data crate: types, `serde` derives, a builder and a few convenience
 constructors, with no pipeline logic. Cross-crate links (a symbol pointing at a
 document, a benchmark pointing at a validation case) are carried as the string
@@ -36,11 +72,22 @@ Everything is re-exported at the crate root (`kovan_common::KovanDocument`).
 | `mindmap_view`, `geometry`, `fuzzy` | star layout and canvas arithmetic, `Point`/`Bounds`, the finders' scorer (moved from `kovan`, 2026-10-06) |
 | `anchoring` | robust annotation anchoring ported from Hypothesis (#754): W3C `TextQuoteSelector` / `TextPositionSelector` and Hypothesis's `PageSelector`; `describe`/`anchor` for plain text, `describe_in_pages`/`anchor_in_pages` for extracted PDF pages; position, then exact quote, then Myers fuzzy quote match |
 | `zotero` | Zotero's item model, schema, CSL-JSON conversion and the `KovanDocument` mapping (2026-10-07, see below) |
+| `artifact` | the kovan Markdown artifact scanner and the relation (anchor) types (moved from `kovan`, 2026-10-07, #764) |
+| `review` | code review's data model: `kovan_root.toml` reviewer sections, per-folder `kovan.toml`, `review.md` entries, the function hash, stamp signing and verification (#764, #762) |
+| `code_index` | building the per-folder `kovan.toml` code index and the per-crate `kovan_links.json` from a rust-analyzer SCIP run, with a rust-analyzer-free refresh (#767) |
+
+~~The table above listed ten modules.~~ **CORRECTED 2026-11-27** — `src/lib.rs`
+declares thirteen public modules; `artifact`, `review` and `code_index` were
+missing (checked against the `pub mod` lines in `src/lib.rs`).
 
 ~~A plain data crate … with no pipeline logic~~ **UPDATED 2026-10-06** (#736):
 the last four modules are pure logic (layout, assembly, scoring), moved here
 from `kovan` so the wasm Code Review UI (`kovan-web`) can use them; `kovan`
-re-exports each under its old path. Still no I/O and no GUI.
+re-exports each under its old path. ~~Still no I/O and no GUI.~~
+**CORRECTED 2026-11-27** — still no GUI, but not free of I/O: the desktop-only
+`review::signing::keystore` reads and writes the passphrase-encrypted key
+files with `std::fs` (checked in `src/review/signing/keystore.rs`). The rest
+is pure; the code index's file and `git` I/O lives in `kovan-cli index`.
 
 Unlike its sibling pipeline crates, this one has no stub functions: `src/lib.rs`
 states that every public type is implemented and round-trip tested through
@@ -48,8 +95,13 @@ states that every public type is implemented and round-trip tested through
 `Vec` fields of `KovanDocument`, so older stored documents still parse) are
 recorded in [`DECISIONS.md`](DECISIONS.md).
 
-~~Dependencies: `serde`, `serde_json`, `toml`.~~ **UPDATED 2026-10-07**:
-`serde`, `serde_json`, `toml`, and `regex` (for the Zotero date parser).
+~~Dependencies: `serde`, `serde_json`, `toml`.~~ ~~**UPDATED 2026-10-07**:
+`serde`, `serde_json`, `toml`, and `regex` (for the Zotero date parser).~~
+**CORRECTED 2026-11-27** (checked against `Cargo.toml`): also `petir`
+(transcendentals), `pulldown-cmark` (artifact scanner), `syn`, `proc-macro2`
+and `quote` (function hashing), `sha2`, `ed25519-dalek` and `base64` (stamp
+signatures); and, off wasm only, `argon2`, `aes-gcm`, `getrandom`, `zeroize`,
+`chrono` and `directories` (the signing keystore).
 
 ## Zotero
 

@@ -1,0 +1,39 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/twin/app"
+
+[module."tests.rs"]
+path = "crate::twin::app::tests"
+
+[[module."tests.rs".function]]
+id = "fn:5c1f694cca2d6bcf"
+name = "the_app_applies_gruvbox"
+qual = "the_app_applies_gruvbox"
+hash = "sha256:f5ec72018c785b526853b26e591f2fdd92ea4c395fbdc218d0a20f1195849630"
+doc_hash = "sha256:8b09a5a155eb31ffe447ec7d15f72688e083a87f173c4d075194c1ce574d5271"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:82b135ce05d46750"
+name = "the_page_text_is_what_the_model_has"
+qual = "the_page_text_is_what_the_model_has"
+hash = "sha256:45b46171fec4a6d19ac8d2b42cd831ac3017e33800ccc13922a1eeb679c20dc3"
+doc_hash = "sha256:34dbf4f8cefee67b0d0ff95d7ccc72d4b9aab8ee3a30b0639070529fade15184"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6068ab4da9196a9e"
+name = "the_trend_range_does_not_magnify_round_off"
+qual = "the_trend_range_does_not_magnify_round_off"
+hash = "sha256:2e0c497b3063586c118d67102c94a2dab24454dbc8c7a82377218c35623896b9"
+doc_hash = "sha256:e46bf0c98934b6ea67ee4e09fb631b9f6974b3eb0554657f13b2cd7762910fe1"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:65cd5b3540ef6010"
+name = "the_trend_window_zooms_and_slices"
+qual = "the_trend_window_zooms_and_slices"
+hash = "sha256:00b3ee7c4b5d12083416e008a55d212debca628d40b4a30a1e7d0656a39bf4f6"
+doc_hash = "sha256:8c4ab71a39eaa38bc0a1ceec2293cc72ee1625a0af7ccc8ca5a9c1ce3c849113"
+test = true

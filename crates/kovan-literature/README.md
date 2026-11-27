@@ -15,6 +15,47 @@ and the PDF-to-BibTeX pipeline.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+**Scope.** The literature side of OUTRAM PARK: the archive of open
+documents, the PDF-to-BibTeX pipeline, the Zotero and citeproc-js ports that
+read, search and cite it, and the concept tree that files nuclear knowledge
+under the IAEA's 19 infrastructure issues. **The one question it answers:**
+what does the literature say, where is it, and which concept does it
+support?
+
+**Knowledge it makes studyable.** This crate is where a reader starts from
+a paper. It keeps each open document's metadata and extracted text, the
+datasets digitised from their figures (`derived/`, each with its source,
+figure and method), and a concept tree whose every node cites the document
+and section it comes from, so a reader can check the tree against
+NG-G-3.1 or NUREG-0800 and challenge any node. The citeproc-js and Zotero
+ports can be read beside their upstream JavaScript, with every deviation
+registered (`src/citeproc/DEVIATIONS.md`).
+
+**Status:** AI draft (`maturity = 1` in `Cargo.toml`), not human-reviewed.
+The concept tree's levels 1-3 were approved by the maintainer (2026-10-06,
+below).
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | [`CATALOGUE.md`](CATALOGUE.md) records every document; the open PDFs are in the `reactor-literature/` submodule (`kovan-standard-open-corpus/`, `theodore-open-corpus/`); metadata JSON and extracted Markdown under `open/`, BibTeX under `generated/`. The concept tree cites 59 `[[document]]`s (`src/concept_skeleton.toml`), among them IAEA NG-G-3.1 (Rev. 1) and NUREG-0800. Ported upstreams (commits in [`NOTICE`](NOTICE)): Zotero `9cbba8c4d281`, utilities `4051881d59c6`, translators `3d1c78530f42`, translate `e0fe482b8a07`/`dd524aea9a55`, translation-server `3a9d17614896` (AGPL-3.0); citeproc-js 2.4.63 (AGPL-3.0 option). |
+| Mathematical equations | None of its own. Digitised datasets under `derived/` carry the quantities they were read off, e.g. the BSAF Cs-137 release-rate histories (Bq/hr against days) from OECD/NEA No. 7525, Figures 5.1-5.4. |
+| Source code | `src/pdf_import.rs`, `metadata.rs`, `markdown.rs`, `bibtex.rs`; `concept_tree.rs` with `concept_skeleton.toml`, `concept_proposals.toml`, `concept_sciences_proposals.toml`; `zotero/` (`framework`, `translators`, `local_library`, `search`); `lookup_review.rs`; `citeproc/`; `csl.rs`. |
+| Interactive simulations | None yet. The concept tree is drawn as Kovan's standard mind map (`crates/kovan`). CLI: `kovan-cli lit`; example `examples/bibtex.rs`. |
+| Visualisations | [`digitiser_demo_loglog.png`](digitiser_demo_loglog.png); digitised-figure overlays such as `derived/nea7525-bsaf-unit1-figures/fig2.1a-digitised.png`; the generated review documents [`docs/concept-proposals.md`](docs/concept-proposals.md) and [`docs/concept-sciences-proposals.md`](docs/concept-sciences-proposals.md). |
+| Verification and validation evidence | `tests/citeproc_test_suite.rs` (2026-10-08: of 845 CSL fixtures the port equals citeproc-js's output on 832 and the fixture's `RESULT` on 842; the 13 others differ from citeproc-js only through newer locales); `tests/csl_vs_citeproc_js.rs` (2026-10-08: 0 differences over 219 items × 3 parts × 5 styles = 3,285 comparisons); `tests/zotero_translators*.rs`, `tests/zotero_xml_translators.rs` (against a running Zotero translation-server's committed outputs); `tests/zotero_search*.rs`; `tests/zotero_local_library.rs`; `tests/concept_skeleton.rs`, `concept_proposals.rs`, `concept_sciences.rs`; `tests/bsaf_cs137_release_rates.rs` (regression guard on 10 403 digitised points, #1028). |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. The concept tree's levels 1-3 carry the maintainer's approval (2026-10-06); 139 of 147 Sciences-tree nodes are approved (`docs/concept-sciences-proposals.md`). Corrections to the record are struck through in [`CATALOGUE.md`](CATALOGUE.md) (for example the moves of the JRC and NJOY2016 documents) and in this README. |
+
+The citeproc-js and Zotero ports have code-to-code evidence against upstream
+output; the concept tree has the maintainer's approval but no reviewed code;
+the PDF pipeline is unit-tested and best-effort, and nothing is
+human-reviewed.
+
+## What the library does
+
 The library turns a source PDF into the canonical `KovanDocument` (from
 `kovan-common`) and derives Markdown, BibTeX and extracted image assets from
 it:
@@ -41,7 +82,7 @@ Per `src/lib.rs`:
 | `zotero::local_library` | Reads a whole Zotero data folder (`zotero.sqlite` + `storage/`, Zotero 5.0+) read-only through a private in-memory copy, into `kovan_common::zotero`'s model, and imports it as `KovanDocument`s with a report of what is lost (GitHub #750). `read_database_files` reads the database from bytes, with no file system (a browser). AI draft, verified code-to-code against databases built from Zotero's own schema files, and its SQLite layer against real SQLite. ~~**Native desktop only:** SQLite is compiled from C, so this module is not built for wasm32 or Android.~~ **CORRECTED 2026-10-07:** pure Rust (`turso_core`, a Rust rewrite of SQLite, MIT); builds for every target, wasm32 and Android included. |
 | `zotero::search`, `lookup_review` (since 2026-10-07) | Zotero's "Add Item by Identifier" (#756): `extractIdentifiers` (DOI, ISBN, arXiv, ADS bibcode, PMID) and the 19 search translators (arXiv, DOI Content Negotiation, Crossref REST, PubMed, the ISBN catalogues, ...), with Zotero's fallback order. **Network-free:** a lookup returns the HTTP request it needs and the caller fetches it (kovan's `lookup_net` natively; a browser with `fetch`), so the crate stays wasm32- and Android-clean; every failure is a typed `LookupError`. `lookup_review` compares a fetched record with an ingested PDF's metadata field by field for the user to confirm. Verified code-to-code against upstream run on the same recorded responses (`scripts/zotero-search-reference.mjs`, `tests/zotero_search.rs`, `tests/zotero_search_failures.rs`). AI draft, not yet human-reviewed. |
 | `zotero` (since 2026-10-07) | Port of Zotero's translation framework and its import/export translators (#749): BibTeX, BibLaTeX, RIS, CSL JSON; the tagged-text, JSON and simple export translators; the XML translators (MODS, Endnote XML, TEI, Crossref Unixref XML, MARCXML, MARC, PubMed XML, METS, Primo Normalized XML, DSpace Intermediate Metadata, Citavi 5 XML, XML ContextObject) on an XML DOM and XPath engine; Note HTML and Note Markdown. Compared with a running Zotero translation-server on committed reference outputs (#752; `scripts/zotero-reference.sh`, `tests/zotero_translators.rs`, `tests/zotero_xml_translators.rs`). AI draft, not yet human-reviewed. |
-| `citeproc`, `csl` (since 2026-10-08) | `citeproc`: a port of citeproc-js 2.4.63, Zotero's CSL engine (#790; AGPL-3.0 option of citeproc-js's licence, see [`NOTICE`](NOTICE)); 845/845 CSL test-suite fixtures and the site's 223 entries under five styles equal citeproc-js's output. `csl`: citations and reference lists for the Pages site's markdown and HTML on top of it (#789, #797; replaced hayagriva, which differed from citeproc-js in 176 of 669 comparisons). Not authoritative for any publication; verify against the style. |
+| `citeproc`, `csl` (since 2026-10-08) | `citeproc`: a port of citeproc-js 2.4.63, Zotero's CSL engine (#790; AGPL-3.0 option of citeproc-js's licence, see [`NOTICE`](NOTICE)); ~~845/845 CSL test-suite fixtures and the site's 223 entries under five styles equal citeproc-js's output.~~ **CORRECTED 2026-11-27** (read from the doc comments of `tests/citeproc_test_suite.rs` and `tests/csl_vs_citeproc_js.rs`, not re-run): of the 845 fixtures the port equals citeproc-js's output on 832 and the fixture's own `RESULT` on 842; the other 13 differ from citeproc-js because the port uses current CSL locales, and each equals its `RESULT`. The site's references (219 entries since four duplicates were removed) under five styles show 0 differences from citeproc-js (2026-10-08). `csl`: citations and reference lists for the Pages site's markdown and HTML on top of it (#789, #797; replaced hayagriva, which differed from citeproc-js in 176 of 669 comparisons). Not authoritative for any publication; verify against the style. |
 
 The graph digitiser is **not** in this crate. It moved to `kovan` on
 2026-08-21 (`kovan::digitiser`) so this crate could stay GPL-3.0-only
@@ -60,7 +101,7 @@ documents, with their provenance, under `derived/`.
 
 - [`CATALOGUE.md`](CATALOGUE.md) is the record of every document: what it
   is, its access tier and why, and where its files live.
-- [`CLAUDE.md`](CLAUDE.md) holds the rules for adding or moving a document.
+- ~~[`CLAUDE.md`](CLAUDE.md)~~ [`AGENTS.md`](AGENTS.md) holds the rules for adding or moving a document.
   The access tier comes from the document's own licence, never from where it
   is hosted (workspace `DATA_POLICY.md`).
 
@@ -110,10 +151,13 @@ A full path reads:
   publications** (today: TUAS, Ong, Xiao & Peterson 2025,
   doi:10.1016/j.jandt.2025.03.006), which enter the standard corpus. Unpublished
   work is visible only in Code Review.
-- **Implementation maturity** (level 4) is shown as one of four rungs:
+- **Implementation maturity** (level 4) is shown as one of ~~four~~ five rungs:
   (1) AI translated or constructed, (2) AI V&V, (3) human reviewed,
   (4) human V&V (a human builds a code-to-code verification or validation case
-  through the API or GUI). Handwritten code starts at rung 3.
+  through the API or GUI), **(5) independent V&V (IV&V)** (**CORRECTED
+  2026-11-27**, as `crates/kovan/README.md` already records since 2026-10-08,
+  GitHub #809: the review engine derives rung 5; rules in
+  `kovan_common::review::ivv`). Handwritten code starts at rung 3.
 - **Compatibility.** Levels 1–2 change rarely; level 3 never breaks a
   published path (a move leaves an alias, a deletion becomes `deprecated`);
   level 4 follows the code and is regenerated, with a staleness check.
@@ -128,8 +172,11 @@ it: this crate builds for `wasm32-unknown-unknown`)**
 | `docs/concept-proposals.md` | the review document, generated from the TOML (`KOVAN_REGENERATE_PROPOSALS=1 cargo test --release -p kovan-literature --test concept_proposals`) | the same test fails if it is stale |
 
 **Status (2026-10-06).** Levels 1–3 are reviewed and approved: 19 issues,
-89 level-2 categories and 263 concepts (3 deferred awaiting sources), with
-over 90 cross-links. ~~**Kovan does not read the tree yet**~~ **Since
+89 level-2 categories and ~~263 concepts~~ (3 deferred awaiting sources), with
+over 90 cross-links. **CORRECTED 2026-11-27** — `src/concept_proposals.toml`
+now holds 309 `[[concept]]` entries (306 `approved`, 3 `deferred`) and 192
+proposed `[[implementation]]` entries; the skeleton still has 108 nodes
+(19 + 89). Counted in the TOML files; cross-links not re-counted. ~~**Kovan does not read the tree yet**~~ **Since
 2026-10-06 Kovan's standard mind map is levels 1–3 of this tree**, replacing
 the 44 hand-written `nuclear-engineering/...` topics: `kovan-literature`'s
 `concept_tree` module parses both TOML files once into a typed `ConceptTree`,
@@ -144,10 +191,16 @@ Kovan; the PDF opens from the `reactor-literature` checkout when one is
 present), the two IAEA ones as citation-only entries, so the map needs
 neither the corpus checkout nor the private repository. A user's own
 `topics/` folders (including old `nuclear-engineering/...` ones) keep working
-as the user's topics. Still to do: the Code Review tab, level-4 generation
+as the user's topics. Still to do: ~~the Code Review tab,~~ level-4 generation
 from code tags, the drift report, the maturity rungs (#729), the "show empty
 nodes" toggle (the model's `corpus::has_literature` /
-`has_classified_literature` are the hook), and source hyperlinks on cards.
+`has_classified_literature` are the hook), and source hyperlinks on cards. **CORRECTED 2026-11-27** — desktop Kovan has
+a Code Review tab (`View::CodeReview` in `crates/kovan/src/app/nav.rs`).
+The other items were not re-checked (the per-crate `maturity` field of
+`[package.metadata.kovan]` exists, but whether level-4 nodes show rungs was
+not checked);
+`crates/kovan/src/corpus.rs` still calls `has_literature` the hook for the
+"show empty nodes" toggle.
 
 ## Example
 

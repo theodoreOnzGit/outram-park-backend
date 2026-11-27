@@ -21,6 +21,30 @@ offsite chain:
                      categories
 ```
 
+What it makes **studyable and challengeable** today is small and specific:
+one lumped balance, `dB/dt = I - (lambda + k_deposition + k_exhaust) B`, for
+HTR-10's vented confinement, with each parameter traced to a sentence in a
+published paper and the conservative choices (no filter or plate-out credit)
+stated as choices a reader can dispute. The rest of the Level 2 PSA scope
+holds no implementation yet.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Jiang, Ye and Yang (2002), *Nucl. Eng. Des.* 218, 209–214 (HTR-10 confinement design: -150 Pa, 100 %/day leakage, filters, chimneys; cited, not redistributed); Liu and Cao (2002) (no filter or plate-out credit in the conservative release). Both cited in the module doc of `src/building.rs`. Not a port of any upstream code. |
+| Mathematical equations | One well-mixed airborne inventory per nuclide with inflow, decay, deposition and exhaust, stepped exactly for constant inflow, with the parameter table and what is not modelled, in the module doc of `src/building.rs`. |
+| Source code | `src/building.rs` (`BuildingParameters`, the lumped CV); `src/lib.rs` (scope and the open SEMBAWANG boundary question). |
+| Interactive simulations | None yet. (`htgr_sim_v1` keeps this CV off its default path; see the deferral below.) |
+| Visualisations | None yet. |
+| Verification and validation evidence | Two unit tests in `src/building.rs`: atom conservation with small steps equal to one big step, and the steady state equal to inflow less decay. No benchmark or validation. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. The struck-through "Placeholder, nothing is implemented" below records the 2026-09-29 change. |
+
+**Status:** the building CV is checked only by its own conservation tests;
+it and the rest of the scope are unverified.
+
 ## Status: one component implemented
 
 ~~Placeholder, nothing is implemented.~~ Since 2026-09-29 (GitHub #400),

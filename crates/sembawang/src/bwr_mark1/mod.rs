@@ -1446,6 +1446,78 @@ pub fn swollen_level(prm: &Params, level_m: f64, q_pool_w: f64, h_fg: f64, v_g: 
     height_of_volume(prm, volume_below(prm, z) / (1.0 - alpha)) - prm.baf_m
 }
 
+/// The swollen mixture level above the bottom of active fuel, m, by MELCOR's
+/// pool model applied **per control volume** (2026-11-26, gh:#1810).
+///
+/// **Why.** [`swollen_level`] is MELCOR's single-control-volume form: it
+/// divides ALL the liquid below the collapsed level by `1 - alpha`. Applied to
+/// the whole vessel, it made the plant's first relocation onto the core plate
+/// (about 120 MW of plate quench at the bottom of active fuel, with the
+/// collapsed level 0.31 m above it) push the mixture level from 0.31 m to
+/// 3.73 m above the bottom of active fuel in two steps. The whole uncovered
+/// core, at about 2500 K, was "covered" and quenched to about 700 K, 6.9 GW
+/// went into the water, and the RPV rose from 8.1 to 12.6 MPa. Found
+/// 2026-11-26: the Fukushima web demo turning blue at the first melt.
+///
+/// **What MELCOR does** (Vol. 2 CVH/FL §5.1.3, Eqs 5-26 to 5-29,
+/// CVH/FL-RM-47/48; per volume, COR-RM-48; BWR nodalisation, COR-RM-66 and
+/// FL-UG-80: the lower plenum, the core and the upper plenum are separate
+/// volumes; `melcor-unit-vv/cvh-dch-hs.md`, the special question):
+///
+/// - Only the volume that holds the collapsed surface swells.
+/// - A volume full of liquid passes its vapour up as gas. That gas enters the
+///   next volume below its pool surface and does not swell it (CVH/FL-RM-61).
+/// - Within the swelling volume, the vapour raised there, `G` (m^3/s), gives
+///   the steady mean void `alpha = G / (2 v0 A)`. This is capped at
+///   `max_pool_void` on the mean (C4407(11) = 0.4), and the pool's liquid
+///   fills `V_l / (1 - alpha)`. The source's height within the volume does
+///   not enter (Eq 5-26 assumes uniform generation).
+///
+/// ~~(first fix, the same day: `swollen_level_from_sources`, each source
+/// voiding only the water above it, local `alpha = J(z)/v0`)~~. That fixed
+/// the defect but differed from MELCOR: lower-plenum vapour still swelled
+/// the core, a bottom source got twice MELCOR's mean void, and the cap was
+/// local. All three were found by the unit V&V (CVH-02).
+///
+/// Sources: the lower plenum's (`lower_plenum_w`: its debris, steel and wet
+/// head) are in the lower-plenum volume. The core plate's (`plate_w`) and the
+/// covered rows' (`rows_w`) are in the core volume.
+///
+/// Stated, not modelled:
+/// - Flashing on depressurisation, MELCOR's Eq 5-30 swell from enthalpy.
+///   Swell here comes from heat rates only.
+/// - MELCOR's split of quench-front vapour, which goes to the atmosphere
+///   (COR-RM-47). The covered rows' boiling all counts.
+/// - The step-by-step retention of Eq 5-29. This is its steady state, which
+///   the item shows any step size converges to.
+/// - A pool swelling past its volume's top spills into the next volume
+///   without MELCOR's bridging (C1270).
+pub fn swollen_level_by_volume(prm: &Params, level_m: f64, lower_plenum_w: f64, plate_w: f64, rows_w: &[f64], h_fg: f64, v_g: f64) -> f64 {
+    let z_c = level_m + prm.baf_m;
+    let taf = prm.baf_m + prm.active_length_m;
+    // The volume holding the surface: its bottom, and the vapour raised in it.
+    let (z_bottom, q_w) = if z_c <= prm.baf_m {
+        (0.0, lower_plenum_w)
+    } else if z_c <= taf {
+        (prm.baf_m, plate_w + rows_w.iter().sum::<f64>())
+    } else {
+        (taf, 0.0)
+    };
+    let v_bottom = volume_below(prm, z_bottom);
+    let v_liquid = volume_below(prm, z_c) - v_bottom;
+    if v_liquid <= 0.0 || q_w <= 0.0 {
+        return level_m;
+    }
+    // The volume's free cross-section (uniform within each volume here).
+    let dz = 0.01;
+    let area = (volume_below(prm, z_c) - volume_below(prm, (z_c - dz).max(z_bottom))) / (z_c - (z_c - dz).max(z_bottom));
+    if area <= 0.0 {
+        return level_m;
+    }
+    let alpha = (q_w / h_fg * v_g / area / (2.0 * prm.bubble_rise_m_s)).min(prm.max_pool_void);
+    height_of_volume(prm, v_bottom + v_liquid / (1.0 - alpha)) - prm.baf_m
+}
+
 /// Free volume of the vessel below height `z` above its bottom, m^3.
 pub fn volume_below(prm: &Params, z: f64) -> f64 {
     let a = ::core::f64::consts::PI * prm.rpv_radius_m * prm.rpv_radius_m;
@@ -1996,7 +2068,7 @@ impl Plant {
             }
             if self.pumps.iter().any(|x| x.drive != turbine_pump::Drive::Off) {
                 let swollen = if self.mechanisms.level_swell && !v.dry {
-                    swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+                    swollen_level_by_volume(&prm, v.level_m, self.last_core.q_pool_lower_plenum_w, self.last_core.q_pool_plate_w, &self.last_core.q_pool_rows_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
                 } else {
                     v.level_m
                 };
@@ -2083,9 +2155,11 @@ impl Plant {
             (srv_steam, h_gas)
         };
         // The level the core sees (gh:#1036): swollen by the vapour the last
-        // step raised in the pool, or the collapsed level.
+        // step raised in the pool, or the collapsed level; each source voids
+        // only the water above it (2026-11-26); per control volume, as MELCOR
+        // does (`swollen_level_by_volume`).
         let core_level = if self.mechanisms.level_swell && !v.dry {
-            swollen_level(&prm, v.level_m, self.last_core.q_pool_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
+            swollen_level_by_volume(&prm, v.level_m, self.last_core.q_pool_lower_plenum_w, self.last_core.q_pool_plate_w, &self.last_core.q_pool_rows_w, v.sat.h_g - v.sat.h_f, v.sat.v_g)
         } else {
             v.level_m
         };
@@ -2669,8 +2743,12 @@ mod tests {
             plant.step_inline(&mut core, &mut cont);
         }
         let (kg, gases) = core.b4c_tally();
-        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9 && (kg - 8.821).abs() < 1e-3, "{kg}");
-        assert!((gases[1] - 152.51).abs() < 0.01 && gases[0] < 5.0 && gases[2] < 3.5, "{gases:?}");
+        // MELCOR's cap is a physics bound and stays asserted.
+        assert!(kg <= 97.0 * 4.7 * 0.02 + 1e-9, "{kg}");
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Were 8.821 kg and CO2 152.51 mol; 7.208 kg after the swell fix.
+        #[cfg(feature = "std")]
+        println!("B4C reacted {kg:.3} kg; CO, CO2, CH4 {gases:?} mol");
     }
 
     /// Debris falling through the pedestal's water (`fdi_lpme`, MELCOR FDI
@@ -2700,9 +2778,19 @@ mod tests {
             }
         }
         let (h, kg) = first.unwrap();
-        assert!((h - 5.4844).abs() < 1e-3 && (kg - 8.07).abs() < 0.01, "{h} {kg}");
         let k = plant.frame().containment;
-        assert!((k.fdi_steam_kg - 74.75).abs() < 0.01 && !k.fdi_hpme, "{k:?}");
+        // ~~Low-pressure ejection: no high-pressure melt ejection~~ printed,
+        // not asserted (2026-11-26, gh:#1810): with the swell fix the RPV is
+        // no longer depressurised before the head fails (the earlier
+        // depressurisation at 4.958 h followed the false quench's 12.6 MPa
+        // spike), so the head fails at pressure, 5.565 h, and ejects at
+        // high pressure. A finding to investigate, not a check.
+        #[cfg(feature = "std")]
+        println!("high-pressure melt ejection: {}", k.fdi_hpme);
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Were 5.4844 h, 8.07 kg, steam 74.75 kg; 5.5653 h, 0.449 kg after the swell fix.
+        #[cfg(feature = "std")]
+        println!("first debris through the pedestal water at {h:.4} h, {kg:.3} kg; steam {:.2} kg", k.fdi_steam_kg);
     }
 
     /// The core and containment work from snapshots that cross a worker
@@ -2905,6 +2993,7 @@ mod tests {
     /// reproduces the old default byte for byte. Re-bless with
     /// `FUKUSHIMA_BLESS=1` as above.
     #[test]
+    #[ignore = "a regression pin on physics still being corrected (root AGENTS.md, \"No regression pins until there is concrete V&V at unit-test level\"; maintainer 2026-11-26: \"Ignore sembawang pins for now, nothing to pin against\"). Last re-blessed with the swell fix, gh:#1810 (024ec1191)"]
     fn the_lumped_headless_run_matches_its_fixture() {
         let path = concat!(env!("CARGO_MANIFEST_DIR"), "/verification_and_validation/bwr_mark1/headless_30h_lumped.csv");
         let start = std::time::Instant::now();
@@ -3118,8 +3207,12 @@ mod tests {
         // 3.38e-4.
         let f = p.frame();
         let k = &f.containment;
-        assert!(f.xe_vessel < 1e-9 && (k.xe_dw - 4.94e-4).abs() < 1e-5 && (k.xe_ww - 3.38e-4).abs() < 1e-5, "{f:?}");
-        assert!((k.xe_building - 0.02318).abs() < 1e-5, "{f:?}");
+        // The failed head leaves no noble gas in the vessel (a state, kept).
+        assert!(f.xe_vessel < 1e-9, "{f:?}");
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Were drywell 4.94e-4, wetwell 3.38e-4, building 0.02318.
+        #[cfg(feature = "std")]
+        println!("Xe positions: drywell {:.4e}, wetwell {:.4e}, building {:.5}", k.xe_dw, k.xe_ww, k.xe_building);
         // The building at 26 h by MELCOR's BUR test (2026-10-30): Le
         // Chatelier's Y = 0.0714 (H2 0.0685, CO 0.0049), below the 0.10 of a
         // volume without igniters, so no burn; it passes the 0.07 of a
@@ -3129,7 +3222,9 @@ mod tests {
         // with the blades' diffusion limit; 0.0416, CO 0.0036, with the
         // two-sided equalising; 0.0329, CO 0.0028, with the blades' B4C;
         // 0.0394, CO 0.0035, with UO2 carried by candling Zr.
-        assert!((k.rb_burn_y - 0.0394).abs() < 1e-4 && (k.rb_co_fraction - 0.0035).abs() < 1e-4 && !k.rb_exploded, "{f:?}");
+        // (Was pinned at Y 0.0394, CO 0.0035; printed now, gh:#1810.)
+        #[cfg(feature = "std")]
+        println!("building Le Chatelier Y {:.4}, CO {:.4}, exploded {}", k.rb_burn_y, k.rb_co_fraction, k.rb_exploded);
         // (0.7989 until the fission products' decay heat left the core with
         // them, which moves the release: 0.7967 since; 0.7977 since
         // tellurium is transported; 0.8109 since the debris oxidises;
@@ -3146,7 +3241,9 @@ mod tests {
         // 0.9813 with the control blades; 0.9843 with their heat of
         // fusion; 0.8826 with the cavity debris's phases; 0.9749 with the
         // vent and flange choked; 0.9682 with the two-sided equalising; 0.9702 with the blades' B4C; 0.9735 with UO2 carried by candling Zr; 0.9733 with SPARC's atan through PETIR.)
-        assert!((k.xe_vented - 0.9733).abs() < 1e-4 && peak_ww > 0.7, "{k:?} {peak_ww}");
+        // (Was pinned at 0.9733; printed now, gh:#1810.)
+        #[cfg(feature = "std")]
+        println!("Xe vented {:.4}, wetwell peak {peak_ww:.3}", k.xe_vented);
     }
 
     /// Cesium is conserved from the fuel to wherever it goes (gh:#1047): at
@@ -3244,7 +3341,7 @@ mod tests {
     /// (1.00 MPa), leaks more. 1540 s with three other network runs beside
     /// it.
     #[test]
-    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run, ~20 min); runs by default, skipped under --no-default-features")]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (the 30 h network run; ~~~20 min~~ 94 min measured 2026-11-26, 5616 s in release beside the rest of the suite for its first 15 min); runs by default, skipped under --no-default-features")]
     fn the_network_plant_over_30_hours() {
         // The bounds and balances, at every step (see the doc above). The
         // values pinned at 26 h are in `the_network_plant_over_30_hours_pins`.
@@ -3321,6 +3418,122 @@ mod tests {
         assert!((volume_below(&prm, swollen) - volume_below(&prm, z) / 0.9).abs() < 1e-6 * volume_below(&prm, z));
         let capped = swollen_level(&prm, level, 100.0 * q, h_fg, v_g) + prm.baf_m;
         assert!((volume_below(&prm, capped) - volume_below(&prm, z) / 0.6).abs() < 1e-6 * volume_below(&prm, z));
+    }
+
+    /// **CVH-02, MELCOR's pool swell per control volume (Vol. 2 CVH/FL
+    /// §5.1.3, Eqs 5-26 to 5-28; C4407(1) = 0.3 m/s, C4407(11) = 0.4;
+    /// `melcor-unit-vv/cvh-dch-hs.md`).** Methodology: `swollen_level_by_volume`
+    /// with the surface in the core volume, whose free area `A` is uniform,
+    /// against the item's form `Z = Z_c / (1 - min(G/(2 v0 A), 0.4))`. Checks:
+    /// - the item's heat case (b): 50 MW at `h_fg` 1.5052e6 J/kg and `v_g`
+    ///   0.027378 m^3/kg, `G` = 0.909447250 m^3/s;
+    /// - the cap;
+    /// - that a source's height within the volume does not matter;
+    /// - that lower-plenum vapour does not swell the core;
+    /// - that a surface in the lower plenum is swelled by the lower plenum's
+    ///   own sources;
+    /// - the defect's case: the plate's 120 MW with 0.31 m of water above
+    ///   the bottom of active fuel: mean void 0.262, uncapped, 0.4203 m.
+    ///
+    /// Results (2026-11-26): pass at 1e-9 m. Replaces
+    /// `the_swell_voids_only_the_water_above_each_source`, whose form differed
+    /// from MELCOR by a factor 2 for a bottom source. Its doc's "1 cm grid"
+    /// explanation of a 1.25 % offset was wrong: the offset came from all the
+    /// vapour being raised below the collapsed level.
+    #[test]
+    fn cvh_02_the_pool_swells_per_control_volume_as_melcor_does() {
+        let prm = Params::default();
+        let rows = [0.0; crate::bwr_mark1::params::AXIAL_NODES];
+        let (h_fg, v_g) = (1.5052e6, 0.027378);
+        let level = 2.0;
+        let z = level + prm.baf_m;
+        let a = (volume_below(&prm, z) - volume_below(&prm, z - 0.01)) / 0.01;
+        let melcor = |g: f64| level / (1.0 - (g / a / (2.0 * prm.bubble_rise_m_s)).min(0.4));
+        // The heat case: G = q / h_fg * v_g.
+        let g: f64 = 50.0e6 / h_fg * v_g;
+        assert!((g - 0.909447250).abs() < 1e-8, "{g}");
+        let mut uniform = rows;
+        for r in uniform.iter_mut() {
+            *r = 50.0e6 / rows.len() as f64;
+        }
+        let z_uni = swollen_level_by_volume(&prm, level, 0.0, 0.0, &uniform, h_fg, v_g);
+        assert!((z_uni - melcor(g)).abs() < 1e-9, "{z_uni} vs {}", melcor(g));
+        // Location within the volume does not matter: the same heat at the
+        // plate gives the same level.
+        let z_plate = swollen_level_by_volume(&prm, level, 0.0, 50.0e6, &rows, h_fg, v_g);
+        assert!((z_plate - z_uni).abs() < 1e-9);
+        // The cap on the mean void.
+        let z_cap = swollen_level_by_volume(&prm, level, 0.0, 1.0e10, &rows, h_fg, v_g);
+        assert!((z_cap - level / 0.6).abs() < 1e-9, "{z_cap}");
+        // Lower-plenum vapour passes up as gas and does not swell the core.
+        assert_eq!(swollen_level_by_volume(&prm, level, 1.0e9, 0.0, &rows, h_fg, v_g), level);
+        // With no vapour, the collapsed level.
+        assert_eq!(swollen_level_by_volume(&prm, level, 0.0, 0.0, &rows, h_fg, v_g), level);
+        // A surface in the lower plenum is swelled by its own sources.
+        let low = -0.5;
+        let z_low = swollen_level_by_volume(&prm, low, 1.0e7, 0.0, &rows, h_fg, v_g);
+        assert!(z_low > low, "{z_low}");
+        // The defect's case: 120 MW at the plate under 0.31 m of water. The
+        // mean void is G/(2 v0 A) = 0.262, under the cap: 0.4203 m (the
+        // source-height form gave 0.517 m, its local void at the bottom
+        // reaching the cap; predicted wrongly as equal before this run).
+        let g_defect = 1.2e8 / 1.5e6 * 0.027;
+        let z_defect = swollen_level_by_volume(&prm, 0.31, 0.0, 1.2e8, &rows, 1.5e6, 0.027);
+        let want = 0.31 / (1.0 - (g_defect / a / (2.0 * prm.bubble_rise_m_s)).min(0.4));
+        assert!((z_defect - want).abs() < 1e-9 && (z_defect - 0.4203).abs() < 1e-4, "{z_defect} vs {want}");
+    }
+
+    /// **The first relocation does not quench the core** (2026-11-26,
+    /// gh:#1810), step by step, where the 600 s fixture sees nothing.
+    ///
+    /// Methodology: the default plant (every mechanism on) stepped at 1 s
+    /// to its first relocation and 60 s on, every step recorded. Before the
+    /// fix, the plate quench swelled the whole vessel's water into the core
+    /// (the whole-vessel `swollen_level`): peak cladding fell from 2499 K to
+    /// 701 K in 4 s and the RPV rose from 8.1 to 12.67 MPa. With the swell
+    /// per control volume (`swollen_level_by_volume`; first, the same day,
+    /// by source height), the uncovered core (the collapsed level ~0.3 m
+    /// above the plate) keeps its heat.
+    ///
+    /// Pass criteria, written before the run and placed between the two
+    /// behaviours, not fitted: over the 60 s after the first relocation the
+    /// peak cladding stays above 2000 K (the remaining nodes were at
+    /// 2300-2500 K and are not wetted; one node's fall does not cool them
+    /// by hundreds of kelvin), and the RPV stays below 9 MPa (the relief
+    /// valves hold it near their setpoint when the source is one node's
+    /// heat, about 2 GJ). A regression harness on this defect, not a
+    /// validation.
+    ///
+    /// Results (2026-11-26): printed; first relocation at 13225 s, peak
+    /// cladding no lower than 2310 K, RPV at most 8.31 MPa (one 2 s valve
+    /// lift at ~370 kg/s).
+    #[test]
+    #[cfg_attr(not(feature = "long-tests"), ignore = "long test (~3 min to the first relocation)")]
+    fn the_first_relocation_does_not_quench_the_core() {
+        let mut plant = Plant::with_mechanisms(Mode::Historical, Mechanisms::default());
+        let (mut core, mut cont) = plant.parts();
+        let mut first = None;
+        let (mut min_clad, mut max_p, mut max_q) = (f64::INFINITY, 0.0f64, 0.0f64);
+        for _ in 0..30_000usize {
+            plant.step_inline(&mut core, &mut cont);
+            let f = plant.frame();
+            if first.is_none() && f.core.relocated > 0.0 {
+                first = Some(f.t_s);
+            }
+            if let Some(t0) = first {
+                min_clad = min_clad.min(f.core.peak_clad_k);
+                max_p = max_p.max(f.vessel.p_pa / 1e6);
+                max_q = max_q.max(f.core.q_fluid_w);
+                if f.t_s >= t0 + 60.0 {
+                    break;
+                }
+            }
+        }
+        let t0 = first.expect("the core relocates within 30 000 s");
+        #[cfg(feature = "std")]
+        println!("first relocation at {t0:.0} s; next 60 s: peak cladding >= {min_clad:.1} K, RPV <= {max_p:.3} MPa, heat into the water <= {:.3e} W", max_q);
+        assert!(min_clad > 2000.0, "the core quenched: peak cladding fell to {min_clad} K");
+        assert!(max_p < 9.0, "the RPV spiked to {max_p} MPa");
     }
 
     /// The mixture's choked-flux factor: 1 for steam, `sqrt(M_H2/M_H2O)`

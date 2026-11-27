@@ -50,6 +50,7 @@
 //!
 //! The MGXS of Step 8 are keyed by the same region ids (see [`super::mgxs`]).
 
+use petir::mathf::RealMath;
 use serde::{Deserialize, Serialize};
 
 /// Which of the three GeN-Foam meshes.
@@ -509,6 +510,84 @@ impl RegionMap {
         }
     }
 
+    /// IAEA-TECDOC-1382 Fig. 4.10 zone of the cold-gas plenum under the top
+    /// reflector (`z_T` 95-105 cm, `r` 0-90 cm; 84 % void by its carbon
+    /// density, 0.014535 against solid graphite's 0.0882418 atoms/b-cm,
+    /// `nee_soon::htr10_rmc::reflector`).
+    pub const COLD_PLENUM_ZONE: usize = 3;
+
+    /// Fig. 4.10 zones of the hot-gas plenum below the bottom reflector
+    /// (`z_T` 465-495 cm, `r` 41.75-90 cm; 39 % and 62 % void by carbon
+    /// density). They sit where IAEA-TECDOC-1694 Tab. 2.3 places the hot
+    /// plenum (`r` 25-90 cm, 30 cm high, 295-325 cm below the full-core bed
+    /// top, i.e. `z_T` 467-497 with Fig. 4.10's full-core top at 171.698).
+    /// Fig. 4.10's `r` 25-41.75 cm column there is zone 12, solid-density
+    /// graphite, so it stays solid.
+    pub const HOT_PLENUM_ZONES: [usize; 2] = [14, 15];
+
+    /// The three-class preset for one conjugate mesh of the whole reactor
+    /// (maintainer request, 2026-11-26): **solid graphite** everywhere except
+    /// a **porous** pebble bed and two **fluid** plenums.
+    ///
+    /// - `porous_bed` ([`RegionClass::PebbleBed`]): the pebble bed above
+    ///   the conus.
+    /// - `fluid_upper_plenum` ([`RegionClass::Fluid`]): the cavity above
+    ///   the bed plus the cold-gas plenum, zone [`Self::COLD_PLENUM_ZONE`].
+    /// - `fluid_lower_plenum` ([`RegionClass::Fluid`]): the hot-gas plenum,
+    ///   zones [`Self::HOT_PLENUM_ZONES`].
+    /// - `solid_graphite` ([`RegionClass::Solid`]): everything else. That
+    ///   includes the conus and the discharge tube (dummy-ball columns,
+    ///   placed with the graphite by the maintainer's choice), and the
+    ///   homogenised channel bands (control rods, KLAK, coolant risers),
+    ///   whose voids this mesh does not resolve.
+    ///
+    /// **Idealisations, stated:** the plenum zones are homogenised in
+    /// Fig. 4.10 and still hold graphite (16 % of zone 3, 61 % and 38 % of
+    /// zones 14 and 15 by carbon density); here they are taken as all gas.
+    #[must_use]
+    pub fn three_class_cht(d: &RzDomain) -> Self {
+        let regions = vec![
+            rg("porous_bed", "Pebble bed (porous)", RegionClass::PebbleBed, true),
+            rg(
+                "fluid_upper_plenum",
+                "Upper plenum: cavity above the bed + cold-gas plenum (fluid)",
+                RegionClass::Fluid,
+                true,
+            ),
+            rg(
+                "fluid_lower_plenum",
+                "Lower plenum: hot-gas plenum (fluid)",
+                RegionClass::Fluid,
+                false,
+            ),
+            rg("solid_graphite", "Graphite and carbon brick (solid)", RegionClass::Solid, false),
+        ];
+        let box_region = d
+            .boxes
+            .iter()
+            .map(|b| {
+                if b.zone == Self::COLD_PLENUM_ZONE {
+                    1
+                } else if Self::HOT_PLENUM_ZONES.contains(&b.zone) {
+                    2
+                } else {
+                    3
+                }
+            })
+            .collect();
+        Self {
+            mode: RegionMode::Advanced,
+            regions,
+            box_region,
+            conus: 3,
+            conus_graphite: 3,
+            tube: 3,
+            cavity: 1,
+            bed_split: [1, 1],
+            bed_first: 0,
+        }
+    }
+
     /// Split the bed into `radial x axial` equal-height, equal-radius
     /// sub-regions (Advanced). `[1, 1]` restores one bed region. Region
     /// indices after the bed are renumbered.
@@ -629,6 +708,107 @@ impl RegionMap {
         self.regions.push(rg(id, label, class, false));
         self.mode = RegionMode::Advanced;
         self.regions.len() - 1
+    }
+}
+
+/// The R-Z map cut into rectangles of one region each: the tensor grid of
+/// every `r` and `z` at which a part or a box begins or ends, each cell
+/// given the region at its centre. The exact interfaces between regions
+/// are then edges of this grid. This is what the body-fitted mesh
+/// (dhoby-ghaut `--headless-cht-mesh`, gh:#1800 follow-up) revolves.
+#[derive(Debug, Clone, PartialEq)]
+pub struct RzTiling {
+    /// Radii of the grid lines \[cm\], ascending, from 0 to `r_outer`.
+    pub r: Vec<f64>,
+    /// Heights of the grid lines \[cm\], ascending, bottom to top.
+    pub z: Vec<f64>,
+    /// Region of cell `(i, j)` (between `r[i]..r[i+1]`, `z[j]..z[j+1]`), at
+    /// `region[j * (r.len() - 1) + i]`.
+    pub region: Vec<usize>,
+}
+
+impl RzTiling {
+    /// Number of cells across (`r`).
+    #[must_use]
+    pub fn nr(&self) -> usize {
+        self.r.len() - 1
+    }
+    /// Number of cells up (`z`).
+    #[must_use]
+    pub fn nz(&self) -> usize {
+        self.z.len() - 1
+    }
+    /// Region of cell `(i, j)`.
+    #[must_use]
+    pub fn at(&self, i: usize, j: usize) -> usize {
+        self.region[j * self.nr() + i]
+    }
+    /// Volume of every region \[cm³\]: exact for the body of revolution
+    /// (`n_seg = None`), or for the polygonal body with `n_seg` facets the
+    /// mesh's surface is (`n/2 sin(2 pi/n)` in place of `pi`).
+    #[must_use]
+    pub fn volumes(&self, n_regions: usize, n_seg: Option<usize>) -> Vec<f64> {
+        let k = match n_seg {
+            None => std::f64::consts::PI,
+            Some(n) => 0.5 * n as f64 * (2.0 * std::f64::consts::PI / n as f64).r_sin(),
+        };
+        let mut v = vec![0.0; n_regions];
+        for j in 0..self.nz() {
+            for i in 0..self.nr() {
+                v[self.at(i, j)] += k * (self.r[i + 1].r_powi(2) - self.r[i].r_powi(2)) * (self.z[j + 1] - self.z[j]);
+            }
+        }
+        v
+    }
+}
+
+impl RegionMap {
+    /// Cut the R-Z map into [`RzTiling`] rectangles.
+    ///
+    /// # Errors
+    /// When a rectangle does not hold one region throughout: a corner probe
+    /// (inset by `1e-4` of the cell) differs from the centre, or finds no
+    /// part. That happens where a region boundary is not a grid line (the
+    /// conus slope, when the conus and the graphite beside it are in
+    /// different regions) or where the boxes leave a gap.
+    pub fn rz_tiling(&self, d: &RzDomain) -> Result<RzTiling, String> {
+        let mut r = vec![0.0, d.r_outer, d.core_radius, d.tube_radius];
+        let mut z = vec![d.z_bottom, d.z_top, d.conus_floor, d.conus_top, d.bed_top, d.cavity_top];
+        for b in &d.boxes {
+            r.extend(b.r);
+            z.extend(b.z);
+        }
+        let clean = |v: &mut Vec<f64>, lo: f64, hi: f64| {
+            v.retain(|x| (lo..=hi).contains(x));
+            v.sort_by(f64::total_cmp);
+            v.dedup_by(|a, b| (*a - *b).abs() < 1e-9 * (hi - lo));
+        };
+        clean(&mut r, 0.0, d.r_outer);
+        clean(&mut z, d.z_bottom, d.z_top);
+        let (nr, nz) = (r.len() - 1, z.len() - 1);
+        let mut region = Vec::with_capacity(nr * nz);
+        for j in 0..nz {
+            for i in 0..nr {
+                let (rc, zc) = (0.5 * (r[i] + r[i + 1]), 0.5 * (z[j] + z[j + 1]));
+                let g = self
+                    .region_at(d, rc, zc)
+                    .ok_or_else(|| format!("no part at r = {rc:.3}, z = {zc:.3} cm"))?;
+                let (er, ez) = (1e-4 * (r[i + 1] - r[i]), 1e-4 * (z[j + 1] - z[j]));
+                for (pr, pz) in [(r[i] + er, z[j] + ez), (r[i + 1] - er, z[j] + ez), (r[i] + er, z[j + 1] - ez), (r[i + 1] - er, z[j + 1] - ez)] {
+                    if self.region_at(d, pr, pz) != Some(g) {
+                        return Err(format!(
+                            "the rectangle r {:.3}-{:.3}, z {:.3}-{:.3} cm holds more than one region (a boundary that is not a grid line)",
+                            r[i],
+                            r[i + 1],
+                            z[j],
+                            z[j + 1]
+                        ));
+                    }
+                }
+                region.push(g);
+            }
+        }
+        Ok(RzTiling { r, z, region })
     }
 }
 
@@ -945,6 +1125,75 @@ pub(crate) mod tests {
         assert_eq!(d.part_at(10.0, -200.0), Some(RzPart::DischargeTube));
         assert_eq!(d.part_at(85.0, -125.0), Some(RzPart::ConusGraphite));
         assert_eq!(d.part_at(20.0, -125.0), Some(RzPart::Conus));
+    }
+
+    /// The three-class preset puts each part where `three_class_cht` says:
+    /// bed porous, cavity and cold plenum fluid (upper), hot plenum fluid
+    /// (lower), everything else, conus and tube included, solid.
+    #[test]
+    fn three_class_cht_classifies_every_part() {
+        // Inserted first: `part_at` takes the first box holding the point,
+        // and the fixture's zone 1 and 8 boxes cover the same ground.
+        let mut d = htr10_like();
+        d.boxes.insert(0, RzBox {
+            zone: RegionMap::COLD_PLENUM_ZONE,
+            r: [0.0, 90.0],
+            z: [140.0, 150.0],
+        });
+        d.boxes.insert(0, RzBox {
+            zone: 14,
+            r: [41.75, 70.75],
+            z: [-300.0, -270.0],
+        });
+        d.boxes.insert(0, RzBox {
+            zone: 15,
+            r: [70.75, 90.0],
+            z: [-300.0, -270.0],
+        });
+        let m = RegionMap::three_class_cht(&d);
+        let id = |r: f64, z: f64| m.region_at(&d, r, z).map(|g| m.regions[g].id.as_str());
+        assert_eq!(id(10.0, -50.0), Some("porous_bed"));
+        assert_eq!(id(10.0, 50.0), Some("fluid_upper_plenum"));
+        assert_eq!(id(50.0, 145.0), Some("fluid_upper_plenum"));
+        assert_eq!(id(60.0, -285.0), Some("fluid_lower_plenum"));
+        assert_eq!(id(80.0, -285.0), Some("fluid_lower_plenum"));
+        assert_eq!(id(150.0, 0.0), Some("solid_graphite"));
+        assert_eq!(id(20.0, -125.0), Some("solid_graphite"));
+        assert_eq!(id(10.0, -200.0), Some("solid_graphite"));
+        assert_eq!(id(85.0, -125.0), Some("solid_graphite"));
+        assert_eq!(m.regions.len(), 4);
+        let classes: Vec<RegionClass> = m.regions.iter().map(|r| r.class).collect();
+        assert_eq!(
+            classes,
+            [RegionClass::PebbleBed, RegionClass::Fluid, RegionClass::Fluid, RegionClass::Solid]
+        );
+    }
+
+    /// The three-class map tiles into rectangles of one region each, and
+    /// the tiles' volumes add to the cylinder's (exact and faceted).
+    #[test]
+    fn three_class_cht_tiles_into_one_region_rectangles() {
+        let d = htr10_like();
+        let m = RegionMap::three_class_cht(&d);
+        let t = m.rz_tiling(&d).expect("tiling");
+        assert_eq!(t.region.len(), t.nr() * t.nz());
+        let cyl = std::f64::consts::PI * d.r_outer.powi(2) * (d.z_top - d.z_bottom);
+        let v: f64 = t.volumes(4, None).iter().sum();
+        assert!((v - cyl).abs() < 1e-9 * cyl);
+        let n = 32.0;
+        let vf: f64 = t.volumes(4, Some(32)).iter().sum();
+        let want = 0.5 * n * (2.0 * std::f64::consts::PI / n).sin() * d.r_outer.powi(2) * (d.z_top - d.z_bottom);
+        assert!((vf - want).abs() < 1e-9 * want);
+        // Every tile agrees with the map at its centre.
+        for j in 0..t.nz() {
+            for i in 0..t.nr() {
+                let (r, z) = (0.5 * (t.r[i] + t.r[i + 1]), 0.5 * (t.z[j] + t.z[j + 1]));
+                assert_eq!(m.region_at(&d, r, z), Some(t.at(i, j)));
+            }
+        }
+        // The Basic map's conus and conus graphite are different regions:
+        // the slope is not a grid line, so it is refused.
+        assert!(RegionMap::basic(&d).rz_tiling(&d).is_err());
     }
 
     /// Splitting the bed renumbers the regions after it consistently, and

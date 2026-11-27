@@ -557,9 +557,9 @@ as an architecture map, on the [Code Review map](../../code-review/): unfold its
 > **On the [Code Review map](../../code-review/):** start at [`main`](../../code-review/#crates/outram-mc-libs/examples/ugraphite_four_factor.rs::main). Each card opens the function's source and shows its review stamp.
 
 In the demo, the browser's worker reaches the same transport through
-[`ugraphite::sim::Chain::run_next`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/ugraphite/sim.rs#@@L:crates/dhoby-ghaut/examples/monte_carlo_web/ugraphite/sim.rs:fn=run_next@@)
+[`ugraphite::sim::Chain::run_next`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/src/mc_demo/ugraphite/sim.rs#@@L:crates/dhoby-ghaut/src/mc_demo/ugraphite/sim.rs:fn=run_next@@)
 (`run_fixed_source_traced`, one neutron per call), called from
-[`Loaded::serve`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs#@@L:crates/dhoby-ghaut/examples/monte_carlo_web/engine.rs:fn=serve@@)
+[`Loaded::serve`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/crates/dhoby-ghaut/src/mc_demo/engine.rs#@@L:crates/dhoby-ghaut/src/mc_demo/engine.rs:fn=serve@@)
 when the page asks for the next neutron *(filled by hand: page and worker
 talk by messages, not calls)*.
 

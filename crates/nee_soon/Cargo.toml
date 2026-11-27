@@ -1,6 +1,6 @@
 [package]
 name = "nee_soon"
-version = "0.0.6"
+version = "0.0.7"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -50,6 +50,7 @@ std = [
     "outram-foam-basic-lib/std",
     "outram-blender/std",
     "tampines/std",
+    "outram-park-fork-liggghts/std",
 ]
 # Tests over five minutes, or that need the reference nuclear data, are
 # gated behind this feature, on by default
@@ -58,7 +59,7 @@ long-tests = []
 # The DEM pour's diagnostics and drawings for pebble-bed k_eff simulators
 # (gh:#1655): `dem_pour`. GUI and std only, so the no_std core and the
 # Android build are unaffected (gh:#1640).
-dem_ui = ["std", "dep:egui", "dep:bugis", "dep:outram-park-fork-liggghts", "dep:wasm-bindgen"]
+dem_ui = ["std", "dep:egui", "dep:bugis", "dep:wasm-bindgen"]
 
 [dependencies]
 # Every transcendental routes through PETIR for cross-platform bit identity
@@ -98,7 +99,11 @@ serde                 = { workspace = true, optional = true }
 serde_json            = { workspace = true, optional = true }
 egui                  = { workspace = true, optional = true }
 bugis                 = { workspace = true, optional = true, features = ["web_demo"] }
-outram-park-fork-liggghts = { workspace = true, optional = true, features = ["std"] }
+# The LIGGGHTS port: the pour model's pebble and core radii
+# (`mc_rungs::htr10_core`, gh:#1742) and the pour engine (`dem_pour`).
+# no_std (in scripts/check-nostd.sh) and already in this tree through
+# outram-mc-libs; `std` forwarded from this crate's `std`.
+outram-park-fork-liggghts = { workspace = true }
 
 # The pour engine's Web Worker messages (`dem_pour::engine`, gh:#1655):
 # `bugis::web_demo::link::Message` speaks `JsValue` on wasm32 only.
@@ -106,6 +111,9 @@ outram-park-fork-liggghts = { workspace = true, optional = true, features = ["st
 wasm-bindgen = { workspace = true, optional = true }
 
 [dev-dependencies]
+# The EBR-II k-infinity example's parallel arms (moved from outram-mc-libs,
+# gh:#1737). Pure Rust; the example is `std` only.
+rayon = { workspace = true }
 # Steam states of the helical-coil SG test in `htr10_th_transient` (moved
 # from tampines, gh:#1151). Pure Rust; Android- and wasm-clean.
 tampines-steam-tables = { workspace = true, features = ["std"] }
@@ -273,4 +281,21 @@ required-features = ["std"]
 # Needs nuclear data files or file output: `std` only (gh:#1640).
 [[example]]
 name = "htr10_mat_xs"
+required-features = ["std"]
+
+# Moved from outram-mc-libs 2026-11-25 (gh:#1737): files, threads, output.
+[[example]]
+name = "msre_n1_first_criticality"
+required-features = ["std"]
+
+[[example]]
+name = "msre_n1_parameter_images"
+required-features = ["std"]
+
+[[example]]
+name = "ebr2_core_images"
+required-features = ["std"]
+
+[[example]]
+name = "ebr2_fresh_driver_kinf"
 required-features = ["std"]

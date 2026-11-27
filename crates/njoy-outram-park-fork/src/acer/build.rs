@@ -560,8 +560,11 @@ impl AceTable {
         // section displace MT=2's 742925.0000000001, and the elastic read one
         // ulp below its own point (Ni-61: 3.900002e-8 against 3.9e-8, gh:#1449).
         let total_sec = result.sections.iter().find(|s| i32::from(s.mt) == 1);
-        if let Some(t) = total_sec {
-            egrid.extend(t.pairs.iter().map(|&(x, _)| x));
+        let egrid = if let Some(t) = total_sec {
+            // MT=1's own repeated energies drive `unionx`'s `edl`/`edh` pair
+            // (gh:#873).
+            let mt1: Vec<f64> = t.pairs.iter().map(|&(x, _)| x).collect();
+            unionx_grid(&mt1, gamma_disc)
         } else {
             if let Some(e) = elastic {
                 egrid.extend(e.pairs.iter().map(|&(x, _)| x));
@@ -569,11 +572,13 @@ impl AceTable {
             for sec in &partials {
                 egrid.extend(sec.pairs.iter().map(|&(x, _)| x));
             }
-        }
-        egrid.retain(|&x| x > 0.0);
-        egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
-        egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
-        let egrid = unionx_discontinuities(&egrid, gamma_disc);
+            egrid.retain(|&x| x > 0.0);
+            egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
+            egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+            // A union of several sections' energies: a repeat there is not a
+            // discontinuity in MT=1, so no `edl`/`edh` pair.
+            unionx_discontinuities(&egrid, gamma_disc, &[])
+        };
         let nes = egrid.len();
 
         // ── ESZ block: energy, total, disappearance, elastic, heating ───────
@@ -1715,26 +1720,58 @@ fn yield_nr(interp: &[(u32, u32)]) -> usize {
 /// because the discontinuity pair straddles it; gh:#1481).
 pub(crate) fn esz_grid(result: &crate::reconr::ReconrResult, gamma_disc: &[f64]) -> Option<Vec<f64>> {
     let total = result.sections.iter().find(|s| i32::from(s.mt) == 1)?;
-    let mut egrid: Vec<f64> = total.pairs.iter().map(|&(x, _)| x).collect();
-    egrid.retain(|&x| x > 0.0);
-    egrid.sort_by(|a, b| a.partial_cmp(b).unwrap());
-    egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
-    Some(unionx_discontinuities(&egrid, gamma_disc))
+    let mt1: Vec<f64> = total.pairs.iter().map(|&(x, _)| x).collect();
+    Some(unionx_grid(&mt1, gamma_disc))
 }
 
-/// `unionx`'s treatment of the photon-production discontinuities on the
-/// energy grid (`acefc.f90:1180-1250`, `iskp = 0`, no thinning). For each
+/// `unionx`'s incident-neutron energy grid [eV] (`acefc.f90:1180-1250`,
+/// `iskp = 0`, no thinning) from the PENDF's MT=1 energies `mt1` [eV], in the
+/// order they are tabulated, and `convr`'s photon-production discontinuities
+/// `gamma_disc` [eV] (`photon_blocks::gamma_discontinuities`).
+///
+/// The energies are sorted, and those within 1e-10 relative are kept once
+/// (`gety1` reads a repeated energy once). An energy MT=1 tabulates **twice**
+/// is a discontinuity in MT=1 itself: `gety1` returns `idis = 1` just below it
+/// (`endf.f90:2131`), and when the walk meets it right after a photon pair's
+/// `egh`, `unionx` replaces it by `edl = sigfig(e,7,-1)` and
+/// `edh = sigfig(e,7,+1)` (gh:#873); see `unionx_discontinuities`.
+///
+/// No PENDF an NJOY2016 module writes has a repeated MT=1 energy (none of the
+/// 43 MT=1 sections in its tests' reference PENDFs has one, checked
+/// 2026-11-24), and this crate's incident-neutron ACER takes only a PENDF its
+/// own RECONR/BROADR wrote, so on every deck it runs the pair never fires.
+/// Gate: `tests/acer_unionx_edl_edh_vs_njoy2016.rs`, on NJOY2016 test 07's
+/// PENDF edited to carry one.
+pub fn unionx_grid(mt1: &[f64], gamma_disc: &[f64]) -> Vec<f64> {
+    let mut raw: Vec<f64> = mt1.iter().copied().filter(|&x| x > 0.0).collect();
+    raw.sort_by(|a, b| a.partial_cmp(b).unwrap());
+    let repeated: Vec<f64> = raw.windows(2).filter(|w| w[0] == w[1]).map(|w| w[0]).collect();
+    let mut egrid = raw;
+    egrid.dedup_by(|a, b| (*a - *b).abs() <= 1e-10 * b.abs().max(1.0));
+    unionx_discontinuities(&egrid, gamma_disc, &repeated)
+}
+
+/// `unionx`'s treatment of the discontinuities on the energy grid
+/// (`acefc.f90:1180-1250`, `iskp = 0`, no thinning). For each photon-production
 /// discontinuity `d` (ascending), `egl = sigfig(d, 7, -1)` replaces the first
 /// grid energy at or above it, and the walk then jumps to
 /// `egh = sigfig(d, 7, +1)`, dropping any grid energy in between. The values
 /// at those energies are interpolated like any other grid point.
 ///
-/// `unionx`'s second pair (`edl`/`edh`, for a discontinuity in MT=1 itself
-/// met at `egh`) is not reproduced: this grid has no repeated energies.
-fn unionx_discontinuities(grid: &[f64], disc: &[f64]) -> Vec<f64> {
+/// ~~`unionx`'s second pair (`edl`/`edh`, for a discontinuity in MT=1 itself
+/// met at `egh`) is not reproduced: this grid has no repeated energies.~~
+/// **CORRECTED 2026-11-24 (gh:#873):** the second pair is reproduced. When the
+/// grid energy that follows `egh` (or a previous `edh`) is one MT=1 tabulates
+/// twice (`repeated`, `gety1`'s `idis`), `unionx` writes
+/// `edl = sigfig(e, 7, -1)` and `edh = sigfig(e, 7, +1)` in its place
+/// (`:1225-1243`). A repeated energy met anywhere else is read once, as the
+/// sorted, de-duplicated `grid` already holds it. `repeated` is empty for a
+/// grid that is not MT=1's own.
+fn unionx_discontinuities(grid: &[f64], disc: &[f64], repeated: &[f64]) -> Vec<f64> {
     const EPS: f64 = 1.0e-10;
     const ETOP: f64 = 1.0e10;
     if disc.is_empty() || grid.is_empty() {
+        // `edl`/`edh` are set only from `egh`'s branch: nothing more to do.
         return grid.to_vec();
     }
     let pair = |i: usize| -> (f64, f64) {
@@ -1742,6 +1779,7 @@ fn unionx_discontinuities(grid: &[f64], disc: &[f64]) -> Vec<f64> {
     };
     let mut iedis = 0usize;
     let (mut egl, mut egh) = pair(iedis);
+    let (mut edl, mut edh) = (0.0f64, 0.0f64);
     let mut out = Vec::with_capacity(grid.len() + 2 * disc.len());
     let mut k = 0usize; // first grid index > e
     let mut enext = grid[0];
@@ -1750,12 +1788,30 @@ fn unionx_discontinuities(grid: &[f64], disc: &[f64]) -> Vec<f64> {
         while k < grid.len() && grid[k] <= e {
             k += 1;
         }
+        // `gety1`'s `xnext`, and its `idis`: the point after `xnext` repeats
+        // it (`endf.f90:2131`; the last point returns `idis = 0`).
+        let idis = k < grid.len() && repeated.contains(&grid[k]);
         enext = if k < grid.len() { grid[k] } else { ETOP * 100.0 };
         if (e - egl).abs() < EPS * egl {
             enext = egh;
         } else if (e - egh).abs() < EPS * egh {
             iedis += 1;
             (egl, egh) = pair(iedis);
+            if idis {
+                edl = sigfig_dir(enext, -1);
+                edh = sigfig_dir(enext, 1);
+                enext = edl;
+            }
+        } else if (e - edl).abs() < EPS * edl {
+            enext = edh;
+        } else if (e - edh).abs() < EPS * edh {
+            edl = 0.0;
+            edh = 0.0;
+            if idis {
+                edl = sigfig_dir(enext, -1);
+                edh = sigfig_dir(enext, 1);
+                enext = edl;
+            }
         } else if enext >= (1.0 - EPS) * egl {
             enext = egl;
         }

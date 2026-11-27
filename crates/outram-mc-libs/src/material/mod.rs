@@ -21,6 +21,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 pub mod cell_temperature;
+pub mod log_grid;
 pub mod material;
 pub mod material_sab;
 pub mod nuclide;

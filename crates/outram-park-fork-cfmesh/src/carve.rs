@@ -522,7 +522,7 @@ fn in_grid(
 
 /// Point-in-closed-surface test by ray parity: cast a ray from `p` along a fixed
 /// generic direction and count triangle crossings; odd ⇒ inside.
-fn inside(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> bool {
+pub(crate) fn inside(p: Vec3, points: &[Vec3], tris: &[[usize; 3]]) -> bool {
     let dir = Vec3::new(0.131_537, 0.755_605, 0.642_020);
     let mut crossings = 0usize;
     for t in tris {

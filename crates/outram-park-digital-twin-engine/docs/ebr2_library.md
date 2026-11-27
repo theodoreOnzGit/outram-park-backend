@@ -336,6 +336,73 @@ about 760 K (487 C); a fuel node that crosses 833 K sees the step in its heat
 capacity. Whether the SHRT runs cross it was not checked in this change. Not
 changed here; a maintainer question.
 
+## 7. The web-demo layer: `session` and `web` (gh:#1741, 2026-11-24)
+
+`ebr2::session` drives `Ebr2Model` in plain numbers for the `ebr2_web`
+museum demo, and `ebr2::web` is its engine (worker, native ticker), after
+`msre::{session, web}`. **No physics is added**: every number is a getter of
+the model. Tests (`session::tests`, `web::tests`) are harness checks, not
+V&V:
+
+- **Determinism.** `headless_csv` gives byte-identical output on two runs of
+  each test (900 s, every 10 s), and every row stays inside loose bounds:
+  sodium nodes in 400-1000 K, power positive, flow at most 110 % of the
+  model's initial flow, the feedback terms summing to the total.
+- **The headless trace agrees with section 4** (2026-11-24, SHRT-45R, dz 2 m,
+  sampled every 60 s): P/F 2.81 at 60 s and total power 5.50 MW at 300 s,
+  against the record's peak 3.00 at 74.5 s and 5.50 MW at 300 s.
+- **Finding: there is no pump or loop inertia, so an override release is a
+  step.** Releasing a pump-speed hold returns the speed at once to the
+  table's value at that time. Released at 60 s at full power, the speed
+  falls from 792 rpm to the table's ~53 rpm in one step (SHRT-45R, Table
+  3.2.4.1.1, between 48.5 and 64.5 s), the flow falls with it at once, and
+  within the next second a sodium node passes 1000 K (measured 1003.3 K,
+  then refused). The same happens for a hold at
+  0 rpm from t = 0. The session's guard holds the plant at its last good
+  state and says so; the model itself has no coast-down from an arbitrary
+  speed (`design::pump_inertia_and_torques` exists for a caller who wants one).
+- **+1000 pcm (1.4 beta-eff) with the pumps held at 792 rpm does not leave
+  the property range within 200 s**: the feedback limits it. Not further
+  characterised.
+
+## 8. The coefficient setter and the twin template (gh:#1749, 2026-11-25)
+
+**Methodology.** `Ebr2Model::set_reactivity_coefficients` switches a running
+point-kinetics plant to a new `ReactivityCoefficients` set, rebuilding the
+feedback with every reference at the **initial steady state** (the
+temperatures and sodium density it was built from, now kept as
+`initial_temperatures`). `Session::set_reactivity_coefficients` wraps it.
+`model_tests::the_coefficient_setter_keeps_the_initial_references` checks it
+on SHRT-45R after 60 s of coast-down:
+
+- setting the same Argonne VARIANT set leaves the next 20 s bit-identical;
+- doubling every coefficient doubles each feedback term at the same state,
+  to 1e-12 relative;
+- tabulated power (SHRT-17) refuses a new set.
+
+**Results (2026-11-25).** All three pass. The terms after 80 s, at the
+end-of-step state, Argonne VARIANT → doubled:
+
+| Term | VARIANT (pcm) | Doubled (pcm) |
+|---|---|---|
+| Doppler | −2.9726 | −5.9452 |
+| Axial fuel expansion | −32.6023 | −65.2047 |
+| Sodium density | −153.5589 | −307.1177 |
+| Radial expansion | −3.9479 | −7.8958 |
+
+That test
+also observed that the reactivity `reactivity()` reports after a step is the
+feedback at the last sub-step's *start* temperatures (Numerics, step 2): it
+differed from the end-of-step evaluation by 6.4e-4 relative in Doppler. This
+is the documented scheme, not a defect.
+
+`ebr2::twin::Ebr2Twin` puts the session on the multifidelity twin template
+(gh:#1743). Its plant trace is pinned bit for bit against a bare `Session`
+on SHRT-45R (with a +5 pcm step at 100 s) and on SHRT-17, over 300 s. Its
+control volumes are the four nodes with the model's sodium masses. The
+Monte Carlo page is not built (gh:#1313), and the plant runs on the cited
+Argonne VARIANT set.
+
 ## What is not done, and what would improve it
 
 - **Validation.** The measured traces are plots only, and the acceptance

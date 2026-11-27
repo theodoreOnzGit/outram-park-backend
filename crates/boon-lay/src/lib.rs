@@ -170,6 +170,12 @@ pub mod triso_atops_fork;
 /// inputs. See the module docs.
 pub mod triso_atops_extensions;
 
+/// **A port of STRATO** (Wee Zhern Ray, `weewzr`,
+/// <https://github.com/weewzr/STRATO>, commit `36f1a98`, AGPL-3.0-only): the
+/// exact Sturm-Liouville release series for a layered TRISO sphere. See the
+/// module docs for provenance and the numbered local changes.
+pub mod strato;
+
 /// **boon-lay fuel failure** — TRISO coated-particle failure fractions. This
 /// is boon-lay's own model: a Rust implementation of the *formulas* published
 /// in the PANAMA-I report (Verfondern & Nabielek, Jülich HTA-IB-03/90, 1990),

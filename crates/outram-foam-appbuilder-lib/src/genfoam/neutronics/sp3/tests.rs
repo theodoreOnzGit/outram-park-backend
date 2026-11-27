@@ -383,3 +383,27 @@ fn scaffold_reports_not_implemented() {
         )
     ));
 }
+
+/// gh:#1814: the SP3 arm of the eigenvalue -> transient chain on the infinite medium.
+#[test]
+fn workflow_chain_runs_for_sp3() {
+    use crate::genfoam::neutronics::pseudo_time::PseudoTimeControls;
+    use crate::genfoam::workflow::{EigenvalueStage, TransientStart};
+    use uom::si::f64::Time;
+    use uom::si::time::second;
+    let gc = medium();
+    let xs = one_group_xs(&gc);
+    let mesh = slab_mesh(4);
+    let bc = vec![BoundaryCondition::ZeroGradient, BoundaryCondition::ZeroGradient];
+    let zone_of_cell = vec![0usize; mesh.n_cells];
+    let model =
+        Sp3Neutronics::with_cross_sections(mesh, &xs, &zone_of_cell, &[], &bc, Sp3Settings::default()).expect("SP3 model");
+    let controls = PseudoTimeControls::guided(1.0, 200.0, 10.0, 10.0, 0.5, 5.0e5);
+    let normalised = EigenvalueStage::Sp3 { model, controls }.run().expect("eigenvalue stage");
+    let reactor = normalised.reactor_state();
+    assert!(((reactor.k_eff - gc.k_inf()) / gc.k_inf()).abs() < 1e-4, "{} vs {}", reactor.k_eff, gc.k_inf());
+    let mut run = normalised.start_transient(TransientStart::Plain).expect("transient");
+    let p0 = run.power();
+    run.step_fixed(Time::new::<second>(1.0e-3)).expect("step");
+    assert!(((run.power() - p0) / p0).abs() < 1e-4);
+}

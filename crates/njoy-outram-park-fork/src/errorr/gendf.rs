@@ -96,6 +96,9 @@ fn six(line: &str) -> Result<[f64; 6], NjoyError> {
 /// # Errors
 /// [`NjoyError::EndfParse`] on an unparsable field or a LIST cut short.
 pub fn parse_gendf_text(text: &str) -> Result<GendfTape, NjoyError> {
+    // Every card after the label is read by `contio`/`listio` with
+    // `(6e11.0,i4,i2,i3,i5)`: a corrupt one stops NJOY2016 (gh:#660).
+    crate::endf::parse::check_gendf_text(text, None)?;
     let lines: Vec<&str> = text.lines().collect();
     let Some(first) = lines.first() else {
         return Ok(GendfTape::default());

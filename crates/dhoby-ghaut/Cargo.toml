@@ -1,6 +1,6 @@
 [package]
 name = "dhoby-ghaut"
-version = "0.0.3"
+version = "0.0.4"
 authors.workspace = true
 edition.workspace = true
 # AGPL-3.0-only, NOT `license.workspace = true` (GPL-3.0-only): relicensed
@@ -72,6 +72,11 @@ workbench = [
 ]
 # The browser Monte Carlo pipeline (gh:#1572): `dhoby_ghaut::mc_web`.
 mc_web = ["dep:outram-mc-libs", "dep:njoy-outram-park-fork", "dep:miniz_oxide", "dep:log", "dep:uom"]
+# The Monte Carlo demo as a library (gh:#1763): `dhoby_ghaut::mc_demo`, the
+# whole `monte_carlo_web` app, engine and rungs, so another simulator
+# (`htgr_sim_v1`'s MC page) can draw the HTR-10 core in its own window.
+# Native and wasm32; off Android with the rest of the windowing stack.
+mc_demo = ["mc_web", "dep:eframe", "dep:nee_soon", "nee_soon/dem_ui", "dep:outram-park-fork-liggghts"]
 
 [dependencies]
 
@@ -85,7 +90,7 @@ mc_web = ["dep:outram-mc-libs", "dep:njoy-outram-park-fork", "dep:miniz_oxide", 
 # Gated off wasm32: kovan carries gix, directories and the kopitiam crates,
 # none of which belong in the browser demos that build this library for wasm.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.5", default-features = false, optional = true }
+kovan = { package = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan", path = "../kovan", version = "0.0.6", default-features = false, optional = true }
 # The recipe schema (`src/workbench/recipe.rs`): serde for the settings
 # tables, toml to read/write them, uom for the quantities that leave it.
 serde = { workspace = true, optional = true }
@@ -164,6 +169,12 @@ outram-foam-basic-lib = { workspace = true, features = ["std"], optional = true 
 kopitiam-pdf = { version = "0.4.3", default-features = false, features = ["egui"], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# `mc_demo` in the browser (gh:#1763): the app's eframe, the HTR-10 core's
+# nee_soon models and the DEM pour's LIGGGHTS port. Natively the same three
+# come from the not-wasm32 table above (the `workbench` stack).
+eframe = { workspace = true, optional = true }
+nee_soon = { workspace = true, optional = true, features = ["std"] }
+outram-park-fork-liggghts = { workspace = true, optional = true, features = ["std"] }
 # ~~`web_demo::data_cache` (gh:#818)~~ (moved to bugis 2026-11-02, gh:#1112;
 # the examples still use sha2 and the crates below directly): SHA-256 of tapes (the cache key) and of
 # cached products (corruption check). Pure Rust; natively it comes from the
@@ -189,7 +200,7 @@ web-sys = { workspace = true, features = [
 [target.'cfg(not(target_os = "android"))'.dev-dependencies]
 # The examples call this crate's own `mc_web` library module (gh:#1572):
 # a dev-dependency on itself switches the feature on for them alone.
-dhoby-ghaut = { path = ".", features = ["mc_web"] }
+dhoby-ghaut = { path = ".", features = ["mc_web", "mc_demo"] }
 eframe = { workspace = true }
 egui = { workspace = true }
 # The TRISO pebble demo, which ALSO builds for wasm32: continuous-energy

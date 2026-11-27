@@ -1,0 +1,106 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      thermophysicalProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+thermoType
+{
+    type            heRhoThermo;
+    mixture         pureMixture;
+    transport       polynomial;
+    thermo          hPolynomial;
+    equationOfState icoPolynomial; //perfectGas;
+    specie          specie;
+    energy          sensibleEnthalpy;
+}
+
+pRef            1.53179873E+07;
+
+mixture
+{
+    specie
+    {
+        molWeight 18.01528;
+    }
+    equationOfState
+    {
+        //- Derived from water data AT SATURATION in the 0.01-350 Celsius range
+        //  from NIST:
+        //  https://www.nist.gov/system/files/documents/srd/NISTIR5078-Tab1.pdf
+        rhoCoeffs<8> 
+        (
+            -9823.473824
+            159.1244819
+            -0.96299613
+            0.003082338
+            -5.51126E-06
+            5.2112E-09
+            -2.03751E-12
+            0
+        );
+    }
+    thermodynamics
+    {
+        //- Derived from water data AT SATURATION in the 200-350 Celsius range
+        //  from NIST:
+        //  https://www.nist.gov/system/files/documents/srd/NISTIR5078-Tab1.pdf
+        CpCoeffs<8>            
+        (
+            915031.949
+            -13672.00444
+            84.26588482
+            -0.2730703
+            0.000490941
+            -4.6459E-07
+            1.8096E-10
+            0
+        );
+        Hf                      0;
+        Sf                      0;
+        Tref                   273.15;
+    }
+    transport
+    {
+        //- Derived from water data AT SATURATION in the 200-350 Celsius range
+        //  From Nuclear Systems I: Thermal Hydraulic Fundamentals (No, Kazimi)
+        muCoeffs<8>             
+        (
+            0.338184654
+            -0.004397905
+            2.37271E-05
+            -6.78251E-08
+            1.08237E-10
+            -9.13871E-14
+            3.18885E-17
+            0
+
+        );
+        //- Derived from water data AT SATURATION in the 0.01-350 Celsius range
+        //  From Nuclear Systems I: Thermal Hydraulic Fundamentals (No, Kazimi)
+        kappaCoeffs<8>          
+        (
+            -6.05586427
+            0.085914514
+            -0.00048225
+            1.49495E-06
+            -2.64241E-09
+            2.49169E-12
+            -9.77117E-16
+            0
+        );
+    }
+}
+
+// ************************************************************************* //

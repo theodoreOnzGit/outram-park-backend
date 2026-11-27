@@ -41,8 +41,9 @@ pub enum ResonanceFormalism {
     /// LRF=3: Reich-Moore.
     ReichMoore,
     /// LRF=4: Adler-Adler. Parsed and reconstructed via `crate::reconr::aa`
-    /// (zero-temperature only, matching this crate's SLBW/Reich-Moore
-    /// reconstruction — Doppler broadening is BROADR's job).
+    /// ~~(zero-temperature only, matching this crate's SLBW/Reich-Moore
+    /// reconstruction — Doppler broadening is BROADR's job)~~ at 0 K and at
+    /// `tempr > 0` (**CORRECTED 2026-11-24**, GitHub #1323).
     AdlerAdler,
     /// LRF=7: R-Matrix Limited. **Parsed** via
     /// `crate::samm::mf2::parse_rml_section` (Reich-Moore-limited, `KRM=3`/
@@ -123,6 +124,19 @@ pub struct LState {
     pub l: u32,
     /// All resonances in this l-state, in file order.
     pub resonances: Vec<SlbwResonance>,
+    /// `LRX` (L2 of the l-state LIST): non-zero when a competitive width
+    /// `GT - GN - GG - GF` is given. `rdf2bw`/`csslbw`/`csmlbw` then add a
+    /// fifth channel (MT=51) and its width to every resonance's total width
+    /// (`reconr.f90:964-1016, 2808, 2839, 2852`). ~~Not ported:
+    /// [`crate::reconr::reconr`] refuses `LRX != 0` (GitHub #666).~~
+    /// **CORRECTED 2026-11-24 (GitHub #1731):** ported, in
+    /// `crate::reconr::csbw`.
+    pub lrx: i32,
+    /// `QX` (C2 of the l-state LIST): the Q-value \[eV\] of the competitive
+    /// reaction, which sets the energy `E + QX/arat` its penetrability is
+    /// taken at (`rdf2bw`, `reconr.f90:963, 1007-1012`). Read only when
+    /// `LRX != 0`.
+    pub qx: f64,
 }
 
 // ── Reich-Moore (LRF=3) resonance types ───────────────────────────────────────
@@ -195,6 +209,10 @@ pub struct AaResonance {
 pub struct AaLState {
     pub l: u32,
     pub resonances: Vec<AaResonance>,
+    /// How many of `resonances` belong to the l-state's **first** J group.
+    /// `rdf2aa` adds grid nodes from those alone, and only in the first
+    /// l-state (`if (n.eq.1.and.l.eq.1)`, `reconr.f90:1084`).
+    pub first_j_len: usize,
 }
 
 /// Adler-Adler background polynomial coefficients for one reaction type:
@@ -626,9 +644,13 @@ fn parse_adler_adler(
         let njs = lc.n1 as usize;
 
         let mut resonances = Vec::new();
-        for _ in 0..njs {
+        let mut first_j_len = 0;
+        for jn in 0..njs {
             let lst = cur.read_list()?;
             let nlj = lst.head.n2 as usize;
+            if jn == 0 {
+                first_j_len = nlj;
+            }
             for i in 0..nlj {
                 let base = i * 12;
                 resonances.push(AaResonance {
@@ -647,7 +669,7 @@ fn parse_adler_adler(
                 });
             }
         }
-        l_states.push(AaLState { l, resonances });
+        l_states.push(AaLState { l, resonances, first_j_len });
     }
 
     Ok(EnergyRange {
@@ -742,6 +764,8 @@ fn parse_slbw_mlbw(
         let lst = cur.read_list()?;
         let awri = lst.head.c1;
         let l = lst.head.l1 as u32;
+        let lrx = lst.head.l2;
+        let qx = lst.head.c2;
         let nrs = lst.head.n2 as usize;
 
         let mut resonances = Vec::with_capacity(nrs);
@@ -761,6 +785,8 @@ fn parse_slbw_mlbw(
             awri,
             l,
             resonances,
+            lrx,
+            qx,
         });
     }
 

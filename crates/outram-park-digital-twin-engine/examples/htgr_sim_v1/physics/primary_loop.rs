@@ -1,7 +1,10 @@
 //! Helium primary loop, around a **pebble-bed** core.
 //!
 //! Models the primary circuit of a helium-cooled, graphite-moderated
-//! **pebble-bed** HTGR at HTR-10 scale as a single lumped coolant node. Cold
+//! **pebble-bed** HTGR at HTR-10 scale as ~~a single lumped coolant node~~
+//! **CORRECTED 2026-11-23 (gh:#1718)** five helium control volumes and the
+//! steam generator's 8 shell cells (see "Nodalisation" below; checked
+//! against `super::control_volumes::control_volume_map`). Cold
 //! helium is delivered to the top of the core, flows **downward** through the
 //! pebble bed picking up the heat the graphite hands it, leaves through the hot
 //! gas duct to the steam generator, and returns to the core inlet -- closing
@@ -21,9 +24,11 @@
 //! reflector**, reverses at the top of the core, passes **down** through the
 //! pebble bed into a hot gas plenum in the bottom reflector, and leaves through
 //! the hot gas duct to the steam generator, which sits in a **separate
-//! pressure vessel** alongside the reactor. The model is a single node, so it
+//! pressure vessel** alongside the reactor. ~~The model is a single node, so it
 //! carries the *direction* and the *end states* of that path, not its spatial
-//! detail.
+//! detail.~~ **CORRECTED 2026-11-23 (gh:#1718)**: the model carries that path
+//! as the CVs of the nodalisation table below, each well mixed, so it holds
+//! the path's order and one state per CV, not the spatial detail inside one.
 //!
 //! ## Nodalisation -- read this first
 //!
@@ -80,9 +85,13 @@
 //! missing from **this** module is the buoyancy-driven helium loop that runs
 //! alongside it, so the passive path here is conduction/radiation only and
 //! core temperatures under a loss of forced cooling are an upper bound. There
-//! is no
+//! ~~is no
 //! separate reflector-channel leg, so the published cold-helium-rises-in-the-
-//! side-reflector path is documented but not resolved.
+//! side-reflector path is documented but not resolved.~~ **CORRECTED
+//! 2026-11-23 (gh:#1718)**: the riser channels have no helium node of their
+//! own (their helium is in the RPV-annuli CV), but since 2026-09-29 they are a
+//! reflector -> riser-helium heat leg (gh:#397, the table's last row); the
+//! path's flow is resolved only as the RPV-annuli CV's state.
 //!
 //! **The refinement path**: split the bed helium axially into the same stack of
 //! control volumes as [`super::pebble_bed`], marching downward and exchanging
@@ -1000,6 +1009,43 @@ impl HeliumPrimaryLoop {
         self.secondary_isolated = isolated;
     }
 
+    /// Helium mass flow through the steam generator's **shell side**: the
+    /// loop flow, or zero while the secondary is isolated, when
+    /// [`Self::advance_steam_generator`] hands the hot-duct helium straight
+    /// to the cold duct.
+    pub fn steam_generator_shell_flow(&self) -> MassRate {
+        if self.secondary_isolated {
+            MassRate::new::<kilogram_per_second>(0.0)
+        } else {
+            self.lumped.mass_flow
+        }
+    }
+
+    /// Helium mass flow that **bypasses** a valved-out steam generator, hot
+    /// duct straight to cold duct: the loop flow while the secondary is
+    /// isolated, otherwise zero. The complement of
+    /// [`Self::steam_generator_shell_flow`].
+    pub fn steam_generator_bypass_flow(&self) -> MassRate {
+        self.lumped.mass_flow - self.steam_generator_shell_flow()
+    }
+
+    /// Water/steam mass flow through the steam generator's **tube side** for
+    /// a secondary loop flow `secondary_mass_flow`: what
+    /// [`Self::advance_steam_generator`] passes the exchanger (the flow held
+    /// up to [`MIN_SECONDARY_FLOW_THROUGH_SG_KG_PER_S`]), or zero while the
+    /// secondary is isolated and the exchanger is not advanced.
+    pub fn steam_generator_tube_flow(&self, secondary_mass_flow: MassRate) -> MassRate {
+        if self.secondary_isolated {
+            MassRate::new::<kilogram_per_second>(0.0)
+        } else {
+            MassRate::new::<kilogram_per_second>(
+                secondary_mass_flow
+                    .get::<kilogram_per_second>()
+                    .max(MIN_SECONDARY_FLOW_THROUGH_SG_KG_PER_S),
+            )
+        }
+    }
+
     /// Construct the loop at the published HTR-10 operating point:
     /// `nominal_flow` helium mass flow, the cold-duct and RPV-annuli CVs
     /// (the latter is the core inlet) seeded at 250 degC and the hot-duct CV and core outlet at 700 degC.
@@ -1239,11 +1285,8 @@ impl HeliumPrimaryLoop {
                 self.lumped.hot_duct.enthalpy(),
                 self.lumped.mass_flow,
                 feedwater_enthalpy,
-                MassRate::new::<kilogram_per_second>(
-                    secondary_mass_flow
-                        .get::<kilogram_per_second>()
-                        .max(MIN_SECONDARY_FLOW_THROUGH_SG_KG_PER_S),
-                ),
+                // The same floor the control-volume map reports (gh:#1718).
+                self.steam_generator_tube_flow(secondary_mass_flow),
             )
             .expect("the steam generator must advance");
         self.lumped.ihx_duty = sg.hot_side_duty;

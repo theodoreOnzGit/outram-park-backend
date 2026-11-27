@@ -226,6 +226,19 @@ pub(crate) fn legacy_xs_details() -> bool {
     on
 }
 
+use crate::material::log_grid::{eval_section_located, UnionGrid};
+
+/// [`eval_section_x`] at a position found once by [`UnionGrid::locate`]
+/// (`j`): the same double, without the per-reaction search where the section
+/// allows it (gh:#1295, [`crate::material::log_grid`]). `SpeedTier::Fast`
+/// only; `Standard` keeps the search as the oracle.
+fn eval_loc(recon: &ReconrResult, grid: &UnionGrid, idx: Option<usize>, e: f64, j: Option<usize>) -> f64 {
+    match idx {
+        Some(i) => eval_section_located(recon, grid, i, e, j, eval_section_x),
+        None => 0.0,
+    }
+}
+
 /// `recon.eval_section(idx, e)` with OpenMC's extrapolation outside the
 /// nuclide's energy grid (GitHub #463 item 6; see [`legacy_xs_details`]).
 ///
@@ -321,6 +334,11 @@ enum XsSource {
         /// indexed ([`SpeedTier::Fast`]) path. Built from `recon` at
         /// construction.
         index: SectionIndex,
+        /// `recon`'s union energy grid with OpenMC's logarithmic index
+        /// (gh:#1295): the [`SpeedTier::Fast`] lookup finds the energy once per
+        /// nuclide and reads every suffix section at that position. Built from
+        /// `recon` at construction; `Standard` does not use it.
+        grid: UnionGrid,
         /// The inelastic scattering channels (MT=51…91) extracted from `recon`,
         /// precomputed once so [`Nuclide::sample_inelastic`] and the inelastic σ
         /// sum stay cheap. Empty ⇒ no resolved inelastic (falls back to elastic).
@@ -1219,6 +1237,7 @@ impl Nuclide {
     fn nu_fission_openmc(
         &self,
         recon: &ReconrResult,
+        loc: Option<(&UnionGrid, Option<usize>)>,
         section: Option<usize>,
         e: f64,
         fission: f64,
@@ -1235,7 +1254,12 @@ impl Nuclide {
         if n < 2 || e <= p[0].0 || e >= p[n - 1].0 {
             return exact;
         }
-        let hi = p.partition_point(|&(x, _)| x <= e);
+        // `SpeedTier::Fast` (gh:#1295): the same index from the union-grid
+        // position when the section is a suffix of the grid; else searched.
+        let hi = match loc.and_then(|(g, j)| Some((j?, g.offset(i)?))) {
+            Some((j, o)) if j > o => j - o,
+            _ => p.partition_point(|&(x, _)| x <= e),
+        };
         let ((e0, s0), (e1, s1)) = (p[hi - 1], p[hi]);
         if (e1 - e0).abs() < 1e-30 {
             return exact;
@@ -1480,9 +1504,17 @@ impl Nuclide {
     /// `njoy-outram-park-fork/tests/purr_u238_ptables_vs_njoy.rs` reproduces
     /// NJOY's converged Bondarenko moments to **4.2e-7 (elastic)** and
     /// **3.0e-7 (capture)**, the reference file's own 7-significant-figure
-    /// write precision. The per-bin tables are statistically equivalent rather
+    /// write precision. ~~The per-bin tables are statistically equivalent rather
     /// than bit-identical, because PURR's RNG stream is not reproduced
-    /// draw-for-draw; that file states the consequence in full.
+    /// draw-for-draw; that file states the consequence in full.~~
+    /// **CORRECTED 2026-11-24 (gh:#647)** — superseded since 2026-09-26:
+    /// `rann` and its seed are ported, so the bands are NJOY's own samples.
+    /// `UrrProbabilityTables::from_endf` (the call below) at 20/64/10 000 gives
+    /// NJOY2016's bands in every word on U-234, U-235 and U-238
+    /// (`njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs`,
+    /// `purr_generates_njoys_bands_word_for_word`), and the U-238 deck's
+    /// MT=152/153 are NJOY2016's word for word
+    /// (`purr_u238_ptables_vs_njoy.rs`, corrected there 2026-11-14).
     pub fn with_urr_probability_tables(
         mut self,
         tape: &njoy_outram_park_fork::endf::tape::Tape,
@@ -2640,6 +2672,7 @@ impl Nuclide {
             chi,
             xs: XsSource::Pointwise {
                 index: SectionIndex::new(&recon),
+                grid: UnionGrid::new(&recon),
                 recon,
                 inel,
                 elastic_angular,
@@ -3058,9 +3091,14 @@ impl Nuclide {
             .unwrap_or_default();
 
         // 3. BROADR to the material temperature (in place of the 0 K grid),
-        //    bounded at upstream's `thnmax` (top of the resolved region) so
-        //    SIGMA1 never runs across the resolved/unresolved seam or over the
-        //    energy-averaged data above it (njoy `op-sdbk`).
+        //    bounded at upstream's `thnmax` ~~(top of the resolved region)~~
+        //    **CORRECTED 2026-11-24 (gh:#622):** the top of the resolved region
+        //    only for LRP=1 with a resolved range; the bottom of the URR for an
+        //    unresolved-only material; for LRP=0, min(6.5 MeV, EMAX,
+        //    0.99999 x the first unbroadened threshold) (njoy
+        //    `broadr::joint::broadr_joint_pairs`). So SIGMA1 never runs across
+        //    the resolved/unresolved seam or over the energy-averaged data
+        //    above it (njoy `op-sdbk`).
         let recon = broaden_result_with_tolerance(recon0, temp_k, broadr_errthn);
         crate::material::processed::ProcessedEvaluation { recon, elastic_0k, urr, temp_k }
     }
@@ -3215,6 +3253,7 @@ impl Nuclide {
             chi,
             xs: XsSource::Pointwise {
                 index: SectionIndex::new(&recon),
+                grid: UnionGrid::new(&recon),
                 recon,
                 inel,
                 elastic_angular,
@@ -3389,11 +3428,17 @@ impl Nuclide {
 
     /// Σ of the "other" neutron-emitting channels at `e` \[eV\] on the
     /// pointwise tier (0 when ablated).
-    fn other_xs(&self, recon: &ReconrResult, e: f64) -> f64 {
+    ///
+    /// `loc` is the `SpeedTier::Fast` union-grid position (gh:#1295); `None`
+    /// searches each channel, as `Standard` does. Same value either way.
+    fn other_xs(&self, recon: &ReconrResult, loc: Option<(&UnionGrid, Option<usize>)>, e: f64) -> f64 {
         if self.other_channels_ablated {
             return 0.0;
         }
-        self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).sum()
+        match loc {
+            Some((grid, j)) => self.other_channels.iter().map(|c| eval_loc(recon, grid, Some(c.section), e, j)).sum(),
+            None => self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).sum(),
+        }
     }
 
     /// Sample a collision on the **other neutron-emitting reactions** at `e`
@@ -3420,10 +3465,17 @@ impl Nuclide {
         u: crate::geometry::position::Direction,
         seed: &mut u64,
     ) -> OtherEmission {
-        let XsSource::Pointwise { recon, .. } = &self.xs else {
+        let XsSource::Pointwise { recon, grid, .. } = &self.xs else {
             return OtherEmission { e, u, extras: [(e, u); 3], n_emit: 1, mt: 0 };
         };
-        let xs: Vec<f64> = self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).collect();
+        // `SpeedTier::Fast`: one union-grid position for every channel
+        // (gh:#1295); `Standard` searches each. Same values.
+        let xs: Vec<f64> = if self.speed.indexed_lookup() {
+            let j = grid.locate(e);
+            self.other_channels.iter().map(|c| eval_loc(recon, grid, Some(c.section), e, j)).collect()
+        } else {
+            self.other_channels.iter().map(|c| eval_section_x(recon, c.section, e)).collect()
+        };
         let total: f64 = xs.iter().sum();
         let target = prn(seed) * total;
         let mut acc = 0.0;
@@ -3743,10 +3795,11 @@ impl Nuclide {
                 // Item 11: `total + thermal - elastic`, two section lookups
                 // where the channel rebuild needed ~46.
                 let (total, elastic) = match &self.xs {
-                    XsSource::Pointwise { recon, index, .. }
+                    XsSource::Pointwise { recon, index, grid, .. }
                         if self.speed.indexed_lookup() && self.multipole_at(e).is_none() =>
                     {
-                        (eval_at(recon, index.mt1, e), eval_at(recon, index.mt2, e))
+                        let j = grid.locate(e);
+                        (eval_loc(recon, grid, index.mt1, e, j), eval_loc(recon, grid, index.mt2, e, j))
                     }
                     _ => {
                         let b = self.base_xs_at_energy(e, temp_k);
@@ -3760,8 +3813,8 @@ impl Nuclide {
             return w.evaluate(e, temp_k).total();
         }
         match &self.xs {
-            XsSource::Pointwise { recon, index, .. } if self.speed.indexed_lookup() => {
-                eval_at(recon, index.mt1, e)
+            XsSource::Pointwise { recon, index, grid, .. } if self.speed.indexed_lookup() => {
+                eval_loc(recon, grid, index.mt1, e, grid.locate(e))
             }
             XsSource::Pointwise { recon, .. } => eval_mt_x(recon, MtReaction::Mt1Total, e),
             // The LOW tier already carries a tabulated total; its `MicroXS`
@@ -3861,29 +3914,31 @@ impl Nuclide {
                 }
             }
             XsSource::Pointwise {
-                recon, inel, index, ..
+                recon, inel, index, grid, ..
             } if self.speed.indexed_lookup() => {
                 // SpeedTier::Fast: the Standard arm below, term for term, with
                 // each section found by its precomputed position instead of a
-                // search. Same values, same summation order.
-                let total = eval_at(recon, index.mt1, e);
-                let elastic = eval_at(recon, index.mt2, e);
-                let fission = eval_at(recon, index.mt18, e);
-                let inelastic: f64 = inel.iter().map(|l| eval_section_x(recon, l.section, e)).sum();
-                let n2n = eval_at(recon, index.mt16, e);
-                let n3n = eval_at(recon, index.mt17, e);
-                let mt5 = eval_at(recon, index.mt5, e);
+                // search, and the energy found ONCE on the union grid for all
+                // of them (gh:#1295). Same values, same summation order.
+                let j = grid.locate(e);
+                let total = eval_loc(recon, grid, index.mt1, e, j);
+                let elastic = eval_loc(recon, grid, index.mt2, e, j);
+                let fission = eval_loc(recon, grid, index.mt18, e, j);
+                let inelastic: f64 = inel.iter().map(|l| eval_loc(recon, grid, Some(l.section), e, j)).sum();
+                let n2n = eval_loc(recon, grid, index.mt16, e, j);
+                let n3n = eval_loc(recon, grid, index.mt17, e, j);
+                let mt5 = eval_loc(recon, grid, index.mt5, e, j);
                 MicroXS {
                     total,
                     elastic,
                     fission,
-                    absorption: absorption_mt27_indexed(recon, index, fission, e),
+                    absorption: absorption_mt27_indexed(recon, index, grid, j, fission, e),
                     inelastic,
                     n2n,
                     n3n,
                     mt5,
-                    other: self.other_xs(recon, e),
-                    nu_fission: self.nu_fission_openmc(recon, index.mt18, e, fission),
+                    other: self.other_xs(recon, Some((grid, j)), e),
+                    nu_fission: self.nu_fission_openmc(recon, Some((grid, j)), index.mt18, e, fission),
                 }
             }
             XsSource::Pointwise { recon, inel, .. } => {
@@ -3911,8 +3966,8 @@ impl Nuclide {
                     n2n,
                     n3n,
                     mt5,
-                    other: self.other_xs(recon, e),
-                    nu_fission: self.nu_fission_openmc(recon, recon.section_index(MtReaction::Mt18Fission), e, fission),
+                    other: self.other_xs(recon, None, e),
+                    nu_fission: self.nu_fission_openmc(recon, None, recon.section_index(MtReaction::Mt18Fission), e, fission),
                 }
             }
         }
@@ -3940,15 +3995,17 @@ impl Nuclide {
     /// chose the group (`prob < cutoff` continues; the first `prob >= cutoff`
     /// wins). `None` draws `prn * total` (legacy).
     pub fn sample_inelastic_at(&self, e: f64, cutoff: Option<f64>, seed: &mut u64) -> Inelastic {
-        let XsSource::Pointwise { recon, inel, .. } = &self.xs else {
+        let XsSource::Pointwise { recon, inel, grid, .. } = &self.xs else {
             return Inelastic::Continuum { q: 0.0 };
         };
-        // `SpeedTier::Fast` evaluates each level by its stored position rather
-        // than searching for it; the value is the same either way.
+        // `SpeedTier::Fast` evaluates each level by its stored position, at
+        // one union-grid position for all of them (gh:#1295), rather than
+        // searching for it; the value is the same either way.
         let indexed = self.speed.indexed_lookup();
+        let j = if indexed { grid.locate(e) } else { None };
         let level_xs = |l: &InelasticLevel| {
             if indexed {
-                eval_section_x(recon, l.section, e)
+                eval_loc(recon, grid, Some(l.section), e, j)
             } else {
                 eval_mt_x(recon, l.mt, e)
             }
@@ -4650,14 +4707,62 @@ impl Nuclide {
     ///   grid (`ReconrSection::pairs`, the energy of each `(E, σ)` pair) is
     ///   unioned — these are the real pointwise nodes σ(E) is tabulated on.
     ///
+    /// # Thinning: explicit, and off by default
+    /// - `thin_tol = None` (or `Some(0.0)`): sort, drop exactly equal
+    ///   energies, and keep every distinct node in `[e_min_ev, e_max_ev]`.
+    /// - `thin_tol = Some(tol)`: also drop a node `e` when
+    ///   `|e - last| <= tol * max(|last|, 1.0)`, `last` being the last node
+    ///   kept. The test is **absolute below 1 eV** (a spacing of `tol` eV) and
+    ///   **relative above it**.
+    ///
+    /// Thinning a unionized grid follows Leppänen (2009) and the Serpent
+    /// user's manual, §5.3; see [`thin_energy_nodes`] for the
+    /// references and what has not been checked against them.
+    ///
+    /// The node rule is [`thin_energy_nodes`]. Every caller in the workspace
+    /// passes `Some(1e-12)`, the rule the deleted `native_energy_grid` always
+    /// applied (maintainer, 2026-11-26: "for all codes, we can use thinning
+    /// of 1e-12, so nothing moves").
+    ///
+    /// **Thinning may discard a real breakpoint.** A dropped node is one at
+    /// which `Sigma_t` can bend or step, so a grid built with `Some(tol)` is
+    /// not covered by the pointwise upper-bound argument of
+    /// [`crate::pebble_beds::delta_tracking::Majorant::bounding`], which
+    /// needs every breakpoint as a node. `Majorant::from_materials` reaches
+    /// this grid at `Some(1e-12)` through [`Self::majorant_breakpoints`].
+    ///
     /// # Guarantees
-    /// The result is always finite, strictly ascending, and clamped to
-    /// `[e_min_ev, e_max_ev]`, with both endpoints included; it therefore has at
-    /// least 2 entries (never empty / single-point). Nodes closer than a tiny
-    /// relative epsilon (`1e-12`) are treated as duplicates and dropped, so the
-    /// grid is strictly increasing as required for binary-search interpolation
-    /// downstream. Pure — no RNG, no I/O.
-    pub fn native_energy_grid(&self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> {
+    /// The result is finite, strictly ascending (binary-search interpolation
+    /// downstream needs it), and clamped to `[e_min_ev, e_max_ev]`, with both
+    /// endpoints included in either mode (one node when they are equal).
+    /// Pure: no RNG, no I/O.
+    ///
+    /// # Errors
+    /// [`NjoyError::InvalidInput`] for a negative or non-finite `thin_tol`,
+    /// a non-finite endpoint, or `e_min_ev > e_max_ev`.
+    ///
+    /// # Reference
+    /// J. Leppänen (2009), "Two practical methods for unionized energy grid
+    /// construction in continuous-energy Monte Carlo neutron transport
+    /// calculation", *Annals of Nuclear Energy* 36(7), 878-885: the
+    /// unionized-grid construction this grid feeds. Not in the kovan corpus;
+    /// whether the `1e-12` thinning matches the paper's method is not checked
+    /// here. Added 2026-11-26 at the maintainer's request.
+    ///
+    /// # History
+    /// ~~`native_energy_grid(e_min_ev, e_max_ev) -> Vec<f64>`, thinning at a
+    /// fixed `1e-12`~~ **REMOVED 2026-11-26 (gh:#1827)** (maintainer: "just
+    /// delete it, yes i want the result in, it's nicer"). Its node collection
+    /// is this method's; it was reviewed at rung 3 (`fn:b11e6f88048217e3`,
+    /// 2026-11-26). One difference: it could drop `e_max_ev` when a node lay
+    /// within `1e-12` below it, despite documenting both endpoints as
+    /// included; this method keeps `e_max_ev` and drops that node instead.
+    pub fn native_energy_grid_with_thinning(
+        &self,
+        e_min_ev: f64,
+        e_max_ev: f64,
+        thin_tol: Option<f64>,
+    ) -> Result<Vec<f64>, NjoyError> {
         let mut nodes: Vec<f64> = Vec::new();
         match &self.xs {
             XsSource::Core { wmp, fast, .. } => {
@@ -4683,37 +4788,20 @@ impl Nuclide {
                 }
             }
         }
-
-        // Keep only finite nodes inside the requested band, then pin the endpoints
-        // so the grid always spans exactly [e_min_ev, e_max_ev].
-        nodes.retain(|&e| e.is_finite() && e >= e_min_ev && e <= e_max_ev);
-        nodes.push(e_min_ev);
-        nodes.push(e_max_ev);
-        nodes.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
-        // Deduplicate: drop any node within a tiny relative epsilon of the last
-        // kept node, so the grid is strictly increasing (binary search needs it).
-        const REL_EPS: f64 = 1.0e-12;
-        let mut grid: Vec<f64> = Vec::with_capacity(nodes.len());
-        for e in nodes {
-            match grid.last() {
-                Some(&last) if (e - last).abs() <= REL_EPS * last.abs().max(1.0) => {}
-                _ => grid.push(e),
-            }
-        }
-        grid
+        thin_energy_nodes(nodes, e_min_ev, e_max_ev, thin_tol)
     }
 
     /// Every energy \[eV\] in `[e_min_ev, e_max_ev]` at which
     /// [`Self::total_upper_bound`] changes form, unsorted and possibly with
-    /// duplicates: [`Self::native_energy_grid`] (the pointwise section grids,
+    /// duplicates: [`Self::native_energy_grid_with_thinning`] at `Some(1e-12)`
+    /// (the pointwise section grids,
     /// or the WMP window edges and group bounds), the WMP pole peak energies
     /// `Re(p)^2` on the LOW tier, the range ends, window edges and pole peaks
     /// of WMP attached to a pointwise nuclide (GitHub #948), plus the S(alpha,beta)
     /// [`ThermalScattering::breakpoints`] and the URR table energies and range
     /// ends.
     ///
-    /// Kept separate from `native_energy_grid` on purpose: that grid is
+    /// Kept separate from the native grid on purpose: that grid is
     /// compared node for node against NJOY's (`u238_recon_fingerprint`,
     /// `u238_resonance_integral`), and the thermal and URR nodes are not part
     /// of a reconstructed section.
@@ -4722,8 +4810,18 @@ impl Nuclide {
     /// put a node wherever `Sigma_t` can bend or step, which is what makes the
     /// majorant a bound by construction on the pointwise and thermal parts
     /// (GitHub #585).
+    ///
+    /// # Panics
+    /// On a non-finite or inverted band (`e_min_ev > e_max_ev`); see the
+    /// justification in the body.
     pub fn majorant_breakpoints(&self, e_min_ev: f64, e_max_ev: f64) -> Vec<f64> {
-        let mut v = self.native_energy_grid(e_min_ev, e_max_ev);
+        // Panic justified: the tolerance is a fixed valid constant, so this
+        // fails only on a non-finite or inverted band, for which no breakpoint
+        // list exists; every caller passes an ascending grid's ends.
+        let mut v = match self.native_energy_grid_with_thinning(e_min_ev, e_max_ev, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("majorant_breakpoints: {err}"),
+        };
         // LOW tier: the WMP form has no pointwise grid, but every resonance
         // sits at a pole. A pole `p` in sqrt(E) space peaks near
         // `E = Re(p)^2`, so put a node there. Between poles the Doppler shape
@@ -4753,6 +4851,81 @@ impl Nuclide {
         v.retain(|&e| e.is_finite() && e >= e_min_ev && e <= e_max_ev);
         v
     }
+}
+
+/// Clip `nodes` to `[e_min_ev, e_max_ev]`, add both endpoints, sort, and drop
+/// duplicates: exactly equal energies always, and with `thin_tol = Some(tol)`
+/// also any node within `tol * max(|last|, 1.0)` of the last kept one
+/// (absolute below 1 eV, relative above). Non-finite nodes are dropped.
+///
+/// The endpoints survive thinning: when `e_max_ev` falls within `tol` of the
+/// last kept node, it replaces that node rather than being dropped (unless
+/// that node is `e_min_ev`, which stays). `Some(0.0)` is the same as `None`.
+/// The rule behind [`Nuclide::native_energy_grid_with_thinning`].
+///
+/// # References
+/// - J. Leppänen (2009), "Two practical methods for unionized energy grid
+///   construction in continuous-energy Monte Carlo neutron transport
+///   calculation", *Annals of Nuclear Energy* 36(7), 878-885: unionized-grid
+///   construction, with thinning of near-duplicate points to bound the
+///   grid's size.
+/// - J. Leppänen, *Serpent: a Continuous-energy Monte Carlo Reactor Physics
+///   Burnup Calculation Code, User's Manual*, VTT Technical Research Centre
+///   of Finland (2015), §5.3 (section given by the maintainer, 2026-11-26):
+///   thinning the unionized energy grid. In the input the tolerance is set
+///   with the `set egrid` card (from memory, not re-checked here).
+///
+/// Neither is in the kovan corpus, and this rule has not been checked
+/// against either one: whether Serpent's tolerance is relative everywhere,
+/// where this one is absolute below 1 eV, is not verified here. The
+/// `1e-12` every caller passes is this workspace's own value, not Serpent's
+/// default. Added 2026-11-26 at the maintainer's request.
+///
+/// # Errors
+/// [`NjoyError::InvalidInput`] for a negative or non-finite `thin_tol`, a
+/// non-finite endpoint, or `e_min_ev > e_max_ev`.
+pub fn thin_energy_nodes(
+    mut nodes: Vec<f64>,
+    e_min_ev: f64,
+    e_max_ev: f64,
+    thin_tol: Option<f64>,
+) -> Result<Vec<f64>, NjoyError> {
+    if !(e_min_ev.is_finite() && e_max_ev.is_finite() && e_min_ev <= e_max_ev) {
+        return Err(NjoyError::InvalidInput(format!(
+            "energy band [{e_min_ev}, {e_max_ev}] must be finite and ascending"
+        )));
+    }
+    let tol = match thin_tol {
+        None => 0.0,
+        Some(t) if t.is_finite() && t >= 0.0 => t,
+        Some(t) => {
+            return Err(NjoyError::InvalidInput(format!(
+                "thinning tolerance {t} must be finite and non-negative"
+            )))
+        }
+    };
+    nodes.retain(|&e| e.is_finite() && e >= e_min_ev && e <= e_max_ev);
+    nodes.push(e_min_ev);
+    nodes.push(e_max_ev);
+    nodes.sort_by(|a, b| a.partial_cmp(b).expect("finite energies"));
+    let mut grid: Vec<f64> = Vec::with_capacity(nodes.len());
+    for e in nodes {
+        match grid.last() {
+            Some(&last) if e == last || (e - last).abs() <= tol * last.abs().max(1.0) => {}
+            _ => grid.push(e),
+        }
+    }
+    // Sorted with e_min_ev present, so grid[0] == e_min_ev. Only e_max_ev can
+    // have been thinned away; put it back in place of its near neighbour.
+    if grid.last() != Some(&e_max_ev) {
+        if grid.len() > 1 {
+            let n = grid.len();
+            grid[n - 1] = e_max_ev;
+        } else {
+            grid.push(e_max_ev);
+        }
+    }
+    Ok(grid)
 }
 
 /// Total absorption σ_a(E) \[barn\] — the ENDF **MT=27** quantity: every
@@ -4804,12 +4977,19 @@ fn absorption_mt27(recon: &ReconrResult, fission: f64, e: f64) -> f64 {
 /// [`absorption_mt27`] with the section positions resolved in advance
 /// ([`SpeedTier::Fast`]). Same rule, same terms, same summation order, so the
 /// same value to the bit.
-fn absorption_mt27_indexed(recon: &ReconrResult, index: &SectionIndex, fission: f64, e: f64) -> f64 {
-    let mt27 = eval_at(recon, index.mt27, e);
+fn absorption_mt27_indexed(
+    recon: &ReconrResult,
+    index: &SectionIndex,
+    grid: &UnionGrid,
+    j: Option<usize>,
+    fission: f64,
+    e: f64,
+) -> f64 {
+    let mt27 = eval_loc(recon, grid, index.mt27, e, j);
     if mt27 > 0.0 {
         return mt27;
     }
-    let mt101 = eval_at(recon, index.mt101, e);
+    let mt101 = eval_loc(recon, grid, index.mt101, e, j);
     if mt101 > 0.0 {
         return fission + mt101;
     }
@@ -4817,7 +4997,7 @@ fn absorption_mt27_indexed(recon: &ReconrResult, index: &SectionIndex, fission: 
         + index
             .disappearance
             .iter()
-            .map(|&i| eval_at(recon, i, e))
+            .map(|&i| eval_loc(recon, grid, i, e, j))
             .sum::<f64>()
 }
 
@@ -6177,7 +6357,9 @@ mod tests {
         let e = 1.0e6;
         assert_eq!(absorption_mt27(&recon, 0.0, e), 7.0);
         let index = SectionIndex::new(&recon);
-        assert_eq!(absorption_mt27_indexed(&recon, &index, 0.0, e), 7.0);
+        let grid = UnionGrid::new(&recon);
+        assert_eq!(absorption_mt27_indexed(&recon, &index, &grid, grid.locate(e), 0.0, e), 7.0);
+        assert_eq!(absorption_mt27_indexed(&recon, &index, &grid, None, 0.0, e), 7.0);
     }
 
     /// The exponential angular sampler must reproduce its target mean cosine μ̄ —
@@ -6457,7 +6639,7 @@ mod tests {
     ///
     /// *Methodology.* Build the LOW-tier (`from_core`) nuclide U-238 — the CORE
     /// WMP set's richest window structure — and ask for its native energy grid on
-    /// `[1e-3, 2e7]` eV. This exercises [`Nuclide::native_energy_grid`]'s `Core`
+    /// `[1e-3, 2e7]` eV. This exercises [`Nuclide::native_energy_grid_with_thinning`]'s `Core`
     /// arm: the WMP window edges (uniform in `√E`) plus the fast MGXS
     /// `group_bounds`, clamped to the band with both endpoints pinned. Pass
     /// criterion: the returned grid is (a) strictly ascending (required for
@@ -6477,7 +6659,10 @@ mod tests {
     fn native_energy_grid_is_sorted_and_bounded() {
         let nuc = Nuclide::from_core("U238").expect("U238 in CORE WMP set");
         let (e_min, e_max) = (1.0e-3_f64, 2.0e7_f64);
-        let grid = nuc.native_energy_grid(e_min, e_max);
+        let grid = match nuc.native_energy_grid_with_thinning(e_min, e_max, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band and tolerance: {err}"),
+        };
 
         assert!(
             grid.len() >= 3,
@@ -6504,6 +6689,84 @@ mod tests {
                 "node {e} outside [{e_min}, {e_max}]"
             );
         }
+    }
+
+    /// [`thin_energy_nodes`] on inputs the test knows are valid.
+    fn thinned(nodes: Vec<f64>, lo: f64, hi: f64, tol: Option<f64>) -> Vec<f64> {
+        match thin_energy_nodes(nodes, lo, hi, tol) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band and tolerance: {err}"),
+        }
+    }
+
+    /// **Explicit thinning (2026-11-26).** Two distinct energies 5e-13
+    /// apart (relative) at 1 keV, plus an exact duplicate. Prediction: the
+    /// duplicate goes in both modes; the default (`None`) and `Some(0.0)`
+    /// keep both distinct nodes; `Some(1e-12)`, the old rule, merges them.
+    #[test]
+    fn thinning_is_off_by_default_and_merges_only_when_asked() {
+        let (a, b) = (1.0e3_f64, 1.0e3 * (1.0 + 5.0e-13));
+        assert!(b > a && (b - a).abs() <= 1.0e-12 * a, "the old rule merges a and b");
+        let nodes = vec![b, a, a];
+        let none = thinned(nodes.clone(), 1.0, 1.0e4, None);
+        assert_eq!(none, vec![1.0, a, b, 1.0e4]);
+        let zero = thinned(nodes.clone(), 1.0, 1.0e4, Some(0.0));
+        assert_eq!(zero, none);
+        let thin = thinned(nodes, 1.0, 1.0e4, Some(1.0e-12));
+        assert_eq!(thin, vec![1.0, a, 1.0e4]);
+    }
+
+    /// The requested endpoints survive thinning, the test is absolute below
+    /// 1 eV, and equal endpoints give one node.
+    #[test]
+    fn thinning_keeps_both_endpoints() {
+        let (lo, hi) = (1.0e-5_f64, 2.0e7_f64);
+        let near_hi = hi * (1.0 - 5.0e-13);
+        let near_lo = lo + 5.0e-13; // within 1e-12 eV absolute, far relatively
+        for tol in [None, Some(1.0e-12)] {
+            let g = thinned(vec![near_lo, 1.0, near_hi], lo, hi, tol);
+            assert_eq!(g[0], lo, "{tol:?}");
+            assert_eq!(*g.last().unwrap(), hi, "{tol:?}");
+        }
+        let thin = thinned(vec![near_lo, 1.0, near_hi], lo, hi, Some(1.0e-12));
+        assert_eq!(thin, vec![lo, 1.0, hi]);
+        let none = thinned(vec![near_lo, 1.0, near_hi], lo, hi, None);
+        assert_eq!(none, vec![lo, near_lo, 1.0, near_hi, hi]);
+        assert_eq!(thinned(vec![], 3.0, 3.0, Some(1.0)), vec![3.0]);
+        assert_eq!(thinned(vec![], 3.0, 3.5, Some(1.0)), vec![3.0, 3.5]);
+    }
+
+    /// Negative and non-finite tolerances, and a bad band, are refused.
+    #[test]
+    fn thinning_refuses_bad_tolerances() {
+        for t in [-1.0e-12, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                thin_energy_nodes(vec![1.0], 0.1, 10.0, Some(t)),
+                Err(NjoyError::InvalidInput(_))
+            ));
+        }
+        assert!(thin_energy_nodes(vec![1.0], 10.0, 0.1, None).is_err());
+        assert!(thin_energy_nodes(vec![1.0], 0.1, f64::NAN, None).is_err());
+    }
+
+    /// On U-238's CORE grid the unthinned grid holds every node of the
+    /// `Some(1e-12)` one, and a bad tolerance is refused through the method.
+    #[test]
+    fn unthinned_native_grid_holds_every_thinned_node() {
+        let nuc = Nuclide::from_core("U238").expect("U238 in CORE WMP set");
+        let (e_min, e_max) = (1.0e-3_f64, 2.0e7_f64);
+        let thin = match nuc.native_energy_grid_with_thinning(e_min, e_max, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band and tolerance: {err}"),
+        };
+        let full = match nuc.native_energy_grid_with_thinning(e_min, e_max, None) {
+            Ok(grid) => grid,
+            Err(err) => panic!("valid band: {err}"),
+        };
+        assert!(full.len() >= thin.len());
+        assert!(full.windows(2).all(|w| w[1] > w[0]));
+        assert!(thin.iter().all(|e| full.binary_search_by(|x| x.partial_cmp(e).unwrap()).is_ok()));
+        assert!(nuc.native_energy_grid_with_thinning(e_min, e_max, Some(-1.0)).is_err());
     }
 
     /// The Langevin inverse round-trips: L(L⁻¹(μ̄)) = μ̄, where L(λ)=coth λ − 1/λ.

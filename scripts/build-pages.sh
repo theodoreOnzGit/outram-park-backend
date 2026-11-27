@@ -248,7 +248,7 @@ phase_demos() {
 # web-kovan's page (gh:#736): the wasm32 build of the Code Review UI.
 bash crates/kovan-web/web/build.sh "$OUT/code-review"
 # Browser demos (gh:#519, #521): ONE Monte Carlo demo with a rung table
-# (crates/dhoby-ghaut/examples/monte_carlo_web/rungs.rs): wasm build, its JS
+# (crates/dhoby-ghaut/src/mc_demo/rungs.rs, ~~examples/monte_carlo_web/~~ until gh:#1763): wasm build, its JS
 # glue, the ENDF tapes it processes in the browser, and its geometry review
 # images. The TRISO pebble demo's old URL redirects to its rung.
 # Demo build scripts run through bash, so a clone with core.fileMode=false
@@ -290,6 +290,13 @@ bash crates/dhoby-ghaut/web/foam_studio/build.sh "$OUT/demos/foam-studio"
 for f in index.html worker.js foam_studio_web.js foam_studio_web_bg.wasm; do
   [[ -f "$OUT/demos/foam-studio/$f" ]] || { echo "missing demos/foam-studio/$f" >&2; exit 1; }
 done
+# Mesh Studio (gh:#1767, #1770): a closed surface volume-meshed by the cfMesh
+# port's staged tet -> dual -> layers pipeline in a Web Worker, cut and
+# coloured by layer index or quality; no data files.
+bash crates/dhoby-ghaut/web/mesh_studio/build.sh "$OUT/demos/mesh-studio"
+for f in index.html worker.js mesh_studio.js mesh_studio_bg.wasm; do
+  [[ -f "$OUT/demos/mesh-studio/$f" ]] || { echo "missing demos/mesh-studio/$f" >&2; exit 1; }
+done
 # Delta vs surface tracking, step by step (gh:#784): reads the Monte Carlo
 # demo's tapes from ../monte-carlo/data/, so it is built after that one.
 bash crates/dhoby-ghaut/web/delta_tracking/build.sh "$OUT/demos/delta-tracking"
@@ -330,6 +337,14 @@ done
 bash crates/outram-park-digital-twin-engine/web/msre/build.sh "$OUT/demos/msre"
 for f in index.html msre_worker.js gate.js msre_web.js msre_web_bg.wasm; do
   [[ -f "$OUT/demos/msre/$f" ]] || { echo "missing demos/msre/$f" >&2; exit 1; }
+done
+# The EBR-II simulator (gh:#1741): the digital-twin engine's ebr2_web example,
+# ebr2::session (SHRT-17 / SHRT-45R) on the library's engine ebr2::web in a
+# Web Worker, in the same "Museum - historical reactors" section. Gated by the
+# same gate.js.
+bash crates/outram-park-digital-twin-engine/web/ebr2/build.sh "$OUT/demos/ebr2"
+for f in index.html ebr2_worker.js gate.js ebr2_web.js ebr2_web_bg.wasm; do
+  [[ -f "$OUT/demos/ebr2/$f" ]] || { echo "missing demos/ebr2/$f" >&2; exit 1; }
 done
 mkdir -p "$OUT/demos/triso-pebble/geometry"
 cp crates/dhoby-ghaut/web/monte_carlo/triso-pebble-redirect.html "$OUT/demos/triso-pebble/index.html"
@@ -480,10 +495,12 @@ done
 # table has. The table is `table.rs`, written out by hand since 2026-11-05
 # (gh:#1253; it was the `rung_table!` macro in main.rs, and this script kept
 # reading the macro, which found no rungs and would have failed the build): each
-# rung's `Rung::X => &<crate::MODULE::X as McRung>::INFO,` arm names its module.
-# Each rung's `name:` and `lesson:` lines are in its `<module>/mod.rs`, read as written.
-mc=crates/dhoby-ghaut/examples/monte_carlo_web
-rung_mods="$(grep -oE '&<crate::[a-z0-9_]+::[A-Za-z0-9]+ as McRung>::INFO' "$mc/table.rs" | sed -E 's/^&<crate::([a-z0-9_]+)::.*/\1/' | awk '!seen[$0]++')"
+# rung's `Rung::X => &<crate::mc_demo::MODULE::X as McRung>::INFO,` arm names
+# its module. Each rung's `name:` and `lesson:` lines are in its
+# `<module>/mod.rs`, read as written. Since gh:#1763 the demo is the library's
+# `dhoby_ghaut::mc_demo` (~~`examples/monte_carlo_web`~~, `&<crate::MODULE::`).
+mc=crates/dhoby-ghaut/src/mc_demo
+rung_mods="$(grep -oE '&<crate::mc_demo::[a-z0-9_]+::[A-Za-z0-9]+ as McRung>::INFO' "$mc/table.rs" | sed -E 's/^&<crate::mc_demo::([a-z0-9_]+)::.*/\1/' | awk '!seen[$0]++')"
 [[ -n "$rung_mods" ]] || { echo "no rungs read from $mc/table.rs" >&2; exit 1; }
 rung_names=""
 for m in $rung_mods; do

@@ -1584,7 +1584,8 @@ mod tests {
                 feature_edges: false,
                 dual_kind: kind,
                 dual_feature_points: FeaturePointRule::Corners,
-                ..Default::default()
+                tet_source: crate::pipeline::TetSource::CarvedCentroid,
+            ..Default::default()
             };
             let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
             let e0 = SurfaceEngine::new(&m);
@@ -1657,7 +1658,7 @@ mod diag {
     fn diagnose_reflex_dual_faces() {
         use crate::dual::{DualKind, FeaturePointRule};
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
-        let o = crate::pipeline::TetDualOptions { cell_size: 0.006, n_layers: 0, feature_edges: false, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+        let o = crate::pipeline::TetDualOptions { cell_size: 0.006, n_layers: 0, feature_edges: false, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, tet_source: crate::pipeline::TetSource::CarvedCentroid, ..Default::default() };
         let (m, _) = crate::pipeline::surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         let e = SurfaceEngine::new(&m);
         let mut shown = 0;
@@ -1782,7 +1783,7 @@ mod tests_gh1259 {
     #[test]
     fn untangle_surface_option_is_off_by_default_and_runs() {
         let (p, t, regions) = crate::pipeline::tests::pipe_surface(0.01, 0.06, 48);
-        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, ..Default::default() };
+        let o = TetDualOptions { cell_size: 0.006, n_layers: 0, dual_kind: DualKind::MedianPerPoint, dual_feature_points: FeaturePointRule::Corners, tet_source: crate::pipeline::TetSource::CarvedCentroid, ..Default::default() };
         assert!(!o.untangle_surface);
         let (_, rep0) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
         assert!(rep0.stage_notes.iter().all(|n| !n.contains("untangleSurface")));
@@ -1803,11 +1804,12 @@ mod tests_gh1259 {
         lo.n_layers = 1;
         lo.first_layer_thickness = 3e-4;
         lo.layer_patches = vec!["walls".into()];
-        lo.layer_strategy = crate::layers::LayerQualityStrategy::CfMeshOptimise;
+        // gh:#1829: layers are grown first and need TetGen.
+        lo.tet_source = crate::pipeline::TetSource::tetgen(1.414, None);
         lo.cfmesh_layer_optimisation.optimise_surface = true;
         let (ml, repl) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &lo).unwrap();
         #[cfg(feature = "std")]
-        println!("CfMeshOptimise + optimise_surface: {} cells; {:?}", ml.cell_count(), repl.stage_notes);
+        println!("layers-first + optimise_surface: {} cells; {:?}", ml.cell_count(), repl.stage_notes);
         ml.validate().unwrap();
     }
 
@@ -1854,7 +1856,8 @@ mod tests_gh1259 {
                         dual_feature_points: FeaturePointRule::Corners,
                         untangle_surface: untangle,
                         correct_edges: ce,
-                        ..Default::default()
+                        tet_source: crate::pipeline::TetSource::CarvedCentroid,
+            ..Default::default()
                     };
                     let t0 = crate::time::Instant::now();
                     let (m, rep) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
@@ -2040,7 +2043,8 @@ pub(crate) mod render_gh1259 {
                     dual_kind: DualKind::CellCentre,
                     dual_feature_points: FeaturePointRule::Corners,
                     untangle_surface: untangle,
-                    ..Default::default()
+                    tet_source: crate::pipeline::TetSource::CarvedCentroid,
+            ..Default::default()
                 };
                 let (m, _) = surface_to_tet_dual_mesh_multipatch(&p, &t, &regions, &o).unwrap();
                 draw(&m, &dir.join(format!("inlet_{tag}_h{h_mm}.png")), -0.0105, -0.0105, 0.021);

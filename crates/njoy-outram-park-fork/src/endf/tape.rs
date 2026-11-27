@@ -18,7 +18,8 @@ use crate::hash::{HashMap, HashSet};
 #[cfg(feature = "std")]
 use std::io::{BufRead, BufReader, Read, Write};
 
-use crate::endf::parse::parse_line;
+use crate::endf::parse::{check_record_ids, parse_fortran_int, parse_line, parse_line_checked};
+use crate::endf::strict::{check_raw_section, intg6_card, Refused};
 use crate::endf::EndfKey;
 use crate::NjoyError;
 
@@ -76,7 +77,8 @@ pub struct Tape {
     /// a section's own key for its SEND, `{mat, mf, mt: 0}` for the FEND of
     /// `(mat, mf)`, `{mat, mf: 0, mt: 0}` for the MEND of `mat`. RECONR's
     /// `recout` copies every non-redundant MF=3 section and the files after
-    /// it, so its PENDF numbers its lines this way (gh:#1484).
+    /// it, so its PENDF numbers its lines this way (gh:#1484). `{mat: -1, mf: 0,
+    /// mt: 0}` marks a TEND copied by `totend` (THERMR, gh:#866).
     copied_closers: HashSet<EndfKey>,
 }
 
@@ -105,6 +107,45 @@ pub fn decode_endf_line(mut bytes: Vec<u8>) -> String {
     match String::from_utf8(bytes) {
         Ok(s) => s,
         Err(e) => e.into_bytes().iter().map(|&b| char::from(b)).collect(),
+    }
+}
+
+/// One line of a tape (line number `lineno`, the TPID being line 1), and the
+/// reason a strict read refused its data fields when that is left for the
+/// section's end to judge.
+///
+/// Every card is read as NJOY2016 reads it, `(6e11.0,i4,i2,i3,i5)`: a field
+/// that is not a number, or a MAT/MF/MT/sequence column that is not an
+/// integer, is an error where gfortran stops the run (gh:#660; until
+/// 2026-11-24 both read as 0 silently). Two sections hold cards that are not
+/// `e11.0` records, MF=1/MT=451 (description text) and MF=32 (compact
+/// `LCOMP = 2` INTG cards), the sections [`keeps_raw`] keeps: there a refused
+/// data field is read as 0 for now and judged at the section's end by
+/// [`check_raw_section`](crate::endf::strict::check_raw_section), which walks
+/// the section as MODER does. Their identifier columns are strict always.
+fn parse_record(
+    line: &str,
+    lineno: usize,
+) -> Result<(crate::endf::parse::RawLine, Option<String>), NjoyError> {
+    let with_line = |e: NjoyError| match e {
+        NjoyError::EndfParse(why) => NjoyError::EndfParse(format!("line {lineno}: {why}")),
+        other => other,
+    };
+    match parse_line_checked(line, true) {
+        Ok(rl) => Ok((rl, None)),
+        Err(e) => {
+            check_record_ids(line).map_err(with_line)?;
+            let rl = parse_line(line)?;
+            if keeps_raw(EndfKey { mat: rl.mat, mf: rl.mf, mt: rl.mt }) {
+                let why = match e {
+                    NjoyError::EndfParse(why) => why,
+                    other => other.to_string(),
+                };
+                Ok((rl, Some(why)))
+            } else {
+                Err(with_line(e))
+            }
+        }
     }
 }
 
@@ -194,16 +235,49 @@ impl Tape {
         // we store it as-is for now and skip the column-66 MAT/MF/MT parsing.
         if let Some(first) = lines.next() {
             tpid = first?;
+            // `tpidio` reads `(16a4,a2,i4,i2,i3)`: the label is text, MAT/MF/MT
+            // are integers (gh:#660).
+            let cols: Vec<char> = tpid.chars().map(|c| if c.is_ascii() { c } else { '?' }).collect();
+            for (name, a, b) in [("MAT", 66, 70), ("MF", 70, 72), ("MT", 72, 75)] {
+                let f: String = (a..b).map(|i| cols.get(i).copied().unwrap_or(' ')).collect();
+                if parse_fortran_int(&f).is_none() {
+                    return Err(NjoyError::EndfParse(format!(
+                        "line 1 (TPID): {name} field ({f:?}) is not an integer; NJOY2016 stops here"
+                    )));
+                }
+            }
         }
 
         let mut current_key: Option<EndfKey> = None;
         let mut current_rows: Vec<[f64; 6]> = Vec::new();
         let mut current_raw: Vec<String> = Vec::new();
         let mut raw_mf32: HashMap<EndfKey, Vec<String>> = HashMap::new();
+        // gh:#660: the open raw-kept section's refused cards, its whole lines
+        // (MF=32 only, for the INTG check) and the tape line of its first row.
+        let mut current_refused: Vec<Refused> = Vec::new();
+        let mut current_full: Vec<String> = Vec::new();
+        let mut current_first = 0usize;
 
-        for line_res in lines {
+        for (n, line_res) in lines.enumerate() {
             let line = line_res?;
-            let rl = parse_line(&line)?;
+            // gh:#660: an NDIGIT = 6 INTG card is 81 columns, its MAT one column
+            // to the right (`intgio`'s `(2i5,1x,8i7,i4,i2,i3,i5)`), so a card of
+            // the open MF=32 section can carry its key only in those columns.
+            if let Some(key) = current_key.filter(|k| k.mf == 32) {
+                if let Some(fields) = intg6_card(&line, key) {
+                    current_refused.push(Refused {
+                        row: current_rows.len(),
+                        lineno: n + 2,
+                        why: "an NDIGIT=6 INTG card (MAT in columns 68-71)".into(),
+                        intg6: true,
+                    });
+                    current_full.push(line.clone());
+                    current_rows.push(fields);
+                    current_raw.push(line.chars().take(66).collect());
+                    continue;
+                }
+            }
+            let (rl, refused) = parse_record(&line, n + 2)?;
 
             // Sentinel detection: MT=0 (SEND), MF=0 (FEND), MAT=0 (MEND), MAT=-1 (TEND)
             let is_sentinel = rl.mt == 0 || rl.mf == 0 || rl.mat == 0 || rl.mat == -1;
@@ -211,6 +285,11 @@ impl Tape {
             if is_sentinel {
                 // Flush any open section
                 if let Some(key) = current_key.take() {
+                    if keeps_raw(key) {
+                        check_raw_section(key, &current_rows, &current_refused, &current_full, current_first)?;
+                    }
+                    current_refused.clear();
+                    current_full.clear();
                     let idx = sections.len();
                     sections.push(Section {
                         key,
@@ -236,6 +315,11 @@ impl Tape {
             // Start a new section when the key changes
             if current_key != Some(key) {
                 if let Some(prev_key) = current_key.take() {
+                    if keeps_raw(prev_key) {
+                        check_raw_section(prev_key, &current_rows, &current_refused, &current_full, current_first)?;
+                    }
+                    current_refused.clear();
+                    current_full.clear();
                     let idx = sections.len();
                     sections.push(Section {
                         key: prev_key,
@@ -250,8 +334,15 @@ impl Tape {
                     current_raw.clear();
                 }
                 current_key = Some(key);
+                current_first = n + 2;
             }
 
+            if let Some(why) = refused {
+                current_refused.push(Refused { row: current_rows.len(), lineno: n + 2, why, intg6: false });
+            }
+            if key.mf == 32 {
+                current_full.push(line.clone());
+            }
             current_rows.push(rl.fields);
             if keeps_raw(key) {
                 // First 66 columns (characters, gh:#660), not bytes.
@@ -261,6 +352,9 @@ impl Tape {
 
         // Flush the last open section (if the tape lacked a TEND)
         if let Some(key) = current_key.take() {
+            if keeps_raw(key) {
+                check_raw_section(key, &current_rows, &current_refused, &current_full, current_first)?;
+            }
             let idx = sections.len();
             sections.push(Section {
                 key,
@@ -618,8 +712,10 @@ impl Tape {
             }
         }
 
-        // TEND (`atend`).
-        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, 0)?;
+        // TEND (`atend`), or, keyed `{mat: -1, mf: 0, mt: 0}`, a TEND copied by
+        // `totend` with the running count (THERMR, `thermr.f90:451`; gh:#866).
+        let tend_seq = if self.copied_closers.contains(&EndfKey { mat: -1, mf: 0, mt: 0 }) { seq } else { 0 };
+        writeln!(w, "{blank66}{:4}{:2}{:3}{:5}", -1, 0, 0, tend_seq)?;
         Ok(())
     }
 }

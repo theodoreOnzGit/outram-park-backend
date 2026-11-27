@@ -11,6 +11,33 @@
 > **unverified and untrusted** unless a specific verification & validation
 > (V&V) case demonstrates otherwise.
 
+What DOVER makes **studyable and challengeable** today is one worked case:
+a steam-methane-reforming CSTR in which every thermodynamic quantity is
+derived from a ten-number formation table, the reverse rates are forced to
+satisfy $k_f/k_r = K_c$, and the only fitted inputs (two forward Arrhenius
+pairs) sit in a readable TOML deck labelled as placeholders. The places
+where the model departs from a real reformer (isothermal, constant
+volumetric flow, power-law kinetics) are each stated, and the constant-flow
+one is measured against compiled upstream DWSIM.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Formation data from the NIST-JANAF Thermochemical Tables (4th ed., Chase 1998) and the CODATA Key Values, as stated in `src/species.rs` (provenance record still owed under `DATA_POLICY.md`). The reactor is `outram-park-fork-dwsim-libs`' `Cstr`, a port of DWSIM's `Reactor_CSTR` (`CSTR.vb`). No published kinetic set (Xu–Froment 1989 is named, not used). |
+| Mathematical equations | Reforming and water-gas shift with $\Delta H^\circ$, $\Delta S^\circ$ summed from formation data, $K(T)$ by van 't Hoff, the $K_p$-to-$K_c$ conversion and thermodynamically consistent reverse rates, in `src/smr.rs` (including its "Stiffness" section) and below. |
+| Source code | `src/species.rs` (five-species formation table), `src/smr.rs` (reaction set and case), `src/deck.rs` (typed TOML deck, `schema_version = 1`), `src/headless.rs` (CSV runner). |
+| Interactive simulations | No GUI. CLI example `examples/smr_cstr.rs` with the decks in `decks/`. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `tests/smr_cstr.rs`: atom balances, reaction enthalpies against textbook values, the equilibrium limit, trend directions, deck round-trip and rejection, and the committed CSV fixtures in `tests/fixtures/`. Code-to-code against compiled upstream DWSIM, 2026-09-25 (`outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs`): given the same `Q`, the `Cstr` agrees with upstream to 6.1e-10 per species; the constant-`Q` assumption overstates methane conversion by +9.6 % (0.411745 vs 0.375803). No validation against experiment. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections in this README and `AGENTS.md` (the deck reader existing, the retired kovan cataloguing rule); `AGENTS.md` records the $K_p$/$K_c$ slip that moved conversion from 0.197 to 0.412. |
+
+**Status:** the SMR case has verification tests and one code-to-code
+comparison of the reactor it uses; nothing is validated, and the kinetics
+are placeholders.
+
 ## What DOVER is for: the low-fidelity counterpart of DHOBY GHAUT
 
 **DOVER is the low-fidelity equivalent of
@@ -112,8 +139,11 @@ experiment or a published reformer.** Specifically:
 
 - **No published kinetic parameter set is embedded.** The Xu–Froment (1989)
   Langmuir–Hinshelwood constants are the usual choice and are deliberately not
-  typed in, because the workspace requires any document informing the code to be
-  catalogued in `kovan-literature` first, and that has not been done. The deck's
+  typed in, ~~because the workspace requires any document informing the code to be
+  catalogued in `kovan-literature` first, and that has not been done~~
+  **CORRECTED 2026-11-27** — that cataloguing rule was retired on 2026-10-01
+  (this crate's `AGENTS.md`; the maintainer now supplies the corpus), so it no
+  longer blocks them; they are still not typed in. The deck's
   forward rates are placeholders and are labelled as such in the deck itself.
 - **Isothermal**, with the heat of reaction reported but not fed back into an
   energy balance. Real reforming is violently endothermic.
@@ -125,7 +155,10 @@ experiment or a published reformer.** Specifically:
   assumption is the entire gap.
 - **Power-law kinetics, no adsorption term**, no catalyst, no diffusion, no
   pressure drop, no carbon formation.
-- The formation data itself still needs cataloguing in `kovan-literature`.
+- ~~The formation data itself still needs cataloguing in `kovan-literature`.~~
+  **CORRECTED 2026-11-27** — the cataloguing requirement was retired
+  2026-10-01 (`AGENTS.md`); what is still owed for the formation data is a
+  provenance record under `DATA_POLICY.md`.
 
 Do not quote a number out of this as a property of any real reactor.
 

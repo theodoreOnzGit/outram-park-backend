@@ -128,6 +128,13 @@ pub use bugis::web_demo;
 #[cfg(all(feature = "mc_web", not(target_os = "android")))]
 pub mod mc_web;
 
+/// **The Monte Carlo demo as a library** (gh:#1763, feature `mc_demo`): the
+/// `monte_carlo_web` example's app, engine and every rung, moved here so
+/// another simulator can host the app ([`mc_demo::McApp`]); first host,
+/// `htgr_sim_v1`'s MC page. The example keeps only its `main` functions.
+#[cfg(all(feature = "mc_demo", not(target_os = "android")))]
+pub mod mc_demo;
+
 // The guided high-fidelity workbench's library half (gh:#561): catalogue,
 // steps and the kovan-markdown recipe. Off wasm32 because `kovan` is.
 // Behind the default `workbench` feature since gh:#1578, so a crate wanting

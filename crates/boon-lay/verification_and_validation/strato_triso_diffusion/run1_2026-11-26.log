@@ -1,0 +1,292 @@
+warning: ambiguous glob re-exports
+  --> crates/tampines-steam-tables/src/prelude.rs:27:9
+   |
+27 | pub use crate::interfaces::functional_programming::hs_flash_eqm::*;
+   |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the name `validity_range` in the type namespace is first re-exported here
+28 | pub use crate::interfaces::functional_programming::ph_flash_eqm::*;
+29 | pub use crate::interfaces::functional_programming::ps_flash_eqm::*;
+   |         ---------------------------------------------------------- but the name `validity_range` in the type namespace is also re-exported here
+   |
+   = note: `#[warn(ambiguous_glob_reexports)]` on by default
+
+warning: `tampines-steam-tables` (lib) generated 1 warning
+warning: fields `e_min` and `spacing` are never read
+  --> crates/outram-mc-libs/src/material/log_grid.rs:67:5
+   |
+60 | pub struct UnionGrid {
+   |            --------- fields in this struct
+...
+67 |     e_min: f64,
+   |     ^^^^^
+68 |     /// `ln(e_max / e_min) / N_LOG_BINS`.
+69 |     spacing: f64,
+   |     ^^^^^^^
+   |
+   = note: `UnionGrid` has derived impls for the traits `Clone` and `Debug`, but these are intentionally ignored during dead code analysis
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: function `eval_at` is never used
+   --> crates/outram-mc-libs/src/material/nuclide.rs:292:4
+    |
+292 | fn eval_at(recon: &ReconrResult, idx: Option<usize>, e: f64) -> f64 {
+    |    ^^^^^^^
+
+warning: associated function `new_from_fission` is never used
+   --> crates/outram-mc-libs/src/physics/transport_csg.rs:217:19
+    |
+203 | impl Site {
+    | --------- associated function in this implementation
+...
+217 |     pub(crate) fn new_from_fission(
+    |                   ^^^^^^^^^^^^^^^^
+
+warning: `outram-mc-libs` (lib) generated 3 warnings
+warning: value assigned to `y2max` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:2229:21
+     |
+2229 |     let mut y2max = 0.0;
+     |                     ^^^ this value is reassigned later and never used
+...
+2246 |         y2max = 2.0 * beta * (1.0 + beta) * tteie * tteie;
+     |         ------------------------------------------------- `y2max` is overwritten here before the previous value is read
+     |
+     = note: `#[warn(unused_assignments)]` (part of `#[warn(unused)]`) on by default
+
+warning: variable does not need to be mutable
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:4218:13
+     |
+4218 |         let mut a0 = |v: &mut Vec<f64>| *v = alloc::vec![0.0; nge + 1];
+     |             ----^^
+     |             |
+     |             help: remove this `mut`
+     |
+     = note: `#[warn(unused_mut)]` (part of `#[warn(unused)]`) on by default
+
+warning: value assigned to `eke` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7098:19
+     |
+7098 |     let mut eke = 0.0;
+     |                   ^^^ this value is reassigned later and never used
+...
+7127 |                 eke = eie - rm;
+     |                 -------------- `eke` is overwritten here before the previous value is read
+
+warning: value assigned to `eke` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7387:35
+     |
+7387 | ...                   [eie, eke, peie] = v.energies;
+     |                             ^^^
+     |
+     = help: maybe it is overwritten before being read?
+
+warning: value assigned to `tstep` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7126:33
+     |
+7126 |                 let mut tstep = 0.0;
+     |                                 ^^^ this value is reassigned later and never used
+...
+7215 |                                         tstep = compute_drange(m, lelec, ekei, ekef, lelkef, elkei, elkef);
+     |                                         ------------------------------------------------------------------ `tstep` is overwritten here before the previous value is read
+
+warning: value assigned to `ustep` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7254:25
+     |
+7254 |                           ustep = tustep;
+     |                           ^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+7331 | /                                 ustep = if loc.xi < lit(0.1) {
+7332 | |                                     tustep * (1.0 - loc.xi * (0.5 - loc.xi * lit(0.166667)))
+7333 | |                                 } else {
+7334 | |                                     tustep * (1.0 - super::libm::exp(-loc.xi)) / loc.xi
+7335 | |                                 };
+     | |_________________________________- `ustep` is overwritten here before the previous value is read
+
+warning: value assigned to `tvstep` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7255:25
+     |
+7255 |                         tvstep = tustep;
+     |                         ^^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+7264 |                             tvstep = tustep;
+     |                             --------------- `tvstep` is overwritten here before the previous value is read
+
+warning: value assigned to `tvstep` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7264:29
+     |
+7264 |                             tvstep = tustep;
+     |                             ^^^^^^^^^^^^^^^ this value is reassigned later and never used
+...
+7482 |                         tvstep = tustep;
+     |                         --------------- `tvstep` is overwritten here before the previous value is read
+
+warning: value assigned to `annihilate_at_rest` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7733:38
+     |
+7733 |         let mut annihilate_at_rest = false;
+     |                                      ^^^^^ this value is reassigned later and never used
+...
+7745 |                 annihilate_at_rest = lelec > 0;
+     |                 ------------------------------ `annihilate_at_rest` is overwritten here before the previous value is read
+
+warning: value assigned to `im` is never read
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:7985:22
+     |
+7985 |         let mut im = None;
+     |                      ^^^^ this value is reassigned later and never used
+...
+8001 |                 im = Some(i);
+     |                 ------------ `im` is overwritten here before the previous value is read
+
+warning: variable does not need to be mutable
+    --> crates/punggol/src/egsnrc/egsnrc_mortran.rs:9171:13
+     |
+9171 |         let mut moment_fit = |src: &[f64; MAXE_SPI1 + 1], dst: &mut Pwlf| {
+     |             ----^^^^^^^^^^
+     |             |
+     |             help: remove this `mut`
+
+warning: variant `L25` is never constructed
+   --> crates/punggol/src/egsnrc/pegs4_routines_mortran.rs:408:5
+    |
+404 | enum Lbl {
+    |      --- variant in this enum
+...
+408 |     L25,
+    |     ^^^
+    |
+    = note: `Lbl` has a derived impl for the trait `Clone`, but this is intentionally ignored during dead code analysis
+    = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: `punggol` (lib) generated 12 warnings (run `cargo fix --lib -p punggol` to apply 2 suggestions)
+   Compiling boon-lay v0.2.3 (/home/user/outram-park-backend/crates/boon-lay)
+    Finished `release` profile [optimized] target(s) in 1.08s
+     Running tests/strato_triso_diffusion_verification.rs (target/release/deps/strato_triso_diffusion_verification-465142fc005edc14)
+
+running 11 tests
+test a1_homogeneous_sphere_against_closed_form ... A1: 21 modes, min_valid_time 1.778e3 s, accuracy_floor 5.302e-16
+| t [s] | closed form F | SL F | abs diff |
+| 2e3 | 0.000034964373450 | 0.000034964373452 | 1.78e-15 |
+| 1e4 | 0.109957660101146 | 0.109957660101147 | 1.11e-15 |
+| 5e4 | 0.856991084596182 | 0.856991084596181 | 3.33e-16 |
+| 2e5 | 0.999904399504636 | 0.999904399504636 | 0.00e0 |
+A1 worst |SL - closed form| = 1.776e-15 (gate 1e-10)
+A1 boon-lay FV at t = 2e5 s (reference 0.999904399505):
+| cells/layer | F(dt) | F(dt/2) | time-extrapolated | error | order | balance | min c rel | wall [s] |
+| 10 | 0.999891538661 | 0.999897637153 | 0.999903735645 | -6.639e-7 | NaN | 4.1e-14 | 0.0e0 | 0.00 |
+| 20 | 0.999892295486 | 0.999898359029 | 0.999904422572 | +2.307e-8 | 4.847 | 1.4e-14 | 0.0e0 | 0.00 |
+| 40 | 0.999892483938 | 0.999898538771 | 0.999904593604 | +1.941e-7 | -3.073 | 3.7e-14 | 0.0e0 | 0.00 |
+| 80 | 0.999892531004 | 0.999898583661 | 0.999904636318 | +2.368e-7 | -0.287 | 8.3e-14 | 0.0e0 | 0.01 |
+| 160 | 0.999892542767 | 0.999898594879 | 0.999904646992 | +2.475e-7 | -0.064 | 1.7e-12 | 0.0e0 | 0.02 |
+A1: spatial orders (40->80, 80->160) = -0.287, -0.064 (gate (1.8, 2.2)); extrapolated F 0.999904650550, |error| 2.510e-7 (gate 2e-5)
+A1: hardware CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.30GHz, 15.7 GiB RAM
+
+thread 'a1_homogeneous_sphere_against_closed_form' (14696) panicked at crates/boon-lay/tests/strato_triso_diffusion_verification.rs:360:9:
+A1: spatial order -0.287
+stack backtrace:
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test a2a_two_layer_fv_against_sturm_liouville ... A2a: 129 modes, accuracy_floor 4.239e-16
+A2a boon-lay FV at t = 2e5 s (reference 0.000060064859):
+| cells/layer | F(dt) | F(dt/2) | time-extrapolated | error | order | balance | min c rel | wall [s] |
+| 10 | 0.000169679162 | 0.000166174206 | 0.000162669250 | +1.026e-4 | NaN | 2.8e-14 | 0.0e0 | 0.00 |
+| 20 | 0.000089179660 | 0.000086421016 | 0.000083662371 | +2.360e-5 | 2.120 | 5.7e-14 | 0.0e0 | 0.00 |
+| 40 | 0.000070883374 | 0.000068337036 | 0.000065790698 | +5.726e-6 | 2.043 | 3.4e-13 | 0.0e0 | 0.00 |
+| 80 | 0.000066441091 | 0.000063949804 | 0.000061458517 | +1.394e-6 | 2.039 | 4.9e-13 | 0.0e0 | 0.00 |
+| 160 | 0.000065339069 | 0.000062861675 | 0.000060384281 | +3.194e-7 | 2.125 | 1.1e-12 | 0.0e0 | 0.01 |
+A2a: spatial orders (40->80, 80->160) = 2.039, 2.125 (gate (1.8, 2.2)); extrapolated F 0.000060026202, |error| 3.866e-8 (gate 2e-5)
+A2a: hardware CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.30GHz, 15.7 GiB RAM
+ok
+test a2b_two_layer_reversed_fv_against_sturm_liouville ... A2b: 107 modes, accuracy_floor 1.040e-14
+A2b boon-lay FV at t = 2e5 s (reference 0.573304225367):
+| cells/layer | F(dt) | F(dt/2) | time-extrapolated | error | order | balance | min c rel | wall [s] |
+| 10 | 0.567992158104 | 0.568140460602 | 0.568288763099 | -5.015e-3 | NaN | 3.1e-14 | 0.0e0 | 0.00 |
+| 20 | 0.571797185680 | 0.571940506961 | 0.572083828241 | -1.220e-3 | 2.039 | 1.0e-14 | 0.0e0 | 0.00 |
+| 40 | 0.572716633957 | 0.572858850968 | 0.573001067980 | -3.032e-4 | 2.009 | 9.8e-15 | 0.0e0 | 0.00 |
+| 80 | 0.572944681463 | 0.573086629601 | 0.573228577739 | -7.565e-5 | 2.003 | 2.5e-14 | 0.0e0 | 0.00 |
+| 160 | 0.573001582247 | 0.573143463598 | 0.573285344948 | -1.888e-5 | 2.002 | 1.5e-13 | 0.0e0 | 0.01 |
+A2b: spatial orders (40->80, 80->160) = 2.003, 2.002 (gate (1.8, 2.2)); extrapolated F 0.573304267351, |error| 4.198e-8 (gate 2e-5)
+A2b: hardware CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.30GHz, 15.7 GiB RAM
+ok
+test a3_a5_five_layer_mesh_refinement_against_sturm_liouville ... A3: 32 modes, accuracy_floor 3.997e-12, min_valid_time 1.778e3 s
+A3 boon-lay FV at t = 2e5 s (reference 0.432555639093):
+| cells/layer | F(dt) | F(dt/2) | time-extrapolated | error | order | balance | min c rel | wall [s] |
+| 10 | 0.432102616281 | 0.432254521414 | 0.432406426547 | -1.492e-4 | NaN | 2.7e-12 | 0.0e0 | 0.00 |
+| 20 | 0.432214607229 | 0.432366434186 | 0.432518261142 | -3.738e-5 | 1.997 | 5.8e-11 | 0.0e0 | 0.00 |
+| 40 | 0.432242586825 | 0.432394394275 | 0.432546201725 | -9.437e-6 | 1.986 | 2.2e-11 | 0.0e0 | 0.00 |
+| 80 | 0.432249580577 | 0.432401383161 | 0.432553185746 | -2.453e-6 | 1.944 | 9.5e-11 | 0.0e0 | 0.01 |
+| 160 | 0.432251329014 | 0.432403130612 | 0.432554932210 | -7.069e-7 | 1.795 | 1.2e-9 | 0.0e0 | 0.03 |
+A3: spatial orders (40->80, 80->160) = 1.944, 1.795 (gate (1.8, 2.2)); extrapolated F 0.432555514365, |error| 1.247e-7 (gate 2e-5)
+A3: hardware CPU only, 4 cores, linux, Intel(R) Xeon(R) Processor @ 2.30GHz, 15.7 GiB RAM
+
+thread 'a3_a5_five_layer_mesh_refinement_against_sturm_liouville' (14699) panicked at crates/boon-lay/tests/strato_triso_diffusion_verification.rs:360:9:
+A3: spatial order 1.795
+stack backtrace:
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test a4_diffusivity_contrast_sweep ... | rho | mean exit time [s] | modes | accuracy_floor | usable | FV extrapolated error at 2 tau |
+| 1e-6 | 6.2500e9 | 2 | 1.932e-10 | true | 1.258e-6 |
+| 1e-4 | 6.2524e7 | 2 | 1.932e-12 | true | 1.295e-6 |
+| 1e-2 | 6.4850e5 | 2 | 1.942e-14 | true | 1.382e-6 |
+| 1e2 | 2.3562e4 | 7 | 1.805e-14 | true | 5.095e-6 |
+| 1e4 | 2.3501e4 | 7 | 1.789e-12 | true | 5.097e-6 |
+| 1e6 | 2.3500e4 | 7 | 1.789e-10 | true | 4.794e-6 |
+ok
+test a6_temporal_refinement ... | dt [s] | F(T) | F(T) - SL |
+| 4000.0 | 0.430139215828 | -2.416e-3 |
+| 2000.0 | 0.431343148530 | -1.212e-3 |
+| 1000.0 | 0.431948101977 | -6.075e-4 |
+| 500.0 | 0.432251329014 | -3.043e-4 |
+| 250.0 | 0.432403130612 | -1.525e-4 |
+| 125.0 | 0.432479078007 | -7.656e-5 |
+A6 temporal self-convergence orders (T/50..T/1600 triples): [0.993, 0.996, 0.998, 0.999] (gate (0.8, 1.2) on the two finest)
+ok
+test a7_modal_convergence ... | m | modes | lambda_covered [1/s] | min_valid_time [s] | F(2e3) | F(1e4) | F(5e4) | F(2e5) |
+| 10 | 15 | 5.0000e-3 | 8.000e3 | unresolved | 0.000155087200327 | 0.075728213183954 | 0.432555639092956 |
+| 20 | 22 | 1.0000e-2 | 4.000e3 | unresolved | 0.000155087200589 | 0.075728213184231 | 0.432555639093234 |
+| 30 | 25 | 1.5000e-2 | 2.667e3 | unresolved | 0.000155087200155 | 0.075728213183806 | 0.432555639092870 |
+| 45 | 32 | 2.2500e-2 | 1.778e3 | -0.000000000000085 | 0.000155087200281 | 0.075728213183887 | 0.432555639092857 |
+| 60 | 37 | 3.0000e-2 | 1.333e3 | -0.000000000000070 | 0.000155087200298 | 0.075728213183912 | 0.432555639092895 |
+ok
+test b1_strato_fv_against_boon_lay_fv ... B1 a1_homogeneous at t = 2e5 s, SL 0.999904399505:
+| cells/layer | dt [s] | STRATO FV | boon-lay FV | STRATO - SL | boon-lay - SL | STRATO - boon-lay | STRATO balance | STRATO min c |
+| 10 | 500 | 0.999892389056 | 0.999891538661 | -1.201e-5 | -1.286e-5 | +8.504e-7 | -1.29246970711410574e-25 | 1.72007036565468936e-7 |
+| 10 | 250 | 0.999898448575 | 0.999897637153 | -5.951e-6 | -6.762e-6 | +8.114e-7 | -2.45569244351680091e-25 | 1.62321404447807206e-7 |
+| 20 | 500 | 0.999892507006 | 0.999892295486 | -1.189e-5 | -1.210e-5 | +2.115e-7 | 7.10858338912758158e-26 | 8.60774135255402948e-8 |
+| 20 | 250 | 0.999898560848 | 0.999898359029 | -5.839e-6 | -6.040e-6 | +2.018e-7 | 4.52364397489937010e-26 | 8.12296646913690494e-8 |
+| 40 | 500 | 0.999892536750 | 0.999892483938 | -1.186e-5 | -1.192e-5 | +5.281e-8 | -8.40105309624168732e-26 | 4.30677810229376045e-8 |
+| 40 | 250 | 0.999898589160 | 0.999898538771 | -5.810e-6 | -5.861e-6 | +5.039e-8 | -1.87408107531545333e-25 | 4.06421715932076653e-8 |
+| 80 | 500 | 0.999892544203 | 0.999892531004 | -1.186e-5 | -1.187e-5 | +1.320e-8 | 7.75481824268463445e-26 | 2.15425090630588091e-8 |
+| 80 | 250 | 0.999898596254 | 0.999898583661 | -5.803e-6 | -5.816e-6 | +1.259e-8 | -8.91804097908732962e-25 | 2.03292067057045329e-8 |
+| 160 | 500 | 0.999892546067 | 0.999892542767 | -1.185e-5 | -1.186e-5 | +3.301e-9 | 1.48634016318122160e-25 | 1.07735788795443024e-8 |
+| 160 | 250 | 0.999898598029 | 0.999898594879 | -5.801e-6 | -5.805e-6 | +3.150e-9 | 6.07460762343629699e-25 | 1.01667952591777900e-8 |
+B1 a1_homogeneous: time-extrapolated errors (cells 10..160) STRATO [+1.086e-7, +2.152e-7, +2.421e-7, +2.488e-7, +2.505e-7], boon-lay [-6.639e-7, +2.307e-8, +1.941e-7, +2.368e-7, +2.475e-7]
+B1 a1_homogeneous: spatial orders STRATO [-0.040, -0.010], boon-lay [-0.287, -0.064] (gate (1.8, 2.2))
+
+thread 'b1_strato_fv_against_boon_lay_fv' (14703) panicked at crates/boon-lay/tests/strato_triso_diffusion_verification.rs:529:13:
+B1 a1_homogeneous: order -0.040
+stack backtrace:
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+FAILED
+test b2_atops_booth_against_sturm_liouville_single_sphere ... B2: 67 modes, min_valid_time 1.800e2 s
+| D t / R^2 | ATOPS booth_longlived | SL single_sphere | abs diff |
+| 1e-3 | 0.104047446969167 | 0.104047446969166 | 5.55e-16 |
+| 1e-2 | 0.308513750128654 | 0.308513750128654 | 1.11e-16 |
+| 1e-1 | 0.770478738025963 | 0.770478738025963 | 2.22e-16 |
+| 1e0 | 0.999968556073312 | 0.999968556073312 | 0.00e0 |
+B2 worst |booth - SL| = 5.551e-16 (gate 1e-10)
+ok
+test u1_port_matches_upstream_sturm_liouville ... U1: 978 values over 15 cases, 978 bit-identical, worst relative difference 0.000e0 (gate 1e-12)
+ok
+test u2_port_matches_upstream_python_oracle ... U2: F(2e5 s) port 0.4325556390928054 oracle 0.4325556390930383 |diff| 2.329e-13 (gate 1e-10)
+ok
+
+failures:
+
+failures:
+    a1_homogeneous_sphere_against_closed_form
+    a3_a5_five_layer_mesh_refinement_against_sturm_liouville
+    b1_strato_fv_against_boon_lay_fv
+
+test result: FAILED. 8 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+error: test failed, to rerun pass `-p boon-lay --test strato_triso_diffusion_verification`

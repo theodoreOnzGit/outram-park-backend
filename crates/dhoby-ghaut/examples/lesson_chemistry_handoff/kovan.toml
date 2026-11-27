@@ -1,0 +1,185 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/examples/lesson_chemistry_handoff"
+
+[module."chem.rs"]
+path = "example:lesson_chemistry_handoff::chem"
+
+[[module."chem.rs".function]]
+id = "fn:ead5b8581ecf2aca"
+name = "ILLUSTRATIVE_GRAPHITE_KG"
+qual = "ILLUSTRATIVE_GRAPHITE_KG"
+item = "const"
+shape = "const"
+hash = "sha256:e515608814c98c54394af59bb7ab50bf8dce4ce5543a62d17f714f321fc5775d"
+doc_hash = "sha256:da90017ff2ff897534266fab03119b19067fbe03a3f4a837a689485de8e3238f"
+
+[[module."chem.rs".function]]
+id = "fn:6c7a412254c384a1"
+name = "ILLUSTRATIVE_O2_SUPPLY_MOL_PER_S"
+qual = "ILLUSTRATIVE_O2_SUPPLY_MOL_PER_S"
+item = "const"
+shape = "const"
+hash = "sha256:6d7f3683adbc5710b2aaffb354990a41ab3caa190ef3b61aabf11c026e496398"
+doc_hash = "sha256:d12ac0d1e2692fd38877d9f97afa54f0b95a4e80a37e021fe9c3034ca257681a"
+
+[[module."chem.rs".function]]
+id = "fn:85bf0cb7688e1224"
+name = "Released"
+qual = "Released"
+item = "type"
+shape = "struct"
+hash = "sha256:9a54527a60c64e815564d583df477e3f59cf9990044905b213e22239a4dd26d8"
+doc_hash = "sha256:59738e5e1e46e466649d7df6da3266a1cb38e955b333d1dab392be1e6ae70f44"
+
+[[module."chem.rs".function]]
+id = "fn:fbe882d77e60c943"
+name = "air_crossover_c"
+qual = "air_crossover_c"
+hash = "sha256:0fe20e8ee1bd328690afbd328a99e90d60eb73f0023979df3e7671ce1cf892d0"
+doc_hash = "sha256:a05b3b5dc39fb645cb1959210fec9e95e4d67c58821481cfece2aeeade4d76e7"
+
+[[module."chem.rs".function]]
+id = "fn:7795f8db2ad172c8"
+name = "air_curve"
+qual = "air_curve"
+hash = "sha256:0f8acf029b24e70bc2f04198d656f8ec24cf35ad0355ea4b475b3e1a64f3bbd3"
+doc_hash = "sha256:95dce14910c9188f0072939fba13a34e57c4de4546d83833ed058486ef354f6a"
+
+[[module."chem.rs".function]]
+id = "fn:213f97f5768016f5"
+name = "air_gasified"
+qual = "air_gasified"
+hash = "sha256:e917566ef5f39c03985494b305c1b828d9ec4e6d2c9b8c21a1c939ab4749fc5f"
+doc_hash = "sha256:ae29009d5810865d7a435adfee34e414419a825eb2ec3f41ea7af5086f3414a0"
+
+[[module."chem.rs".function]]
+id = "fn:0a85b466d81ea002"
+name = "air_kinetic_mol"
+qual = "air_kinetic_mol"
+hash = "sha256:b02cd49cec3327f1c28ac88f413b49699bfaeac302119c4e8599969de4ed698d"
+doc_hash = "sha256:fe11cf66f71a03df469656b85fe305296189472f29d2c31dfba311994b505509"
+
+[[module."chem.rs".function]]
+id = "fn:68491691882942dc"
+name = "hydrolysis_curve"
+qual = "hydrolysis_curve"
+hash = "sha256:ace1482e0a4eeca9a5629154becf7ea16250474e578290eb530d571d67597893"
+doc_hash = "sha256:1762e6694711071c41abb656c69d0fbc56a3a243496090cabe78b75ee38a7e40"
+
+[[module."chem.rs".function]]
+id = "fn:c2f0007550aa1548"
+name = "hydrolysis_whole_inventory_kpa"
+qual = "hydrolysis_whole_inventory_kpa"
+hash = "sha256:2e84e48b80af3dbfe28e40883d3def9106c099a4363fb45d2daf2427e1c1e0e0"
+doc_hash = "sha256:b273dee090ef972cbd940c61e9199967921bbaf7631f42b164eff4a0c809e461"
+
+[[module."chem.rs".function]]
+id = "fn:3a29fe8f474f4695"
+name = "kpa"
+qual = "kpa"
+hash = "sha256:daf43a92de72576c210fea039bbfb65bf05858333245152bc2035b0022d0949f"
+doc_hash = "sha256:b937e9b9ec721bb1e2529bc18f89080ab2fb745eb7393a62d8a489de5768cdc7"
+physical_interface = true
+
+[[module."chem.rs".function]]
+id = "fn:c742eab2fdf8b4f4"
+name = "released"
+qual = "released"
+hash = "sha256:61377e2973363beb799916634b5129b64d27f1bd818b574367bc8db0e3bcf5cc"
+doc_hash = "sha256:41d84b11c42709190a160868ed8d00eeb040a724195eeb7336c1d1d73a76c9ae"
+
+[[module."chem.rs".function]]
+id = "fn:335e0afd241e80bc"
+name = "steam_curve"
+qual = "steam_curve"
+hash = "sha256:ad00d282cd497edcb404463ea8001667eeb9129ea42e157d3991899990cb3cf3"
+doc_hash = "sha256:bb71870e82e114ef153e3d5bb42f4c41b1aaa5e2640f43b913e671bd66ae8319"
+
+[[module."chem.rs".function]]
+id = "fn:5daae62c03340707"
+name = "temp"
+qual = "temp"
+hash = "sha256:548e5e296a1433ae578ac702c34bb15df730b230cefb1431ac335dee38c53a25"
+doc_hash = "sha256:bcfe396c48e2834e0090181276a9558416befd19c21149035b12dc4b9be5636b"
+physical_interface = true
+
+[module."main.rs"]
+path = "example:lesson_chemistry_handoff"
+
+[[module."main.rs".function]]
+id = "fn:05ac3b632a500a2b"
+name = "H2_KPA"
+qual = "H2_KPA"
+item = "const"
+shape = "const"
+hash = "sha256:31547cfc3b5cc2b302e480ff02e338c3b1c78b0cdd984de8358b178b3fa18ca1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:e7811a98fd971afc"
+name = "O2_KPA"
+qual = "O2_KPA"
+item = "const"
+shape = "const"
+hash = "sha256:3eea913faf7ce7a3c83ca4297ed0634133d894c2f223d44e0216286394f67c24"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:00cd86859eda114b"
+name = "STEAM_KPA"
+qual = "STEAM_KPA"
+item = "const"
+shape = "const"
+hash = "sha256:e065ec19549a81a1d1f568e1ad7aa63dcddf0c9d18a4453e9b3000edcba20930"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:f630997a743c316b"
+name = "arr"
+qual = "arr"
+hash = "sha256:78e7ca2b26c6d7b8268c4464b99b04ff00900d3cd7ef0d289c83a6d719e02be6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:3141f9837be7edea"
+name = "e"
+qual = "e"
+hash = "sha256:3971b98a11193231c0e3b3754dab4dbe240cbfa2b78caf366fded290b53551da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:e48e4d7a5dedcde6"
+name = "flags"
+qual = "flags"
+hash = "sha256:00b575ac4d04cad92ed9d8ce0d488e59f3e1bc2bce0e5247d70c6529331b9929"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:7002b66eada15e91"
+name = "main"
+qual = "main#1"
+hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:dfdea493ae8d7193"
+name = "main"
+qual = "main#2"
+hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:6c1706243ace68b9"
+name = "opt"
+qual = "opt"
+hash = "sha256:60a28b8b071a6bc6010033bd25134eeec76b5aea24d0deef6ebed531dcb22b7e"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:d30d179576cf2dfe"
+name = "run"
+qual = "run"
+hash = "sha256:95253848b682ae3ecdcfded2e6e9d3547a95de4c3828d38129ae2708d7358c05"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

@@ -175,6 +175,11 @@
 //! composes).
 
 pub mod control_rods;
+/// The operator's coefficient-set selector (gh:#1740).
+pub mod coefficient_set;
+/// The control volumes the assembled plant has, for the CV schematic tab and
+/// the fault tree's CV check (gh:#1718).
+pub mod control_volumes;
 pub mod atmospheric_dispersion;
 pub mod bounding_air_ingress;
 pub mod decay_heat_removal;
@@ -639,12 +644,23 @@ pub enum Scenario {
     /// and zero (gh:#420)~~ **since 2026-09-30:** air ingress via the Gao &
     /// Shi cavity-ventilation rate, assumed to exchange the core gas (#420).
     DlofcAtws,
+    /// **The design-basis DLOFC** (2026-11-26): the same rupture, blowdown,
+    /// isolation at 28.06 s and air ingress as [`Scenario::DlofcAtws`], and
+    /// the rods scram at **7.06 s**, as Gao & Shi (2002) s.5.3.1's DBA does
+    /// ([`depressurisation::DBA_SCRAM_AT_S`]). With the circulator stopped
+    /// and the secondary isolated, the decay heat leaves only by the passive
+    /// bed -> reflector -> RPV -> RCCS path ([`decay_heat_removal`]): the
+    /// passive-safety case.
+    DlofcScram,
 }
 
-/// The scenario an operator's accident switches select. DLOFC wins, then
+/// The scenario an operator's accident switches select. The design-basis
+/// DLOFC (scram at 7.06 s, 2026-11-26) wins, then the DLOFC + ATWS, then
 /// water ingress (each trips the circulator itself), then a plain LOFC.
-pub fn scenario_from(circulator_tripped: bool, water_ingress: bool, dlofc: bool) -> Scenario {
-    if dlofc {
+pub fn scenario_from(circulator_tripped: bool, water_ingress: bool, dlofc: bool, dlofc_scram: bool) -> Scenario {
+    if dlofc_scram {
+        Scenario::DlofcScram
+    } else if dlofc {
         Scenario::DlofcAtws
     } else if water_ingress {
         Scenario::WaterIngress
@@ -1353,6 +1369,9 @@ pub struct HtgrPlant {
     /// published snapshots is not missed); reset by
     /// [`Self::reset_peak_fuel_to_current`] and by constructing a new plant.
     peak_fuel: PeakFuelRecord,
+    /// A bank worth \[dk/k\] sent to the plant (gh:#1740); `None`, the
+    /// default, is the cited [`control_rods::BANK_WORTH_PERCENT_DK_K`].
+    bank_worth_override: Option<f64>,
 }
 
 impl HtgrPlant {
@@ -1403,6 +1422,7 @@ impl HtgrPlant {
             last_step_energy: PlantEnergyLedger::default(),
             energy: PlantEnergyLedger::default(),
             peak_fuel: PeakFuelRecord::empty(),
+            bank_worth_override: None,
         }
     }
 
@@ -1510,12 +1530,34 @@ impl HtgrPlant {
     pub fn external_reactivity_dollars(&self, control_rod_insertion_fraction: f64) -> f64 {
         // The kinetics' one beta_eff (gh:#387): the same beta the prompt
         // layer converts these dollars back with.
-        control_rods::external_reactivity_dollars(
-            control_rod_insertion_fraction,
-            self.kinetics
-                .kinetics_delayed_neutron_fraction()
-                .get::<uom::si::ratio::ratio>(),
-        )
+        let beta = self
+            .kinetics
+            .kinetics_delayed_neutron_fraction()
+            .get::<uom::si::ratio::ratio>();
+        match self.bank_worth_override {
+            None => control_rods::external_reactivity_dollars(control_rod_insertion_fraction, beta),
+            Some(w) => control_rods::external_reactivity_dollars_with_worth(control_rod_insertion_fraction, beta, w),
+        }
+    }
+
+    /// Send a bank worth \[dk/k\] to the plant (gh:#1740); `None` returns
+    /// to the cited one. Refused (nothing changes) unless finite and
+    /// positive. The rods' position is kept, so the external reactivity
+    /// steps at once.
+    pub fn set_bank_worth_dk_k(&mut self, worth: Option<f64>) -> Result<(), String> {
+        if let Some(w) = worth {
+            if !(w.is_finite() && w > 0.0) {
+                return Err(format!("bank worth must be finite and > 0, got {w}"));
+            }
+        }
+        self.bank_worth_override = worth;
+        Ok(())
+    }
+
+    /// The bank worth in use \[dk/k\].
+    #[cfg(test)] // test-only: no GUI/headless control reads it back (gh:#1740)
+    pub fn bank_worth_dk_k(&self) -> f64 {
+        self.bank_worth_override.unwrap_or_else(control_rods::bank_worth_dk_k)
     }
 
     /// Advance the whole plant by one timestep `dt` under the operator's
@@ -1594,8 +1636,9 @@ impl HtgrPlant {
                 Some(self.sim_time)
             }
             (Scenario::WaterIngress, Some(t0)) => Some(t0),
-            (Scenario::DlofcAtws, None) => {
-                // The DN65 tube ruptures; the circulator stops; no scram.
+            (Scenario::DlofcAtws | Scenario::DlofcScram, None) => {
+                // The DN65 tube ruptures; the circulator stops; no scram
+                // (ATWS), or the DBA's at 7.06 s (applied below).
                 self.primary.trip_circulator(true);
                 self.depressurisation = Some(depressurisation::Depressurisation::start(
                     fission_product_release::htr10_primary_helium_inventory_kg(),
@@ -1603,7 +1646,7 @@ impl HtgrPlant {
                 self.release.depressurisation_lift_off();
                 Some(self.sim_time)
             }
-            (Scenario::DlofcAtws, Some(t0)) => Some(t0),
+            (Scenario::DlofcAtws | Scenario::DlofcScram, Some(t0)) => Some(t0),
             (Scenario::Normal, _) => {
                 // Scenario cleared: put the plant back to normal operation.
                 self.primary.trip_circulator(false);
@@ -1686,7 +1729,7 @@ impl HtgrPlant {
                 Some(st) if st.circulator_tripped => MassRate::new::<kilogram_per_second>(0.0),
                 _ => helium_flow_setpoint,
             },
-            Scenario::DlofcAtws => MassRate::new::<kilogram_per_second>(0.0),
+            Scenario::DlofcAtws | Scenario::DlofcScram => MassRate::new::<kilogram_per_second>(0.0),
         };
 
         self.sim_time += dt;
@@ -1707,7 +1750,15 @@ impl HtgrPlant {
             .protection
             .effective_rod_insertion(control_rod_insertion_fraction)
             // The water-ingress scram (published 37.5 s) can only deepen it.
-            .max(ingress_step.map_or(0.0, |st| st.scram_insertion));
+            .max(ingress_step.map_or(0.0, |st| st.scram_insertion))
+            // So can the design-basis DLOFC's (published 7.06 s).
+            .max(match (scenario, scenario_started_at) {
+                (Scenario::DlofcScram, Some(t0)) => depressurisation::dba_scram_insertion(
+                    (self.sim_time - t0).get::<second>(),
+                    protection::SCRAM_INSERTION_TIME_S,
+                ),
+                _ => 0.0,
+            });
 
         // Rod position is converted to reactivity here rather than in the GUI
         // so the physics owns the conversion and an OPC-UA write of a rod
@@ -2164,6 +2215,9 @@ impl HtgrPlant {
     /// writing only the *output* fields and leaving the GUI-owned control
     /// inputs untouched.
     pub fn write_snapshot(&self, s: &mut HtgrSnapshot) {
+        // The control-volume list, read from this assembled plant (gh:#1718).
+        s.control_volumes =
+            control_volumes::CvSnapshot::from_map(&control_volumes::control_volume_map(self));
         // Kinetics.
         s.reactor_power_mw = power_in_megawatts(self.kinetics.total_power());
         s.prompt_power_mw = power_in_megawatts(self.kinetics.prompt_power());
@@ -6007,6 +6061,78 @@ mod tests {
         assert!(released.iter().zip(&released_at_trip).all(|(a, b)| a > b));
     }
 
+    /// **The design-basis DLOFC scrams at 7.06 s and leaves the decay heat to
+    /// the passive path** (2026-11-26).
+    ///
+    /// Methodology: 30 s at the design commands, then
+    /// [`Scenario::DlofcScram`] for 60 s at 0.1 s. Predicted before the run:
+    /// the ledger closes to 1e-9 of each step's gross; the discharge at 60 s
+    /// is `150 (1 - exp(-60/22.8))` = 138.9 kg; the circulator is stopped;
+    /// the full bank (TECDOC-1382's ~15 % Δk/k) drops the fission power to a
+    /// few % of its pre-trip value within a minute, below the decay heat.
+    /// Correctness checks only, not a comparison with anything.
+    ///
+    /// Results: printed below.
+    #[test]
+    fn the_design_basis_dlofc_scrams_and_leaves_the_decay_heat_to_the_passive_path() {
+        let mut plant = HtgrPlant::new();
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let mut worst = 0.0f64;
+        let mut p0 = 0.0;
+        for i in 0..900 {
+            let mut commands = design_commands();
+            if i >= 300 {
+                commands.scenario = Scenario::DlofcScram;
+            }
+            if i == 300 {
+                p0 = plant.kinetics.total_power().get::<megawatt>();
+            }
+            plant.step(dt, commands);
+            let e = plant.last_step_energy();
+            let gross = e.source.abs()
+                + e.circulator_work.abs()
+                + e.fuel_storage.abs()
+                + e.bed_solid_storage.abs()
+                + e.bed_helium_storage.abs()
+                + e.hot_duct_storage.abs()
+                + e.cold_duct_storage.abs()
+                + e.rpv_annuli_storage.abs()
+                + e.passive_storage.abs()
+                + e.to_steam_generator.abs()
+                + e.to_rccs.abs()
+                + e.chemistry_absorbed.abs();
+            worst = worst.max(e.residual.abs() / gross);
+        }
+        let d = plant.depressurisation.expect("running");
+        let fission = plant.kinetics.total_power().get::<megawatt>();
+        let decay = plant.kinetics.decay_heat_power().get::<megawatt>();
+        let want = 150.0 * (1.0 - petir::mathf::RealMath::r_exp(-60.0f64 / (150.0 / 6.58)));
+        println!(
+            "design-basis DLOFC, 60 s after the rupture: fission {fission:.4} MW (pre-trip {p0:.4} MW), \
+             decay {decay:.4} MW, discharged {:.2} kg (predicted {want:.2}), flow {:.3} kg/s, \
+             worst step residual {worst:.3e}",
+            d.discharged_kg,
+            plant.primary.mass_flow().get::<kilogram_per_second>()
+        );
+        assert!(worst < 1e-9, "{worst:e}");
+        assert!((d.discharged_kg - want).abs() < 1.0, "{} vs {want}", d.discharged_kg);
+        assert!(plant.primary.mass_flow().get::<kilogram_per_second>() < 0.5);
+        assert!(fission < 0.05 * p0, "fission {fission} of {p0} MW");
+        assert!(decay > fission, "the decay heat dominates after the scram");
+    }
+
+    /// The operator's switches pick the scenario: the design-basis DLOFC
+    /// first, then the ATWS one, water ingress, a plain LOFC (2026-11-26).
+    #[test]
+    fn the_switches_pick_the_scenario_in_order() {
+        assert_eq!(scenario_from(false, false, false, false), Scenario::Normal);
+        assert_eq!(scenario_from(true, false, false, false), Scenario::Lofc);
+        assert_eq!(scenario_from(true, true, false, false), Scenario::WaterIngress);
+        assert_eq!(scenario_from(true, true, true, false), Scenario::DlofcAtws);
+        assert_eq!(scenario_from(true, true, true, true), Scenario::DlofcScram);
+        assert_eq!(scenario_from(false, false, false, true), Scenario::DlofcScram);
+    }
+
     /// **INDICATIVE, NOT VALIDATED (#420): the default DLOFC with air
     /// ingress, 30 min.** Methodology: 60 s normal, then
     /// [`Scenario::DlofcAtws`] for 1800 s at 0.1 s; prints graphite oxidised,
@@ -6250,6 +6376,91 @@ mod tests {
     /// 3.4 MW at 30 s, maximum 9.6 MW near 60 s, peak kernel 1026.95 degC at
     /// 94.9 s, 5.94 MW at 300 s. The other openings tried are in the
     /// constant's doc.
+    /// **gh:#1740: coefficients and bank worth sent to the plant.**
+    /// (1) Re-sending the cited set (Chen 2009 total, Hu 2006 share) and the
+    /// cited bank worth changes nothing: 300 s from the opening state is
+    /// bit for bit the untouched plant's. (2) Switching to gh:#1174's
+    /// LATTICE Monte Carlo set (fuel -2.49, moderator -16.73 pcm/K; an
+    /// illustration of the seam until #1739's poured-bed set is recorded)
+    /// keeps the state and the references, so each channel's reactivity
+    /// scales by its coefficient ratio at once. (3) The plant's response
+    /// over 300 s more is printed against the cited plant, uncalibrated,
+    /// and checked only for bounds (a harness check, not validation).
+    /// (4) A bank worth of 17.62 % dk/k (gh:#1025, Monte Carlo, lattice)
+    /// gives the rod reactivity of the same formula; invalid sets are
+    /// refused and change nothing.
+    ///
+    /// **Results (2026-11-25).** (1) holds. (2) At the switch, 300 s in:
+    /// fuel channel -4.4784 -> -1.1192 $, moderator -1.8303 -> -7.5852 $
+    /// (cited alpha -9.963 / -4.037 pcm/K, fuel / moderator), a net -2.35 $
+    /// step, because the plant is far from both references: the switch
+    /// keeps them, as MSRE's does. (3) At 600 s: cited 5.936 MW, bed
+    /// 1279.4 K; lattice set 4.562 MW, bed 1192.1 K. Not tuned toward any
+    /// reference; the lattice set is not the poured bed's (#1739).
+    #[test]
+    fn coefficients_and_bank_worth_sent_to_the_plant() {
+        use uom::si::temperature_coefficient::per_kelvin;
+        use uom::si::f64::TemperatureCoefficient;
+        let dt = Time::new::<second>(PLANT_TIMESTEP_S);
+        let commands = PlantCommands::default();
+        let mut a = HtgrPlant::new();
+        let mut b = HtgrPlant::new();
+        let cited = a.kinetics.temperature_coefficients();
+        b.kinetics.set_temperature_coefficients(Some(cited)).expect("cited set");
+        b.set_bank_worth_dk_k(Some(control_rods::bank_worth_dk_k())).expect("cited worth");
+        for _ in 0..3000 {
+            a.step(dt, commands.clone());
+            b.step(dt, commands.clone());
+        }
+        assert_eq!(a.kinetics.total_power().get::<megawatt>().to_bits(), b.kinetics.total_power().get::<megawatt>().to_bits());
+        assert_eq!(a.core.temperature().get::<kelvin>().to_bits(), b.core.temperature().get::<kelvin>().to_bits());
+
+        let (fuel0, mod0) = (b.kinetics.fuel_feedback_reactivity_dollars(), b.kinetics.moderator_feedback_reactivity_dollars());
+        let pcm_per_k = |x: f64| TemperatureCoefficient::new::<per_kelvin>(x * 1e-5);
+        let lattice = (pcm_per_k(-2.49), pcm_per_k(-16.73));
+        b.kinetics.set_temperature_coefficients(Some(lattice)).expect("lattice set");
+        let ratio = |new: TemperatureCoefficient, old: TemperatureCoefficient| new.get::<per_kelvin>() / old.get::<per_kelvin>();
+        let (fuel1, mod1) = (b.kinetics.fuel_feedback_reactivity_dollars(), b.kinetics.moderator_feedback_reactivity_dollars());
+        assert!(((fuel1 - fuel0 * ratio(lattice.0, cited.0)) / fuel1).abs() < 1e-12, "{fuel0} -> {fuel1}");
+        assert!(((mod1 - mod0 * ratio(lattice.1, cited.1)) / mod1).abs() < 1e-12, "{mod0} -> {mod1}");
+        println!(
+            "at the switch (300 s): fuel {fuel0:.4} -> {fuel1:.4} $, moderator {mod0:.4} -> {mod1:.4} $ (cited alpha {:.3} / {:.3} pcm/K)",
+            cited.0.get::<per_kelvin>() * 1e5,
+            cited.1.get::<per_kelvin>() * 1e5
+        );
+        for _ in 0..3000 {
+            a.step(dt, commands.clone());
+            b.step(dt, commands.clone());
+        }
+        let report = |p: &HtgrPlant| (p.kinetics.total_power().get::<megawatt>(), p.core.temperature().get::<kelvin>());
+        let (pa, ta) = report(&a);
+        let (pb, tb) = report(&b);
+        println!("600 s: cited {pa:.3} MW, bed {ta:.1} K; lattice set {pb:.3} MW, bed {tb:.1} K");
+        for (p, t) in [(pa, ta), (pb, tb)] {
+            assert!(p.is_finite() && p > 0.0 && p < 50.0, "{p} MW");
+            assert!(t.is_finite() && t > 300.0 && t < 1873.15, "{t} K");
+        }
+
+        let beta = b.kinetics.kinetics_delayed_neutron_fraction().get::<uom::si::ratio::ratio>();
+        b.set_bank_worth_dk_k(Some(0.1762)).expect("Monte Carlo worth");
+        assert_eq!(b.bank_worth_dk_k(), 0.1762);
+        let x = 0.6;
+        assert_eq!(b.external_reactivity_dollars(x).to_bits(), control_rods::external_reactivity_dollars_with_worth(x, beta, 0.1762).to_bits());
+        assert_eq!(
+            control_rods::external_reactivity_dollars_with_worth(x, beta, control_rods::bank_worth_dk_k()).to_bits(),
+            control_rods::external_reactivity_dollars(x, beta).to_bits()
+        );
+        assert!(b.set_bank_worth_dk_k(Some(0.0)).is_err() && b.set_bank_worth_dk_k(Some(f64::NAN)).is_err());
+        assert_eq!(b.bank_worth_dk_k(), 0.1762);
+        b.set_bank_worth_dk_k(None).expect("back to cited");
+        assert_eq!(b.bank_worth_dk_k(), control_rods::bank_worth_dk_k());
+        assert!(b.kinetics.set_temperature_coefficients(Some((pcm_per_k(1.0), pcm_per_k(-1.0)))).is_err());
+        assert!(b.kinetics.set_temperature_coefficients(Some((pcm_per_k(f64::NAN), pcm_per_k(-1.0)))).is_err());
+        assert_eq!(b.kinetics.temperature_coefficients(), lattice);
+        b.kinetics.set_temperature_coefficients(None).expect("back to cited");
+        assert_eq!(b.kinetics.temperature_coefficients(), cited);
+    }
+
     #[test]
     fn a_fresh_plant_opens_without_a_spike_and_below_the_triso_limit() {
         const TRISO_LIMIT_K: f64 = 1600.0 + 273.15;

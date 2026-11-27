@@ -86,7 +86,8 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
             continue;
         }
         let Ok(text) = std::fs::read_to_string(&p) else { continue };
-        let Ok(fi) = FolderIndex::parse(&text) else { continue };
+        // Merged with the derived cache (#1778), so writing back keeps it.
+        let Ok(fi) = kovan_common::code_index::derived::load(root, &text) else { continue };
         // Only an index written for the folder it is in (not a fixture copy).
         let dir = p
             .parent()
@@ -108,12 +109,17 @@ pub fn write_into_kovan_tomls(root: &Path, evidence: &TestEvidence) -> Result<us
             unmapped.len()
         );
     }
+    // The tracked text only (#1778): `[test_run]` is tracked; a file whose
+    // tracked text is unchanged is not rewritten.
     let mut texts = Vec::new();
     for ((p, _), fi) in found.iter().zip(&folders) {
-        texts.push((p.clone(), fi.to_toml().map_err(|e| e.to_string())?));
+        texts.push((p.clone(), kovan_common::code_index::derived::tracked_text(fi).map_err(|e| e.to_string())?, fi));
     }
-    for (p, t) in &texts {
-        std::fs::write(p, t).map_err(|e| format!("{}: {e}", p.display()))?;
+    for (p, t, fi) in &texts {
+        if std::fs::read_to_string(p).ok().as_deref() != Some(t.as_str()) {
+            std::fs::write(p, t).map_err(|e| format!("{}: {e}", p.display()))?;
+        }
+        kovan_common::code_index::derived::write_cache(root, fi)?;
     }
     println!("kovan-cli test: recorded in {} kovan.toml file(s)", texts.len());
     Ok(texts.len())

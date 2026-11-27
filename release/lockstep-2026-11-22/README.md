@@ -33,7 +33,10 @@ Decay data used without `std`: `openmc-endf-8-depletion-lib-a` / `-b` 1.1.0
   (maintainer: "publish now"). `outram-mc-libs` at `d1e207f18` passed
   `--lib --tests` (952 passed, 0 failed, 88 binaries) on a 4-core Xeon @
   2.30 GHz (gh:#1709); the re-test of all 12 on the release host was still
-  running at publish time.
+  running at publish time. **It finished 2026-11-24: `cargo test --release
+  --no-fail-fast --lib --tests` on the 12 crates at `16dea0ebd`, 328 test
+  binaries, 0 failed** (release host, shared with other work; liggghts' GPU
+  tests on the llvmpipe software adapter).
 - `cargo publish --dry-run` of each wave's crates was clean (every package
   built from its tarball).
 
@@ -42,7 +45,7 @@ Decay data used without `std`: `openmc-endf-8-depletion-lib-a` / `-b` 1.1.0
 | Crate | Test | Issue | State |
 |---|---|---|---|
 | `outram-blender` 0.0.8 | `tests/gpu_csg_parity.rs` `grid_index_matches_the_cpu_plotter`: unindexed GPU path mismatches the CPU plotter on 9.0 % of pixels (indexed path exact) | #1708 | open; bisected to `3134e3134` (GPU virtual-crossing walk, OpenMC #3934 mirror); three fixes tried and ruled out (recorded on the issue). GPU plotting only; transport is on the CPU. Maintainer: publish with it red. |
-| wave 2 (12 crates) | re-test at `16dea0ebd` on the release host incomplete at publish time (all 12 live on crates.io 2026-11-23) | — | see "Test evidence"; results to be added here |
+| ~~wave 2 (12 crates)~~ | ~~re-test at `16dea0ebd` on the release host incomplete at publish time~~ | — | **RESOLVED 2026-11-24:** the re-test finished green (see "Test evidence") |
 
 ## Fixed during the release (all on develop)
 

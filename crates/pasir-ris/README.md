@@ -25,6 +25,28 @@ on one screen?"**
   ─ Level 1 ─  ──── Level 2 ────────  ──────────── Level 3 ─────────────
 ```
 
+PASIR RIS holds **no implementation yet**, so it has no knowledge of its own
+to study or challenge. What it records is a design intent: one studio in
+which a reader could follow a fault tree, a building release, a dispersion
+calculation and a dose side by side, each drawn from the crate that owns
+it, so that the assumptions passed between them are visible in one place.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | None yet. |
+| Mathematical equations | None yet. |
+| Source code | `src/lib.rs`: the `SCOPE` constant only. The models it is meant to drive live in `raffles`, `bishan`, `sembawang`, `changi`, `buangkok` and `redhill`. |
+| Interactive simulations | None yet (the studio is unbuilt; no `egui`/`eframe` dependency yet). |
+| Visualisations | None yet. |
+| Verification and validation evidence | None yet. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. |
+
+**Status:** a placeholder; there is nothing here to verify.
+
 ## Status: placeholder, nothing is implemented
 
 Created 2026-10-06 to reserve the name and state the scope. The crate has no

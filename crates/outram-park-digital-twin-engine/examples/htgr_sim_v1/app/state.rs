@@ -177,6 +177,10 @@ pub struct HtgrSnapshot {
     /// Operator has started the DLOFC + ATWS accident (gh:#402) from the Map
     /// tab. A control input; see `physics::Scenario::DlofcAtws`.
     pub dlofc_triggered: bool,
+    /// Operator has started the design-basis DLOFC (scram at 7.06 s,
+    /// 2026-11-26) from the Map tab: the passive decay-heat removal case.
+    /// See `physics::Scenario::DlofcScram`.
+    pub dlofc_scram_triggered: bool,
     /// DLOFC readouts (gh:#402), `NAN` unless it runs: helium discharged
     /// \[kg\], fraction of the primary gas vented, graphite oxidised \[kg\],
     /// and (since 2026-09-30, #420) the fraction of the primary gas exchanged
@@ -339,6 +343,9 @@ pub struct HtgrSnapshot {
     /// [`Self::trip_reset_requested`]. Plant reset does not need it: a new
     /// plant starts with an empty record.
     pub peak_fuel_reset_requested: bool,
+    /// The coefficient set the operator chose (gh:#1740); the physics
+    /// thread sends it to the plant when it changes.
+    pub coefficient_set: crate::physics::coefficient_set::CoefficientSet,
     /// The kernel's rise above the bed node \[K\] -- `peak_kernel - bed`,
     /// `NAN` when unresolved. Published separately because it is the quantity
     /// the Doppler channel's reactivity is proportional to, and it is far more
@@ -428,6 +435,11 @@ pub struct HtgrSnapshot {
     /// `f32`, not `f64`: this exists to drive a colour ramp, and the snapshot
     /// is cloned every frame. Empty until the first dispersion run.
     pub dispersion_grid: Vec<f32>,
+    /// The plant's control volumes, links and pressure-boundary components,
+    /// from the assembled plant on every publish (gh:#1718): what the
+    /// Control volumes tab draws and the fault tree checks against. Empty
+    /// until the first publish.
+    pub control_volumes: crate::physics::control_volumes::CvSnapshot,
     /// The basis [`Self::dispersion_grid`] was summed in.
     pub dispersion_grid_weighting: crate::physics::atmospheric_dispersion::FieldWeighting,
     /// Cells per side of [`Self::dispersion_grid`].
@@ -902,6 +914,7 @@ impl Default for HtgrSnapshot {
             circulator_tripped: false,
             water_ingress_triggered: false,
             dlofc_triggered: false,
+            dlofc_scram_triggered: false,
             dlofc_discharged_kg: f64::NAN,
             dlofc_vented_fraction: f64::NAN,
             dlofc_graphite_oxidised_kg: f64::NAN,
@@ -958,6 +971,7 @@ impl Default for HtgrSnapshot {
             peak_kernel_max_k: f64::NAN,
             peak_kernel_max_time_s: f64::NAN,
             peak_fuel_reset_requested: false,
+            coefficient_set: crate::physics::coefficient_set::CoefficientSet::Cited,
             kernel_offset_k: f64::NAN,
             kernel_doppler_dollars: 0.0,
             release_circulating_ci_per_ci: 0.0,
@@ -970,6 +984,7 @@ impl Default for HtgrSnapshot {
             receptors: [ReceptorSnapshot::default(); DISPERSION_RECEPTORS],
             tede: crate::physics::tede_accumulator::TedeSnapshot::default(),
             dispersion_grid: Vec::new(),
+            control_volumes: Default::default(),
             dispersion_grid_weighting: Default::default(),
             dispersion_grid_cells: 0,
             dispersion_grid_half_width_m: 0.0,

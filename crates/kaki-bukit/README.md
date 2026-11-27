@@ -32,9 +32,38 @@ facility agents.
 > endorsed by or supported by the Cyclus developers, CNERG, or the University
 > of Wisconsin. See `NOTICE`.
 
-> **Name is provisional.** The maintainer has deferred the naming decision;
+> ~~**Name is provisional.** The maintainer has deferred the naming decision;
 > `kaki-bukit` follows the workspace's `outram-park-fork-<project>`
-> convention in the meantime.
+> convention in the meantime.~~ **CORRECTED 2026-11-27** — the name is not
+> provisional and does not follow the `outram-park-fork-*` convention: the
+> note above records the maintainer naming it KAKI BUKIT on 2026-09-18, and
+> the package name in `Cargo.toml` is `kaki-bukit`.
+
+What this crate makes **studyable and challengeable** is Cyclus's dynamic
+resource exchange, the market of requests, bids and trades recomputed every
+time step, translated file by file so that each Rust routine can be read
+beside the C++ it came from (every ported file names its upstream file and
+commit). The places where the translation departs from upstream are listed
+one by one in [`docs/port-notes.md`](docs/port-notes.md), including the
+upstream quirks it reproduces on purpose, so a reader can check each choice.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ports CYCLUS (commit `d4faab7ce0566ccb8febfcf50915cdeedee59db0`) and CYCAMORE (commit `fee8c80190e0b91dafccae6b1a3129dc544441e8`), both BSD-3-Clause, and PyNE's `nucname` (BSD-2-Clause); provenance in [`upstream_source/README.md`](upstream_source/README.md) and `NOTICE`. Decay uses PETIR's CRAM48 (OpenMC's order-48 CRAM). |
+| Mathematical equations | The enrichment value function $V(f)$ and separative work, the Bateman decay system in matrix form, and Kahan-compensated summation, below and in the module docs of `src/toolkit/enrichment.rs`, `src/decay.rs` and `src/arithmetic.rs`. The exchange (requests, bids, capacity constraints, greedy solver) is described in `src/exchange/`. |
+| Source code | Kernel: `nuclide`, `composition`, `comp_math`, `material`, `product`, `resource`, `decay`, `limits`, `arithmetic`. Exchange: `src/exchange/` (graph, request, bid, portfolio, constraint, translate, greedy solver, preconditioner, trade). Simulation: `sim`, `context`, `agent`. Archetypes: `src/agents/` (`Source`, `Sink`). Toolkit: `src/toolkit/`. |
+| Interactive simulations | None yet. The worked example is the integration test `tests/fuel_cycle.rs` (`mine_to_repository`: a twelve-step Region > Institution > Facility run through the real exchange). |
+| Visualisations | None yet. |
+| Verification and validation evidence | Closed-form verification in the unit tests (analytic exponential and two-species Bateman decay, separative work, hand-worked matching, mass conservation). Differential against a CYCLUS 1.6.0 binary, recorded 2026-11-13 (gh:#1431): [`verification_and_validation/cyclus_differential_gh1431/README.md`](verification_and_validation/cyclus_differential_gh1431/README.md), tests `tests/cyclus_differential.rs` and `tests/cyclus_differential_toolkit.rs`. Five Source/Sink exchange scenarios: 173 of 173 transaction rows bit-identical; enrichment kernels 70 of 70 bit-identical; CRAM48 vs CYCLUS's CRAM14 decay: 19 of 20 values within 2.4e-11 relative, the 20th at 2.84e-8. The binary is 1.6.0, not the pinned commits. No validation against measured fuel-cycle data. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md`. Struck-through corrections below: the decay default (Uniform Taylor to CRAM48, gh:#999) and "no comparison against a Cyclus run" (gh:#1431). |
+
+**Status:** the exchange for Source/Sink and the toolkit and decay kernels
+have code-to-code evidence against CYCLUS 1.6.0; the nine unported CYCAMORE
+archetypes have none, and nothing is validated.
 
 ## What a fuel-cycle simulation is, and what makes Cyclus different
 
@@ -60,8 +89,11 @@ translation — see the [`exchange`](src/exchange/) module.
 ## Why `no_std`, and why every number comes from PETIR
 
 This crate is `#![no_std]`, depending only on `alloc` and on
-[`petir`](../petir), the workspace's `no_std` numerics library. There is no
-`std` anywhere, and no C dependency of any kind.
+[`petir`](../petir), the workspace's `no_std` numerics library. ~~There is no
+`std` anywhere,~~ **CORRECTED 2026-11-27** — the library never uses `std`,
+except that an optional, off-by-default `std` feature adds
+`impl std::error::Error for CyclusError` (`src/error.rs`) — and there is no C
+dependency of any kind.
 
 Two things follow, and both were the point:
 

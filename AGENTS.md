@@ -78,6 +78,49 @@ gh issue comment <number> --body "..."           # progress
   cannot see a target-gated dependency. Compiling is the bar here, not
   running: a wasm compile does not make a crate wasm-ready (root
   `CLAUDE.md`, Portability).
+- **HARD RULE: with several parallel streams in one session, run the full
+  integration test ONCE, at the end, before pushing** (maintainer,
+  2026-11-26: "if working on multiple parallel streams and many changes in
+  the same session, pls only run the final integration test at the end
+  before pushing").
+  - **While the streams are in flight**, each one runs only the checks for
+    what it touched: the tests of the changed crate or module, its new
+    tests, and the cheap static gates it could break, such as
+    `cargo test --release -p petir --test no_platform_libm` or
+    `bash scripts/check-nostd.sh`. Do not run the full workspace
+    suites or the whole `develop` gate set after every stream or every
+    commit.
+  - **At the end**, on the combined tip that will be pushed, run the full
+    integration set: every gate the `develop` merge rule above requires,
+    plus the full test suites of the crates the session changed. **This
+    final phase is integration test AND debug** (maintainer, 2026-11-26:
+    "by final integration test I mean final integration test and debug"):
+    when a gate fails, find the cause, fix it on the combined tip, and
+    re-run, until the whole set is green. A failure that comes from two
+    streams interacting is found and fixed here. A failure is not handed
+    back as a report while it is still fixable. Push to `develop` only when
+    the set is green.
+  - **Why:** the session of 2026-11-26 re-ran the full gate set (about an
+    hour on 4 cores) on every intermediate tip while agents were still
+    building and testing. Each run competed for the same cores and build
+    lock, and the next tip superseded it within the hour.
+  - **This changes when the gates run, not what they are.** Nothing merges
+    to `develop` without the full set green on the exact commit being
+    merged.
+  - **Run the final integration test from one checkout, with no other
+    build sharing its target directory.** Agent worktrees share the
+    workspace `target/`, and a test binary records the
+    `CARGO_MANIFEST_DIR` of the checkout that built it. If an agent
+    rebuilds a crate's tests while the final run is going, the run can
+    execute the agent's binary. That binary reads case files through the
+    agent's worktree path, so the tests fail with `NotFound` once that
+    worktree is removed. This happened twice on 2026-11-26, in
+    `genfoam_msfr_*` and in the `outram-foam-appbuilder-lib` unit tests,
+    with paths under `.claude/worktrees/agent-*`. Either finish or pause
+    the streams before the final run, or give them their own
+    `CARGO_TARGET_DIR`. A `NotFound` path under another checkout is this
+    fault, not a code defect: rebuild from the integration checkout and
+    re-run.
 - **Kovan-reviewed functions are closed to modification (HARD RULE,**
   maintainer 2026-11-05): extend with new code instead; never edit a
   function carrying a kovan review stamp (body, signature, docs, refactor,
@@ -106,6 +149,41 @@ gh issue comment <number> --body "..."           # progress
   2026-11-04): every `mod` is a plain line in source, never `mod $m;` in a
   `macro_rules!`. kovan reads `mod` lines without expanding macros, so a
   macro-declared module is missing from review. Full rule: `CLAUDE.md`.
+
+## No regression pins until there is concrete V&V at unit-test level (HARD RULE)
+
+**Maintainer direction, 2026-11-26:** "Don't need to pin until we get all
+physics right", refined the same day: "No pins until there are concrete AI
+v&v being done at unit test level." A **regression pin** asserts a model's
+own output equals its current value: a re-blessed fixture compared byte for
+byte, or a "pinned to the first run" number checked to 1e-3.
+
+**When a pin is allowed.** Only once the pieces the pinned output depends on
+have **concrete V&V at the unit-test level**. That means unit tests checking
+each piece (a correlation, a closure, a balance, a coupling) against a
+reference from outside the model: an analytic solution, the upstream code,
+or published data. Each test records its methodology and results (the
+"Verification & validation documentation" rule in `CLAUDE.md`). Until then,
+do not add a pin, and do not re-pin one after a change. A pin on unfinished
+physics fails exactly when the physics gets fixed, and making it pass again
+means re-asserting whatever the model now says, which checks nothing.
+
+- **Record the numbers instead,** in the V&V doc and the commit: measured,
+  dated, with old and new values and the interpretation (the same V&V
+  rule). The record is the evidence; the assert is not needed for it.
+- **An existing pin on such a model** is `#[ignore]`d with this reason (or
+  turned into a printed record) when a physics change moves it, not
+  re-blessed. Un-ignore it and re-bless it once its pieces have that
+  unit-level V&V, and say which tests provide it.
+- **Not covered, and still required:**
+  - correctness checks: energy and mass ledgers, physical invariants, bounds
+    derived from the physics (for example "the first relocation does not
+    quench the core");
+  - code-to-code bit identity against an upstream;
+  - correct-physics-is-default tests;
+  - benchmark gates designed to be able to fail, and headless determinism
+    (same run, same bytes).
+- **First use:** `sembawang::bwr_mark1` after the swell fix (gh:#1810).
 
 ## Tests never race for the same file: copy or duplicate it (HARD RULE)
 

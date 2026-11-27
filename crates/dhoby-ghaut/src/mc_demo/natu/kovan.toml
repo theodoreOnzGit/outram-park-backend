@@ -1,0 +1,80 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/src/mc_demo/natu"
+
+[module."mod.rs"]
+path = "crate::mc_demo::natu"
+
+[[module."mod.rs".function]]
+id = "fn:75e0a70e26667bd5"
+name = "draw"
+qual = "Natu::draw"
+hash = "sha256:1088d22102a5a5472202c099a52eed3147b89b11df273187c54a44b2c7427f09"
+doc_hash = "sha256:e25947eb38e133cfaced2a5ef93c0549774bc5924d2a84cbe2d1fee51db98ea8"
+
+[[module."mod.rs".function]]
+id = "fn:842fe9314bef1a70"
+name = "half_extent"
+qual = "Natu::half_extent"
+hash = "sha256:088b1e4d890bff83b14c98be3a05ca25234e8cb2513dca1d3a9c29b56a813c8f"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:6ab6735299ed24b7"
+name = "job_weights"
+qual = "Natu::job_weights"
+hash = "sha256:2fa1e3efc75b05e5536df546aeface5fde918858d0f6e1e9a038e773cba81db5"
+doc_hash = "sha256:665a2a316784263a4c02dc1240970d29ac3c3e081ad5af3b917b12e242a35973"
+
+[[module."mod.rs".function]]
+id = "fn:e7127664c965950f"
+name = "jobs"
+qual = "Natu::jobs"
+hash = "sha256:cea2b898215efe6006f6fc30c29bc043dd0515ada032895a38163c1f47a8a288"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:a6604973cb42d27a"
+name = "legend"
+qual = "Natu::legend"
+hash = "sha256:73dc0c9ae7dde27d3de11daf2bb0588844d63778132b6d5595fd6e1affef828b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:0fb7f02c7b311da2"
+name = "notes"
+qual = "Natu::notes"
+hash = "sha256:128aad2c4bf9ee36b9f171b9bc426a747898dc876bc23b816c8d178dac76ad5c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:d898f6a835de23af"
+name = "reference"
+qual = "Natu::reference"
+hash = "sha256:e5808fd8a3ae9a1b37b41fe1dee384ba3a0a4bcb87a45637eece4c6db0b10adc"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:ede5742b4d8de897"
+name = "tier"
+qual = "Natu::tier"
+hash = "sha256:956a8be6ce9dc64ef9d6d866b7eadae611ea100f53c4128c2f95a8992688022f"
+doc_hash = "sha256:60e74a75421d58f611945175695dce8cf72cfcf753a40ca2fc483910017e09ab"
+
+[[module."mod.rs".function]]
+id = "fn:ed90c2c5449e23ed"
+name = "URANIUM"
+qual = "URANIUM"
+item = "const"
+shape = "const"
+hash = "sha256:a1d5d545dc037bd801b07e71c73b8c5898370dead1b1587a5a68c3ae90d5f92d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:a86b92b7e845a986"
+name = "the_bar_is_natural_uranium_and_holds_the_birth_point"
+qual = "the_bar_is_natural_uranium_and_holds_the_birth_point"
+hash = "sha256:d8026b7f9a35afb72248ddae35e90814a5e7004831cbed0dbf52b711bfb7bc7d"
+doc_hash = "sha256:934fee265d3cacbbe2288d30bf1dae9fe477ff5dcf0b94886fd1c730ca78033d"
+test = true

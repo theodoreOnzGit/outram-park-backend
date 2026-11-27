@@ -258,6 +258,17 @@ impl Default for KeffSettings {
             n_active: 70,
             temperature_k: 293.6,
             seed: 1,
+            // Theodore's comments:
+            // I seen the watt 
+            // inside: 
+            // https://docs.openmc.org/en/latest/pythonapi/generated/openmc.stats.Watt.html
+            // confirmed:
+            // The python API shows:
+            // openmc.stats.Watt(a=988000.0, b=2.249e-06, bias: Univariate | None = None
+            // Which shows that the watt spectrum parameters default to 
+            // the following values.
+            //
+            // This default is for thermal neutron irradiation
             watt_a: 0.988e6,
             watt_b: 2.249e-6,
             compute: ComputeType::CpuSingleThread,

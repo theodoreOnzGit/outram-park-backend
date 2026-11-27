@@ -166,6 +166,15 @@ pub fn external_reactivity_dollars(insertion_fraction: f64, beta: f64) -> f64 {
     net_dk_k / beta
 }
 
+/// [`external_reactivity_dollars`] with bank worth `worth_dk_k` (dimensionless
+/// `dk/k`) in place of the cited [`BANK_WORTH_PERCENT_DK_K`] (gh:#1740: a
+/// Monte Carlo bank worth sent to the plant). The same arithmetic; with
+/// [`bank_worth_dk_k`] it is bit for bit the cited function.
+pub fn external_reactivity_dollars_with_worth(insertion_fraction: f64, beta: f64, worth_dk_k: f64) -> f64 {
+    let net_dk_k = cold_clean_excess_dk_k() - worth_dk_k * inserted_worth_fraction(insertion_fraction);
+    net_dk_k / beta
+}
+
 /// Bank insertion fraction at which the core is exactly critical
 /// (`rho_ext = 0`), found by bisection on [`external_reactivity_dollars`].
 ///

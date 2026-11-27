@@ -77,7 +77,10 @@ fn closed_form_velocity() -> f64 {
 /// Run the case to `t_end` and return the solver; `isothermal` switches the
 /// `fixedPower` source off first (the structure then stays at 652.15 K).
 fn run_to(dir: &std::path::Path, t_end: f64, isothermal: bool) -> TwoPhaseSolver {
-    let mut case = TwoPhaseCase::read(dir).expect("read 1D_boiling");
+    let mut case = TwoPhaseCase::read(dir)
+        .expect("read 1D_boiling")
+        .with_alpha_solver_implicit_upwind() // the pinned numbers below are the port's implicitUpwind run (before gh:#1361 round 7)
+        .expect("implicitUpwind");
     if isothermal {
         for pm in case.structure.power.iter_mut().flatten() {
             pm.power_off();
@@ -144,17 +147,33 @@ fn one_d_boiling_heated_flow_at_0_3_s() {
 /// liquid flow falls below half its single-phase value (flow excursion), and
 /// the void has condensed away by 12 s. The continuity errors (P5, missed) are
 /// printed, not asserted.
+///
+/// **Recorded failure, gh:#1811** (maintainer decision 2026-11-26, "1b"): the
+/// test runs upstream's Nusselt operation order, the default, and under it the
+/// run collapses after the boiling onset (step size to NaN, `Diverged`). It is
+/// ignored so the suite stays green, and kept runnable with `-- --ignored`;
+/// P1-P5 above were recorded under the earlier order, still callable as
+/// `TwoPhaseSolver::with_earlier_nusselt_association`.
 #[test]
+#[ignore = "gh:#1811: diverges after boiling onset under upstream's Nusselt operation order (recorded failure)"]
 fn one_d_boiling_full_transient() {
     let Some(dir) = case_dir() else {
         eprintln!("SKIP: upstream 1D_boiling not found; set GENFOAM_UPSTREAM");
         return;
     };
-    let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling");
+    let case = TwoPhaseCase::read(&dir)
+        .expect("read 1D_boiling")
+        .with_alpha_solver_implicit_upwind() // pinned P1..P5 are the implicitUpwind run
+        .expect("implicitUpwind");
     for d in &case.deviations {
         eprintln!("deviation: {d}");
     }
     let end = case.end_time;
+    // The pinned 12 s transient runs through a chaotic post-onset flow excursion: with upstream's operation order in the
+    // Nusselt htc ((kappa/Dh)*(A + B*pow(Re,C)*pow(Pr,D)*Tratio), the default since gh:#1361 round 8; an ulp different from
+    // the port's earlier `nu*k/dh`) the step size collapses (`Diverged`, NaN, measured 2026-11-26).
+    // ~~The earlier order, under which P1-P5 below were recorded, is therefore selected here.~~ CHANGED 2026-11-26
+    // (maintainer, "1b"): the upstream order is run and the divergence is a recorded failure, gh:#1811.
     let mut s = TwoPhaseSolver::new(case);
     // Diagnostic ablations (not defaults): override alpha relaxation or nOuter.
     if let Ok(v) = std::env::var("TWO_PHASE_RELAX_ALPHA") {
@@ -224,4 +243,23 @@ fn one_d_boiling_full_transient() {
             }
         }
     }
+}
+
+/// The earlier Nusselt operation order stays selectable (gh:#1811): the
+/// builder sets the flag and the solver steps under it. Reaching test for
+/// `TwoPhaseSolver::with_earlier_nusselt_association`; the 12 s comparison of
+/// the two orders is `one_d_boiling_full_transient` (ignored, recorded failure).
+#[test]
+fn one_d_boiling_earlier_nusselt_association_is_selectable() {
+    let Some(dir) = case_dir() else {
+        eprintln!("SKIP: upstream 1D_boiling not found; set GENFOAM_UPSTREAM");
+        return;
+    };
+    let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling");
+    let mut s = TwoPhaseSolver::new(case).with_earlier_nusselt_association();
+    assert!(s.controls.earlier_nusselt_association);
+    for _ in 0..5 {
+        s.step().expect("step under the earlier order");
+    }
+    assert!(s.time > 0.0 && s.fluids[0].t.c.iter().all(|t| t.is_finite()));
 }

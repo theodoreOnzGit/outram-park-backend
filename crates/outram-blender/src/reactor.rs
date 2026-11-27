@@ -447,9 +447,12 @@ mod tests {
         let dims = Htr10CoreDimensions::iaea_benchmark();
         let core = htr10_core_envelope(&dims, DEFAULT_SEGMENTS);
 
+        // The carved tet source this test was recorded on (gh:#1829 made
+        //   TetGen the default; no layers here, so nothing needs it).
         let opts = TetDualOptions {
             cell_size: 0.30,
             n_layers: 0,
+            tet_source: outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid,
             ..Default::default()
         };
         let (_vol, report) = mesh_to_tet_dual(&core, &opts).expect("HTR-10 envelope meshes");

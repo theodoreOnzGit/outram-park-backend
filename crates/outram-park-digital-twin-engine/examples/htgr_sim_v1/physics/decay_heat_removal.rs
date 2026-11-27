@@ -224,7 +224,8 @@ use tuas_boussinesq_solver::boussinesq_thermophysical_properties::specific_heat_
 use tuas_boussinesq_solver::boussinesq_thermophysical_properties::{Material, SolidMaterial};
 use uom::si::available_energy::joule_per_kilogram;
 use uom::si::energy::joule;
-use uom::si::f64::{Area, Energy, Mass, MassRate, Power, Pressure, ThermodynamicTemperature};
+use uom::si::f64::{Area, Energy, Mass, MassRate, Power, Pressure, ThermodynamicTemperature, Volume};
+use uom::si::volume::cubic_meter;
 use uom::si::mass::kilogram;
 use uom::si::mass_rate::kilogram_per_second;
 use uom::si::mass_density::kilogram_per_cubic_meter;
@@ -443,10 +444,19 @@ fn solid_enthalpy(material: SolidMaterial, t: ThermodynamicTemperature) -> f64 {
 /// `pi (1.678^2 - 0.90^2) 4.70 m^3` less the published channel voids.
 /// 28.1 m^3, about 49.7 t.
 pub fn reflector_graphite_mass() -> Mass {
-    let volume =
-        std::f64::consts::PI * (R_GRAPHITE_OUTER_M.r_powi(2) - R_BED_OUTER_M.r_powi(2)) * H_GRAPHITE_M
-            - GRAPHITE_ANNULUS_CHANNEL_VOID_M3;
+    let volume = reflector_graphite_volume().get::<cubic_meter>();
     Mass::new::<kilogram>(solid_density(REFLECTOR_GRAPHITE) * volume)
+}
+
+/// Graphite volume of the side-reflector annulus \[m^3\]:
+/// `pi (1.678^2 - 0.90^2) 4.70` less the published channel voids, 28.1 m^3
+/// (the volume [`reflector_graphite_mass`] weighs; split out for the
+/// control-volume map, gh:#1718).
+pub fn reflector_graphite_volume() -> Volume {
+    Volume::new::<cubic_meter>(
+        std::f64::consts::PI * (R_GRAPHITE_OUTER_M.r_powi(2) - R_BED_OUTER_M.r_powi(2)) * H_GRAPHITE_M
+            - GRAPHITE_ANNULUS_CHANNEL_VOID_M3,
+    )
 }
 
 /// Boronated carbon brick mass \[kg\]: the published 1590 kg/m^3 times
@@ -455,10 +465,16 @@ pub fn reflector_graphite_mass() -> Mass {
 /// Maddison) -- it is carbon brick with 5 wt% B4C, and no property set for it
 /// exists here.
 pub fn boronated_brick_mass() -> Mass {
-    let volume = std::f64::consts::PI
-        * (R_BORONATED_OUTER_M.r_powi(2) - R_GRAPHITE_OUTER_M.r_powi(2))
-        * H_BORONATED_M;
+    let volume = boronated_brick_volume().get::<cubic_meter>();
     Mass::new::<kilogram>(BORONATED_BRICK_DENSITY_KG_PER_M3 * volume)
+}
+
+/// Boronated carbon brick volume \[m^3\]: `pi (1.90^2 - 1.678^2) 6.10`,
+/// 15.2 m^3 (the volume [`boronated_brick_mass`] weighs).
+pub fn boronated_brick_volume() -> Volume {
+    Volume::new::<cubic_meter>(
+        std::f64::consts::PI * (R_BORONATED_OUTER_M.r_powi(2) - R_GRAPHITE_OUTER_M.r_powi(2)) * H_BORONATED_M,
+    )
 }
 
 /// RPV mass \[kg\]: the lateral shell only, `pi ((r + t)^2 - r^2) H` on the
@@ -466,11 +482,18 @@ pub fn boronated_brick_mass() -> Mass {
 /// invented [`RPV_WALL_THICKNESS_M`], times the stand-in steel's density.
 /// Heads are not included (they are not in the radial chain either).
 pub fn rpv_mass() -> Mass {
+    let volume = rpv_wall_volume().get::<cubic_meter>();
+    Mass::new::<kilogram>(solid_density(RPV_STEEL) * volume)
+}
+
+/// RPV lateral-shell steel volume \[m^3\], `pi ((r + t)^2 - r^2) H` (the
+/// volume [`rpv_mass`] weighs; `t` is the invented
+/// [`RPV_WALL_THICKNESS_M`]).
+pub fn rpv_wall_volume() -> Volume {
     let design = super::pebble_bed::design();
     let r = 0.5 * design.rpv_inner_diameter.get::<uom::si::length::meter>();
     let h = design.rpv_height.get::<uom::si::length::meter>();
-    let volume = std::f64::consts::PI * ((r + RPV_WALL_THICKNESS_M).r_powi(2) - r * r) * h;
-    Mass::new::<kilogram>(solid_density(RPV_STEEL) * volume)
+    Volume::new::<cubic_meter>(std::f64::consts::PI * ((r + RPV_WALL_THICKNESS_M).r_powi(2) - r * r) * h)
 }
 
 /// Secant heat capacity `m (h(T') - h(T)) / (T' - T)` \[J/K\] of a body of

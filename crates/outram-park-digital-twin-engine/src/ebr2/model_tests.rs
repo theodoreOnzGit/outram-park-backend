@@ -500,6 +500,67 @@ fn setters_reach_the_physics() {
     assert!(k.fission_power() > k.decay_power());
 }
 
+/// **gh:#1749: the coefficient setter keeps the references.** SHRT-45R
+/// run 60 s (the pumps coast down, so every temperature has left its
+/// initial value). (1) Setting the same Argonne VARIANT set changes
+/// nothing: 20 s more is bit-identical to a run that never set it, so the
+/// references are the initial steady state's, as at construction. (2) The
+/// set doubled doubles every feedback term at the same state (each is
+/// linear in its coefficient, the Doppler constant included), to
+/// round-off. Both are compared at the same state: what `reactivity()`
+/// reports after a step is the feedback at the last sub-step's START
+/// temperatures (the module's documented scheme, Numerics step 2), which
+/// differed from the end-of-step evaluation by 6.4e-4 relative in Doppler
+/// here. (3) The
+/// configuration records the new set; tabulated power refuses it.
+#[test]
+fn the_coefficient_setter_keeps_the_initial_references() {
+    let mut a = Ebr2Model::shrt45r(m(2.0)).unwrap();
+    a.step(s(60.0)).unwrap();
+    let mut b = a.clone();
+    let argonne = ReactivityCoefficients::argonne(ArgonneSolver::Variant);
+    b.set_reactivity_coefficients(argonne).unwrap();
+    for _ in 0..20 {
+        a.step(s(1.0)).unwrap();
+        b.step(s(1.0)).unwrap();
+    }
+    assert_eq!(a.total_power().get::<megawatt>().to_bits(), b.total_power().get::<megawatt>().to_bits());
+    assert_eq!(a.fuel_temperature().get::<kelvin>().to_bits(), b.fuel_temperature().get::<kelvin>().to_bits());
+
+    // Both sets evaluated at the same (end-of-step) state: the setter
+    // re-evaluates there, while a step leaves the start-of-sub-step value.
+    let mut c = a.clone();
+    c.set_reactivity_coefficients(argonne).unwrap();
+    let before = c.reactivity().feedback;
+    let doubled = ReactivityCoefficients {
+        axial_fuel_expansion: argonne.axial_fuel_expansion * 2.0,
+        radial_expansion: argonne.radial_expansion * 2.0,
+        sodium_density_per_kelvin: argonne.sodium_density_per_kelvin * 2.0,
+        doppler_per_kelvin: argonne.doppler_per_kelvin * 2.0,
+        doppler_nominal_temperature: argonne.doppler_nominal_temperature,
+    };
+    c.set_reactivity_coefficients(doubled).unwrap();
+    let after = c.reactivity().feedback;
+    let pairs = [
+        ("doppler", before.doppler, after.doppler),
+        ("axial", before.axial_fuel_expansion, after.axial_fuel_expansion),
+        ("density", before.coolant_density, after.coolant_density),
+        ("radial", before.radial_expansion, after.radial_expansion),
+    ];
+    for (name, x, y) in pairs {
+        let (x, y) = (x.get::<ratio>(), y.get::<ratio>());
+        println!("{name}: {:.4} pcm -> {:.4} pcm", x / PCM, y / PCM);
+        assert!(x != 0.0, "{name} has left its reference");
+        assert!(((y - 2.0 * x) / x).abs() < 1e-12, "{name}: {y} against {}", 2.0 * x);
+    }
+    match &c.config().power {
+        PowerConfig::PointKinetics(k) => assert_eq!(k.coefficients, doubled),
+        PowerConfig::Tabulated => panic!("SHRT-45R runs point kinetics"),
+    }
+    let mut t = Ebr2Model::shrt17(m(2.0)).unwrap();
+    assert!(t.set_reactivity_coefficients(argonne).is_err());
+}
+
 /// Invalid configurations are refused.
 #[test]
 fn invalid_configurations_are_refused() {

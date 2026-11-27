@@ -10,22 +10,12 @@ path = "example:discover_and_search"
 id = "fn:7197d8a68fcef9b5"
 name = "main"
 qual = "main"
-lines = [
-    21,
-    72,
-]
 hash = "sha256:286d1ba286132254f503c01cb1c9fc75824f3a01f9a52562f2611ac746e1f416"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:296e80a9fbd117f2",
-    "fn:77f0ea5d2f4deed5",
-    "fn:abde0f72eecc0b94",
-]
-uses = ["fn:7708bd2abf4b600f"]
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = []
 failed = []

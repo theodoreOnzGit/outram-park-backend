@@ -11,6 +11,35 @@ operation.
 > reactor control, licensing, safety-critical decisions or emergency response.
 > See the workspace `RESPONSIBLE_USE.md`.
 
+What this crate makes studyable and challengeable is how radionuclides get out
+of a TRISO particle, told three ways that can be checked against each other: a
+line-by-line Rust fork of INL's TRISO-ATOPS that a reader can set beside the
+upstream Python, a port of Wee Zhern Ray's STRATO eigenfunction series for a
+layered sphere, and boon-lay's own Lagrangian walkers, which show single atoms
+decaying, transmuting and diffusing through the coatings. Alongside them sit
+fuel-failure formulas transcribed from the PANAMA-I report and two chemical
+rate laws, each with its source and validity range, and a theory book and a
+lesson book that derive the models.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ported upstreams: INL's TRISO-ATOPS (MIT, Battelle Energy Alliance, commit `de374c8`; `LICENSE.triso-atops`, `TRISO_ATOPS_DERIVATION.md`) and STRATO by Wee Zhern Ray (AGPL-3.0-only, commit `36f1a98`; `src/strato/mod.rs`). Transcribed sources: PANAMA-I (Verfondern and Nabielek, Jülich HTA-IB-03/90, 1990) for `fuel_failure`; Wang and Sun (2023) and IAEA-TECDOC-978 Eq. (5-2) for `chemistry`; Liu and Cao (2002) for the HTR-10 per-cycle table; IAEA CRP-6 Case 1a/1b. `crates/kovan-literature/CATALOGUE.md` ties TECDOC-978 to `boon_lay::chemistry::kernel_hydrolysis`. Decay data: ENDF/B-VIII.0 via `openmc-endf-8-depletion-lib-b`. |
+| Mathematical equations | `docs/theory/` (an mdBook: fission generation, recoil, layers and chemistry, SiC, random walk, Eulerian FRESCO, the ray equations, pressure-vessel stress, PANAMA), `docs/derivations/`, `docs/triso-atops-derivation.md`, and the module docs (Booth release, Sturm-Liouville eigenfunction series in `src/strato/`, finite-volume multilayer diffusion in `src/triso_atops_extensions/`). |
+| Source code | `src/triso_atops_fork/`, `src/triso_atops_extensions/`, `src/strato/`, `src/lagrangian_decay_simulator/`, `src/lagrangian_transmutation_and_fission_simulator/`, `src/fuel_failure/`, `src/chemistry/`, `src/nuclide_reaction_and_decay_data/`, `src/decay_xml_info_serde/`, `src/gpu.rs`; `boon_lay::rustbca` re-exports `kembangan::rustbca`. |
+| Interactive simulations | egui examples `examples/triso_simulator/`, `examples/boon_lay_decay_simulator/` and `examples/first_passage_realtime.rs`; the `dhoby-ghaut` web demos `triso_atops_web`, `lesson_triso_atops` and `lesson_triso_kernel` are built on this crate. |
+| Visualisations | `docs/theory/src/img/pools-widget.png`; `examples/triso_cell_slice.rs` draws the assembled TRISO cell; `dev/mhtgr_stoyer_fig67_overlay.py` overlays the paper reproduction. |
+| Verification and validation evidence | `docs/triso-atops-code-to-code.md`: TRISO-ATOPS fork against upstream `de374c8`, 14 130 cases and 51 tests (third pass, 2026-09-21), worst group `accident_case.nodal_kernel` at 2.44e-9 relative. `verification_and_validation/strato_triso_diffusion/` (2026-11-26): the STRATO port bit-identical to upstream on 978 of 978 values. `verification_and_validation/mhtgr_stoyer/` and `docs/triso-atops-2026-paper-reproduction.md`: the `atops2026paper` variant against the published paper's own release numbers (gh:#1015, 2026-10-22). `verification_and_validation/crp6_case1_kernel_release_vs_crank.md`. Full list under "Verification status" below. |
+| Human reviews and corrections | 163 functions carry a kovan human-review stamp. `docs/human-corrections-to-ai-work.md` has one entry on this crate (2026-10-05, "Every element plates out at one rate", `triso_atops_fork::normal_operation::normal_operation_node`), which led to `triso_atops_extensions`. Struck-through corrections below record the TRISO-ATOPS code-to-code numbers (2026-09-28) and the licence change. |
+
+**Status in one sentence:** the TRISO-ATOPS fork and the STRATO port are
+verified code to code against their upstreams; the extensions, the Lagrangian
+walkers and the fuel-failure formulas have only reduction or transcription
+checks, and nothing is validated against measured release data.
+
 ## Two ways of looking at the same problem
 
 Tracking fission products through a TRISO particle with an **Eulerian**
@@ -22,7 +51,8 @@ started from the other side, and now carries both:
 |---|---|---|
 | **Lagrangian** | `lagrangian_decay_simulator`, `lagrangian_transmutation_and_fission_simulator` | Tracks representative atoms. Each one walks its decay chain, samples competing decay / `(n,gamma)` / `(n,2n)` / fission clocks, and diffuses through the kernel and coating shells. No burnup matrix: the population emerges from the ensemble. Built for watching radionuclide transport in real time, for outreach and open research. |
 | **Eulerian / continuum** | `triso_atops_fork` | A Rust fork of INL's **TRISO-ATOPS** (MIT, upstream commit `de374c8`). Closed-form Booth, breakthrough and attenuation release fractions; normal-operation and accident release; coolant activity and source terms for 84 nuclides. |
-| **Eulerian, extended** (NOT a port) | `triso_atops_extensions` | boon-lay's own additions to the TRISO-ATOPS model, kept apart from the port, which they do not modify. Today: plate-out and purification rates **per transport group or per element** instead of one `k_plate` and one `k_clean` per reactor, conversions from per-cycle data, and Liu & Cao's (2002) cited HTR-10 per-cycle table (GitHub #583). With upstream's rates it reproduces the port bit for bit on all 84 nuclides. |
+| **Eulerian, extended** (NOT a port) | `triso_atops_extensions` | boon-lay's own additions to the TRISO-ATOPS model, kept apart from the port, which they do not modify. Today: plate-out and purification rates **per transport group or per element** instead of one `k_plate` and one `k_clean` per reactor, conversions from per-cycle data, and Liu & Cao's (2002) cited HTR-10 per-cycle table (GitHub #583). With upstream's rates it reproduces the port bit for bit on all 84 nuclides. **CORRECTED 2026-11-26:** this row omitted `multilayer_diffusion` (since 2026-11-04, gh:#1209): a cell-centred finite-volume solver of diffusion through every layer of the particle, the numerical reference for the port's closed forms. |
+| **Analytical, multilayer** (a port) | `strato` | The exact Sturm-Liouville eigenfunction series for release from a layered sphere, ported from **STRATO by Wee Zhern Ray (`weewzr`)** (<https://github.com/weewzr/STRATO>, AGPL-3.0-only, commit `36f1a98`), `no_std` + `alloc`. It reproduces upstream bit for bit, and is the analytical reference `multilayer_diffusion` is verified against (gh:#1800). Added 2026-11-26. |
 
 The two are complements, not rivals. The Lagrangian model shows *how* atoms
 get out. The TRISO-ATOPS fork gives the release fractions that the offsite
@@ -78,7 +108,7 @@ are not validated against any accident.
 re-exports it** as `boon_lay::rustbca`. It is copied from `lcpp-org/RustBCA`
 ~~v3.0.0~~ (`a356280d`, which is v3.0.0 plus 17 upstream commits, corrected 2026-11-13 gh:#1426; GPL-3.0, Jon Drobny and Davide Curreli) and made `no_std` +
 `alloc`. Attribution and every local change are listed in
-[`src/rustbca/README.md`](src/rustbca/README.md) and in the module docs.
+[`src/rustbca/README.md`](../kembangan/src/rustbca/README.md) (in `kembangan`) and in the module docs.
 
 It is a binary-collision Monte Carlo for fission fragments, alphas and recoil
 knock-ons. **Fragment results are illustrative until they are V&V'd.**
@@ -86,7 +116,7 @@ knock-ons. **Fragment results are illustrative until they are V&V'd.**
 `examples/rustbca_cascades.rs` prices one full cascade in an HTR-10 kernel and
 its coatings. A fission fragment costs 1.5–2 s on one desktop core. Results
 are in
-[`verification_and_validation/rustbca_cascades/`](verification_and_validation/rustbca_cascades/README.md).
+[`verification_and_validation/rustbca_cascades/`](../kembangan/verification_and_validation/rustbca_cascades/README.md) (in `kembangan`).
 
 ## `no_std` + `alloc` (gh:#1634)
 
@@ -159,6 +189,20 @@ ENDF/B-VIII.0, via the `openmc-endf-8-depletion-lib-b` crate.
   700 °C and 1100 °C, with purification on and off and parent pools chained
   (336 cases). The element-dependent rates themselves are not validated, and
   the HTR-10 cycle time and purified flow fraction they need are not sourced.
+- **Multilayer diffusion against STRATO (2026-11-26, gh:#1800):** the
+  `strato` port reproduces upstream STRATO bit for bit (978 of 978 values),
+  and matches a homogeneous-sphere closed form (the same formula as
+  upstream's own test oracle) and the ported
+  ATOPS Booth series to round-off. `multilayer_diffusion` converges to it at
+  second order in space and first order in time on equal, two-layer,
+  five-layer and contrast (10^±6) cases, as does STRATO's own finite volume,
+  run unmodified. On layered cases the series and the FV corroborate each
+  other; neither is an independent reference for the other yet. A first run
+  failed its spatial-order gate because of the
+  test protocol; that failure is recorded with its diagnosis. Upstream
+  TRISO-ATOPS's `breakthrough_model` is a different problem (one planar
+  layer, infinite source) and is not covered. Plan, results and limitations:
+  [`verification_and_validation/strato_triso_diffusion/`](verification_and_validation/strato_triso_diffusion/README.md).
 - **Lagrangian simulator:** unit-tested. Monte Carlo half-lives are checked
   against ENDF/B-VIII.0, and the release fraction against the IAEA CRP-6
   Case 1a/1b analytical solution. There is no cross-code comparison yet.
@@ -183,6 +227,9 @@ The egui examples fall under the workspace headless-mode rule; see
 Energy Alliance (INL). Its terms are in [`LICENSE.triso-atops`](LICENSE.triso-atops)
 and [`NOTICE.triso-atops`](NOTICE.triso-atops), and the derivation is recorded in
 [`TRISO_ATOPS_DERIVATION.md`](TRISO_ATOPS_DERIVATION.md). MIT into ~~GPL-3.0~~ **AGPL-3.0-only** is one-way.
+`src/strato/` ports part of **STRATO, by Wee Zhern Ray (GitHub `weewzr`)**,
+<https://github.com/weewzr/STRATO>, which is AGPL-3.0-only like this crate;
+its provenance and local changes are in `src/strato/mod.rs`.
 
 ## Bookkeeping status
 

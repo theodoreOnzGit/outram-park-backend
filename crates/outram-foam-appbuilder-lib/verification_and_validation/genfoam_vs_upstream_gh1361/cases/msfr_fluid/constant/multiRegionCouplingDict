@@ -1,0 +1,56 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    arch        "LSB;label=32;scalar=64";
+    class       dictionary;
+    location    "constant";
+    object      multiRegionCouplingDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+multiPhysicsSolvers
+{
+    energyNeutroLoop
+    {
+        solvers
+        {
+            fluidRegion     onePhase;
+            neutroRegion    diffusionNeutronics;
+        }
+        minResidual 0.00005;
+        maxIterations 3;
+    }
+}
+
+
+mappings
+{
+    fluidRegion
+    {
+        neutroRegion
+        {
+            sourceFields    ( secondaryPowerDensity powerDensity );
+            targetFields    ( powerDensityNeutronics powerDensityNeutronicsToLiquid );
+        }
+    }
+    neutroRegion
+    {
+        fluidRegion
+        {
+            sourceFields    ( T thermo:rho T T.cladAvForNeutronics T.passiveStructure U mu alpha thermo:alpha );
+            targetFields    ( TCool rhoCool TFuel TClad TStructMech U mu alpha alphat );
+        }
+    }
+}
+
+
+// ************************************************************************* //

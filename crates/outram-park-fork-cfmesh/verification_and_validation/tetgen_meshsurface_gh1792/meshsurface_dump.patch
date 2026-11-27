@@ -1,0 +1,126 @@
+--- a/tetgen.h
++++ b/tetgen.h
+@@ -1919,6 +1919,7 @@
+   void identifyinputedges(point*);
+   void mergefacets();
+   void meshsurface();
++  void dump_meshsurface(const char*);
+ 
+ 
+ //============================================================================//
+--- a/tetgen.cxx
++++ b/tetgen.cxx
+@@ -14725,6 +14725,105 @@
+ 
+ //                                                                            //
+ //                                                                            //
++
++#include <map>
++#include <string>
++// gh:#1792 instrumentation: the state right after meshsurface().
++static std::map<void*, long> poolmap(tetgenmesh::memorypool *pool) {
++  std::map<void*, long> m; long k = 0; void *it;
++  pool->traversalinit();
++  while ((it = pool->traverse()) != NULL) m[it] = k++;
++  return m;
++}
++static std::map<void*, long> g_sub, g_seg, g_tet, g_pt;
++static std::string shref(void *p) {
++  if (p == NULL) return "-";
++  uintptr_t u = (uintptr_t) p; int ver = (int) (u & 7); void *b = (void *) (u & ~(uintptr_t) 7);
++  char buf[64];
++  if (g_sub.count(b)) { snprintf(buf, 64, "f%ld.%d", g_sub[b], ver); return buf; }
++  if (g_seg.count(b)) { snprintf(buf, 64, "s%ld.%d", g_seg[b], ver); return buf; }
++  return "?";
++}
++static std::string tref(void *p) {
++  if (p == NULL) return "-";
++  uintptr_t u = (uintptr_t) p; int ver = (int) (u & 15); void *b = (void *) (u & ~(uintptr_t) 15);
++  char buf[64];
++  if (g_tet.count(b)) { snprintf(buf, 64, "t%ld.%d", g_tet[b], ver); return buf; }
++  return "?";
++}
++static std::string pref(tetgenmesh *m, void *p) {
++  char buf[32];
++  if (p == NULL) return "-";
++  if (p == (void *) m->dummypoint) return "D";
++  if (g_pt.count(p)) { snprintf(buf, 32, "%ld", g_pt[p]); return buf; }
++  return "?";
++}
++static unsigned long long bits(double x) { unsigned long long u; memcpy(&u, &x, 8); return u; }
++void tetgenmesh::dump_meshsurface(const char *fname)
++{
++  FILE *f = fopen(fname, "w");
++  g_sub = poolmap(subfaces); g_seg = poolmap(subsegs);
++  g_tet = poolmap(tetrahedrons); g_pt = poolmap(points);
++  fprintf(f, "meshsurface dump v1\n");
++  fprintf(f, "firstnumber %d numberofpoints %d dupverts %ld\n", in->firstnumber, in->numberofpoints, dupverts);
++  fprintf(f, "points %ld %ld\n", points->maxitems, points->items);
++  for (std::map<void*,long>::iterator it = g_pt.begin(); it != g_pt.end(); ++it) {}
++  points->traversalinit(); point pp; long k = 0;
++  while ((pp = (point) points->traverse()) != NULL) {
++    fprintf(f, "p %ld %d %d %d %016llx %016llx %016llx %s\n", k++, pointmark(pp), (int) pointtype(pp),
++      ((int *) pp)[pointmarkindex + 1] & 255, bits(pp[0]), bits(pp[1]), bits(pp[2]),
++      pointtype(pp) == DUPLICATEDVERTEX ? pref(this, point2ppt(pp)).c_str() : "-");
++  }
++  fprintf(f, "dummy %016llx %016llx %016llx\n", bits(dummypoint[0]), bits(dummypoint[1]), bits(dummypoint[2]));
++  const char *names[2] = {"subfaces", "subsegs"};
++  memorypool *pools[2] = {subfaces, subsegs};
++  for (int q = 0; q < 2; q++) {
++    memorypool *pool = pools[q];
++    fprintf(f, "%s %ld %ld\n", names[q], pool->maxitems, pool->items);
++    pool->traversalinit(); shellface *s; k = 0;
++    while ((s = (shellface *) pool->traverse()) != NULL) {
++      if (s[3] == NULL) { fprintf(f, "%c %ld dead\n", q ? 's' : 'f', k++); continue; }
++      face fc; fc.sh = s; fc.shver = 0;
++      if (q == 0) {
++        fprintf(f, "f %ld %s %s %s %d %d %s %s %s %s %s %s %s %s\n", k++,
++          pref(this, s[3]).c_str(), pref(this, s[4]).c_str(), pref(this, s[5]).c_str(),
++          shellmark(fc), ((int *) s)[shmarkindex + 1],
++          shref(s[0]).c_str(), shref(s[1]).c_str(), shref(s[2]).c_str(),
++          shref(s[6]).c_str(), shref(s[7]).c_str(), shref(s[8]).c_str(),
++          tref(s[9]).c_str(), tref(s[10]).c_str());
++      } else {
++        fprintf(f, "s %ld %s %s %s %d %d %s %s %s %s %s %s\n", k++,
++          pref(this, s[3]).c_str(), pref(this, s[4]).c_str(), pref(this, s[5]).c_str(),
++          shellmark(fc), ((int *) s)[shmarkindex + 1],
++          shref(s[0]).c_str(), shref(s[1]).c_str(), shref(s[2]).c_str(),
++          s[6] ? "x" : "-", tref(s[9]).c_str(), tref(s[10]).c_str());
++      }
++    }
++    fprintf(f, "%cdead", q ? 's' : 'f');
++    for (void *d = pool->deaditemstack; d != NULL; d = *(void **) d) fprintf(f, " %ld", (q ? g_seg : g_sub)[d]);
++    fprintf(f, "\n");
++  }
++  fprintf(f, "tets %ld %ld %ld\n", tetrahedrons->maxitems, tetrahedrons->items, hullsize);
++  tetrahedrons->traversalinit(); tetrahedron *t; k = 0;
++  while ((t = (tetrahedron *) tetrahedrons->traverse()) != NULL) {
++    if (t[4] == NULL) { fprintf(f, "t %ld dead\n", k++); continue; }
++    fprintf(f, "t %ld %s %s %s %s %s %s %s %s %d %s %s\n", k++,
++      pref(this, t[4]).c_str(), pref(this, t[5]).c_str(), pref(this, t[6]).c_str(), pref(this, t[7]).c_str(),
++      tref(t[0]).c_str(), tref(t[1]).c_str(), tref(t[2]).c_str(), tref(t[3]).c_str(),
++      ((int *) t)[elemmarkerindex], t[8] ? "x" : "-", t[9] ? "x" : "-");
++  }
++  fprintf(f, "tdead");
++  for (void *d = tetrahedrons->deaditemstack; d != NULL; d = *(void **) d) fprintf(f, " %ld", g_tet[d]);
++  fprintf(f, "\n");
++  fprintf(f, "recentsh %s\n", recentsh.sh ? shref(sencode(recentsh)).c_str() : "-");
++  fprintf(f, "recenttet %s\n", recenttet.tet ? tref(encode(recenttet)).c_str() : "-");
++  fprintf(f, "randomseed %lu\n", randomseed);
++  fprintf(f, "insegments %ld\n", insegments);
++  fprintf(f, "minfacetdihed %016llx\n", bits(minfacetdihed));
++  fprintf(f, "flippool %ld\n", flippool->items);
++  fprintf(f, "rand %d\n", rand());
++  fclose(f);
++}
+ //== surface_cxx =============================================================//
+ 
+ //== constrained_cxx =========================================================//
+@@ -36164,6 +36263,7 @@
+ 
+   if (b->plc && !b->refine) { // -p
+     m.meshsurface();
++    if (getenv("TG_DUMP")) { m.dump_meshsurface(getenv("TG_DUMP")); exit(0); }
+ 
+     ts[0] = clock();
+ 

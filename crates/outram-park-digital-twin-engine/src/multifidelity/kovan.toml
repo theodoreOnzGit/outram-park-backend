@@ -1,0 +1,7 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/multifidelity"
+
+[module."mod.rs"]
+path = "crate::multifidelity"

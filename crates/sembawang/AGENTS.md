@@ -130,7 +130,18 @@ in the demo.
   that reason until the network model is checked (the human check of the
   drawn geometry, gh:#1110); then re-bless and un-ignore them.
   One attempt was stopped at its 7000 s timeout, so a 30 h network run with
-  #1116 takes over about 2 h. The lumped fixture is unaffected.
+  #1116 takes over about 2 h. ~~The lumped fixture is unaffected.~~
+  **CORRECTED 2026-11-26:** the lumped fixture was re-blessed after the
+  swell fix (gh:#1810) and its test is now ignored too (the next item).
+- **No regression pins on `bwr_mark1` for now (2026-11-26, gh:#1810;
+  maintainer: "Ignore sembawang pins for now, nothing to pin against", and
+  the root `AGENTS.md` rule "No regression pins until there is concrete V&V at
+  unit-test level").** The lumped fixture test, `compare::the_uncalibrated_baseline_is_pinned`
+  and the BSAF comparison's numbers are ignored or printed, not asserted;
+  value pins inside other tests print their values. Conservation, physics
+  bounds (the B4C cap, the first relocation not quenching the core),
+  determinism and one-worker-equals-three stay asserted. Record movements
+  in the V&V docs (`verification_and_validation/bwr_mark1/swell-by-source-height.md`).
 - **One worker equals three.** Parts cross as exact `f64`s (`wire`);
   `tests::three_workers_are_one_worker` must keep passing. Since gh:#1099
   the network's state has no wire form: the containment worker

@@ -38,7 +38,12 @@
 //!   `optimiseFinalMesh` (upstream's sequence without the Laplace pass):
 //!   u_c/2U 0.883 and dp/dz 1.065 × Hagen–Poiseuille at the default, an
 //!   open gap, see the V&V record's gh:#1298 section; the old mesher, 0.8925
-//!   / 1.0326, is the ablation `route=legacy`);
+//!   / 1.0326, is the ablation `route=legacy`; ~~the layered default's
+//!   0.9394 / 1.0062 on the carved dual with cfMesh's layer optimiser~~
+//!   **CHANGED 2026-11-26 (gh:#1829):** layers are grown first on TetGen's
+//!   tetrahedra, and the layered default measures u_c/2U 0.882, dp/dz 1.107
+//!   × HP, a miss traced to the TetGen tet source, the V&V record's gh:#1829
+//!   section);
 //!   the solve is `outram_foam_appbuilder_lib`'s `PimpleFoam` with
 //!   `cases::laminar_pipe`'s boundary conditions. V&V record:
 //!   `crates/outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
@@ -282,7 +287,6 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
     use outram_blender::csg::plot::{annotate::draw_text, ImageData};
     use outram_blender::unstructured::convert::foam::from_poly_mesh;
     use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
-    use outram_blender::foam_mesh::LayerQualityStrategy as S;
     std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
     let tags = [Tag::Inlet, Tag::Outlet, Tag::Wall];
     let h_mm: f64 = std::env::var("FOAM_RENDER_H_MM").ok().and_then(|v| v.parse().ok()).unwrap_or(5.0);
@@ -291,8 +295,10 @@ fn render_layer_strategies(out: &std::path::Path) -> Result<(), String> {
     // gh:#1298: the records these images belong to were drawn on the
     // pre-gh:#1298 mesher; FOAM_CFMESH_ROUTE=upstream draws the new route.
     let spec = TetDualSpec { cell_size: h_mm * 1e-3, n_layers, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::PRE_GH1298 };
-    for (strategy, tag) in [(S::BackOffOnly, "backoff"), (S::CfMeshOptimise, "cfmesh"), (S::SnappyCollapse, "snappy")] {
-        let (poly, _, outcome) = engine::mesh_unstructured_with(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, strategy)?;
+    // ~~One set per layer strategy (backoff, cfmesh, snappy)~~ gh:#1829:
+    //   one layer route, grown first.
+    for tag in ["first"] {
+        let (poly, _, outcome) = engine::mesh_unstructured_with(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec)?;
         let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
         let label = format!("{tag} h {h_mm} mm {n_layers} layers");
         let shots = [
@@ -369,7 +375,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
     use engine::{Tag, TetDualSpec};
     use outram_blender::csg::plot::slice::PlotBasis;
     use outram_blender::csg::plot::{annotate::draw_text, ImageData, Rgb};
-    use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, LayerQualityStrategy as S, TetDualOptions, Vec3};
+    use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
     use outram_blender::unstructured::convert::foam::from_poly_mesh;
     use outram_blender::unstructured::{render_mesh_slice_annotated, MeshColourBy, MeshSlice};
     use outram_park_fork_cfmesh::dual::DualKind as D;
@@ -476,7 +482,7 @@ fn render_dual_kinds(out: &std::path::Path) -> Result<(), String> {
         // 2. Slices of the solver's PolyMesh: bare cross-section, 3 layers at the rim.
         for (n, view) in [(0usize, "bare"), (3, "3layers")] {
             let spec = TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, ..engine::TetDualSpec::PRE_GH1298 };
-            let (poly, notes, _) = engine::mesh_unstructured_dual(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, S::BackOffOnly, kind)?;
+            let (poly, notes, _) = engine::mesh_unstructured_dual(0.01, 0.2, [0.0, 0.0, 0.1], tags, &spec, kind)?;
             let m = from_poly_mesh(&poly.to_foam_poly_mesh()).map_err(|e| format!("{e:?}"))?;
             let label = format!("{tag} dual h 5 mm {view}");
             let shots: Vec<(PlotBasis, [f64; 3], [f64; 2], usize, String, &str)> = if n == 0 {

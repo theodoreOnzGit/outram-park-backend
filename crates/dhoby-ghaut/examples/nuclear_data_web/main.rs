@@ -42,9 +42,10 @@ mod plot;
 mod rungs;
 /// Tape bytes on the wire (covariance stripping, zlib): shared with the Monte
 /// Carlo demo rather than repeated, so both publish tapes the same way.
+// (~~`#[path = "../monte_carlo_web/tapes.rs"]`~~, a re-export of this, until
+// gh:#1763 moved that demo into the library.)
 #[cfg(not(target_os = "android"))]
-#[path = "../monte_carlo_web/tapes.rs"]
-mod tapes;
+use dhoby_ghaut::mc_web::tapes;
 /// The processed-data cache every demo shares (gh:#818). ~~This demo does
 /// not call that function, but `tapes.rs` does not compile without the
 /// module (the Pages build broke on it, 2026-10-14).~~ **CORRECTED

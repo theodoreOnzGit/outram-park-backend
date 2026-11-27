@@ -17,7 +17,7 @@
 //!
 //! What it composes is tested: the two state machines
 //! (`dhoby_ghaut::mc_web::pool::tests`), the model
-//! (`vv::msre_n1::tests::the_study_plans_the_recorded_default`), the worker
+//! (`nee_soon::msre_n1::tests::the_study_plans_the_recorded_default`), the worker
 //! ([`super::keff`]'s tests), the split's arithmetic
 //! (`session::tests`), and the whole pool on the real model, bit for bit
 //! against `run_keff_csg_par` (the ignored test below, about 12 minutes).
@@ -33,7 +33,7 @@ use dhoby_ghaut::mc_web::keff::KeffConfig;
 use dhoby_ghaut::mc_web::pool::{DataOut, DataRelay, KeffPool, Note, RunReq, RELAY_WORDS_PER_FRAME};
 use dhoby_ghaut::web_demo::data_cache::Source;
 
-/// ORNL-4233's critical state, rods at 0.08 % δk/k (`vv::msre_n1::REFERENCE_K`).
+/// ORNL-4233's critical state, rods at 0.08 % δk/k (`nee_soon::msre_n1::REFERENCE_K`).
 pub const K_REF: f64 = m::REFERENCE_K;
 /// The maintainer's band for N-1, ±1000 pcm (gh:#1128, 2026-11-10).
 pub const BAND_PCM: f64 = 1000.0;

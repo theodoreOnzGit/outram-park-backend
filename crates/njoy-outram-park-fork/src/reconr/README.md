@@ -157,7 +157,7 @@ See `../samm/README.md` for the remaining LRF=7 caveats (`LBK=1`/`LBK=3`
 unverified, multi-channel groups with a background untested, `KRM≠3`,
 `IFG=1`, and the eliminated-channel-reorder question in `samm::mf2`).
 
-**LRF=4 (Adler-Adler) is also untested** — `aa::eval_aa_range`/
+~~**LRF=4 (Adler-Adler) is also untested**~~ **CORRECTED 2026-11-24 (GitHub #1323):** a hand-built LRF=4 range (`LI = 7`, two l-states, two J groups) at 0 K and 300 K is NJOY2016's line for line once NJOY's undefined `sigp(5)` is zeroed; still no real Adler-Adler evaluation is held. Before: `aa::eval_aa_range`/
 `add_aa_range` compile and type-check (same regression-check basis) but
 have never been run against a real Adler-Adler evaluation. Its ENDF-6
 record layout was reconstructed entirely by tracing `reconr.f90`'s
@@ -200,9 +200,12 @@ while fission and capture were a steady 0.077 % low. Locked by
 - **LRF=7 (RML) wiring is new and unverified** (2026-07-07) — see the Testing
   section above. Derivatives and angular distributions are out of scope for
   `samm` (and hence for this reconstruction path) until `ERRORR` is built.
-- **LRF=4 (Adler-Adler) is new and unverified** (2026-07-07) — see the
-  Testing section above. Zero-temperature only, matching this crate's
-  SLBW/Reich-Moore precedent (Doppler broadening is BROADR's job).
+- ~~**LRF=4 (Adler-Adler) is new and unverified** (2026-07-07)~~ **CORRECTED 2026-11-24:** LRF=4 matches NJOY2016 on a hand-built range (no held evaluation is Adler-Adler; NJOY2016's own `csaa` leaves `sigp(5)` undefined, see that test) — see the
+  Testing section above. ~~Zero-temperature only, matching this crate's
+  SLBW/Reich-Moore precedent (Doppler broadening is BROADR's job).~~
+  **CORRECTED 2026-11-24 (GitHub #1323):** `tempr > 0` is ported for SLBW,
+  MLBW (`csmlbw2`) and Adler-Adler (`csbw.rs`, `aa.rs`), gated against
+  NJOY2016 by `tests/reconr_temperature_and_lrx_vs_njoy2016.rs`.
 - The `run()` driver returns `NotPorted`; use `crate::interface` instead.
 
 ## References

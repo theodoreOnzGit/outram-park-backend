@@ -1,6 +1,6 @@
 [package]
 name = "outram-park-digital-twin-engine"
-version = "0.0.5"
+version = "0.0.6"
 authors.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -221,7 +221,7 @@ bugis = { workspace = true, features = ["widgets", "app_scaffold", "web_demo"] }
 # stack), so this adds only what `outram-mc-libs`, already a dependency,
 # brings. No cycle: dhoby-ghaut does not depend on this crate. Both are
 # AGPL-3.0-only. Path AND version so the lockstep release can publish it.
-dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.3", default-features = false, features = ["mc_web"] }
+dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.4", default-features = false, features = ["mc_web"] }
 eframe.workspace = true
 egui_plot.workspace = true
 egui_extras.workspace = true
@@ -427,6 +427,23 @@ path = "examples/fukushima_web/main.rs"
 name = "msre_web"
 path = "examples/msre_web/main.rs"
 
+# The EBR-II simulator for the demos page's "Museum - historical reactors"
+# section (gh:#1741): ebr2::session (Ebr2Model, SHRT-17 / SHRT-45R) on the
+# library's engine ebr2::web, in a Web Worker; Plant / Trends / Reactivity
+# tabs. Native builds carry its tests; `--headless [end_s] [every_s]
+# [--shrt17]` prints the CSV.
+[[example]]
+name = "ebr2_web"
+path = "examples/ebr2_web/main.rs"
+
+# The multifidelity twin template's app (gh:#1745, epic gh:#1743): TwinApp
+# over a native LocalHost, on the MSRE twin (default) or EBR-II (`--ebr2`).
+# `--headless [end_s]`, `--dump-cvs [steps]` and `--coefficients` print the
+# template's headless outputs. Native only.
+[[example]]
+name = "twin_app"
+path = "examples/twin_app/main.rs"
+
 # The double-pipe high-fidelity -> low-fidelity twin (gh:#1182, rung 5 of
 # epic gh:#1177): the TUAS 1-D double pipe evaluated live in a Web Worker
 # (this crate's `one_d::ua`), beside the committed Kennedy-O'Hagan predictive
@@ -470,6 +487,12 @@ bugis = { workspace = true, features = ["web_demo"] }
 # MOVED 2026-11-15 (gh:#1578): a normal dependency now (above, without the
 # `workbench` default), since `msre::web` in the library uses it; the
 # examples reach it through that.
+# ADDED 2026-11-25 (gh:#1763): the examples also take its `mc_demo` feature,
+# the Monte Carlo demo's app as a library, which `htgr_sim_v1`'s MC page
+# hosts (the HTR-10 whole core with its DEM pour). Example-only, so the
+# library's own build is unchanged. No cycle: dhoby-ghaut does not depend on
+# this crate.
+dhoby-ghaut = { path = "../dhoby-ghaut", version = "0.0.4", default-features = false, features = ["mc_web", "mc_demo"] }
 
 # `msre::web::engine::worker` (gh:#1578): the MSRE engine's Web Worker (its
 # messages as JS objects, its timer loop, the k_eff tapes it downloads) and
@@ -498,6 +521,9 @@ web-sys = { workspace = true, features = [
   "DedicatedWorkerGlobalScope", "MessageEvent", "Performance",
   # fukushima_web / double_pipe_twin_web (moved from dhoby-ghaut 2026-11-05).
   "ErrorEvent",
+  # ~~htgr_sim_v1's MC page: the Monte Carlo demo's HTR-10 core in a frame
+  # placed over the central view (gh:#1761). "HtmlElement", "DomRect"~~:
+  # removed with the frame, gh:#1763 (the page hosts the demo's app).
 ] }
 
 # ── The OPC-UA / mDNS / filesystem stack: everywhere EXCEPT wasm ─────────────

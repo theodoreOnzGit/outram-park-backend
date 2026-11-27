@@ -18,7 +18,7 @@ volume that no longer exists). So the comparison is against what upstream
 
 | case | what upstream ships as a reference | selects models the port has? |
 |---|---|---|
-| `1D_boiling` | **nothing numeric.** `Alltest` only checks the log ends in `End` | yes, except the alpha solver (`MULES`; see below) |
+| `1D_boiling` | **nothing numeric.** `Alltest` only checks the log ends in `End` | yes, except the alpha solver (`MULES`; ~~see below~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES now runs as shipped, see `genfoam_vs_upstream_gh1361/README.md` "Round 7") |
 | `1D_PSBT_SC/Phase_Ex1_12223` | `Alltest`: `alpha.vapour` = 0.131886 at t = 0.6 s, line 98 of the field file, ±5 % | no: `multiRegimeBoilingTRACE`, `twoParameters` regime map, `byRegime` area/diameter |
 | `1D_PSBT_SC/PhaseII_Ex1_01_5215` | `regressionResults`: exit `alpha.vapour` 0.123835, `T.fixedPower` 620.178; plus the 2026-09-15 upstream run's t = 5 s fields in `tests/data/genfoam_psbt_fs_drag.csv` | no, same gaps |
 | `1D_CHF` | nothing numeric (`printResults.py` plots only) | no: `multiRegimeBoilingTRACECHF`, `multiRegimeBoilingVapourTRACE`, `CachardLiquid`/`CachardVapour` |
@@ -82,7 +82,9 @@ binary: `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Rou
 
 ## Deviations from the case, decided before the run
 
-- **Alpha solver.** `1D_boiling` selects `MULES`, which is not ported. The
+- ~~**Alpha solver.** `1D_boiling` selects `MULES`, which is not ported.~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): MULES is ported and runs
+  when the case selects it; **this record's numbers below were measured with the substitution**, now
+  `TwoPhaseCase::with_alpha_solver_implicit_upwind()` (the pinned tests call it). As recorded then: the
   port runs GeN-Foam's other alpha solver, `implicitUpwind`
   (`solveAlphaImplicitUpwind.H`), with `solvePhase vapour`. This changes the
   alpha discretisation (first-order upwind, implicit, no sub-cycling) and is a
@@ -104,7 +106,7 @@ binary: `verification_and_validation/genfoam_vs_upstream_gh1361/README.md`, "Rou
 - **Time stepping:** upstream's `twoPhase::maxDeltaT` (maxCo 2, maxCoTwoPhase
   0.25, marginToPhaseChange 20 K, maxDeltaT 0.01 s) and `adjustableRunTime`
   write-time hitting; 4577 steps to 12 s.
-- **Deviation** (printed by the run): `alpha solver MULES is not ported; ran
+- **Deviation** (printed by the run, ~~always~~ **CORRECTED 2026-11-26** (gh:#1361 round 7): only with `with_alpha_solver_implicit_upwind()`): `alpha solver MULES is not ported; ran
   GeN-Foam's implicitUpwind (solveAlphaImplicitUpwind.H) with solvePhase vapour`.
 
 ## Results, measured 2026-11-04

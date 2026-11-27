@@ -43,248 +43,172 @@ test_ids = [
 path = "crate::nuclide_reaction_and_decay_data::get_decay_info"
 
 [[module."mod.rs".function]]
-id = "fn:3d6e64b53a506e91"
-name = "try_get_half_life"
-qual = "NuclideReactionAndDecayData::try_get_half_life"
-lines = [
-    7,
-    17,
-]
-hash = "sha256:1cb0aabe2ee7c705b10917da2647c137d107db00655d51311aac63562aee6eb2"
-doc_hash = "sha256:744a152e85ebad660d7db5d7e59c0a2b6444712f8054d2287889828b070ee6e7"
-uses = ["fn:2544367c1b848785"]
-physical_interface = true
+id = "fn:6f6c528ad1d52abc"
+name = "DecaySample"
+qual = "DecaySample"
+item = "type"
+shape = "enum"
+hash = "sha256:285dfcf2e89456ec5784cb063ec7e936a61634edd6ad1533e382cbac3579c403"
+doc_hash = "sha256:233752fedf407181d5c9b505e8ec53f2a7084c0068c23d0fb92fb028d34cd3df"
 
 [[module."mod.rs".function]]
-id = "fn:9b83e6f64320618a"
-name = "is_stable"
-qual = "NuclideReactionAndDecayData::is_stable"
-lines = [
-    18,
-    25,
-]
-hash = "sha256:a05993665b3a389cc9488d3d4b9d33941a35277d69ec3f114fb305eae644219a"
-doc_hash = "sha256:29a6c0f0bd5013053b8634dfa301e464efb820aac14bc6e79b5c22dde6e200d6"
-uses = ["fn:2544367c1b848785"]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-]
+id = "fn:5e4b4fa15f8e0490"
+name = "daughter"
+qual = "DecaySample::daughter"
+hash = "sha256:98a4226b5a6025c58f4b37871a1a4da2d44669a4f5d720ede7f54633c5bb3d85"
+doc_hash = "sha256:73743702ff97896cf82bd7d53b79cc6311273f5dd7bac8bbd071e6b6d429ec32"
 
 [[module."mod.rs".function]]
-id = "fn:36cf72a08cea7372"
-name = "is_unstable"
-qual = "NuclideReactionAndDecayData::is_unstable"
-lines = [
-    27,
-    32,
-]
-hash = "sha256:1859a75e474e3927fb4b98d65e9332af0a86ee6866e9ebcf16fe538bd8b5f9be"
-doc_hash = "sha256:037ec51ad4a97d8c8dc9c121aa71f662dd9100d67b3bd7c008cb77d271ece83b"
-callees = ["fn:9b83e6f64320618a"]
-reached_by = [
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-]
+id = "fn:cbe7b26498075bb3"
+name = "from_branch"
+qual = "DecaySample::from_branch"
+hash = "sha256:a08bdda34b4caaecdcc4a667b2a146c0427eed4eab6fd868966bf114eb8d3181"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [[module."mod.rs".function]]
-id = "fn:20253d0e2af6ccfc"
-name = "get_decay_energy"
-qual = "NuclideReactionAndDecayData::get_decay_energy"
-lines = [
-    34,
-    44,
-]
-hash = "sha256:5615126df3faf99cccceee2827ce990ff806c1758828f32138f63b7d76503416"
-doc_hash = "sha256:b92f067c14f3a4bce7e67dc7c1f7c9bf744f424a7ab3e2778f6ff68bc49401b4"
-uses = ["fn:2544367c1b848785"]
-physical_interface = true
+id = "fn:d4e8cd9852b6eee0"
+name = "has_no_tracked_daughter"
+qual = "DecayType::has_no_tracked_daughter"
+hash = "sha256:68fab960c0ad0755fff4c3993a198a9dc0b945580c705740ac16833b42f7c499"
+doc_hash = "sha256:b660d0825a43836996925aebcf1f4165d0b4e9aeb98627f16d1453c6aabc6790"
 
 [[module."mod.rs".function]]
 id = "fn:8d4750149baa4325"
 name = "get_decay_branch_info"
 qual = "NuclideReactionAndDecayData::get_decay_branch_info"
-lines = [
-    46,
-    54,
-]
-hash = "sha256:c6a8a8c220520342cdcb90088220dca72d8a4aac0251e53661e50fe05b7b3276"
-doc_hash = "sha256:ff68cfa15bcb14d678680d0a5e6a7f0b298f8083b9647fe48eb2d81211307c4b"
-uses = ["fn:3894a8681f2d5771"]
+hash = "sha256:f5bfccebcba3b116bba565ca1d9cc0d64c677fbefaa9194d8b2a5d98e30c6731"
+doc_hash = "sha256:af66c46d0a8d3200f3d3ea45ccf090c71a40e3153249017af13cb28ad79e797d"
 physical_interface = true
 
 [[module."mod.rs".function]]
-id = "fn:12e915625fb76d19"
-name = "get_next_target_nuclide_with_rng"
-qual = "NuclideReactionAndDecayData::get_next_target_nuclide_with_rng"
-lines = [
-    59,
-    141,
-]
-hash = "sha256:afbcc39375c96a30cbcb10115b67a71c53947ce1df6d971aaffe8131f1e7a511"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = ["fn:390c172a67546051"]
-uses = [
-    "fn:3894a8681f2d5771",
-    "fn:985bf4f6adecc6ad",
-]
-reached_by = ["#24"]
+id = "fn:20253d0e2af6ccfc"
+name = "get_decay_energy"
+qual = "NuclideReactionAndDecayData::get_decay_energy"
+hash = "sha256:5615126df3faf99cccceee2827ce990ff806c1758828f32138f63b7d76503416"
+doc_hash = "sha256:b92f067c14f3a4bce7e67dc7c1f7c9bf744f424a7ab3e2778f6ff68bc49401b4"
+physical_interface = true
 
 [[module."mod.rs".function]]
 id = "fn:437114f4cf54fbaf"
 name = "get_next_target_nuclide_with_float"
 qual = "NuclideReactionAndDecayData::get_next_target_nuclide_with_float"
-lines = [
-    146,
-    231,
-]
-hash = "sha256:22f4ae98320a681c95c6cd9af92840e0e9d951c15c276c9d83e05227e68f69b2"
-doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-uses = ["fn:3894a8681f2d5771"]
-reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-]
+hash = "sha256:e916fbda344fd0d5ed591f4fa9ed928052510380e13001b082fee5bc2e7e6b88"
+doc_hash = "sha256:f0f2eb80a29f6d2bcdc03256f98ab29dbb9a29e92bff64a4c626ae5eb4766527"
+
+[[module."mod.rs".function]]
+id = "fn:12e915625fb76d19"
+name = "get_next_target_nuclide_with_rng"
+qual = "NuclideReactionAndDecayData::get_next_target_nuclide_with_rng"
+hash = "sha256:1bea6302d95b5ed7c959ea329d10cdc8600651eaa1af5221ca67f85404810b27"
+doc_hash = "sha256:348d08fd21c4677f84f1e85f81a4a416889a1e3f83a78d4cb59ab0d4981a2dac"
+
+[[module."mod.rs".function]]
+id = "fn:9b83e6f64320618a"
+name = "is_stable"
+qual = "NuclideReactionAndDecayData::is_stable"
+hash = "sha256:a05993665b3a389cc9488d3d4b9d33941a35277d69ec3f114fb305eae644219a"
+doc_hash = "sha256:29a6c0f0bd5013053b8634dfa301e464efb820aac14bc6e79b5c22dde6e200d6"
+
+[[module."mod.rs".function]]
+id = "fn:36cf72a08cea7372"
+name = "is_unstable"
+qual = "NuclideReactionAndDecayData::is_unstable"
+hash = "sha256:1859a75e474e3927fb4b98d65e9332af0a86ee6866e9ebcf16fe538bd8b5f9be"
+doc_hash = "sha256:037ec51ad4a97d8c8dc9c121aa71f662dd9100d67b3bd7c008cb77d271ece83b"
+
+[[module."mod.rs".function]]
+id = "fn:95c74d483f7deac9"
+name = "sample_decay_with_float"
+qual = "NuclideReactionAndDecayData::sample_decay_with_float"
+hash = "sha256:71587f90e9bcf8a69e9919b6864975388a1b83f98a5915cccc3cc17241c8d02f"
+doc_hash = "sha256:effb32f5848d15cc30d532fd047bdab63952a09a0ed1e6286c88f7d790008c35"
+
+[[module."mod.rs".function]]
+id = "fn:3d6e64b53a506e91"
+name = "try_get_half_life"
+qual = "NuclideReactionAndDecayData::try_get_half_life"
+hash = "sha256:1cb0aabe2ee7c705b10917da2647c137d107db00655d51311aac63562aee6eb2"
+doc_hash = "sha256:744a152e85ebad660d7db5d7e59c0a2b6444712f8054d2287889828b070ee6e7"
+physical_interface = true
 
 [module."tests.rs"]
 path = "crate::nuclide_reaction_and_decay_data::get_decay_info::tests"
 
 [[module."tests.rs".function]]
-id = "fn:883d26d02e40228f"
-name = "test_rng"
-qual = "test_rng"
-lines = [
-    9,
-    77,
-]
-hash = "sha256:449b99d4abf99e55dea664551acf2dfd1912c7aa7a44adb76a00ba84a104668a"
+id = "fn:d5aaddf75000a29d"
+name = "branching_ratios_sum_to_one_within_1e_9"
+qual = "branching_ratios_sum_to_one_within_1e_9"
+hash = "sha256:0de4845a2bdc527b0c99b9a910de02471c00639da9ae8354bab1d005ba0a1c7a"
+doc_hash = "sha256:347165f857cba1bd736c1a66c66af3df6f64d21a8382a3504a069d9bb8458818"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:a7274a89c2b220b2"
+name = "he5_alpha_without_target_does_not_panic"
+qual = "he5_alpha_without_target_does_not_panic"
+hash = "sha256:da698f784f0c4b2c918e4dffe068e5c3c7cf6b285874c81aa752db52c0169336"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:094c1bcb03a9b17f",
-    "fn:12e915625fb76d19",
-    "fn:390c172a67546051",
-    "fn:841bfe59a1c43d51",
-    "fn:f5fc6e6d09e9c35b",
-]
-uses = [
-    "fn:3894a8681f2d5771",
-    "fn:985bf4f6adecc6ad",
-    "fn:c611e024756fd19b",
-]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:6fa36a4f4753ad3b"
+name = "lookup_never_panics_for_any_known_nuclide"
+qual = "lookup_never_panics_for_any_known_nuclide"
+hash = "sha256:6cc3e5dd72aa9a6e11140aab2c707abfc56b6da47664d81b1965c941e0b11971"
+doc_hash = "sha256:93ca715da985efdf85d692069570b12cd1ad69a84b0a3439f54014bf7f5cc909"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b8dd315f6a75dc2a"
+name = "rounding_gap_selects_largest_branch_not_todo"
+qual = "rounding_gap_selects_largest_branch_not_todo"
+hash = "sha256:6d366ab3fb1498132d9cd7556b9dba66834e32d4ee71957e05635d9d899d20d5"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:9ac251c068ef7c97"
+name = "stochastic_chain_from_u238_does_not_panic"
+qual = "stochastic_chain_from_u238_does_not_panic"
+hash = "sha256:4ae2820842cbc9262fd215e06d46c76eb0b2065d1280c17cb6d6f03780ff37ce"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 test = true
 
 [[module."tests.rs".function]]
 id = "fn:fb163d7ebf57d3be"
 name = "test_decay_chain"
 qual = "test_decay_chain"
-lines = [
-    79,
-    174,
-]
-hash = "sha256:ccd2cbd9a3068a0a78e42fc3564111ba9fe0dcada86266bfad0d850470860b23"
+hash = "sha256:95e722c63f7959b758e4dd99929bec4c8888b54c253ea84953581d64c98a6124"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:3dbac5330a933de5",
-    "fn:bf034958dfa63f73",
-    "fn:f5fc6e6d09e9c35b",
-]
-uses = [
-    "fn:2544367c1b848785",
-    "fn:72e9a39cf82b0ce8",
-    "fn:c611e024756fd19b",
-]
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:883d26d02e40228f"
+name = "test_rng"
+qual = "test_rng"
+hash = "sha256:2570d63510f4a916f5a8ba3ddb368d7500efe8ccfee91e7d7b01cde59bd595ea"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:433bebde02dedb38"
+name = "u238_spontaneous_fission_has_no_tracked_daughter"
+qual = "u238_spontaneous_fission_has_no_tracked_daughter"
+hash = "sha256:19538ed5b35d79f1c94285ef858c98d8f820ee46b611eb09547cde297c44169c"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:b0ee35468129dd0c"
+name = "u_inside_branch"
+qual = "u_inside_branch"
+hash = "sha256:b91e2b9f5deed1e24ba02d4fe97511a627cf06c0ca56f28f153d711c92d10a34"
+doc_hash = "sha256:038bfd8f4799b4fce6cc6376889e8822ef7a32ad1faf679d9802d6ad4e4dc8dd"
 test = true
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = [
     "#0",

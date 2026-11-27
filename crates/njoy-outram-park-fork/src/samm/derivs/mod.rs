@@ -33,9 +33,15 @@
 //! ```
 //!
 //! **Not ported:** `derext` (derivatives with respect to background
-//! R-matrix parameters, `nrext > 0`) — [`crate::samm::mf2`] does not parse
+//! R-matrix parameters, `nrext > 0`) — ~~[`crate::samm::mf2`] does not parse
 //! `KBK` background terms, so a section carrying them is refused one level
-//! up; the `Want_Angular_Dist` blocks (`D_Coef_Leg`, `tx`, `gcphase`).
+//! up~~ **CORRECTED 2026-11-24 (gh:#667):** [`crate::samm::mf2`] parses the
+//! `KBK` background and
+//! [`cross_sections_with_derivs`](crate::samm::xsformula::crosss::cross_sections_with_derivs)
+//! applies it through `setr`; nothing refuses such a section, so ERRORR's
+//! `rpxsamm` runs with the background in the cross sections and no
+//! derivatives with respect to it; the `Want_Angular_Dist` blocks
+//! (`D_Coef_Leg`, `tx`, `gcphase`).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]

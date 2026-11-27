@@ -19,6 +19,35 @@ First draft 2026-10-03, not yet human-reviewed.
 
 **Status: INCOMPLETE** until both axes are manually checked and cleared by the maintainer.
 
+What this crate makes studyable and challengeable is how a Monte Carlo
+neutron-transport code works, routine by routine, beside the OpenMC C++ it was
+translated from: random-number streams, CSG geometry and surface crossing,
+collision physics, power iteration for `k_eff`, and Woodcock (delta) tracking,
+which OpenMC does not have, for pebble beds. A reader can follow a deep dive
+that sets lessons beside the code, run tutorials from Godiva to an HTR-10
+pebble bed, and inspect benchmark residuals that are kept when they move the
+wrong way, such as Jemima moving from −253 to −395 pcm when URR
+self-shielding was turned on by default.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | OpenMC (`openmc-dev/openmc`, MIT): translated from `develop` with no pinned commit, and compared since 2026-11-10 against commit `8f79d9d0` cloned and built in `upstream_source/` (`upstream_source/README.md`); Liang Jingang et al.'s `virtual_lattice` fork (`liangjg/openmc` commit `be04e280`, MIT) for `src/geometry/virtual_lattice/`; LIGGGHTS through `outram-park-fork-liggghts` for the DEM pebble bed. Benchmarks: ICSBEP HEU-MET-FAST-001 (Godiva), IEU-MET-FAST-002 (Jemima), HST-009, LEU-COMP-THERM-008 (`verification_and_validation/icsbep/`). |
+| Mathematical equations | `docs/lessons/` (the Monte Carlo deep dive: surface tracking, delta tracking, collisions and fission, power iteration, multigroup, correct physics as default), `docs/port-reference.md`, `docs/temperatures.md`, and module docs under `src/physics/`. |
+| Source code | `src/rng/`, `src/geometry/` (CSG, lattices, `virtual_lattice`, TRISO particles), `src/material/`, `src/particle/`, `src/physics/` (`transport_csg.rs`, `keff.rs`, `fixed_source.rs`, `delta_tracking/`, `physics_mg.rs`, `kinetics.rs`, `variance_reduction.rs`, `weight_windows.rs`), `src/tally/`, `src/source/`, `src/depletion/`, `src/pebble_beds/`, `src/stochastic/`, `src/plotter/`, `src/model/`, `src/gpu/`. |
+| Interactive simulations | `outram-mc-tui`, a touchscreen terminal UI (`src/bin/outram-mc-tui/`, `docs/outram-mc-tui.md`); the tutorial book `docs/tutorial/` with its widgets and the `tutorial_*` examples; about 90 headless examples under `examples/`. The `dhoby-ghaut` Monte Carlo web demo runs on this crate. |
+| Visualisations | `src/plotter/` (geometry plots and plot scripts), records in `verification_and_validation/geometry_plot/`, `geometry_plotting/` and `python_plotting_parity/`; about 200 committed images in the crate. |
+| Verification and validation evidence | 61 record folders under `verification_and_validation/`. ICSBEP (`icsbep/README.md`): Godiva re-measured at `−10 ± 9 pcm` over 400 seeds on 2026-09-20 with URR and DBRC on, later found to have been taken on a defective PURR grid (gh:#325), so its movement is "not yet measured"; after the OpenMC-parity audit (2026-09-30, gh:#407) every case and route agreed with OpenMC + NJOY2016 within 2 sigma except LCT-008 on route 3, at −18 ± 8 pcm (96 seeds a side). Re-measurement on the 2026-11-12 defaults is in `icsbep_remeasure_2026_11_12/`. Code to code against built OpenMC: `upstream_openmc_surfaces/`, `upstream_openmc_samplers/`, `upstream_openmc_seeding/`, `upstream_openmc_reaction_walk/`, `openmc_godiva_cross_code/`. `tests/correct_physics_is_default.rs` pins URR and DBRC on by default. `docs/validation.md` is a superseded 2026-07-07 record. |
+| Human reviews and corrections | 19 functions carry a kovan human-review stamp (among them `physics/transport_csg.rs::transport_history_vr`, `physics/delta_tracking/majorant.rs::Majorant` and `rng/distributions.rs::watt`). No entry in `docs/human-corrections-to-ai-work.md` names this crate. The URR/DBRC-default correction (2026-09-20) is recorded in the root `CLAUDE.md` and at the top of `verification_and_validation/icsbep/README.md`. |
+
+**Status in one sentence:** transport has code-to-code evidence against a
+built OpenMC and recorded ICSBEP residuals; no residual has been human-reviewed,
+several await re-measurement on the current defaults, and nothing is validated
+for any engineering use.
+
 
 > **This is OUTRAM PARK's independent Rust translation of selected OpenMC
 > algorithms.** It is not the official OpenMC software and is not
@@ -26,9 +55,12 @@ First draft 2026-10-03, not yet human-reviewed.
 > Laboratory. See [`TRADEMARKS.md`](./TRADEMARKS.md) for the full
 > attribution and non-affiliation notice. Translated from
 > [`openmc-dev/openmc`](https://github.com/openmc-dev/openmc), `develop`
-> branch — no commit is pinned (translation was done by reading the
-> C++/Python source directly, not from an ongoing codegen-from-clone
-> pipeline); see `upstream_source/README.md` for the full provenance record.
+> branch — ~~no commit is pinned~~ **CORRECTED 2026-11-27** — no commit was
+> pinned for the translation itself (done by reading the C++/Python source
+> directly, not from an ongoing codegen-from-clone pipeline), but since
+> 2026-11-10 the differential tests use commit `8f79d9d0`, cloned and built
+> under `upstream_source/` (checked in `upstream_source/README.md`, "Commit at
+> last sync"); see that file for the full provenance record.
 
 Pure-Rust port of selected [OpenMC](https://openmc.org) Monte Carlo
 neutron-transport kernels — RNG, geometry/CSG, particle tracking,
@@ -117,12 +149,15 @@ Transport itself uses one device per run and is not affected.
 
 ```toml
 [dependencies]
-outram-mc-libs = "0.1.0"
+outram-mc-libs = "0.0.8"
 ```
 
 ```rust
 use outram_mc_libs::prelude::*;
 ```
+
+(The version above read ~~`"0.1.0"`~~ until **CORRECTED 2026-11-27** to the
+crate's `Cargo.toml` version, `0.0.8`.)
 
 ### `outram-mc-tui` — terminal transport UI
 
@@ -130,9 +165,12 @@ This crate also ships a **mobile-first, touchscreen** terminal UI: pick a preset
 geometry (pebble bed / LWR cell / TMSR-like pebble bed / bare metal sphere),
 tune the run settings (CPU single/multi/GPU, histories, batches, seed), and
 watch the k-eigenvalue converge with a neutron-spectrum / cross-section overlay.
-It is a `[[bin]]` **inside this crate** (not a separate crate); `ratatui` is an
+It is a `[[bin]]` **inside this crate** (not a separate crate); ~~`ratatui` is an
 unconditional dependency, so it always builds with a plain `cargo build` — no
-feature flags.
+feature flags.~~ **CORRECTED 2026-11-27** — `ratatui` is optional, enabled by
+the default `std` feature on non-wasm targets, and the binary has
+`required-features = ["std"]` (checked in `Cargo.toml`). A plain
+`cargo build --release` still builds it, because `std` is on by default.
 
 ```bash
 # run from a checkout
@@ -146,12 +184,12 @@ Full design notes and Termux usage live in
 
 ## Scope
 
-See `CLAUDE.md` for the full porting-rule and module-scope table (RNG,
+See `AGENTS.md` for the full porting-rule and module-scope table (RNG,
 geometry, surfaces, particle tracking, k-eigenvalue, pebble-bed delta
 tracking). ~~Every transport/physics/geometry behaviour here is ported from
 the canonical OpenMC C++ source~~ **CORRECTED 2026-10-15:** transport,
 physics and geometry behaviour is ported from the canonical OpenMC C++
-source, except for the deliberate deviations listed below. See `CLAUDE.md`
+source, except for the deliberate deviations listed below. See `AGENTS.md`
 for the reference-file discipline.
 
 ## Port deviations from OpenMC
@@ -162,13 +200,13 @@ it.
 
 | Area | OpenMC | This crate | Why | Known consequence |
 |---|---|---|---|---|
-| **RNG seeding and streams** | One run-wide particle counter, `(total_gen + gen − 1) × n_particles + id`, times the stride (`simulation.cpp` `compute_transport_seed`). **Four streams per particle** (tracking, source, URR tables, volume), each started from its own master seed, `seeds[i] = M·(master + i) + C` (`random_lcg.cpp` `init_particle_seeds`). | A two-level jump: `gen × 2⁴⁰`, then `hist × 152 917` ([`transport_csg.rs`](src/physics/transport_csg.rs) `HIST_STRIDE`, `GEN_STRIDE`). **One stream per history.** The delayed-group, URR-table and split-child streams are jumps of 3, 5 and 1 × 152 917 draws **inside that stream** (`DELAYED_STRIDE`, `URR_STRIDE`, `SPLIT_STRIDE`; also `keff.rs`, `keff_delta.rs`). | The goal is statistical correctness and repeatability, not draw-for-draw parity (maintainer decision 2026-08-06, `CLAUDE.md` "RNG goal"). Histories here run in a different order and sample their source differently, so parity was never reachable. A run is repeatable for a given seed at any thread count. | **gh:#700 (open, P2):** each auxiliary stream starts where another history's tracking stream starts. History *i*'s URR draws are history *i+5*'s, its delayed-group draws are *i+3*'s, and a split child's are *i+1*'s. Each history still sees uniform draws, so mean `k` is unbiased, but neighbouring histories are not fully independent, which affects the quoted σ. Its size is not measured. |
+| **RNG seeding and streams** | One run-wide particle counter, `(total_gen + gen − 1) × n_particles + id`, times the stride (`simulation.cpp` `compute_transport_seed`). **Four streams per particle** (tracking, source, URR tables, volume), each started from its own master seed, `seeds[i] = M·(master + i) + C` (`random_lcg.cpp` `init_particle_seeds`). | A two-level jump: `gen × 2⁴⁰`, then `hist × 152 917` ([`transport_csg.rs`](src/physics/transport_csg.rs) `HIST_STRIDE`, `GEN_STRIDE`). **One stream per history.** The delayed-group, URR-table and split-child streams are jumps of 3, 5 and 1 × 152 917 draws **inside that stream** (`DELAYED_STRIDE`, `URR_STRIDE`, `SPLIT_STRIDE`; also `keff.rs`, `keff_delta.rs`). | The goal is statistical correctness and repeatability, not draw-for-draw parity (maintainer decision 2026-08-06, `AGENTS.md` "RNG goal"). Histories here run in a different order and sample their source differently, so parity was never reachable. A run is repeatable for a given seed at any thread count. | **gh:#700 (open, P2):** each auxiliary stream starts where another history's tracking stream starts. History *i*'s URR draws are history *i+5*'s, its delayed-group draws are *i+3*'s, and a split child's are *i+1*'s. Each history still sees uniform draws, so mean `k` is unbiased, but neighbouring histories are not fully independent, which affects the quoted σ. Its size is not measured. |
 | Generator itself | PCG-RXS-M-XS output on a 64-bit LCG | **Identical**: constants, output permutation, jump ahead ([`petir::rng::lcg`](../petir/src/rng/lcg.rs)) | — | Not a deviation; listed so the row above is not over-read |
 | MG (n,xn) scattering multiplicity | `wgt *= mult[g][g']` (`scattdata.cpp:367`) | Weights by the row multiplicity `nu_row / s_row` | Upstream samples g′ from the nu-scatter row, so its weighting is exact only for a row-uniform multiplicity | On a two-group set this port gives 1.516 ± 0.003 against the analytic 1.517; upstream's rule gives 1.578 (`physics_mg::tests::multiplicity_weights_by_the_row_and_matches_analytic_kinf`) |
 
 Two other categories are not deviations: behaviour that is **NEW WORK** (absent
-upstream, e.g. delta tracking; see `CLAUDE.md`) and what is **out of scope**
-(`CLAUDE.md`, "Out of scope").
+upstream, e.g. delta tracking; see `AGENTS.md`) and what is **out of scope**
+(`AGENTS.md`, "Out of scope").
 
 ## License
 

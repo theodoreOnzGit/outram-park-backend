@@ -76,11 +76,17 @@
 //! Both models accept an optional [`TimeProfile`] read as a **scaling factor**
 //! relative to the initial value (GeN-Foam's `powerTimeProfile` /
 //! `temperatureTimeProfile`): the instantaneous value is
-//! `value_initial * profile(t)`. Upstream expresses this as the algebraically
+//! `value_initial * profile(t)`. ~~Upstream expresses this as the algebraically
 //! equivalent ratio recurrence `v(t) = v(t-dt)*profile(t)/profile(t-dt)`
 //! (`powerUpdate`); here we evaluate the closed form directly against the stored
 //! initial value, which avoids the recurrence's division-by-zero edge when a
-//! profile passes through zero.
+//! profile passes through zero.~~ **CORRECTED 2026-11-26** (gh:#1815): the two are NOT equivalent. Upstream's
+//! `fixedPower::powerUpdate` is `pd(t) = prof(t) * (pdOld / prof(t - dt))` over the stored old-time value
+//! (`FixedPower::correct` now translates it, [`PowerProfileMode::UpstreamRecursion`], the default); the
+//! shipped `1D_CHF` tables hold ABSOLUTE values (5e8 W/m^3 = the initial `powerDensity`), for which
+//! `initial * prof(t)` is 5e8 times too large, and a step in which `structure::correct` does not run loses its
+//! increment for good (measured against the real binary: gh:#1361 round 12). The closed form stays callable as
+//! [`FixedPower::with_closed_form_power_profile`] (deprecated) and in [`FixedPower::power_density`].
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -92,6 +98,19 @@ use crate::genfoam::common::TimeProfile;
 use super::units::{
     HeatFlux, HeatTransferCoefficient, InterfacialAreaDensity, PowerDensity, VolumetricHeatCapacity,
 };
+
+/// How a `powerTimeProfile` turns into a power density (gh:#1815).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PowerProfileMode {
+    /// Upstream's `fixedPower::powerUpdate` (the default, "follow upstream"): per step
+    /// `pd(t) = prof(t) * (pdOld / prof(t - dt))`, recursively over the stored old-time value. For a table whose
+    /// first value is not 1 (the shipped `1D_CHF` tables hold absolute values equal to the initial `powerDensity`)
+    /// this is NOT `initial * prof(t)`.
+    UpstreamRecursion,
+    /// DEPRECATED: the closed form `initial * prof(t)` this port used before gh:#1815 (selected with
+    /// [`FixedPower::with_closed_form_power_profile`]); it avoids the recursion's division by `prof(t - dt) = 0`.
+    ClosedForm,
+}
 
 /// A `fixedPower` structure: prescribed internal power, transient lumped
 /// surface temperature.
@@ -115,6 +134,11 @@ pub struct FixedPower {
     /// Optional time scaling for the power (a factor relative to the initial
     /// value). `None` ⇒ constant power.
     power_profile: Option<TimeProfile>,
+    /// How [`Self::power_profile`] is applied.
+    profile_mode: PowerProfileMode,
+    /// The power density as of the last [`Self::correct`] (`powerDensity_` upstream; the recursion's old-time value
+    /// when this model is cloned from the old-time copy).
+    power_density_now: PowerDensity,
     /// Structure surface temperature [K] — the evolving state.
     temperature: ThermodynamicTemperature,
 }
@@ -142,8 +166,35 @@ impl FixedPower {
             power_density_initial,
             alpha_rho_cp,
             power_profile: None,
+            profile_mode: PowerProfileMode::UpstreamRecursion,
+            power_density_now: power_density_initial,
             temperature: initial_temperature,
         }
+    }
+
+    /// Apply the power profile as the closed form `initial * prof(t)` (the port's form before gh:#1815,
+    /// DEPRECATED; upstream's recursion is the default).
+    #[must_use]
+    pub fn with_closed_form_power_profile(mut self) -> Self {
+        self.profile_mode = PowerProfileMode::ClosedForm;
+        self
+    }
+
+    /// The power density for the step ending at `t` with step size `dt`, and the new stored state
+    /// (`fixedPower::powerUpdate`: `prof(t) * (pdOld / prof(t - dt))` per upstream, or the closed form).
+    fn step_power_density(&mut self, t: Time, dt: Time) -> PowerDensity {
+        let q = match (&self.power_profile, self.profile_mode) {
+            (None, _) => self.power_density_initial,
+            (Some(_), PowerProfileMode::ClosedForm) => self.power_density(t),
+            (Some(p), PowerProfileMode::UpstreamRecursion) => {
+                let now = p.value(t);
+                let before = p.value(t - dt);
+                let old = self.power_density_now;
+                now * (old / before)
+            }
+        };
+        self.power_density_now = q;
+        q
     }
 
     /// Attach a power-vs-time scaling profile (a factor relative to the initial
@@ -164,6 +215,12 @@ impl FixedPower {
             Some(p) => self.power_density_initial * p.value(t),
             None => self.power_density_initial,
         }
+    }
+
+    /// The power density of the last [`Self::correct`] (`powerDensity_` upstream): the recursion's state.
+    #[must_use]
+    pub fn current_power_density(&self) -> PowerDensity {
+        self.power_density_now
     }
 
     /// The current structure surface temperature [K].
@@ -208,7 +265,7 @@ impl FixedPower {
         use uom::si::volumetric_heat_capacity::joule_per_cubic_meter_kelvin;
         use uom::si::volumetric_power_density::watt_per_cubic_meter;
 
-        let q = self.power_density(t).get::<watt_per_cubic_meter>();
+        let q = self.step_power_density(t, dt).get::<watt_per_cubic_meter>();
         let c = self.alpha_rho_cp.get::<joule_per_cubic_meter_kelvin>();
         let dt_s = dt.get::<second>();
         let a_v = self.interfacial_area.get::<reciprocal_meter>();
@@ -228,6 +285,7 @@ impl FixedPower {
     /// the model keeps exchanging heat with the fluid.
     pub fn power_off(&mut self) {
         self.power_density_initial = PowerDensity::default();
+        self.power_density_now = PowerDensity::default();
         self.power_profile = None;
     }
 }
@@ -460,6 +518,44 @@ mod tests {
         // Halfway (t=5 s) the linear profile is 0.55 ⇒ 5.5e7 W/m^3.
         let q = m.power_density(Time::new::<second>(5.0));
         assert!((q.get::<watt_per_cubic_meter>() - 5.5e7).abs() < 1.0);
+    }
+
+    /// gh:#1815: upstream's `powerUpdate` is the recursion `pd(t) = prof(t) pdOld / prof(t - dt)`, NOT `initial prof(t)`: a table that holds
+    /// absolute values equal to the initial density (the shipped `1D_CHF` tables) gives the table value, not initial times it.
+    #[test]
+    fn power_profile_follows_upstream_recursion_and_the_closed_form_stays_selectable() {
+        let make = || {
+            FixedPower::new(
+                Ratio::new::<ratio>(1.0),
+                InterfacialAreaDensity::new::<reciprocal_meter>(1.0),
+                PowerDensity::new::<watt_per_cubic_meter>(5.0),
+                VolumetricHeatCapacity::new::<joule_per_cubic_meter_kelvin>(1.0),
+                kelv(0.0),
+            )
+            .with_power_profile(
+                TimeProfile::table(
+                    vec![Time::new::<second>(0.0), Time::new::<second>(1.0), Time::new::<second>(2.0)],
+                    vec![5.0, 5.0, 10.0],
+                )
+                .unwrap(),
+            )
+        };
+        // no fluid coupling, C/dt = 1: T_new = q + T_old
+        let h = HeatTransferCoefficient::new::<watt_per_square_meter_kelvin>(0.0);
+        let ht = HeatFlux::new::<watt_per_square_meter>(0.0);
+        let dt = Time::new::<second>(1.0);
+        let mut up = make();
+        up.correct(h, ht, dt, Time::new::<second>(1.0));
+        let t2 = up.correct(h, ht, dt, Time::new::<second>(2.0)).get::<kelvin>();
+        assert!((t2 - (5.0 + 10.0)).abs() < 1e-12, "recursion: {t2}");
+        let mut closed = make().with_closed_form_power_profile();
+        closed.correct(h, ht, dt, Time::new::<second>(1.0));
+        let t2c = closed.correct(h, ht, dt, Time::new::<second>(2.0)).get::<kelvin>();
+        assert!((t2c - (25.0 + 50.0)).abs() < 1e-12, "closed form: {t2c}");
+        // powerOff zeroes the recursion's state too
+        up.power_off();
+        let t3 = up.correct(h, ht, dt, Time::new::<second>(3.0)).get::<kelvin>();
+        assert!((t3 - t2).abs() < 1e-12, "{t3}");
     }
 
     #[test]

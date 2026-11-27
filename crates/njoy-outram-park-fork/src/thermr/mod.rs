@@ -57,8 +57,10 @@
 //!   (σ_inel + emission bins), [`scattering::CoherentElasticScattering`]
 //!   (graphite's dominant channel: Bragg σ + discrete cosines + `sample`), and
 //!   [`scattering::IncoherentElasticScattering`] (ZrH: σ + equiprobable
-//!   cosines), each `uom`-typed, per principal atom, and temperature-resolved
-//!   at construction.
+//!   cosines), each `uom`-typed, ~~per principal atom~~ per principal atom
+//!   for the two incoherent channels (coherent elastic is the evaluation's
+//!   `S(E)/E`, undivided, as THERMR's `sigcoh`; **CORRECTED 2026-11-24**,
+//!   gh:#632), and temperature-resolved at construction.
 //! - [`temperature_thinning`] — **study tool, not a production path**: measures
 //!   what a *thinned* tabulated-temperature grid costs in accuracy, by
 //!   withholding tabulated temperatures, interpolating to them from the ones

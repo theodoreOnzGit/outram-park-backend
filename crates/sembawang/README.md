@@ -2,7 +2,46 @@
 
 **SEMBAWANG** — *Severe-accident Evolution and Melt Behaviour Analysis Workbench
 for Advanced Nuclear Geometries*. "Workbench" because it is a toolkit, not a
-single code.
+single code. Letter by letter: **S**evere-accident **E**volution and **M**elt
+**B**ehaviour **A**nalysis **W**orkbench for **A**dvanced **N**uclear
+**G**eometries.
+
+**The one question it answers:** what gets released in a severe accident,
+and how does it reach the rest of the offsite chain?
+
+SEMBAWANG makes **severe-accident source terms studyable and
+challengeable**: a reduced, clean-room model of the Fukushima Daiichi BWR
+Mark I accident whose equations follow the public MELCOR manuals (no MELCOR
+source is held) and whose results are compared with the OECD/NEA BSAF
+benchmark bands, including the two it misses; and a TRISO release chain for
+HTR-10 in which every input is classified as the reactor's own, derived, a
+stand-in or an estimate, so a reader can see which numbers the answer rests
+on.
+
+<!-- vv-unverified-banner -->
+> ⚠️ **Unverified until validated.** All code in this workspace is **unverified and untrusted** unless a specific verification & validation (V&V) case demonstrates otherwise. See the workspace `VERIFICATION_AND_VALIDATION.md` and `RESPONSIBLE_USE.md`. Research, education and V&V only. Not for nuclear facility operation, reactor control, safety-critical, licensing, emergency planning or emergency-response decisions.
+
+(Banner added 2026-11-27; this README had none, only the "Limits" list
+below.)
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | OECD/NEA BSAF (2021), `nea2021bsaf7525`, the Fukushima validation target, and the MELCOR manuals, `sandia2017melcorvol1` (both proprietary tier, catalogued in `crates/kovan-literature/CATALOGUE.md`); IAEA-TECDOC-978 (`iaea1997tecdoc978`, data in `reference/tecdoc978/`); USNRC HRTD ch. 7.1 Table 7.1-2 for the Unit 2 and 3 sequences; Liu & Cao (2002) HTR-10 tables (through `changi`); NUREG-1465, RG 1.183 and WASH-1400 for the LWR comparison (`reference/lwr/`). No upstream code is ported here; the TRISO release physics is `boon-lay`'s TRISO-ATOPS fork. |
+| Mathematical equations | Module docs of `src/bwr_mark1/` (core heat-up, Zr-steam oxidation, relocation, lower-head failure, containment network, cavity/MCCI, fission-product decay) and of `src/accident/`, `src/htr10.rs`, `src/chain.rs`, `src/lwr_comparison.rs`. The MELCOR aerosol, vapour and iodine equations moved to `outram_park_fork_offbeat::melcor` (gh:#1335). |
+| Source code | `src/`: `bwr_mark1` (plant model, `units23` for Units 2 and 3), `accident` (release, venting), `scenario`, `inventory`, `chain`, `htr10`, `lwr_comparison`, `ap1000_ted`, `units`. |
+| Interactive simulations | None in this crate. `crates/outram-park-digital-twin-engine/examples/fukushima_web` consumes `bwr_mark1`. CLI examples in `examples/` (listed under "Running", plus `bwr_mark1_ensemble`, `bwr_mark1_sensitivity`, `lwr_nureg1465_counterpart`, `htr10_dlofc_dose`). |
+| Visualisations | Drawn containment-network geometry in `verification_and_validation/bwr_mark1/geometry/` (`examples/containment_network_geometry.rs`). |
+| Verification and validation evidence | `verification_and_validation/bwr_mark1/` (containment network, Units 2 and 3 sequence, ensemble, input sensitivity, lower-head wall, `melcor-unit-vv/`) and `verification_and_validation/htr10-dlofc-panama-triso-atops.md`. As recorded: Unit 1 lower head fails at 5.48 h against the BSAF band 7.45–17.16 h, and in-vessel H2 at 25 h is inside its band (2026-11-02; those pins have been ignored since 2026-11-26, gh:#1810, and the numbers were not re-checked after that day's swell fix); the HTR-10 PANAMA seam raises the source term by 0.08 % (2026-09-24); normal-operation pools match upstream TRISO-ATOPS to 3.8e-12. |
+| Human reviews and corrections | 0 functions carry kovan human-review stamps. `examples/htr10_air_ingress_human_audited_example.rs` is written for the maintainer to inspect by hand. The comparison pairing was reframed twice by maintainer decision (#450, #464, struck through above); the maintainer ruled no pins on the Units 2 and 3 sequence until the model is checked (gh:#1110). No entry in `docs/human-corrections-to-ai-work.md` names this crate. |
+
+**Status:** an AI draft (kovan maturity 1); the release chain has
+code-to-code checks through `boon-lay`, the BWR model is uncalibrated and
+outside two BSAF Unit 1 bands, results on the containment network are
+tentative until a human checks its drawn geometry, and nothing is validated.
 
 **Scope (maintainer decision 2026-09-21, #235): severe accident and source
 term, and orchestrator of the offsite chain.** ~~the source-term end of the
@@ -48,6 +87,11 @@ temperature transient and core inventory go through `boon-lay`'s TRISO-ATOPS for
 failure, molten-core-concrete interaction, hydrogen or aerosol physics. The
 temperature transient is an **input**; nothing here computes it.~~
 **CORRECTED 2026-10-29 (gh:#1033)**: **a reduced progression model exists for one plant.**
+(**CORRECTED 2026-11-27**: Units 2 and 3 were added on 2026-11-02, gh:#1109:
+`src/bwr_mark1/units23.rs`, `Plant::for_unit`, with RCIC and HPCI in
+`turbine_pump.rs`, recorded in
+`verification_and_validation/bwr_mark1/units23_sequence.md`; checked by
+reading those files.)
 `src/bwr_mark1/` is Fukushima Daiichi Unit 1 (BWR/3, Mark I) after the scram:
 vessel, core heat-up, Zr-steam oxidation and hydrogen, relocation, a lower-head
 failure criterion, drywell, wetwell and reactor building. It was the
@@ -83,7 +127,12 @@ moved is in `verification_and_validation/bwr_mark1/containment_network.md`
 ("gh:#1099"). The TRISO release's temperature transient
 is still an **input**; `bwr_mark1` does not feed it. Regression fixtures:
 `verification_and_validation/bwr_mark1/headless_30h.csv` (the network plant)
-and `headless_30h_lumped.csv` (the ablation). Nor is the
+and `headless_30h_lumped.csv` (the ablation). (**CORRECTED 2026-11-27**, from
+`AGENTS.md`: neither fixture is asserted at present. The network fixture is
+stale on purpose since 2026-11-02 and its test ignored; the lumped fixture
+was re-blessed after the swell fix and its test ignored on 2026-11-26,
+gh:#1810, maintainer: "Ignore sembawang pins for now, nothing to pin
+against".) Nor is the
 core inventory computed (see `src/inventory.rs` for why `fission-yields-data`
 must not be used to build one).
 
@@ -107,8 +156,10 @@ run on the hot-node history. GitHub #296.
 
 **Also exists (2026-09-21): the join to `changi`.** `sembawang::chain::pad_for_dispersion`
 lines the release windows up with a `changi` dispersion run, so one run goes from
-the prescribed transient to Bq·s/m³ in air and Bq/m² on the ground. No dose is
-computed.
+the prescribed transient to Bq·s/m³ in air and Bq/m² on the ground. ~~No dose is
+computed.~~ **CORRECTED 2026-11-27** — the join itself computes no dose, but
+the crate does: `lwr_comparison` computes a research-grade dose through
+`buangkok` (#452), as stated at the top of this README.
 
 ## `no_std` + `alloc` (gh:#1641)
 

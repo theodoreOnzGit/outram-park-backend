@@ -126,6 +126,10 @@ pub mod msre;
 /// extraction from CFD into 1-D models. Infrastructure; the physics is
 /// the models' own crates'.
 pub mod multifidelity;
+/// The multifidelity digital twin template (epic gh:#1743, core gh:#1744):
+/// one generic struct wiring a plant to its control volumes, multiphysics
+/// and Monte Carlo pages. Infrastructure; no physics of its own.
+pub mod twin;
 #[cfg(not(target_os = "android"))]
 /// Convenience re-exports: `use outram_park_digital_twin_engine::prelude::*;`
 pub mod prelude;

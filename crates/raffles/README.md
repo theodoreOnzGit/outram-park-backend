@@ -8,6 +8,16 @@ risk-analysis core of [RAVEN](https://github.com/idaholab/raven), the
 probabilistic risk-analysis, UQ and model-reduction framework developed by
 Idaho National Laboratory.
 
+What this crate makes studyable and challengeable is the statistics behind
+uncertainty quantification and risk analysis, in code a reader can set beside
+its source: RAVEN's samplers, polynomial chaos and MCMC, SCRAM's fault-tree
+quantification, FilterPy's Kalman filters and OpenDA's assimilation methods,
+each with the upstream named in its file header, and the Bayesian, distance,
+ABC and imprecise-probability modules written from published papers whose
+DOIs are cited in the module docs. The differential tests replay upstream
+step by step, so a reader can see exactly where the port agrees bit for bit
+and where, and why, it differs by an ulp.
+
 > **⚠️ IMPLEMENTED IN PART, WITH NO HUMAN V&V.** Distributions, samplers,
 > sensitivity measures, Bayesian model updating, statistical distances,
 > Approximate Bayesian Computation, imprecise probability, model selection,
@@ -24,6 +34,24 @@ Idaho National Laboratory.
 > control, licensing decisions, probabilistic safety assessment of a real
 > facility, safety-critical decision-making, or emergency response. See the
 > workspace `RESPONSIBLE_USE.md`.
+
+## Knowledge in this crate
+
+See the workspace [vision](../../VISION.md).
+
+| Knowledge artifact | In this crate |
+|---|---|
+| Scientific literature | Ported upstreams: RAVEN (`idaholab/raven` `devel` commit `01216937`, Apache-2.0), SCRAM (GPL-3.0-or-later), FilterPy (commit `5df4e095fac0`, MIT), OpenDA (commit `e51565c2c8de`, LGPL-3.0-or-later), Physics-guided-MPNN (GPL-3.0), Scott Ferson's `pba.r` (GPL-3.0), Adolphus Lye's `Bayesian-Model-Updating-Tutorials` and `Computing-with-Confidence`; SMT, SciPy, scikit-learn, NumPy and SEPIA numerics with their BSD licence files in this folder. Papers cited by DOI in the module docs (e.g. `src/bayesian/`, `src/abc.rs`, `src/imprecise.rs`, `src/distance.rs`). Provenance table: "Provenance beyond RAVEN" below; `NOTICE`; `upstream_source/README.md`. Nothing in `crates/kovan-literature/CATALOGUE.md` names this crate. |
+| Mathematical equations | Module docs: Sobol indices, transitional MCMC and its evidence estimate, ABC kernels, probability boxes and Fréchet bounds, MOCUS and BDD quantification, Kalman, unscented and ensemble filters, polynomial chaos on Smolyak grids, Gaussian-process kriging and co-kriging, the Kennedy-O'Hagan discrepancy `y_LF(x, theta) + delta(x)` in `fidelity`. No separate derivation document. |
+| Source code | `src/` modules listed under Scope below: `distributions`, `samplers`, `sensitivity`, `bayesian`, `distance`, `abc`, `imprecise`, `model_selection`, `estimators`, `scram`, `gnn`, `surrogate`, `fidelity`, `filtering`, `openda`. |
+| Interactive simulations | None in this crate. `outram-park-digital-twin-engine`'s double-pipe multifidelity demo (`src/multifidelity/double_pipe/`) calls `raffles` for its kriging, co-kriging, filtering and Kennedy-O'Hagan steps. |
+| Visualisations | None yet. |
+| Verification and validation evidence | `docs/scram-port-verification.md` (2026-09-21): against SCRAM built and run, cut sets 440 of 440 with none extra or missing, exact BDD probability on 11 of 11 models, upstream's own test suite 540 of 540 assertions. `docs/computing-with-confidence-verification.md`: p-box fault trees against Lye's R scripts. `verification_and_validation/`: RAVEN routes (gh:#1193; MCMC states bit-identical), FilterPy (gh:#1191; Kalman filter and RTS smoother bit-identical on 4 cases), OpenDA (gh:#1192), SMT kriging (gh:#1190), Kennedy-O'Hagan against SEPIA (gh:#1180), RAVEN distributions (gh:#1430), the `fidelity` interface (gh:#1194). All are code to code on synthetic or upstream reference cases. |
+| Human reviews and corrections | 0 functions carry a kovan human-review stamp. No entry in `docs/human-corrections-to-ai-work.md` names this crate. Struck-through corrections below record the ownership change (2026-11-04), polynomial chaos and Gaussian processes being ported, `burn` being consumed, and the licence change. |
+
+**Status in one sentence:** most modules have code-to-code evidence against
+their upstreams or the authors' scripts; nothing is validated against real
+data, and no function has had human review.
 
 ## Ownership
 
@@ -74,9 +102,12 @@ approached is written up in the workspace-root scoping document
 
 **`scram` widens that scope, and was added at the workspace maintainer's
 direction rather than the crate owner's** (2026-09-21). Fault-tree
-quantification is not part of RAVEN's statistical core, so whether it belongs
-in RAFFLES at all is Adolphus Lye's call to confirm or reverse — recorded here
-so it is visible rather than absorbed silently.
+quantification is not part of RAVEN's statistical core, so ~~whether it belongs
+in RAFFLES at all is Adolphus Lye's call to confirm or reverse~~ **CORRECTED
+2026-11-27** — the maintainer owns this crate since 2026-11-04 (see Ownership
+above), so the maintainer's direction to add `scram` stands without waiting
+for another owner's review. Recorded here so the widening is visible rather
+than absorbed silently.
 
 ## Attribution and licensing
 
@@ -88,6 +119,7 @@ so it is visible rather than absorbed silently.
 | `upstream_source/README.md` | Clone command, commit, and the map from RAFFLES modules to upstream paths |
 | `LICENSE-MIT-FILTERPY` | Upstream FilterPy's `LICENSE`, preserved **verbatim** (MIT), for `src/filtering/` (gh:#1191) |
 | `LICENSE-LGPL-3.0-OPENDA` | Upstream OpenDA's `license.txt`, preserved **verbatim** (GNU LGPL v3), for `src/openda/` (gh:#1192) |
+| `LICENSE.GPL-3.0`, `LICENSE-BSD-NUMPY`, `LICENSE-BSD-SCIPY`, `LICENSE-BSD-SEPIA`, `LICENSE-BSD-SKLEARN`, `LICENSE-BSD-SMT` | **CORRECTED 2026-11-27**, missing from this table (checked by listing the crate folder): the GPL text for the GPL-3.0 ports, and the BSD licences of the NumPy, SciPy, SEPIA, scikit-learn and SMT numerics the later ports reproduce; see `NOTICE` |
 
 **Upstream:** RAVEN, <https://github.com/idaholab/raven>, branch `devel`,
 commit `01216937967c38ee287859270c035c8eca906dc6` (2026-07-14); latest release
@@ -118,7 +150,7 @@ implementing the published algorithms is unaffected.
 Every RAFFLES file derived from a RAVEN file must carry a header naming the
 upstream project, the upstream source file, the version/commit, the copyright
 holder and the licence, and that header must survive refactors. The worked
-example to copy is in this crate's `CLAUDE.md`.
+example to copy is in this crate's `AGENTS.md` ("Per-file attribution header").
 
 Note that RAVEN itself vendors third-party **BSD** code (AMSC, from the
 University of Utah; and NGL). Files derived from those parts take the BSD
@@ -142,7 +174,7 @@ be done:
 
 | Source | Licence | What that allowed |
 |---|---|---|
-| [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this ~~GPL-3.0~~ AGPL-3.0-only crate, one-way, with the attribution header in `CLAUDE.md` |
+| [RAVEN](https://github.com/idaholab/raven) | Apache-2.0 | Code may be ported into this ~~GPL-3.0~~ AGPL-3.0-only crate, one-way, with the attribution header in `AGENTS.md` |
 | [FilterPy](https://github.com/rlabbe/filterpy) | MIT | Ported one-way into this AGPL-3.0-only crate (`src/filtering/`, gh:#1191), each file with FilterPy's header; `NOTICE` records the commit |
 | [OpenDA](https://github.com/OpenDA-Association/OpenDA) | LGPL-3.0-or-later | Ported into this AGPL-3.0-only crate as a combined work (`src/openda/`, gh:#1192), each file keeping OpenDA's LGPL notice in its header; `NOTICE` records the commit. JAMA's SVD (public domain) is ported with it |
 | [Physics-guided-MPNN](https://github.com/mikelunizar/Physics-guided-MPNN) | GPL-3.0 | ~~Same licence as this workspace~~ GPL-3.0, combined with this AGPL-3.0-only crate under §13 (the ported files keep GPL-3.0), so `gnn::mpnn` **is** a port and carries its attribution header |
@@ -157,7 +189,7 @@ Two things about that last row, kept apart because they are different claims.
 repositories and has granted GPL-3.0 — ~~the same licence as this crate~~ (the crate became AGPL-3.0-only on 2026-10-20 at the maintainer's direction, gh:#973) — so
 there is no compatibility question and no one-way constraint of the kind that
 applies to the RAVEN port. A code-level port from any of the seven is
-permitted, with the attribution header in `CLAUDE.md`.
+permitted, with the attribution header in `AGENTS.md`.
 
 **The checkability is not.** Six of the seven carry no `LICENSE` file, so a
 reader of this repository cannot confirm the grant from the upstream sources
@@ -229,7 +261,9 @@ and the `Neural` route of `fidelity::Surrogate` consume it. GPU backends (`wgpu`
 ## Android / Termux
 
 The crate is **Android-clean by construction** and must stay that way. Its
-dependencies are `thiserror`, `petir` (the RNG; ~~`outram-mc-libs`~~
+dependencies are `thiserror` (as `thiserror-nostd`), `hashbrown` (the
+`no_std` hash maps; **CORRECTED 2026-11-27**, missing from this list, checked
+against `Cargo.toml`), `petir` (the RNG; ~~`outram-mc-libs`~~
 **CORRECTED 2026-10-02** — the generator moved from `outram-mc-libs` into
 `petir`, and RAFFLES no longer depends on any physics crate), `xml-rs` (the
 MEF reader, previously omitted from this list), `uom` (no_std, the

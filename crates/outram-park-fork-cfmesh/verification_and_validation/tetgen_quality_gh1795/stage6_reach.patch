@@ -1,0 +1,553 @@
+--- a/tetgen.cxx	2026-11-26 05:40:40.724915641 +0000
++++ b/tetgen.cxx	2026-11-26 05:40:40.727110967 +0000
+@@ -48,6 +48,8 @@
+ #include "tetgen.h"
+ long tg_reach[64];
+ long tg5[64];
++long tg6[64];
++void tg6_write();
+ 
+ 
+ //== io_cxx ==================================================================//
+@@ -9379,6 +9381,7 @@
+         if (ins_radius > 0.0) {
+           if (rd < ins_radius) {
+             if (!create_a_shorter_edge(insertpt, *parypt)) {
++              tg6[35]++;
+               // Reject the isnertion of this vertex.
+               pts = parypt;
+               loc = ENCVERTEX;
+@@ -9597,6 +9600,7 @@
+         }
+       } // i
+       if ((ivf->rejflag & 1) && (encseglist->objects > 0)) {
++        tg6[33]++;
+         insertpoint_abort(splitseg, ivf);
+         ivf->iloc = (int) ENCSEGMENT;
+         return 0;
+@@ -9650,6 +9654,7 @@
+         }
+       }
+       if (encshlist->objects > 0) {
++        tg6[34]++;
+         insertpoint_abort(splitseg, ivf);
+         ivf->iloc = (int) ENCSUBFACE;
+         return 0;
+@@ -26205,6 +26210,7 @@
+ {
+   REAL rv = getpointinsradius(ridge_pt);
+   if (rv == 0.) {
++    tg6[38]++;
+     REAL mindist = 1.e+30, dist;
+     int idx = pointmark(ridge_pt);
+     for (int i = idx_segment_ridge_vertex_list[idx];
+@@ -27082,6 +27088,7 @@
+           }
+         }
+         set_ridge_vertex_protecting_ball(far_ei);
++        tg6[5]++;
+         acute_flag = true;
+       } else if ((far_pi == far_ej) || (far_pj == far_ej)) {
+         // Two segments are adjacent at far_ej!
+@@ -27102,10 +27109,12 @@
+           }
+         }
+         set_ridge_vertex_protecting_ball(far_ej);
++        tg6[5]++;
+         acute_flag = true;
+       } else {
+         // Cut the segment by the projection point of refpt.
+         projpt2edge(refpt, ei, ej, steinpt);
++      tg6[7]++;
+         REAL lfs_at_steiner = distance(refpt, steinpt);
+         REAL dist_to_ei = distance(steinpt, ei);
+         REAL dist_to_ej = distance(steinpt, ej);
+@@ -27143,6 +27152,7 @@
+           }
+         }
+         set_ridge_vertex_protecting_ball(far_ei);
++        tg6[6]++;
+         acute_flag = true;
+       } else if (ridge_vertices_adjacent(far_ej, refpt)) {
+         // Calulate a new point.
+@@ -27163,10 +27173,12 @@
+           }
+         }
+         set_ridge_vertex_protecting_ball(far_ej);
++        tg6[6]++;
+         acute_flag = true;
+       } else {
+         // Cut the segment by the projection point of refpt.
+         projpt2edge(refpt, ei, ej, steinpt);
++      tg6[7]++;
+         REAL lfs_at_steiner = distance(refpt, steinpt);
+         REAL dist_to_ei = distance(steinpt, ei);
+         REAL dist_to_ej = distance(steinpt, ej);
+@@ -27181,6 +27193,7 @@
+     } else if (pointtype(refpt) == FREEFACETVERTEX) {
+       // Cut the segment by the projection point of refpt.
+       projpt2edge(refpt, ei, ej, steinpt);
++      tg6[7]++;
+       REAL lfs_at_steiner = distance(refpt, steinpt);
+       REAL dist_to_ei = distance(steinpt, ei);
+       REAL dist_to_ej = distance(steinpt, ej);
+@@ -27194,6 +27207,7 @@
+     } else {
+       // Cut the segment by the projection point of refpt.
+       projpt2edge(refpt, ei, ej, steinpt);
++      tg6[7]++;
+       // Make sure that steinpt is not too close to ei and ej.
+       REAL lfs_at_steiner = distance(refpt, steinpt);
+       REAL dist_to_ei = distance(steinpt, ei);
+@@ -27209,6 +27223,7 @@
+ 
+     // Make sure that steinpt is not too close to ei and ej.
+   } else {
++    tg6[8]++;
+     // Split the point at the middle.
+     for (i = 0; i < 3; i++) {
+       steinpt[i] = ei[i] + 0.5 * (ej[i] - ei[i]);
+@@ -27232,6 +27247,7 @@
+ bool tetgenmesh::split_segment(face *splitseg, point encpt, REAL *param,
+                                int qflag, int chkencflag, int *iloc)
+ {
++  tg6[2]++;
+   triface searchtet;
+   face searchsh;
+   point newpt;
+@@ -27266,11 +27282,13 @@
+     //   subface or a tetrahedron.
+     if (is_sharp) {
+       // Do not split a sharp segment.
++      tg6[4]++;
+       *iloc = (int) SHARPCORNER;
+       return false;
+     }
+     // Do not split this segment if one of its endpoints is a sharp corner.
+     if (does_seg_contain_acute_vertex(splitseg)) {
++      tg6[4]++;
+       *iloc = (int) SHARPCORNER;
+       return false;
+     }
+@@ -27311,6 +27329,7 @@
+   ivf.parentpt = NULL;
+   
+   if (insertpoint(newpt, &searchtet, &searchsh, splitseg, &ivf)) {
++    tg6[3]++;
+     st_segref_count++;
+     if (steinerleft > 0) steinerleft--;
+     if (useinsertradius) {
+@@ -27339,6 +27358,7 @@
+       }
+     }
+     if (flipstack != NULL) {
++      tg6[40]++;
+       flipconstraints fc;
+       fc.chkencflag = chkencflag;
+       fc.enqflag = 2;
+@@ -27347,6 +27367,7 @@
+     }
+     
+     if (later_unflip_queue->objects > b->unflip_queue_limit) {
++      tg6[39]++;
+       recoverdelaunay();
+     }
+     
+@@ -27359,6 +27380,7 @@
+     }
+ 
+ 
++    tg6[44]++;
+     pointdealloc(newpt);
+     
+     *iloc = ivf.iloc;
+@@ -27374,6 +27396,7 @@
+ 
+ void tetgenmesh::repairencsegs(REAL *param, int qflag, int chkencflag)
+ {
++  tg6[1]++;
+   int split_count = 0, rej_count = 0;
+   bool ref_segment = ((b->cdtrefine & 1) > 0); // -D1, -D3, -D5, -D7
+ 
+@@ -27550,6 +27573,7 @@
+         }
+         if (adjacent) {
+           // They are adjacent and they are on the same facet.
++          tg6[32]++;
+           flippush(flipstack, &adjtet);
+           return false;
+         }
+@@ -27881,6 +27905,7 @@
+         enextself(searchtet);
+       } else if (ori2 < 0) {
+         // Randomly choose one.
++        tg6[42]++;
+         if (rand() % 2) { // flipping a coin.
+           //E.ver = _enext_tbl[E.ver];
+           enextself(searchtet);
+@@ -27954,6 +27979,7 @@
+ bool tetgenmesh::split_subface(face *splitfac, point encpt, REAL *ccent,
+                                REAL *param, int qflag, int chkencflag, int *iloc)
+ {
++  tg6[10]++;
+   triface searchtet;
+   face searchsh;
+   insertvertexflags ivf;
+@@ -28000,12 +28026,14 @@
+     //   qflag, i.e., mesh size requirement.
+     if (!qflag) {
+       if (encpt != NULL) {
++        tg6[12]++;
+         *iloc = (int) SHARPCORNER;
+         return false; // reject splitting this subface.
+       } else {
+         if (param[4] == 0.0) {
+           // It is not a bad quality subface.
+-          *iloc = (int) SHARPCORNER;
++          tg6[12]++;
++        *iloc = (int) SHARPCORNER;
+           return false; // reject splitting this subface.
+         }
+       }
+@@ -28015,6 +28043,7 @@
+ 
+   // Deciding the inserting point.
+   if (encpt != NULL) {
++    tg6[13]++;
+     // Insert at the projection of the encpt on the facet.
+     REAL pos[3];
+     ppt = (point *) &(splitfac->sh[3]);
+@@ -28032,6 +28061,7 @@
+     }
+     if (mindist < prjdist) {
+       // Use the circumcenter of this triange instead of the proj of encpt.
++      tg6[14]++;
+       for (i = 0; i < 3; i++) newpt[i] = ccent[i];
+     }
+     //}
+@@ -28051,14 +28081,17 @@
+   if (ivf.iloc == (int) ENCSEGMENT) {
+     // Point lies in the outside of the facet.
+     pointdealloc(newpt);
++    tg6[15]++;
+     *iloc = FENSEDIN; // it is a fested in vertex.
+     return splitflag;
+   } else if (ivf.iloc == (int) ONVERTEX) {
+     pointdealloc(newpt);
++    tg6[16]++;
+     *iloc = ONVERTEX;
+     return splitflag;
+   } else if (ivf.iloc == (int) NONCOPLANAR) {
+     pointdealloc(newpt);
++    tg6[16]++;
+     *iloc = NONCOPLANAR;
+     return splitflag;
+   }
+@@ -28100,6 +28133,7 @@
+   //}
+ 
+   if (insertpoint(newpt, &searchtet, &searchsh, NULL, &ivf)) {
++    tg6[11]++;
+     st_facref_count++;
+     if (steinerleft > 0) steinerleft--;
+     if (useinsertradius) {
+@@ -28120,6 +28154,7 @@
+       }
+     }
+     if (flipstack != NULL) {
++      tg6[40]++;
+       flipconstraints fc;
+       fc.chkencflag = (chkencflag & (~1)); //chkencflag;
+       fc.enqflag = 2;
+@@ -28128,6 +28163,7 @@
+     }
+ 
+     if (later_unflip_queue->objects > b->unflip_queue_limit) {
++      tg6[39]++;
+       recoverdelaunay();
+     }
+     
+@@ -28139,6 +28175,7 @@
+   pointdealloc(newpt);
+ 
+   if (ivf.iloc == (int) ENCSEGMENT) {
++    tg6[17]++;
+     // Bakup the split subface.
+     ppt = (point *) &(splitfac->sh[3]);
+     for (i = 0; i < 3; i++) bak_pts[i] = ppt[i];
+@@ -28189,6 +28226,8 @@
+     }
+   } else if (ivf.iloc == (int) NEARVERTEX) {
+     terminatetetgen(this, 2); // report a bug
++  } else {
++    tg6[43]++;
+   }
+ 
+   *iloc = ivf.iloc;
+@@ -28203,6 +28242,7 @@
+ 
+ void tetgenmesh::repairencfacs(REAL *param, int qflag, int chkencflag)
+ {
++  tg6[9]++;
+   point encpt = NULL;
+   REAL ccent[3], radius; //, param[6] = {0.,};
+   int split_count = 0, rej_count = 0;
+@@ -28257,6 +28297,7 @@
+ 
+       // check_enc_subface() may find some non-Delaunay subfaces.
+       if (flippool->items > 0) {
++        tg6[40]++;
+         flipconstraints fc;
+         fc.chkencflag = chkencflag;
+         fc.enqflag = 2;
+@@ -28290,6 +28331,7 @@
+         rej_count++;
+         if (qflag || ((param[4] > (3. * b->minratio)) && (iloc != SHARPCORNER))) {
+           // Queue a unsplit (bad quality) subface.
++          tg6[18]++;
+           badface *bt = NULL;
+           unsplit_subfaces->newindex((void **) &bt);
+           //bt->init();
+@@ -28635,6 +28677,7 @@
+       }
+     }
+     if (qflag == 1) {
++      tg6[21]++;
+       return true;
+     }
+   }
+@@ -28689,6 +28732,7 @@
+       param[3] = Lmin;
+       param[4] = D;
+       param[5] = sqrt(Lmax) / Lmin; // edge ratio.
++      tg6[22]++;
+       return true;
+     }
+   } // if (b->minratio > 0)
+@@ -28727,6 +28771,7 @@
+     }
+     if (maxcosd > cosmindihed) {
+       // A bad dihedral angle.
++      tg6[23]++;
+       return true;
+     }
+   } // if (b->mindihedral > 0)
+@@ -28798,6 +28843,7 @@
+           } else if (tri_edge_test(torg,tdest,toppo,startpt,searchpt,NULL,0,NULL,NULL)) {
+             nextmove = APEXMOVE;
+           } else {
++            tg6[41]++;
+             int s = randomnation(3); // 's' is in {0,1,2}.
+             if (s == 0) {
+               nextmove = ORGMOVE;
+@@ -28815,6 +28861,7 @@
+             nextmove = DESTMOVE;
+           } else {
+             //s = randomnation(2); // 's' is in {0,1}.
++            tg6[41]++;
+             if (randomnation(2)) {
+               nextmove = ORGMOVE;
+             } else {
+@@ -28831,6 +28878,7 @@
+             nextmove = APEXMOVE;
+           } else {
+             //s = randomnation(2); // 's' is in {0,1}.
++            tg6[41]++;
+             if (randomnation(2)) {
+               nextmove = ORGMOVE;
+             } else {
+@@ -28852,6 +28900,7 @@
+             nextmove = APEXMOVE;
+           } else {
+             //s = randomnation(2); // 's' is in {0,1}.
++            tg6[41]++;
+             if (randomnation(2)) {
+               nextmove = DESTMOVE;
+             } else {
+@@ -28966,6 +29015,7 @@
+   int chkencflag,
+   insertvertexflags &ivf)
+ {
++  tg6[24]++;
+   triface searchtet;
+   point newpt, bak_pts[4], *ppt;
+   bool splitflag = false;
+@@ -29000,6 +29050,7 @@
+ 
+   if ((ivf.iloc == (int) ENCSUBFACE) || (ivf.iloc == (int) OUTSIDE)) {
+     // The circumcenter 'c' is not visible from 'q' (the interior of the tet).
++    tg6[26]++;
+     pointdealloc(newpt);  // Do not insert this vertex.
+ 
+ 
+@@ -29036,6 +29087,7 @@
+ 
+   if (insertpoint(newpt, &searchtet, NULL, NULL, &ivf)) {
+     // Vertex is inserted.
++    tg6[25]++;
+     st_volref_count++;
+     if (steinerleft > 0) steinerleft--;
+     if (useinsertradius) {
+@@ -29051,6 +29103,7 @@
+       }
+     }
+     if (flipstack != NULL) {                 
++      tg6[40]++;
+       flipconstraints fc;
+       fc.chkencflag = (chkencflag & (~3)); //chkencflag;
+       fc.enqflag = 2;
+@@ -29059,6 +29112,7 @@
+     }
+ 
+     if (later_unflip_queue->objects > b->unflip_queue_limit) {
++      tg6[39]++;
+       recoverdelaunay();
+     }
+ 
+@@ -29069,6 +29123,7 @@
+   pointdealloc(newpt);
+ 
+   if (ivf.iloc == (int) ENCSEGMENT) {
++    tg6[27]++;
+     if (!b->nobisect) { //if (!b->nobisect && qflag) { // no -Y
+       // bakup the vertices of this tet.
+       ppt = (point *) &(splittet->tet[4]);
+@@ -29136,6 +29191,7 @@
+       encseglist->restart();
+     }
+   } else if (ivf.iloc == (int) ENCSUBFACE) {
++    tg6[28]++;
+     if (!b->nobisect) { //if (!b->nobisect && qflag) { // no -Y
+       // bakup the vertices of this tet.
+       ppt = (point *) &(splittet->tet[4]);
+@@ -29209,6 +29265,7 @@
+           }
+         } // i
+         if (scount == 0) {
++          tg6[29]++;
+           // Not such subface is found! This can happen due to the existence
+           //   of small angles and non-Delaunay elements.
+           // Select an encroached subface and split it.
+@@ -29279,6 +29336,7 @@
+ 
+ void tetgenmesh::repairbadtets(REAL queratio, int chkencflag)
+ {
++  tg6[19]++;
+   triface *bface, *quetet, *last_quetet;
+   triface checktet;
+   REAL param[6] = {0.,};
+@@ -29321,11 +29379,13 @@
+         unmarktest2(checktet);
+         //if (check_tetrahedron(&checktet, param, qflag)) {
+         if (checktet4split(&checktet, param, qflag)) {
++          tg6[20]++;
+           bool splitflag = false;
+           insertvertexflags ivf;
+           splitflag = split_tetrahedron(&checktet, param, qflag, chkencflag, ivf);
+           if (!splitflag) {
+             if (qflag || (param[4] > queratio)) { // radius-edge ratio
++              tg6[30]++;
+               badface *bt = NULL;
+               unsplit_badtets->newindex((void **) &bt);
+               bt->init();
+@@ -29374,6 +29434,7 @@
+ 
+ void tetgenmesh::delaunayrefinement()
+ {
++  tg6[0]++;
+   triface checktet;
+   face checksh;
+   face checkseg;
+@@ -29554,7 +29615,9 @@
+               }
+             }
+ 
+-            // Count a live tet.
++            tg6[31]++;
++            tg6[31]++;
++          // Count a live tet.
+             badtetcount++;
+             insertvertexflags ivf;
+             qflag = (int) bt->key;
+@@ -29667,10 +29730,12 @@
+       }
+ 
+       if (later_unflip_queue->objects > 0l) {
++        tg6[39]++;
+         recoverdelaunay();
+       }
+     } // if (ref_segment)
+ 
++    if (getenv("TG_DUMP6S")) { tg6_write(); dump_recoverboundary(getenv("TG_DUMP6S")); exit(0); }
+     bool ref_surface = ((b->cdtrefine & 2) > 0); // -D2, -D3, or -D7
+ 
+     if (ref_surface && !force_quit_refinement) {
+@@ -29709,6 +29774,7 @@
+ 
+       // check_enc_subface() may find some non-Delaunay faces.
+       if (flippool->items > 0) {
++        tg6[40]++;
+         flipconstraints fc;
+         fc.chkencflag = chkencflag;
+         fc.enqflag = 2;
+@@ -29796,11 +29862,13 @@
+       }
+ 
+       if (later_unflip_queue->objects > 0l) {
++        tg6[39]++;
+         recoverdelaunay();
+       }
+     } // if (ref_subface)
+   } // if (!b->nobisect)
+ 
++  if (getenv("TG_DUMP6F")) { tg6_write(); dump_recoverboundary(getenv("TG_DUMP6F")); exit(0); }
+   if (((b->cdtrefine & 4) > 0) && !force_quit_refinement) { // -D4, -D5, or -D7
+     // Begin of adding Steiner points in volume ===============================
+ 
+@@ -29855,6 +29923,7 @@
+ 
+ 
+       if (later_unflip_queue->objects > 0l) {
++        tg6[39]++;
+         recoverdelaunay();
+       }
+ 
+@@ -29880,6 +29949,7 @@
+             }
+           }
+ 
++          tg6[31]++;
+           // Count a live tet.
+           badtetcount++;
+           insertvertexflags ivf;
+@@ -36393,6 +36463,14 @@
+   }
+ }
+ 
++void tg6_write() {
++  if (getenv("TG_REACH6")) {
++    FILE *g = fopen(getenv("TG_REACH6"), "w");
++    for (int i = 0; i < 64; i++) fprintf(g, "%ld%c", tg6[i], i == 63 ? '\n' : ' ');
++    fclose(g);
++  }
++}
++
+ void tetrahedralize(tetgenbehavior *b, tetgenio *in, tetgenio *out,
+                     tetgenio *addin, tetgenio *bgmin)
+ {
+@@ -36605,6 +36683,7 @@
+   }
+   if (b->quality) { // -q
+     m.delaunayrefinement();    
++    if (getenv("TG_DUMP6Q")) { tg6_write(); m.dump_recoverboundary(getenv("TG_DUMP6Q")); exit(0); }
+   }
+ 
+   tv[9] = clock();
+@@ -36776,6 +36855,7 @@
+     m.statistics();
+   }
+   tg5_write();
++  tg6_write();
+ }
+ 
+ #ifndef TETLIBRARY

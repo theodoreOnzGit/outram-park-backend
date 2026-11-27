@@ -10,31 +10,12 @@ path = "example:build_document"
 id = "fn:94dc015ac5740919"
 name = "main"
 qual = "main"
-lines = [
-    7,
-    31,
-]
 hash = "sha256:0cd0e3dcf48ecb231525986f88b2793197e52246999cdb0b0d24f255390a27d1"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
-callees = [
-    "fn:41ce0a79822e9a34",
-    "fn:a385012f1c62cbf5",
-    "fn:cd2de91e7d0215e6",
-    "fn:df6d2c9096bdf2c7",
-    "fn:e17baf16cf592eef",
-    "fn:f46f6bcf0442124f",
-    "fn:fe01325fdea59149",
-]
-uses = [
-    "fn:172326af75efdc60",
-    "fn:842c00c159aa93db",
-    "fn:b07b8e5717934b35",
-    "fn:fab10e4f2c22952e",
-]
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = []
 failed = []

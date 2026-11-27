@@ -863,7 +863,10 @@ fn stage_mc(threads: usize, histories: usize) {
 
     // Deterministic, on the union of the three tables' own grids.
     let mut ge: Vec<f64> = (0..3)
-        .flat_map(|j| nucs[j].native_energy_grid(SD_BAND.e_bot, SD_BAND.e_top))
+        .flat_map(|j| match nucs[j].native_energy_grid_with_thinning(SD_BAND.e_bot, SD_BAND.e_top, Some(1.0e-12)) {
+            Ok(grid) => grid,
+            Err(err) => panic!("native energy grid: {err}"),
+        })
         .collect();
     ge.sort_by(f64::total_cmp);
     ge.dedup();

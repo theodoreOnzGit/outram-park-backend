@@ -81,7 +81,7 @@
 
 use outram_blender::csg::cell::{Cell, HalfSpaceSense, RegionToken, SurfaceToken};
 use outram_blender::csg::position::{Direction, Position};
-use outram_blender::csg::surface::{BoundaryType, Sphere, SurfaceKind, XPlane};
+use outram_blender::csg::surface::{BoundaryType, Plane, Sphere, SurfaceKind, XPlane, YPlane, ZCylinder, ZPlane};
 
 const T: BoundaryType = BoundaryType::Transmissive;
 const INF: f32 = 1e30;
@@ -94,13 +94,23 @@ const MAX_VIRTUAL_HOPS: u32 = 32;
 enum S32 {
     XPlane(f32),
     Sphere([f32; 3], f32),
+    /// The shader's tags 1-3 and 7, with its own distance rules (`surf_distance`,
+    /// `axis_cylinder`), added for gh:#1708's bored reflector region.
+    YPlane(f32),
+    ZPlane(f32),
+    Plane([f32; 3], f32),
+    ZCyl(f32, f32, f32),
 }
 
 fn to32(s: &SurfaceKind) -> S32 {
     match s {
         SurfaceKind::XPlane(p) => S32::XPlane(p.x0 as f32),
         SurfaceKind::Sphere(q) => S32::Sphere([q.x0 as f32, q.y0 as f32, q.z0 as f32], q.r as f32),
-        _ => panic!("mirror covers planes and spheres"),
+        SurfaceKind::YPlane(p) => S32::YPlane(p.y0 as f32),
+        SurfaceKind::ZPlane(p) => S32::ZPlane(p.z0 as f32),
+        SurfaceKind::Plane(p) => S32::Plane([p.a as f32, p.b as f32, p.c as f32], p.d as f32),
+        SurfaceKind::ZCylinder(c) => S32::ZCyl(c.x0 as f32, c.y0 as f32, c.r as f32),
+        _ => panic!("mirror covers planes, spheres and z cylinders"),
     }
 }
 
@@ -111,6 +121,13 @@ fn eval(s: S32, r: [f32; 3]) -> f32 {
             let d = [r[0] - c[0], r[1] - c[1], r[2] - c[2]];
             d[0] * d[0] + d[1] * d[1] + d[2] * d[2] - rad * rad
         }
+        S32::YPlane(y0) => r[1] - y0,
+        S32::ZPlane(z0) => r[2] - z0,
+        S32::Plane(n, d) => n[0] * r[0] + n[1] * r[1] + n[2] * r[2] - d,
+        S32::ZCyl(x0, y0, rad) => {
+            let (a, b) = (r[0] - x0, r[1] - y0);
+            a * a + b * b - rad * rad
+        }
     }
 }
 
@@ -118,6 +135,10 @@ fn normal(s: S32, r: [f32; 3]) -> [f32; 3] {
     match s {
         S32::XPlane(_) => [1.0, 0.0, 0.0],
         S32::Sphere(c, _) => [r[0] - c[0], r[1] - c[1], r[2] - c[2]],
+        S32::YPlane(_) => [0.0, 1.0, 0.0],
+        S32::ZPlane(_) => [0.0, 0.0, 1.0],
+        S32::Plane(n, _) => n,
+        S32::ZCyl(x0, y0, _) => [r[0] - x0, r[1] - y0, 0.0],
     }
 }
 
@@ -160,6 +181,43 @@ fn surf_distance(s: S32, r: [f32; 3], u: [f32; 3], coincident: bool) -> f32 {
                 return -k + quad.sqrt();
             }
             let d = -k - quad.sqrt();
+            if d < 0.0 { INF } else { d }
+        }
+        // The shader's plane rule (csg_trace.wgsl `surf_distance` tags 1-3),
+        // with gh:#1708's coincident -> INF.
+        S32::YPlane(_) | S32::ZPlane(_) | S32::Plane(..) => {
+            if coincident {
+                return INF;
+            }
+            let n = normal(s, r);
+            let denom = dot(n, u);
+            if denom.abs() < 1.0e-7 {
+                return INF;
+            }
+            let d = -eval(s, r) / denom;
+            if d > 0.0 { d } else { INF }
+        }
+        // `axis_cylinder` in the shader, z axis.
+        S32::ZCyl(x0, y0, rad) => {
+            let (d1, d2, w1, w2) = (r[0] - x0, r[1] - y0, u[0], u[1]);
+            let a = w1 * w1 + w2 * w2;
+            if a == 0.0 {
+                return INF;
+            }
+            let k = d1 * w1 + d2 * w2;
+            let cc = d1 * d1 + d2 * d2 - rad * rad;
+            let quad = k * k - a * cc;
+            if quad < 0.0 {
+                return INF;
+            }
+            let sq = quad.sqrt();
+            if coincident || cc.abs() < 1.0e-6 {
+                return if k >= 0.0 { INF } else { (-k + sq) / a };
+            }
+            if cc < 0.0 {
+                return (-k + sq) / a;
+            }
+            let d = (-k - sq) / a;
             if d < 0.0 { INF } else { d }
         }
     }
@@ -243,6 +301,9 @@ fn toks_distance(c: &Region32, r0: [f32; 3], u: [f32; 3], tok0: Option<(usize, b
     for _ in 0..MAX_VIRTUAL_HOPS {
         let hs = nearest(c, r, u, tok, tok.is_some(), false);
         if hs.0 >= INF {
+            // As the CPU (Cell::distance_complex): no surface ahead is no
+            // boundary, even after virtual crossings (gh:#1708).
+            out = (INF, usize::MAX);
             break;
         }
         r = [r[0] + hs.0 * u[0], r[1] + hs.0 * u[1], r[2] + hs.0 * u[2]];
@@ -433,4 +494,85 @@ fn f32_mirror_matches_the_f64_cpu_rule() {
     let l = compare("lens (simple region)", surfaces, lens);
     assert_eq!(l.mismatched, 0);
     assert_eq!(l.old_rule_mismatched, 0, "a simple region is unchanged by #3934");
+}
+
+
+/// gh:#1708: the walk on one sector of `gpu_csg_parity`'s bored reflector (box
+/// AND NOT core AND two sector planes AND outside 48 infinite z bores), rays
+/// from that test's camera into the box, the f32 mirror (shader rules) against
+/// the f64 CPU `distance_to_boundary`. Before gh:#1708's two shader fixes (a
+/// coincident plane is never hit again; no surface ahead is no boundary) the
+/// walk returned a boundary on 13 811 of these 20 000 rays where the CPU found
+/// none (2026-11-24); now they agree on every ray, to 3e-7 where both hit.
+#[test]
+fn bored_reflector_sector_from_the_camera() {
+    let mut surfaces = vec![
+        SurfaceKind::XPlane(XPlane { x0: -20.0, bc: T }),
+        SurfaceKind::XPlane(XPlane { x0: 20.0, bc: T }),
+        SurfaceKind::YPlane(YPlane { y0: -20.0, bc: T }),
+        SurfaceKind::YPlane(YPlane { y0: 20.0, bc: T }),
+        SurfaceKind::ZPlane(ZPlane { z0: -10.0, bc: T }),
+        SurfaceKind::ZPlane(ZPlane { z0: 10.0, bc: T }),
+        SurfaceKind::ZCylinder(ZCylinder { x0: 0.0, y0: 0.0, r: 12.0, bc: T }),
+    ];
+    let n0 = surfaces.len();
+    for deg in [30.0_f64, 120.0] {
+        let t = deg.to_radians();
+        surfaces.push(SurfaceKind::Plane(Plane { a: t.cos(), b: t.sin(), c: 0.0, d: 0.0, bc: T }));
+    }
+    let bore0 = surfaces.len();
+    for k in 0..48usize {
+        let (ring, j) = (k / 24, (k % 24) as f64);
+        let rr = if ring == 0 { 15.0 } else { 18.5 };
+        let t = (j * 15.0 + 7.5 * ring as f64 + 3.0).to_radians();
+        surfaces.push(SurfaceKind::ZCylinder(ZCylinder { x0: rr * t.cos(), y0: rr * t.sin(), r: 1.2, bc: T }));
+    }
+    let and = |v: Vec<RegionToken>| -> Vec<RegionToken> {
+        let mut out = Vec::new();
+        for (i, t) in v.into_iter().enumerate() {
+            out.push(t);
+            if i > 0 { out.push(RegionToken::Intersection); }
+        }
+        out
+    };
+    let core = and(vec![hs(6, true), hs(4, false), hs(5, true)]);
+    let mut region = and(vec![hs(0, false), hs(1, true), hs(2, false), hs(3, true), hs(4, false), hs(5, true)]);
+    region.extend(core);
+    region.push(RegionToken::Complement);
+    region.push(RegionToken::Intersection);
+    region.extend([hs(n0, true), RegionToken::Intersection]);
+    region.extend([hs(n0 + 1, true), RegionToken::Intersection]);
+    for b in 0..48 {
+        region.extend([hs(bore0 + b, false), RegionToken::Intersection]);
+    }
+    let cell = Cell::material(1, region.clone(), 0, 293.6);
+    let c32 = Region32 { toks: &region, surfs: surfaces.iter().map(to32).collect(), simple: cell.is_simple() };
+    assert!(!c32.simple);
+    let cam = Position::new(60.0, -45.0, 35.0);
+    let mut rng = Lcg(0x1708);
+    let (mut counted, mut both_inf, mut wrong, mut gpu_inf_cpu_hit, mut gpu_hit_cpu_inf) = (0, 0, 0, 0, 0);
+    let mut worst = 0.0_f64;
+    for _ in 0..20000 {
+        let target = Position::new(40.0 * (rng.next() - 0.5), 40.0 * (rng.next() - 0.5), 20.0 * (rng.next() - 0.5));
+        let (dx, dy, dz) = (target.x - cam.x, target.y - cam.y, target.z - cam.z);
+        let n = (dx * dx + dy * dy + dz * dz).sqrt();
+        let u = Direction::new(dx / n, dy / n, dz / n);
+        let (d64, _) = cell.distance_to_boundary(cam, u, &surfaces, SurfaceToken::NONE);
+        let (d32, _) = toks_distance(&c32, [cam.x as f32, cam.y as f32, cam.z as f32], [u.u as f32, u.v as f32, u.w as f32], None, false);
+        counted += 1;
+        let (i64_, i32_) = (!d64.is_finite() || d64 > 1e29, d32 >= INF);
+        match (i64_, i32_) {
+            (true, true) => both_inf += 1,
+            (false, true) => gpu_inf_cpu_hit += 1,
+            (true, false) => gpu_hit_cpu_inf += 1,
+            (false, false) => {
+                let rel = ((d32 as f64) - d64).abs() / d64;
+                worst = worst.max(rel);
+                if rel > 1e-3 { wrong += 1; }
+            }
+        }
+    }
+    println!("BORED rays {counted}: both miss {both_inf}, f32 miss/CPU hit {gpu_inf_cpu_hit}, f32 hit/CPU miss {gpu_hit_cpu_inf}, both hit but differ >1e-3 {wrong}, worst rel {worst:.2e}");
+    assert_eq!((gpu_inf_cpu_hit, gpu_hit_cpu_inf, wrong), (0, 0, 0), "the f32 walk must find the CPU's boundary on every ray");
+    assert!(both_inf > 1000 && counted - both_inf > 1000, "the rays must exercise both hits and misses");
 }

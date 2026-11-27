@@ -239,6 +239,17 @@ pub struct CoreResult {
     /// Cladding temperature of every node, ring-major, bottom to top, K
     /// (relocated nodes: NaN).
     pub clad_k: Vec<f64>,
+    /// `q_pool_w` by where in the pool its vapour is raised (2026-11-26):
+    /// each swells only the control volume it is raised in, as MELCOR's per
+    /// volume pool model does (`swollen_level_by_volume`). At the bottom of the lower plenum:
+    /// its debris quench, its blades' steel and the wet lower head. At the
+    /// core plate (the bottom of active fuel): the plate's debris. In the
+    /// core: each covered axial row's boiling, bottom to top, all rings
+    /// summed. (The core bottom's radiation boils the water's surface,
+    /// which voids no pool, so it is in none of them.)
+    pub q_pool_lower_plenum_w: f64,
+    pub q_pool_plate_w: f64,
+    pub q_pool_rows_w: Vec<f64>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -492,11 +503,27 @@ impl HeadWall {
         q_in * area
     }
 
+    /// The wall's mass-averaged temperature, K: the face nodes carry half
+    /// a node's steel (`step_with`). MELCOR's 0-D creep takes the
+    /// mass-averaged temperature of the load-bearing layers (Vol. 2,
+    /// COR-RM-177). ~~The plain mean of the nodes~~ until 2026-11-26 (unit
+    /// V&V COR2-07: 1080 K against 1062.5 K for a 1500..800 K profile, a
+    /// rupture time 0.59 times MELCOR's).
+    fn mass_mean_k(&self) -> f64 {
+        let (mut sum, mut w) = (0.0, 0.0);
+        for (i, t) in self.t_k.iter().enumerate() {
+            let m = if i == 0 || i == WALL_NODES - 1 { 0.5 } else { 1.0 };
+            sum += m * t;
+            w += m;
+        }
+        sum / w
+    }
+
     /// Accumulate Larson-Miller creep strain over `dt` under a pressure
     /// difference `dp` plus the debris's own head, Pa, and say whether the
     /// head has failed (inner node or strain). Stress from the thick-sphere
     /// relation MELCOR's 0-D option uses (Vol. 2, Eq 6-26); temperature the
-    /// wall's mean; skipped below 1000 Pa effective (its C1600(3)). With
+    /// wall's mass average ([`HeadWall::mass_mean_k`]); skipped below 1000 Pa effective (its C1600(3)). With
     /// `penetrations`, a penetration at the same temperature limit fails it
     /// too, as in MELCOR (Vol. 2, §6.3: a penetration or the innermost head
     /// node at TPFAIL).
@@ -504,28 +531,38 @@ impl HeadWall {
         let (ri, ro) = (prm.rpv_radius_m, prm.rpv_radius_m + prm.lower_head_thickness_m);
         if dp >= 1000.0 {
             let sigma = dp * ri * ri / (ro * ro - ri * ri);
-            let t_mean = self.t_k.iter().sum::<f64>() / WALL_NODES as f64;
-            let p_lm = prm.lm_p0 - prm.lm_slope * sigma.r_log10();
-            let t_rupture = ((p_lm / t_mean - prm.lm_c) * core::f64::consts::LN_10).r_exp();
+            let t_rupture = larson_miller_rupture_s(prm, self.mass_mean_k(), sigma);
             self.strain += prm.creep_fail_strain * dt / t_rupture;
         }
         self.t_k[0] >= prm.head_failure_wall_k || self.strain >= prm.creep_fail_strain || (penetrations && self.pen_k >= prm.head_failure_wall_k)
     }
 }
 
+/// The lower head's Larson-Miller rupture time, s, at temperature `t_k`
+/// and effective stress `sigma` Pa (MELCOR Vol. 2, §6.3, Eqs 6-23 to 6-25,
+/// C1601 for SA533B1): `10^(P_LM/T - C)`, `P_LM = P0 - slope log10(sigma)`.
+fn larson_miller_rupture_s(prm: &Params, t_k: f64, sigma: f64) -> f64 {
+    let p_lm = prm.lm_p0 - prm.lm_slope * sigma.r_log10();
+    ((p_lm / t_k - prm.lm_c) * core::f64::consts::LN_10).r_exp()
+}
+
 /// Zircaloy emissivity against oxide thickness, after MELCOR's C1104 (Vol.
-/// 2, COR §2.1, Eqs 2-7 to 2-10): 0.325 bare, 0.808 at 3.88 um, 0.759 at
+/// 2, COR §2.1, Eqs 2-7 to 2-10): 0.325 bare, ~~0.808 at 3.88 um, 0.759 at~~ 0.808448 at 3.88 um and 0.758642 at
 /// 1 mm and beyond, linear between; above 1500 K multiplied by
 /// `exp((1500 - T)/300)`, no lower than 0.325. MELCOR degrades on the
 /// highest temperature the surface has reached; this uses the present one
 /// (stated simplification).
 fn zr_emissivity(oxide_m: f64, t_k: f64) -> f64 {
-    let e = if oxide_m <= 3.88e-6 {
-        0.325 + (0.808 - 0.325) * oxide_m / 3.88e-6
+    // MELCOR's Eqs 2-7 and 2-8 (Vol. 2 COR §2.1.1, COR-RM-28/29; C1104):
+    // 0.325 + 0.1246e6 dr up to dr = 3.8799999e-6 m, then 0.808642 - 50 dr
+    // to 1 mm, constant beyond. ~~Linear between the rounded endpoints 0.808
+    // and 0.759~~ (corrected by the unit V&V of 2026-11-26, COR1-01).
+    let e = if oxide_m <= 3.8799999e-6 {
+        0.325 + 0.1246e6 * oxide_m
     } else if oxide_m <= 1.0e-3 {
-        0.808 + (0.759 - 0.808) * (oxide_m - 3.88e-6) / (1.0e-3 - 3.88e-6)
+        0.808642 - 50.0 * oxide_m
     } else {
-        0.759
+        0.808642 - 50.0 * 1.0e-3
     };
     let e = if t_k > 1500.0 { (e * ((1500.0 - t_k) / 300.0).r_exp()).max(0.325) } else { e };
     e.clamp(1.0e-4, 0.9999)
@@ -543,11 +580,28 @@ pub(crate) fn steel_emissivity(t_k: f64) -> f64 {
     (0.25617 + 3.474e-4 * (t_k - 616.48)).clamp(1.0e-4, 0.9999)
 }
 
-/// Gray-body exchange between two surfaces, W: `F A sigma (T1^4 - T2^4)
-/// / (1/e1 + 1/e2 - 1)`.
-fn gray_exchange(f_a: f64, e1: f64, e2: f64, t1: f64, t2: f64) -> f64 {
+/// Net radiation from surface 1 to surface 2, W: MELCOR's gray-surface
+/// network (COR RM §2.1, Eqs 2-1 to 2-6, after Kreith) with no absorbing
+/// medium, i.e. the surface resistances `(1 - e)/(A e)` in series with the
+/// space resistance `1/(AF)`:
+/// `sigma (T1^4 - T2^4) / [(1-e1)/(A1 e1) + 1/(AF) + (1-e2)/(A2 e2)]`.
+/// `a1`, `a2` are the two surfaces' own areas, m^2, and `af` the
+/// view-factor-area product ([`cell_af`] across a cell boundary).
+/// ~~`F A sigma (T1^4 - T2^4) / (1/e1 + 1/e2 - 1)`~~ until 2026-11-26: that
+/// is this network only for F = 1 and equal areas; at F = 0.25 it was a
+/// factor 2.04 low (unit V&V COR1-03). The steam medium of Eq 2-5 is not
+/// modelled (stated: `eps_m = 0`).
+fn gray_exchange(af: f64, a1: f64, e1: f64, a2: f64, e2: f64, t1: f64, t2: f64) -> f64 {
     const SIGMA: f64 = 5.670_374_419e-8;
-    f_a * SIGMA * (t1.r_powi(4) - t2.r_powi(4)) / (1.0 / e1 + 1.0 / e2 - 1.0)
+    let r = (1.0 - e1) / (a1 * e1) + 1.0 / af + (1.0 - e2) / (a2 * e2);
+    SIGMA * (t1.r_powi(4) - t2.r_powi(4)) / r
+}
+
+/// The view-factor-area product MELCOR uses for exchange across a cell
+/// boundary, m^2: `F MIN(A_cell, A1, A2)` (COR RM §2.1.2, limit (1)), so
+/// that no implied reciprocal view factor exceeds one.
+fn cell_af(f: f64, a_cell: f64, a1: f64, a2: f64) -> f64 {
+    f * a_cell.min(a1).min(a2)
 }
 
 /// The core's equivalent radius, m: the assemblies' lattice area as a
@@ -590,6 +644,9 @@ impl Core {
         let oxide = |n: &Node| n.w_ox.min(n.zr_kg / g.a_zr) * (ZRO2_PER_ZR / prm.zro2_density);
         let eps = |n: &Node| zr_emissivity(oxide(n), n.t_clad);
         let pi = core::f64::consts::PI;
+        // Axially, across the ring's cross-section (MELCOR's Fcell,a).
+        let a_ax = pi * rc * rc / RINGS as f64;
+        let axial = |e1: f64, e2: f64, t1: f64, t2: f64| gray_exchange(cell_af(prm.axial_exchange, a_ax, g.a_rod, g.a_rod), g.a_rod, e1, g.a_rod, e2, t1, t2);
         for j in 0..AXIAL_NODES {
             for k in 0..RINGS {
                 let a = &self.nodes[k * AXIAL_NODES + j];
@@ -600,19 +657,24 @@ impl Core {
                 // through emptied cells (`see_through`), the next standing
                 // ring outward, or the shroud if none stands.
                 let r_out = rc * ((k + 1) as f64 / RINGS as f64).sqrt();
-                let area = 2.0 * pi * r_out * dz * prm.radial_exchange;
+                // The boundary cylinder's area; the rods' own surface is
+                // `g.a_rod` a node, the shroud's its inner face, which is
+                // the outer boundary itself (unit V&V COR1-03).
+                let a_cell = 2.0 * pi * r_out * dz;
+                let rods = |e1: f64, e2: f64, t1: f64, t2: f64| gray_exchange(cell_af(prm.radial_exchange, a_cell, g.a_rod, g.a_rod), g.a_rod, e1, g.a_rod, e2, t1, t2);
+                let shroud = |e1: f64, e2: f64, t1: f64, t2: f64| gray_exchange(cell_af(prm.radial_exchange, a_cell, g.a_rod, a_cell), g.a_rod, e1, a_cell, e2, t1, t2);
                 let next = if see_through { (k + 1..RINGS).find(|&kk| !self.nodes[kk * AXIAL_NODES + j].relocated) } else { None };
                 if see_through {
                     match next {
                         Some(kk) => {
                             let b = &self.nodes[kk * AXIAL_NODES + j];
-                            let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                            let x = rods(eps(a), eps(b), a.t_clad, b.t_clad);
                             q[k * AXIAL_NODES + j] -= x;
                             q[kk * AXIAL_NODES + j] += x;
                         }
                         None => {
                             let t_sh = self.shroud_k[j];
-                            let x = gray_exchange(area, eps(a), steel_emissivity(t_sh), a.t_clad, t_sh);
+                            let x = shroud(eps(a), steel_emissivity(t_sh), a.t_clad, t_sh);
                             q[k * AXIAL_NODES + j] -= x;
                             q_sh[j] += x;
                         }
@@ -620,13 +682,13 @@ impl Core {
                 } else if k + 1 < RINGS {
                     let b = &self.nodes[(k + 1) * AXIAL_NODES + j];
                     if !b.relocated {
-                        let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                        let x = rods(eps(a), eps(b), a.t_clad, b.t_clad);
                         q[k * AXIAL_NODES + j] -= x;
                         q[(k + 1) * AXIAL_NODES + j] += x;
                     }
                 } else {
                     let t_sh = self.shroud_k[j];
-                    let x = gray_exchange(area, eps(a), steel_emissivity(t_sh), a.t_clad, t_sh);
+                    let x = shroud(eps(a), steel_emissivity(t_sh), a.t_clad, t_sh);
                     q[k * AXIAL_NODES + j] -= x;
                     q_sh[j] += x;
                 }
@@ -636,16 +698,14 @@ impl Core {
                 if see_through {
                     if let Some(jj) = (j + 1..AXIAL_NODES).find(|&jj| !self.nodes[k * AXIAL_NODES + jj].relocated) {
                         let b = &self.nodes[k * AXIAL_NODES + jj];
-                        let area = pi * rc * rc / RINGS as f64 * prm.axial_exchange;
-                        let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                        let x = axial(eps(a), eps(b), a.t_clad, b.t_clad);
                         q[k * AXIAL_NODES + j] -= x;
                         q[k * AXIAL_NODES + jj] += x;
                     }
                 } else if j + 1 < AXIAL_NODES {
                     let b = &self.nodes[k * AXIAL_NODES + j + 1];
                     if !b.relocated {
-                        let area = pi * rc * rc / RINGS as f64 * prm.axial_exchange;
-                        let x = gray_exchange(area, eps(a), eps(b), a.t_clad, b.t_clad);
+                        let x = axial(eps(a), eps(b), a.t_clad, b.t_clad);
                         q[k * AXIAL_NODES + j] -= x;
                         q[k * AXIAL_NODES + j + 1] += x;
                     }
@@ -700,7 +760,10 @@ impl Core {
         }
         let g = geom(prm);
         let rc = core_radius(prm);
-        let area = core::f64::consts::PI * rc * rc / RINGS as f64 * prm.flpup;
+        // The ring's cross-section is the cell's area and the pool surface
+        // under it (unit V&V COR1-03: MELCOR's network with F MIN(A)).
+        let a_cell = core::f64::consts::PI * rc * rc / RINGS as f64;
+        let af = cell_af(prm.flpup, a_cell, g.a_rod, a_cell);
         for k in 0..RINGS {
             if ring_plates && holds(&self.plates[k]) {
                 continue;
@@ -711,7 +774,7 @@ impl Core {
                 }
                 let n = &self.nodes[k * AXIAL_NODES + j];
                 let oxide = n.w_ox.min(n.zr_kg / g.a_zr) * (ZRO2_PER_ZR / prm.zro2_density);
-                let x = gray_exchange(area, zr_emissivity(oxide, n.t_clad), prm.water_emissivity, n.t_clad, t_sat);
+                let x = gray_exchange(af, g.a_rod, zr_emissivity(oxide, n.t_clad), a_cell, prm.water_emissivity, n.t_clad, t_sat);
                 q[k * AXIAL_NODES + j] -= x;
                 down += x;
             }
@@ -731,12 +794,17 @@ impl Core {
         let mut up = 0.0;
         let g = geom(prm);
         let rc = core_radius(prm);
-        let area = core::f64::consts::PI * rc * rc / RINGS as f64 * prm.axial_exchange;
+        // The internals' surface each ring sees is taken as the ring's
+        // cross-section, \[A\] (their own area is not in the model); with
+        // the rods' far larger surface, `cell_af` takes that area too
+        // (unit V&V COR1-03).
+        let a_cell = core::f64::consts::PI * rc * rc / RINGS as f64;
+        let af = cell_af(prm.axial_exchange, a_cell, g.a_rod, a_cell);
         for k in 0..RINGS {
             if let Some(j) = (0..AXIAL_NODES).rev().find(|&j| !self.nodes[k * AXIAL_NODES + j].relocated) {
                 let n = &self.nodes[k * AXIAL_NODES + j];
                 let oxide = n.w_ox.min(n.zr_kg / g.a_zr) * (ZRO2_PER_ZR / prm.zro2_density);
-                let x = gray_exchange(area, zr_emissivity(oxide, n.t_clad), steel_emissivity(t_up), n.t_clad, t_up);
+                let x = gray_exchange(af, g.a_rod, zr_emissivity(oxide, n.t_clad), a_cell, steel_emissivity(t_up), n.t_clad, t_up);
                 q[k * AXIAL_NODES + j] -= x;
                 up += x;
             }
@@ -891,6 +959,20 @@ impl Core {
 /// equal numbers of blades).
 fn blade_per_node(prm: &Params) -> (f64, f64) {
     (prm.control_rods * prm.blade_steel_kg / NODES as f64, prm.control_rods * prm.blade_area_m2 / NODES as f64)
+}
+
+/// Whether a blade's B4C may react with steam (MELCOR Vol. 2 COR §2.5,
+/// COR-RM-89; C1005(3), C1005(4)): only after its sheath has failed, which is
+/// when the blade's intact steel (the initial mass less what has oxidised,
+/// `ss_oxidised_kg`) falls below `b4c_sheath_intact_max` of the initial, and
+/// only above `b4c_min_k`. ~~Before 2026-11-26 neither gate was applied: the
+/// B4C reacted on an intact blade at any temperature, spending the 2 % cap in
+/// about 19 s at 1200 K~~ (found by the unit V&V, COR1-22 and COR2-17).
+/// Stated: melting is not part of the intact fraction here; a melted blade
+/// relocates with its B4C (`blade_gone`), which then no longer reacts.
+fn b4c_may_react(prm: &Params, ss_oxidised_kg: f64, t_k: f64) -> bool {
+    let m0 = blade_per_node(prm).0;
+    m0 > 0.0 && (m0 - ss_oxidised_kg) / m0 < prm.b4c_sheath_intact_max && t_k > prm.b4c_min_k
 }
 
 /// MELCOR's stainless-steel oxidation rate constant in steam, (kg/m^2)^2/s
@@ -1107,9 +1189,16 @@ fn steam_enthalpy_above_298(t_k: f64, p_pa: f64) -> f64 {
 /// for a bed `height` m deep.
 pub fn lipinski_dryout_flux(prm: &Params, p_pa: f64, height: f64) -> f64 {
     let sat = super::steam::sat_from_tables(p_pa.clamp(super::steam::P_MIN_PA, super::steam::P_MAX_PA));
-    let (rho_l, rho_v, h_lv) = (1.0 / sat.v_f, 1.0 / sat.v_g, sat.h_g - sat.h_f);
-    let d = prm.debris_particle_m;
-    let eps = prm.debris_porosity.max(0.15);
+    lipinski_dryout_flux_with(1.0 / sat.v_f, 1.0 / sat.v_g, sat.h_g - sat.h_f, prm.debris_particle_m, prm.debris_porosity, height)
+}
+
+/// Lipinski's 0-D dryout flux, W/m^2, from the water's properties (`rho_l`,
+/// `rho_v` kg/m^3, `h_lv` J/kg), the particle diameter `d` and porosity `eps`
+/// (floored at 0.15) of a bed `height` m tall: MELCOR Vol. 2 COR §2.3.8,
+/// Eqs 2-114 and 2-115 (COR-RM-69/70), C1244 = 0.756, 0.089 m, 0.15. Split
+/// out of [`lipinski_dryout_flux`] for the unit V&V (COR1-12, 2026-11-26).
+pub fn lipinski_dryout_flux_with(rho_l: f64, rho_v: f64, h_lv: f64, d: f64, eps: f64, height: f64) -> f64 {
+    let eps = eps.max(0.15);
     let lambda_c = 0.089 * 5.0e-4 / d;
     let num = rho_v * (rho_l - rho_v) * 9.81 * d * eps.r_powi(3) * (1.0 + lambda_c / height.max(1e-3));
     let den = (1.0 - eps) * (1.0 + (rho_v / rho_l).r_powf(0.25)).r_powi(4);
@@ -1188,17 +1277,23 @@ pub fn diffusion_limited_rate(prm: &Params, w_steam: f64, w_h2: f64, t_film: f64
 /// inventory per hour (2.6e-7 /min at 1173 K), so the holdup moves the
 /// release by under 1e-5.
 pub fn volatile_release_rate(prm: &Params, t_k: f64) -> f64 {
-    const CAL: f64 = 4.184;
-    prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
+    prm.corsor_k0_per_min / 60.0 * (-prm.corsor_q_kcal_per_mol / (CORSOR_R_KCAL_PER_MOL_K * t_k)).r_exp()
 }
+
+/// The gas constant CORSOR-M's coefficients were fitted with, kcal/(mol K):
+/// 1.987e-3, as the manual states beside Eq 2-11 (Vol. 2 RN §2.3.1.2,
+/// RN-RM-19). The correlation is defined with it, so it is used here rather
+/// than CODATA's R (~~`Q x 4184 / 8.314462`~~, an effective 1.98720e-3,
+/// which moved the rates by 0.14 to 0.33 %; found by the unit V&V of
+/// 2026-11-26, `melcor-unit-vv/rn-aerosol-sparc-mp.md` RN-01).
+pub const CORSOR_R_KCAL_PER_MOL_K: f64 = 1.987e-3;
 
 /// Fractional release rate of UO2 itself from fuel at `t_k`, 1/s: CORSOR-M's
 /// row for La and UO2 (Vol. 2, RN §2.3.1, C7102), `k0 exp(-Q/(R T))` per
 /// minute. The released UO2 is the aerosol the vapours condense on
 /// (gh:#1047); its inventory is the fuel's UO2.
 pub fn uo2_release_rate(prm: &Params, t_k: f64) -> f64 {
-    const CAL: f64 = 4.184;
-    prm.corsor_uo2_k0_per_min / 60.0 * (-prm.corsor_uo2_q_kcal_per_mol * 1000.0 * CAL / (R_GAS * t_k)).r_exp()
+    prm.corsor_uo2_k0_per_min / 60.0 * (-prm.corsor_uo2_q_kcal_per_mol / (CORSOR_R_KCAL_PER_MOL_K * t_k)).r_exp()
 }
 
 /// Dittus-Boelter heat transfer coefficient for steam at `t_film` and `p`,
@@ -1451,6 +1546,9 @@ impl Core {
             self.lp_steel_h -= release;
             q_quench += release / dt;
         }
+        // What the lower plenum raises at its bottom (debris, steel, wet
+        // head): the swell's deepest source (2026-11-26).
+        let q_pool_lower_plenum = q_quench.max(0.0);
         // The bottom of the core's radiation boils the lower plenum's water
         // (`bottom_radiation`).
         q_quench += q_bottom_w;
@@ -1458,6 +1556,8 @@ impl Core {
         // temperature-dependent properties only.
         // The lower plenum's debris has used this much of the steam it raised.
         let lp_used = debris_steam_used;
+        let mut q_pool_plate = 0.0;
+        let mut q_pool_rows = [0.0; AXIAL_NODES];
         let mut plate_taken = [0.0; RINGS];
         if s.core_plate && tdp {
             let below = if s.level_m <= 0.0 {
@@ -1466,6 +1566,7 @@ impl Core {
                 0.0
             };
             let (q, taken, h2, used) = self.plate_step(prm, s, below, dt);
+            q_pool_plate = q.max(0.0);
             q_quench += q;
             plate_taken = taken;
             debris_h2 += h2;
@@ -1570,7 +1671,9 @@ impl Core {
                     // model, at most `b4c_max_fraction` of it, in the steam
                     // left; its energy to the cladding here (MELCOR gives it
                     // to the gas, stated), its B2O3 not followed (stated).
-                    if s.b4c_oxidation && s.control_blades && tdp && !node.blade_gone && w_steam > 0.0 && node.b4c_frac < prm.b4c_max_fraction {
+                    // Only once the sheath has failed and above 1500 K
+                    // (`b4c_may_react`, C1005(3)/(4); added 2026-11-26).
+                    if s.b4c_oxidation && s.control_blades && tdp && !node.blade_gone && w_steam > 0.0 && node.b4c_frac < prm.b4c_max_fraction && b4c_may_react(prm, node.ss_ox, node.t_clad) {
                         const M_B4C: f64 = 0.055_255;
                         let m0 = prm.control_rods * prm.blade_b4c_kg / NODES as f64;
                         let df = (prm.b4c_rate_a * (-prm.b4c_rate_b / node.t_clad).r_exp() * dt).min(prm.b4c_max_fraction - node.b4c_frac);
@@ -1646,6 +1749,7 @@ impl Core {
                 if covered {
                     w_steam += q_out.max(0.0) / s.h_fg;
                     q_pool += q_out.max(0.0);
+                    q_pool_rows[j] += q_out.max(0.0);
                 } else if w_steam > 0.0 && c_rate > 0.0 {
                     t_steam += q_out / c_rate;
                 }
@@ -1961,12 +2065,18 @@ impl Core {
         }
         // The shroud: held at saturation where the collapsed level covers it
         // (water on both faces), otherwise heated by the outer ring's
-        // radiation, its outer face adiabatic (stated).
+        // radiation, its outer face adiabatic (stated). A covered level
+        // passes the radiation it receives on to the water. ~~It was
+        // dropped~~ until 2026-11-26: a leak of 27.1 W in a covered core at
+        // 20 MW once the radiation followed MELCOR's network (COR1-03; about
+        // half that before, estimated, not measured), found by
+        // `a_covered_core_hands_its_decay_heat_to_the_water`.
         if s.core_radiation {
             let m_level = shroud_mass_per_level(prm, dz);
             for j in 0..AXIAL_NODES {
                 let z_mid = (j as f64 + 0.5) * dz;
                 self.shroud_k[j] = if s.level_m >= z_mid {
+                    q_fluid += q_shroud[j];
                     s.t_sat_k
                 } else {
                     steel_t(steel_h(self.shroud_k[j]) + q_shroud[j] * dt / m_level)
@@ -1998,6 +2108,9 @@ impl Core {
             q_pool_w: q_pool,
             q_upper_w,
             clad_k: self.nodes.iter().map(|n| if n.relocated { f64::NAN } else { n.t_clad }).collect(),
+            q_pool_lower_plenum_w: q_pool_lower_plenum,
+            q_pool_plate_w: q_pool_plate,
+            q_pool_rows_w: q_pool_rows.to_vec(),
         }
     }
 }
@@ -2167,6 +2280,8 @@ impl CoreResult {
             self.q_upper_w,
         ]);
         w.vec(&self.clad_k);
+        w.f(&[self.q_pool_lower_plenum_w, self.q_pool_plate_w]);
+        w.vec(&self.q_pool_rows_w);
     }
     pub fn read(r: &mut Reader) -> Self {
         Self {
@@ -2192,9 +2307,18 @@ impl CoreResult {
             q_pool_w: r.f(),
             q_upper_w: r.f(),
             clad_k: r.vec(),
+            q_pool_lower_plenum_w: r.f(),
+            q_pool_plate_w: r.f(),
+            q_pool_rows_w: r.vec(),
         }
     }
 }
+
+// The unit V&V against MELCOR 2.2's manuals (2026-11-26): each test checks
+// one item of `verification_and_validation/bwr_mark1/melcor-unit-vv/`.
+#[cfg(test)]
+#[path = "core_melcor_vv.rs"]
+mod melcor_vv;
 
 #[cfg(test)]
 mod tests {
@@ -2264,6 +2388,8 @@ mod tests {
         for _ in 0..3000 {
             r = c.step(&s);
         }
+        // Since 2026-11-26 the covered shroud passes its radiation on to the
+        // water; it was dropped (19999972.9 W here, 1.4e-6 short).
         assert!((r.q_fluid_w - 20.0e6).abs() < 20.0e6 * 1e-6, "{}", r.q_fluid_w);
         assert!(r.peak_clad_k < 562.0 && r.h2_kg_s == 0.0, "{}", r.peak_clad_k);
     }
@@ -2454,7 +2580,7 @@ mod tests {
 
     /// MELCOR's simple B4C model (COR RM §2.5.9) by hand at 1600 K: with
     /// equal H2 and steam (1 atm each) `y_CO/CO2 = exp(-3605/1600 + 3.427)` =
-    /// 3.2345 and `y_CO/CH4 = exp(-27350/1600 + 30.50)` = 6.39e5, so x_CO =
+    /// 3.2345 and `y_CO/CH4 = exp(-27350/1600 + 30.50)` = ~~6.39e5~~ 6.641e5 (corrected 2026-11-26, COR1-22), so x_CO =
     /// 0.7638, x_CO2 = 0.2362, x_CH4 ~ 1.2e-6; steam per mole 7.236, H2 7.236;
     /// energy `(0.7638 (8.238e8 - 58380 x 1600) + 0.2362 (8.674e8 - 67060 x
     /// 1600)) / 1000` = 7.374e5 J/mol. The rate at 1600 K: `9.973e6/60
@@ -2472,9 +2598,14 @@ mod tests {
 
     /// The bottom of the core's radiation (`bottom_radiation`) by hand:
     /// fresh cladding at 1500 K (emissivity 0.325) over water at 560 K
-    /// (0.95), across `FLPUP` 0.25 of the 9.29 m^2 core, gives
-    /// `0.25 x 9.29 x 5.6704e-8 (1500^4 - 560^4) / (1/0.325 + 1/0.95 - 1)`
-    /// = 0.2089 MW. A ring whose lowest node is relocated radiates from the
+    /// (0.95). ~~`0.25 x 9.29 x 5.6704e-8 (1500^4 - 560^4) / (1/0.325 +
+    /// 1/0.95 - 1)` = 0.2089 MW~~ (the old gray form, until 2026-11-26).
+    /// MELCOR's network (unit V&V COR1-03), per ring of the three:
+    /// rod surface 97.19 m^2 a node, cell 3.0968 m^2, `AF = 0.25 x 3.0968`,
+    /// `sigma dT^4 / [(1 - 0.325)/(97.19 x 0.325) + 1/(0.25 x 3.0968) +
+    /// 0.05/(0.95 x 3.0968)]`, three rings: **0.63491 MW** (python, from
+    /// the constants; the rods' resistance takes 1.6 % off the 0.6453 MW
+    /// of the space resistance alone). A ring whose lowest node is relocated radiates from the
     /// next node up instead; a ring whose lowest standing node is covered
     /// radiates nothing; debris held on the plate blocks the view.
     #[test]
@@ -2486,7 +2617,7 @@ mod tests {
         }
         let dz = prm.active_length_m / AXIAL_NODES as f64;
         let (q, down) = c.bottom_radiation(&prm, -1.0, 560.0, dz, false);
-        assert!((down / 0.2089e6 - 1.0).abs() < 1e-3, "{down}");
+        assert!((down / 0.634914774828127e6 - 1.0).abs() < 1e-9, "{down}");
         assert!((q.iter().sum::<f64>() + down).abs() < 1e-6 * down);
         assert!(q[0] < 0.0 && q[1] == 0.0);
         c.nodes[0].relocated = true;
@@ -2504,19 +2635,21 @@ mod tests {
     }
 
     /// Radiation (gh:#1037): MELCOR's Zircaloy emissivity points (0.325
-    /// bare, 0.808 at 3.88 um, 0.759 at 1 mm), its degradation above 1500 K
+    /// bare, 0.808448 at 3.88 um, 0.758642 at 1 mm, Eqs 2-7 and 2-8 since 2026-11-26), its degradation above 1500 K
     /// floored at 0.325, steel's linear law at 616.48 K, and the gray-body
     /// exchange's sign and symmetry.
     #[test]
     fn radiation_follows_melcors_emissivities_and_conserves() {
         assert!((zr_emissivity(0.0, 1000.0) - 0.325).abs() < 1e-12);
-        assert!((zr_emissivity(3.88e-6, 1000.0) - 0.808).abs() < 1e-12);
-        assert!((zr_emissivity(2.0e-3, 1000.0) - 0.759).abs() < 1e-12);
-        assert!((zr_emissivity(2.0e-3, 1600.0) - 0.759 * (-1.0f64 / 3.0).exp()).abs() < 1e-9);
+        // The manual's Eqs 2-7 and 2-8 (since 2026-11-26; were the rounded
+        // 0.808 and 0.759): 0.808448 at 3.88 um, 0.758642 from 1 mm.
+        assert!((zr_emissivity(3.8799999e-6, 1000.0) - 0.808448).abs() < 1e-6);
+        assert!((zr_emissivity(2.0e-3, 1000.0) - 0.758642).abs() < 1e-12);
+        assert!((zr_emissivity(2.0e-3, 1600.0) - 0.758642 * (-1.0f64 / 3.0).exp()).abs() < 1e-9);
         assert_eq!(zr_emissivity(2.0e-3, 3000.0), 0.325);
         assert!((steel_emissivity(616.48) - 0.25617).abs() < 1e-12);
-        let x = gray_exchange(1.0, 0.8, 0.5, 1500.0, 1000.0);
-        assert!(x > 0.0 && (x + gray_exchange(1.0, 0.5, 0.8, 1000.0, 1500.0)).abs() < 1e-9 * x);
+        let x = gray_exchange(1.0, 1.0, 0.8, 1.0, 0.5, 1500.0, 1000.0);
+        assert!(x > 0.0 && (x + gray_exchange(1.0, 1.0, 0.5, 1.0, 0.8, 1000.0, 1500.0)).abs() < 1e-9 * x);
     }
 
     /// The steam term of Hess's law (gh:#1046): saturated steam at 7 MPa
@@ -2607,8 +2740,10 @@ mod tests {
         }
         let lowest = c.nodes.iter().map(|n| n.fuel_kg / g.m_fuel).fold(f64::MAX, f64::min);
         let highest = c.nodes.iter().map(|n| n.fuel_kg / g.m_fuel).fold(0.0, f64::max);
-        assert!((c.uo2_candled_kg - 3982.49).abs() < 0.01, "{}", c.uo2_candled_kg);
-        assert!((lowest - 0.9366).abs() < 1e-4 && (highest - 1.6176).abs() < 1e-4, "{lowest} {highest}");
+        // Pins printed, not asserted (root AGENTS.md, "No regression pins until there is concrete V&V at unit-test level"; maintainer 2026-11-26: "Ignore sembawang pins for now, nothing to pin against", gh:#1810).
+        // Was 3982.49 kg and 0.9366 / 1.6176; 3119.07 kg after the swell fix.
+        #[cfg(feature = "std")]
+        println!("UO2 candled {:.2} kg; nodes hold {lowest:.4} to {highest:.4} of their fuel", c.uo2_candled_kg);
     }
 
     /// MELCOR's convecting-pool coefficient by hand (COR RM §2.4.2, Table

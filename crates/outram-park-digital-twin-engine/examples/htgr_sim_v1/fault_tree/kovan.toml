@@ -1,0 +1,290 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/fault_tree"
+
+[module."mod.rs"]
+path = "example:htgr_sim_v1::fault_tree"
+
+[[module."mod.rs".function]]
+id = "fn:422d7b1f222d08a8"
+name = "BreakSizeRange"
+qual = "BreakSizeRange"
+item = "type"
+shape = "struct"
+hash = "sha256:303dcfc3b6cb5f27015ee72477ea42e420f297e5c101adbc3463714b28fb805d"
+doc_hash = "sha256:694613fffc45dd59e3f29b6bdfc87e4bca35a6ed7a7da0add61f1ea17604cf95"
+
+[[module."mod.rs".function]]
+id = "fn:383c0214fdc0a9e9"
+name = "default"
+qual = "BreakSizeRange::default"
+hash = "sha256:74f15bac459e88b4e21256ce88f55cc3302aacd657d888387cd485d121f15fe6"
+doc_hash = "sha256:7a7e8b54aa2b1dc956e5218dbf1b9a0352eb5e0122c3680026dd6810486d2091"
+
+[[module."mod.rs".function]]
+id = "fn:da82555e54e3c940"
+name = "DRAFT_LABEL"
+qual = "DRAFT_LABEL"
+item = "const"
+shape = "const"
+hash = "sha256:352acb185d71e649c707bd8174360bb8103be9747a830c402c0c9faa69b493b3"
+doc_hash = "sha256:bd3c30c696ffca6e28c29371b282aa7f02d87fbf3f38fc65b5888279f34f1516"
+
+[[module."mod.rs".function]]
+id = "fn:73be7c5a7d3192b2"
+name = "DataKind"
+qual = "DataKind"
+item = "type"
+shape = "enum"
+hash = "sha256:47e315a0d9e132888c9964b43bd2bef028b9530e5239d904f9d41b82a45e263c"
+doc_hash = "sha256:34ee12e438c527ac60287064c44dfd33f7def2c296f6c382c619fdcf46a9ddae"
+
+[[module."mod.rs".function]]
+id = "fn:14f30b829034b631"
+name = "tag"
+qual = "DataKind::tag"
+hash = "sha256:ec349b66cd53b0bc87d346152db77ea508b6826fb74e6185c55946cebeb7d6e0"
+doc_hash = "sha256:317ace15cd1cf314bc740de2089fd43baeceb24695f057bb7dbb4c8242d34d11"
+
+[[module."mod.rs".function]]
+id = "fn:45537c027886d321"
+name = "EventInfo"
+qual = "EventInfo"
+item = "type"
+shape = "struct"
+hash = "sha256:e4ef5c6b5a7fe7e109a249036828e9b3b46f030dcdd16e3c7737f1a7c33f679b"
+doc_hash = "sha256:74c3568ac2bb165e9f57efa17138043a1563189e5846e86ff0f52d0726722713"
+
+[[module."mod.rs".function]]
+id = "fn:9f75e6a0ed24b2bc"
+name = "FaultTreeStudy"
+qual = "FaultTreeStudy"
+item = "type"
+shape = "struct"
+hash = "sha256:0fb7e47b5331af385636b81f77207ec5768e90b24f99d4ae2ae5f5b62e2621eb"
+doc_hash = "sha256:0ef12ec3ec7477cb6b159750ef74a05522c03a5a6a7c625baa181f74d2fb43e3"
+
+[[module."mod.rs".function]]
+id = "fn:665d2ae8f15268e4"
+name = "event"
+qual = "FaultTreeStudy::event"
+hash = "sha256:21decb6af4a9fe4f18ff30be881b2de47a2cc8e1a711fb97d691759889ac3f1b"
+doc_hash = "sha256:446d50e42d9c352bc6051d16b2c0830af2ce813f4c08229445ea4242b3b8150a"
+
+[[module."mod.rs".function]]
+id = "fn:41153a6350223cbd"
+name = "gate_house_args"
+qual = "FaultTreeStudy::gate_house_args"
+hash = "sha256:514d53c45955f3ba07c08d589613f42d2fedb807b8e9ba1a84acf3889e66b60f"
+doc_hash = "sha256:8b127693f5bfdf134d86e8f6eac5bc0f5ff259b10725e4254a121be15d144158"
+
+[[module."mod.rs".function]]
+id = "fn:a107a20ed7d47226"
+name = "house_values"
+qual = "FaultTreeStudy::house_values"
+hash = "sha256:574b7402b8b5bd979845b12ca99a42eb6d1003ee8084aa0db32b50852f688fc6"
+doc_hash = "sha256:d1570c4f872c21a38030bdbdbde64cc9c543a68d50fbc81636f0eeb2d1450489"
+
+[[module."mod.rs".function]]
+id = "fn:783833ff958718ff"
+name = "load"
+qual = "FaultTreeStudy::load"
+hash = "sha256:ad9443836f2c69b3fb5c455584724f2f6922f46c7db01ff903921ebcc3ff0d91"
+doc_hash = "sha256:86796b7fd0ac63b41a0a2483c6b71c1001b95a4be424073888dd9ce4f0920669"
+
+[[module."mod.rs".function]]
+id = "fn:2759aca321829428"
+name = "tree"
+qual = "FaultTreeStudy::tree"
+hash = "sha256:bec884d92dd2bcb5863a574791c3bd9e2e57927411e2165aaba880b6a79c09e2"
+doc_hash = "sha256:8437e34944f4d2e17d28e5c818bc04ff8cd6de7ea391a5ad49453675453afd22"
+
+[[module."mod.rs".function]]
+id = "fn:a6736fd3c75e9dab"
+name = "ModelChoice"
+qual = "ModelChoice"
+item = "type"
+shape = "enum"
+hash = "sha256:02f54af0f829d1ce8454ec078683576446387c61005cf35f7e87b4011e5efdbd"
+doc_hash = "sha256:142559b389b16abe09d29bcd78c2a34dc156ee89834cf6d4a44a47cabfe70766"
+
+[[module."mod.rs".function]]
+id = "fn:2d460f691869f8b2"
+name = "banner"
+qual = "ModelChoice::banner"
+hash = "sha256:39f054e54dcdf4f5b34d8f2bbec12110109b56191a898416c3d1e5f476d49778"
+doc_hash = "sha256:6cf0477854e66dc772f8438c95c9180a92514bf94a3aae5b42981334b23ecedc"
+
+[[module."mod.rs".function]]
+id = "fn:6d19f56482b5cf51"
+name = "label"
+qual = "ModelChoice::label"
+hash = "sha256:a6c2e7e1bd65890bc82ccd370ee38e5ea1fe6cb473feb826a220019efa1974f5"
+doc_hash = "sha256:bd678e53d47f9cfd59b2df8a2f03005485ec82642c0881cdeed21552a93fc1df"
+
+[[module."mod.rs".function]]
+id = "fn:5dd91b8a0d78e054"
+name = "top"
+qual = "ModelChoice::top"
+hash = "sha256:a54ce0985e479c28a7f9152d182a157bebd3a78155a01409549982c1195f423d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:4db8d1a492cf2229"
+name = "xml"
+qual = "ModelChoice::xml"
+hash = "sha256:f49c5eba9fa7c8a97508aa539a983b40b420530710b3539de294d7c18da0c94b"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."mod.rs".function]]
+id = "fn:83d4bf1dc5c7732d"
+name = "Quantified"
+qual = "Quantified"
+item = "type"
+shape = "struct"
+hash = "sha256:51289d32d0dd06f2b4bdf41d100572320d5b887fe3ae75e9ff2771d6346522ae"
+doc_hash = "sha256:c572adea5452ee6460c6183d9a9d2b8269ff7881f2e0afc8053cffa28bb66f59"
+
+[[module."mod.rs".function]]
+id = "fn:e34042de1246671c"
+name = "RankedCutSet"
+qual = "RankedCutSet"
+item = "type"
+shape = "struct"
+hash = "sha256:5814ba2432be931efa5c29a5fd85c8da09455f78c1486cad51f46e437ce859ed"
+doc_hash = "sha256:da9b5e8b74e3366865cd311ea4f0efebf03841e3044333f0ede94f8fa205b1ae"
+
+[[module."mod.rs".function]]
+id = "fn:acceda6f8e90038e"
+name = "SAMPLE_LABEL"
+qual = "SAMPLE_LABEL"
+item = "const"
+shape = "const"
+hash = "sha256:6a499dbfad57e247a293b848667bc427270f04f89a4240b8b16c53a73153ef21"
+doc_hash = "sha256:257eeace62bffdac57f5b18f16b3e08f7fbe1cb885ca6de87da4d04ac882ac33"
+
+[[module."mod.rs".function]]
+id = "fn:175466407b80e5e7"
+name = "SBLOCA_DRAFT_XML"
+qual = "SBLOCA_DRAFT_XML"
+item = "const"
+shape = "const"
+hash = "sha256:63d7bcdf638992cfba85a339fda942729483300d4ba5cf5daff280bd87931680"
+doc_hash = "sha256:ad4288e7b4a9f39de3b18b86e02288ce15b0c5bb2c5b456068d6e95f2ef41f81"
+
+[[module."mod.rs".function]]
+id = "fn:7a81067f3c208554"
+name = "SizeBand"
+qual = "SizeBand"
+item = "type"
+shape = "struct"
+hash = "sha256:193a8011e7fe6718f8571b7331d4d242c4133d06242cad7accd62360dea59ada"
+doc_hash = "sha256:30f5d5a7f6dec939f3808c2da55b3af7281d3c8b5ce0234eb859d67164322570"
+
+[[module."mod.rs".function]]
+id = "fn:f81b77146636f56d"
+name = "overlaps"
+qual = "SizeBand::overlaps"
+hash = "sha256:053eb2bcc85771bff9f8cf994335f3e69019c5e8ca0e2d6cc276a369dcedf223"
+doc_hash = "sha256:1ddc02c2a52be4f2fbef975cc772d5418e8b55607cab6971be081677964fac9e"
+
+[[module."mod.rs".function]]
+id = "fn:f9b42a09b536a2c6"
+name = "THEATRE_XML"
+qual = "THEATRE_XML"
+item = "const"
+shape = "const"
+hash = "sha256:8bd77b44f8ac9bd29f5fd0b4b4012633ff31fc79569a31c1c83fa4bd47d55543"
+doc_hash = "sha256:1521c3e807407c362d878fa6dd830858e90304422aa3cc970ba567de42152854"
+
+[[module."mod.rs".function]]
+id = "fn:086e1b2a1030a910"
+name = "a_probability_override_requantifies"
+qual = "a_probability_override_requantifies"
+hash = "sha256:c094d35353616a5d024cf4ca48cf8a994ef291fd26af61904b7889959bbc551f"
+doc_hash = "sha256:e477ce8d6a2def5e1f73ba825c9f6723d7813af42628252e337bb6831b41f4f6"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:971d80b15c879049"
+name = "collect_metadata"
+qual = "collect_metadata"
+hash = "sha256:b1e24186fd178ad6abd41e5e9cf45942f0f6e330c9f4184fbd18390ee87413cd"
+doc_hash = "sha256:0d6e77bdfcfdd73f7be420fac5e5b698640fca520251e223fb896be20054102a"
+
+[[module."mod.rs".function]]
+id = "fn:ae5df09f87e508a5"
+name = "diagram"
+qual = "diagram"
+hash = "sha256:a2a7f98bd62334c464cdf356c3fc0fe0f8495d1a6eda4eafae00835ee67fb648"
+doc_hash = "sha256:98460b5a76692a65a7684c86954335646eeae0208160d2a38c47c4980b3b266c"
+
+[[module."mod.rs".function]]
+id = "fn:59da7236ccfbea44"
+name = "event_node"
+qual = "event_node"
+hash = "sha256:00bd78d371a49e348a31f4bf27d542d4b9006bb70df49377f2805f30927b8aaf"
+doc_hash = "sha256:b16993007f05be8ca2df1ae4e64ba7e40bb69c597d5ec840ab03dc5187f50920"
+
+[[module."mod.rs".function]]
+id = "fn:198c7fede22df16c"
+name = "every_basic_event_sits_on_a_listed_cv_and_component"
+qual = "every_basic_event_sits_on_a_listed_cv_and_component"
+hash = "sha256:cc09201036437dbf4aa3b1b9315906d897d2812b632f8d8cc166c3442df6c0ff"
+doc_hash = "sha256:b9eeebac088e90509870afe03483071e544756ddc00bfc68fb6ac03cef07e60b"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:fa43f08159f38df7"
+name = "format_probability"
+qual = "format_probability"
+hash = "sha256:ff1b76f31e2ca60f9074a6c2287242cb185299fdecf0690b73a9989779de7965"
+doc_hash = "sha256:ddd3d4ffabb5ad77ecd4eecfb3f23f4819aaa889a585ce47f79de9b367ad382f"
+
+[[module."mod.rs".function]]
+id = "fn:28fd8d7165c3fb67"
+name = "mm"
+qual = "mm"
+hash = "sha256:1696b9526b420d2c5339d1d957a01cd8a62c84ba6c420112b4a62e0a4e376297"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+physical_interface = true
+
+[[module."mod.rs".function]]
+id = "fn:d1821f37a8a0ab72"
+name = "node_event"
+qual = "node_event"
+hash = "sha256:79b5b6626adb08ed32b581fc8084e910399aea30c96df4545fd1f85413add01e"
+doc_hash = "sha256:8f0d12866c968413e0c386f4e5022a7ddff386fc76888d0f0681a39779bb8751"
+
+[[module."mod.rs".function]]
+id = "fn:506c2c1119bd7c53"
+name = "quantify"
+qual = "quantify"
+hash = "sha256:7419b6cbc8a94125634158fb2c952ec58bc0371d514af3f48c7ef9f84794eb78"
+doc_hash = "sha256:52979ea75f071c5aa95b9fa6217a34e03edc76aaccbed06d0783610bfcab68d6"
+
+[[module."mod.rs".function]]
+id = "fn:a465083bb2563b36"
+name = "quantify_is_well_inside_a_frame"
+qual = "quantify_is_well_inside_a_frame"
+hash = "sha256:05895a17cbb4d76372fa0cb8500a7bae906b80e6f647083c53847cd7933ec3af"
+doc_hash = "sha256:8b7cbd5b5bb868ac8fde3deef23145d0782a198834b8f501be16a0ad6acb77b8"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:5e010d3e6400830d"
+name = "the_break_size_range_changes_the_included_events"
+qual = "the_break_size_range_changes_the_included_events"
+hash = "sha256:201d96697f8d522af5a1ff050cb701edaef4d900332ab03a4662b7550cfedadb"
+doc_hash = "sha256:87a6587cf692dc139d0a0daa7269618027f91e61b68d04d9f468e8e1dfa2d129"
+test = true
+
+[[module."mod.rs".function]]
+id = "fn:b8a7f8af198c3a1c"
+name = "the_theatre_sample_matches_scram"
+qual = "the_theatre_sample_matches_scram"
+hash = "sha256:8a09b6b365fe20fa44937586088ee369ca21980b7584e827eed7900117ab4441"
+doc_hash = "sha256:8258980feb9e855bb8132164ae8c150dcb3dba9ecad85435daf3cc9e990853cc"
+test = true

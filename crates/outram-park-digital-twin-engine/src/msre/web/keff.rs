@@ -3,7 +3,7 @@
 //! full-core Monte Carlo on a pool of workers, on the browser pipeline
 //! promoted to `dhoby_ghaut::mc_web` (gh:#1572).
 //!
-//! The model is `outram_mc_libs::vv::msre_n1::Study`, the V&V record's
+//! The model is `nee_soon::msre_n1::Study` (~~`outram_mc_libs::vv::msre_n1`~~, moved 2026-11-25, gh:#1737), the V&V record's
 //! default as one library call (natural Mo, the whole TM-0728 shield, the
 //! dimensions following temperature, U-234/U-236 in the salt), or its
 //! shield-off ablation. Each worker:
@@ -25,7 +25,7 @@
 //!
 //! Research, education and V&V only. NOT VALIDATED: the model's N-1 k sits
 //! +1726 ± 23 pcm above ORNL-4233's (the record,
-//! `crates/outram-mc-libs/verification_and_validation/msre_n1_first_criticality/README.md`).
+//! `crates/nee_soon/verification_and_validation/msre_n1_first_criticality/README.md`).
 
 use dhoby_ghaut::mc_web::keff::KeffConfig;
 use dhoby_ghaut::mc_web::pool::{csg_chunk, csg_source, PoolSource};

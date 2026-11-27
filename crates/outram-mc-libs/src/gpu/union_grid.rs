@@ -20,7 +20,7 @@
 //!
 //! [`UnionTotalXs::tabulate_native`] (beads op-u6s.7) builds the genuine
 //! **native-breakpoint union grid**: it gathers every energy node the underlying
-//! nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid`]
+//! nuclide data actually tabulates (via [`crate::material::nuclide::Nuclide::native_energy_grid_with_thinning`]
 //! — reconstructed section grids for the HIGH tier; WMP window edges + fast-group
 //! bounds for the LOW/analytic tier), merges them with a log-spaced backbone
 //! floor (so it is never coarser than the equal-size dense grid), and
@@ -139,14 +139,14 @@ impl UnionTotalXs {
 
     /// Tabulate the material's macroscopic total Sigma_t \[cm^-1\] on the
     /// **UNION of its constituent nuclides' NATIVE energy breakpoints**
-    /// (from [`Nuclide::native_energy_grid`]), merged with a log-spaced backbone
+    /// (from [`Nuclide::native_energy_grid_with_thinning`]), merged with a log-spaced backbone
     /// floor, over the closed interval `[e_min_ev, e_max_ev]` \[eV\].
     ///
     /// # What is computed
     /// A native-breakpoint *unionized* energy grid, then Sigma_t evaluated on it:
     /// 1. For **each** component of `material`, gather that nuclide's native
-    ///    energy nodes via `nuclides[c.nuclide_idx].native_energy_grid(e_min_ev,
-    ///    e_max_ev)` — WMP window edges + fast MGXS group bounds for LOW/`Core`
+    ///    energy nodes via `nuclides[c.nuclide_idx].native_energy_grid_with_thinning(e_min_ev,
+    ///    e_max_ev, Some(1e-12))` — WMP window edges + fast MGXS group bounds for LOW/`Core`
     ///    nuclides, the unioned reconstructed section grids for HIGH/`Pointwise`.
     /// 2. Merge a **log-spaced backbone** of `backbone_points` points spanning
     ///    `[e_min_ev, e_max_ev]` (guarded to `>= 2`).
@@ -194,6 +194,10 @@ impl UnionTotalXs {
     ///   length is `>= backbone_points` (the native breakpoints only add nodes).
     ///
     /// Pure — no RNG, no I/O.
+    ///
+    /// # Panics
+    /// On a non-finite or inverted band, which the inputs above already rule
+    /// out; the `1e-12` thinning tolerance is a fixed valid constant.
     pub fn tabulate_native(
         material: &Material,
         nuclides: &[Nuclide],
@@ -206,7 +210,10 @@ impl UnionTotalXs {
         //    once, but the dedup in step 3 collapses the duplicates.
         let mut nodes: Vec<f64> = Vec::new();
         for c in &material.components {
-            nodes.extend(nuclides[c.nuclide_idx].native_energy_grid(e_min_ev, e_max_ev));
+            nodes.extend(match nuclides[c.nuclide_idx].native_energy_grid_with_thinning(e_min_ev, e_max_ev, Some(1.0e-12)) {
+                Ok(grid) => grid,
+                Err(err) => panic!("native energy grid: {err}"),
+            });
         }
 
         // 2. Merge a log-spaced backbone floor so the union is never coarser than

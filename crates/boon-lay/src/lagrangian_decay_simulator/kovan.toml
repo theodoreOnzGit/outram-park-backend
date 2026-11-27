@@ -3,12 +3,109 @@ kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator"
 
+[module."expected_inventory.rs"]
+path = "crate::lagrangian_decay_simulator::expected_inventory"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:bd93cf2d4820c8be"
+name = "ExpectedInventory"
+qual = "ExpectedInventory"
+item = "type"
+shape = "struct"
+hash = "sha256:01472963bb3b403cb21206fcc7a4b36fb7caa99477927ad456ad2cdcf3453c75"
+doc_hash = "sha256:a19b740ceeba3d087a6122226dda7be8024ebd0b58ee988809e69eef3e390586"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:42d515e615e5a5b7"
+name = "from_library"
+qual = "ExpectedInventory::from_library"
+hash = "sha256:abd9ce0f5d57d2ae1241f8277c1f7ab3178a40cfdc808306d14c47b77821aa6a"
+doc_hash = "sha256:7ded2f3cec366ad262fc9c71a2eb4f3044078fb8f5887ea58b590b563162caf0"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:ef35f750f3c5d181"
+name = "index_of"
+qual = "ExpectedInventory::index_of"
+hash = "sha256:a6416ffe45b7a2f7ef1c6827fa780821e5e4a714811468eb9d62a35e798d22f4"
+doc_hash = "sha256:71982f2a58adbe0b2d4581d397a900db9d84d227beca72723246c2fec6246d90"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:0179d7ce5eaa813a"
+name = "matrix"
+qual = "ExpectedInventory::matrix"
+hash = "sha256:fbbe50dd38609d4c46d876be3fc716787abd2354516bbbae61469e22bf8e7c5c"
+doc_hash = "sha256:0a42f6fd30804f31daa5f2eb065935ce136fa24b5ff7788832cd248a7a9321dc"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:1df86b161d7b5958"
+name = "nuclides"
+qual = "ExpectedInventory::nuclides"
+hash = "sha256:22ed3daba9abbfcb5045623c254646a17f102912e0cbffe62080955d4ddbe25b"
+doc_hash = "sha256:96661f4ac6b1425e83807fb02bac70e1fd6b3c903b3da79d00d4d1a30b4a5fed"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:b673dec613ee032d"
+name = "solve"
+qual = "ExpectedInventory::solve"
+hash = "sha256:d557e6db15180aae3b9cc858004b9e8c52db29be8fbcf7d3c288d90c685a88c7"
+doc_hash = "sha256:6fcd1bf674a5aff4ded5d74230e70815a80221a3a85ab478fc2c446017cbf195"
+physical_interface = true
+
+[[module."expected_inventory.rs".function]]
+id = "fn:88000562781c78c1"
+name = "solve_from_start"
+qual = "ExpectedInventory::solve_from_start"
+hash = "sha256:83f73d408ca79528d0ae43a41d77a3ba3dc5c9e336b58de4c6fbf36f95025cc6"
+doc_hash = "sha256:be1aa7cd92dba224631354b3d8078ea256c2175dd4cd23a73160fd40bfef008d"
+physical_interface = true
+
+[[module."expected_inventory.rs".function]]
+id = "fn:56548d1e3db3be8f"
+name = "ExpectedInventoryError"
+qual = "ExpectedInventoryError"
+item = "type"
+shape = "enum"
+hash = "sha256:90beca7282eaae5fa74979cef3f6747f693a10abc6bd93eba4c81031d568f377"
+doc_hash = "sha256:88e8066d3895697a0280a3a3ff6ecd5895d2b6369c24b38437735724e35bbfb0"
+
+[[module."expected_inventory.rs".function]]
+id = "fn:7c5e7c7a35d23f0e"
+name = "cram48_matches_bateman_on_the_th232_chain"
+qual = "cram48_matches_bateman_on_the_th232_chain"
+hash = "sha256:6a8b40a0383840f3f6450db9863c92e2e481a2f22d27a2d7956714e6297f5785"
+doc_hash = "sha256:df4716c041733bea9705bbb2fc9bfd835f9a8b073c209e5dee3f4ec7846a6c11"
+test = true
+
+[[module."expected_inventory.rs".function]]
+id = "fn:90f0ab3643d9d132"
+name = "lambda_of"
+qual = "lambda_of"
+hash = "sha256:14f263c245e839c54c5e86f94d09929b2e4ae63506b014cd08cb2f01a5ed0d76"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+test = true
+
+[[module."expected_inventory.rs".function]]
+id = "fn:01fda5577234df63"
+name = "monte_carlo_mean_matches_cram48_expected_inventory"
+qual = "monte_carlo_mean_matches_cram48_expected_inventory"
+hash = "sha256:889eff0898721166535d306cd083fc533189a5ce64a9d589c63a179eaf124278"
+doc_hash = "sha256:83b4e3b688b12d8112227e6171b3ef67ead794d49a5279e263c648d3315f3551"
+test = true
+
+[[module."expected_inventory.rs".function]]
+id = "fn:d2e06ce19936414a"
+name = "stable_start_and_bad_inputs"
+qual = "stable_start_and_bad_inputs"
+hash = "sha256:5aaad60c7acbaeeff7c75498baed3f7aadbc27471acb0033bba49cbf2cd42c6a"
+doc_hash = "sha256:3fe028ab3b300ac1057d58b88eff916605c2a4e11eba14dc21bb668d500afa87"
+test = true
+
 [module."mod.rs"]
 path = "crate::lagrangian_decay_simulator"
 
 [test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "full"
 passed = []
 failed = []

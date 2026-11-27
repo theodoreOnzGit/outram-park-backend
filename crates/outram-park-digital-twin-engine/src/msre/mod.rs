@@ -13,7 +13,7 @@
 //! | [`session::Session`] | An operator session in plain numbers: commands (rods, ideal flux servo, radiator air, pump trips and starts), a flat [`session::Snapshot`] in °F / MW / pcm, the deterministic [`session::headless_csv`] and the T-1 [`session::natural_periods`] table, for GUIs and web workers (the museum MSRE simulator, gh:#1570). No physics of its own | here |
 //! | [`pumps`] | Pump flow schedules: ORNL-4233 Fig. 23's measured coast-downs, TM-0728's start-up, caller tables, `tampines`' inertial coast-down | here |
 //! | [`frequency_response`] | The linear frequency-domain model and TM-1647's measured natural periods (MSRE T-1, gh:#1132) | `nee_soon::msre_frequency_response` |
-//! | [`first_criticality`] | The full-core Monte Carlo geometry and materials of first criticality (MSRE N-1, gh:#1128) | `outram_mc_libs::vv::msre_n1` |
+//! | [`first_criticality`] | The full-core Monte Carlo geometry and materials of first criticality (MSRE N-1, gh:#1128) | ~~`outram_mc_libs::vv::msre_n1`~~ `nee_soon::msre_n1` (moved 2026-11-25, gh:#1737) |
 //! | [`salts`] | The fuel and coolant salts as TUAS liquids (MSRE TH-6, gh:#1133) | `tuas_boussinesq_solver` |
 //! | [`circulating_kinetics`] | The circulating-fuel point kinetics alone (MSRE T-C1, gh:#1131) | `teh_o_prke::zero_power_prke::circulating` |
 //!
@@ -60,6 +60,9 @@ pub mod model;
 pub mod moltres_drift;
 pub mod pumps;
 pub mod session;
+/// The MSRE on the multifidelity twin template (gh:#1748): the session as
+/// the plant, the N-3 split as the Monte Carlo case. Adapters only.
+pub mod twin;
 /// The simulator's engine, k_eff workers and pool as a library (gh:#1578):
 /// built on `dhoby_ghaut::mc_web` and `bugis::web_demo`, so off Android.
 #[cfg(not(target_os = "android"))]
@@ -69,8 +72,9 @@ pub mod web;
 /// periods: `nee_soon::msre_frequency_response`, re-exported.
 pub use nee_soon::msre_frequency_response as frequency_response;
 /// MSRE N-1's full-core Monte Carlo model (geometry, materials, source box):
-/// `outram_mc_libs::vv::msre_n1`, re-exported.
-pub use outram_mc_libs::vv::msre_n1 as first_criticality;
+/// `nee_soon::msre_n1` (~~`outram_mc_libs::vv::msre_n1`~~ until
+/// 2026-11-25, gh:#1737), re-exported.
+pub use nee_soon::msre_n1 as first_criticality;
 /// Circulating-fuel point kinetics (MSRE T-C1): `teh_o_prke`'s, re-exported.
 pub use teh_o_prke::zero_power_prke::circulating as circulating_kinetics;
 

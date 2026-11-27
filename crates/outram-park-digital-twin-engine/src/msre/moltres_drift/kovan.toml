@@ -1,0 +1,31 @@
+schema_version = 1
+kind = "code_folder"
+crate = "outram-park-digital-twin-engine"
+dir = "crates/outram-park-digital-twin-engine/src/msre/moltres_drift"
+
+[module."tests.rs"]
+path = "crate::msre::moltres_drift::tests"
+
+[[module."tests.rs".function]]
+id = "fn:cad1cf854a91ba83"
+name = "the_line_model_agrees_with_moltres"
+qual = "the_line_model_agrees_with_moltres"
+hash = "sha256:0cef01f1a373f07424a839ae9eb82a67d7d2117b1a182733e61527d3a3cad413"
+doc_hash = "sha256:8e96e5111bff810c55767b646b7bd5ca0133a51f200281bea3315e788ad679b2"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:431161e16dccaee4"
+name = "the_loop_drift_bookkeeping"
+qual = "the_loop_drift_bookkeeping"
+hash = "sha256:1a6cf316724a0d132aea6d1d95b15952178bbfa7c0e8d1eb744943cb1dc80293"
+doc_hash = "sha256:458c598958684f437726caedc427ab0ee35c97eff39333c46ab170a93955abe9"
+test = true
+
+[[module."tests.rs".function]]
+id = "fn:f51562a5ce346f06"
+name = "the_loop_drift_holds_steady_and_relaxes_when_the_pump_stops"
+qual = "the_loop_drift_holds_steady_and_relaxes_when_the_pump_stops"
+hash = "sha256:7e09bde7b4d6fc47de3ed8c937edc19b561edff6dfa4ae3f61255461f30065e1"
+doc_hash = "sha256:8386bce4096b523c015ef241a0ef305fc2e740eb377992d7435d0f8ed2cc8001"
+test = true

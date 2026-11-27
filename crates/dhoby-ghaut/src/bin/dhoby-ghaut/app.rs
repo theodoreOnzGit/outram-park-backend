@@ -13,7 +13,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use dhoby_ghaut::web_demo::link::{start_native, Link};
-use dhoby_ghaut::workbench::catalogue::{Generation, HtgrCore, Mode, ReactorType, Support};
+use dhoby_ghaut::workbench::catalogue::{Generation, HistoricalPreset, HtgrCore, Mode, PresetStatus, ReactorType, Support};
 use dhoby_ghaut::workbench::recipe::{now_rfc3339, Recipe};
 use dhoby_ghaut::workbench::steps::WizardStep;
 use egui::{Color32, RichText};
@@ -46,6 +46,8 @@ pub enum Screen {
     Picker,
     ModeChoice(ReactorType),
     HtgrChoice,
+    /// A historical reactor's preset page (gh:#1736).
+    Preset(HistoricalPreset),
     Wizard,
 }
 
@@ -173,6 +175,16 @@ pub struct App {
     pub s78: crate::steps78::S78,
     /// The reader's UI scale (gh:#586).
     pub ui_scale: crate::style::UiScale,
+    /// A preset's geometry review (gh:#1752): slices drawn on a background
+    /// thread for the preset named (`None` until asked, `Some((p, Ok(empty)))`
+    /// while drawing, `Err` if it could not be drawn).
+    #[allow(clippy::type_complexity)]
+    pub preset_slices: std::sync::Arc<std::sync::RwLock<Option<(HistoricalPreset, Result<Vec<(String, outram_mc_libs::geometry::plot::ImageData)>, String>)>>>,
+    /// Those slices as textures, once uploaded.
+    pub preset_textures: Vec<(String, egui::TextureHandle)>,
+    /// The EBR-II preset's k_inf run (gh:#1752): `None` until asked, then
+    /// the progress line, the result or the failure.
+    pub preset_kinf: std::sync::Arc<std::sync::RwLock<Option<Result<String, String>>>>,
 }
 
 impl App {
@@ -220,6 +232,9 @@ impl App {
             recipe,
             preset,
             endf_dir,
+            preset_slices: std::sync::Arc::new(std::sync::RwLock::new(None)),
+            preset_textures: Vec::new(),
+            preset_kinf: std::sync::Arc::new(std::sync::RwLock::new(None)),
             dialog: egui_file_dialog::FileDialog::new()
                 .add_file_filter_extensions("Recipes (kovan markdown)", vec!["md"])
                 .default_file_filter("Recipes (kovan markdown)")
@@ -726,6 +741,11 @@ impl App {
                                         self.recipe.header.reactor = t.key().into();
                                         self.screen = Screen::ModeChoice(t);
                                     }
+                                    if let Some(p) = HistoricalPreset::for_type(t) {
+                                        if ui.button(format!("{} preset »", p.label())).clicked() {
+                                            self.screen = Screen::Preset(p);
+                                        }
+                                    }
                                 });
                             });
                         }
@@ -803,6 +823,165 @@ impl App {
         if ui.button("« Back").clicked() {
             self.screen = Screen::ModeChoice(ReactorType::Htgr);
         }
+    }
+
+    /// A historical preset's page (gh:#1736): per step, what it reuses or
+    /// the issue for what is missing. GUI drawing code; the table is
+    /// `HistoricalPreset::steps`, tested in the library.
+    fn preset_page(&mut self, ui: &mut egui::Ui, p: HistoricalPreset) {
+        ui.heading(format!("{}: preset", p.label()));
+        ui.label("Research, education and V&V only. The wizard's steps are built on the HTR-10 model, so this preset does not run them: each step below names the existing piece it reuses, or the issue for what is not modelled.");
+        ui.add_space(8.0);
+        egui::Grid::new("preset_steps").striped(true).num_columns(3).show(ui, |ui| {
+            ui.strong("Step");
+            ui.strong("Status");
+            ui.strong("Reuses / missing");
+            ui.end_row();
+            for s in p.steps() {
+                ui.label(s.name);
+                match s.status {
+                    PresetStatus::Available => ui.colored_label(Color32::from_rgb(30, 120, 60), "available"),
+                    PresetStatus::NotModelled { issue } => ui.colored_label(Color32::GRAY, format!("not modelled (gh:#{issue})")),
+                };
+                ui.label(s.reuses);
+                ui.end_row();
+            }
+        });
+        ui.add_space(8.0);
+        self.preset_geometry_review(ui, p);
+        self.preset_keff(ui, p);
+        if ui.button("« Back").clicked() {
+            self.screen = Screen::Picker;
+        }
+    }
+
+    /// A preset's geometry review on its page (gh:#1752): the drawing rule's
+    /// slices of the assembled model, drawn on a background thread by
+    /// `workbench::presets::{msre_slices, ebr2_slices}` (tested in the
+    /// library) so the UI thread only draws. GUI code.
+    fn preset_geometry_review(&mut self, ui: &mut egui::Ui, p: HistoricalPreset) {
+        ui.label(RichText::new("Geometry review").strong());
+        // What is held: nothing, drawing, drawn (n slices) or failed, for
+        // this preset; another preset's slices are dropped.
+        let held = self.preset_slices.read().ok().and_then(|g| g.as_ref().map(|(q, r)| (*q, r.as_ref().map(|v| v.len()).map_err(|e| e.clone()))));
+        let held = match held {
+            Some((q, r)) if q == p => Some(r),
+            Some(_) => {
+                *self.preset_slices.write().unwrap_or_else(|e| e.into_inner()) = None;
+                self.preset_textures.clear();
+                None
+            }
+            None => None,
+        };
+        match held {
+            None => {
+                let label = match p {
+                    HistoricalPreset::Msre => "Draw the MSRE geometry (assembled N-1 model)",
+                    HistoricalPreset::Ebr2 => "Draw the EBR-II driver subassembly (assembled; reads the tapes first)",
+                };
+                if ui.button(label).clicked() {
+                    *self.preset_slices.write().unwrap_or_else(|e| e.into_inner()) = Some((p, Ok(Vec::new())));
+                    let out = self.preset_slices.clone();
+                    let ctx = ui.ctx().clone();
+                    std::thread::spawn(move || {
+                        let slices = match p {
+                            HistoricalPreset::Msre => Ok(dhoby_ghaut::workbench::presets::msre_slices(600)),
+                            HistoricalPreset::Ebr2 => dhoby_ghaut::workbench::presets::ebr2_slices(600),
+                        };
+                        *out.write().unwrap_or_else(|e| e.into_inner()) = Some((p, slices));
+                        ctx.request_repaint();
+                    });
+                }
+            }
+            Some(Err(e)) => {
+                ui.colored_label(ui.visuals().error_fg_color, format!("Could not draw: {e}"));
+            }
+            Some(Ok(0)) => {
+                ui.horizontal(|ui| {
+                    ui.spinner();
+                    ui.label("Drawing from the assembled model…");
+                });
+            }
+            Some(Ok(_)) => {
+                if self.preset_textures.is_empty() {
+                    let slices = self.preset_slices.read().ok().and_then(|g| g.as_ref().and_then(|(_, r)| r.as_ref().ok().cloned())).unwrap_or_default();
+                    for (title, img) in slices {
+                        let mut bytes = Vec::with_capacity(img.pixels.len() * 3);
+                        for p in &img.pixels {
+                            bytes.extend_from_slice(&[p.r, p.g, p.b]);
+                        }
+                        let ci = egui::ColorImage::from_rgb([img.width, img.height], &bytes);
+                        let tex = ui.ctx().load_texture(title.clone(), ci, egui::TextureOptions::LINEAR);
+                        self.preset_textures.push((title, tex));
+                    }
+                }
+                egui::ScrollArea::vertical().max_height(crate::style::em(40.0)).show(ui, |ui| {
+                    let w = ui.available_width().min(crate::style::em(40.0));
+                    for (title, tex) in &self.preset_textures {
+                        ui.small(title);
+                        let size = tex.size_vec2();
+                        ui.image((tex.id(), egui::vec2(w, w * size.y / size.x.max(1.0))));
+                    }
+                });
+            }
+        }
+        ui.add_space(8.0);
+    }
+
+    /// A preset's k step on its page (gh:#1752), GUI code. EBR-II: the
+    /// subassembly's k_inf through `nee_soon::ebr2_fresh_driver::kinf`
+    /// (tested there) on a background thread, at a stated size. MSRE: the
+    /// full core needs the pooled runner, which lives in the twin engine
+    /// (`msre::web::keff_pool`), so the page says where it runs.
+    fn preset_keff(&mut self, ui: &mut egui::Ui, p: HistoricalPreset) {
+        ui.label(RichText::new(match p {
+            HistoricalPreset::Msre => "k_eff",
+            HistoricalPreset::Ebr2 => "k_inf (one subassembly)",
+        }).strong());
+        match p {
+            HistoricalPreset::Msre => {
+                ui.label("The full-core run is many minutes even at the quickest preset and needs a worker pool: run it in the MSRE simulator's k_eff tab (msre_web) or `msre_web --coefficients`. Running it from this page is still open on gh:#1752.");
+            }
+            HistoricalPreset::Ebr2 => {
+                const SIZE: (usize, usize, usize, u64) = (1000, 10, 40, 1329);
+                let state = self.preset_kinf.read().ok().and_then(|g| g.clone());
+                match state {
+                    None => {
+                        if ui.button(format!("Run k_inf, arm A ({} × [{} + {}], seed {}; a few minutes)", SIZE.0, SIZE.1, SIZE.2, SIZE.3)).clicked() {
+                            *self.preset_kinf.write().unwrap_or_else(|e| e.into_inner()) = Some(Ok("starting".into()));
+                            let out = self.preset_kinf.clone();
+                            let ctx = ui.ctx().clone();
+                            std::thread::spawn(move || {
+                                use nee_soon::ebr2_fresh_driver::{kinf, GapTreatment};
+                                use njoy_outram_park_fork::reference_data::{ace_submodule_dir, reference_endf_dir};
+                                let ace = ace_submodule_dir().join("endf/endf-b-viii.0");
+                                let say = |l: &str| {
+                                    *out.write().unwrap_or_else(|e| e.into_inner()) = Some(Ok(format!("running: {l}")));
+                                    ctx.request_repaint();
+                                };
+                                let r = kinf(&reference_endf_dir(), &ace, &GapTreatment::on_hand(), SIZE.0, SIZE.1, SIZE.2, SIZE.3, say);
+                                *out.write().unwrap_or_else(|e| e.into_inner()) = Some(r.map(|k| {
+                                    format!("k_inf = {:.5} ± {:.5} (arm A; the record's arm A is 2.01 at 2000 × [20 + 60], no measured value exists)", k.mean, k.std)
+                                }));
+                                ctx.request_repaint();
+                            });
+                        }
+                    }
+                    Some(Ok(line)) => {
+                        ui.horizontal(|ui| {
+                            if line.starts_with("running") || line == "starting" {
+                                ui.spinner();
+                            }
+                            ui.label(line);
+                        });
+                    }
+                    Some(Err(e)) => {
+                        ui.colored_label(ui.visuals().error_fg_color, format!("k_inf failed: {e}"));
+                    }
+                }
+            }
+        }
+        ui.add_space(8.0);
     }
 
     // ─── The wizard frame ───────────────────────────────────────────────────
@@ -949,6 +1128,9 @@ impl eframe::App for App {
             }
             Screen::HtgrChoice => {
                 egui::CentralPanel::default().show(ui, |ui| self.htgr_choice(ui));
+            }
+            Screen::Preset(p) => {
+                egui::CentralPanel::default().show(ui, |ui| self.preset_page(ui, p));
             }
             Screen::Wizard => {
                 egui::Panel::top("wizard_top").show(ui, |ui| self.top_bar(ui));

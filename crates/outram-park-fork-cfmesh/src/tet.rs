@@ -10,7 +10,9 @@
 //   same one OpenFOAM `polyMesh::tetBasePtIs` / `tetDecomposition` uses:
 //   Copyright (C) 2011-2016 OpenFOAM Foundation, GPL-3.0-only.
 //
-//   NOT derived from TetGen (AGPL) — deliberately, see the module docs.
+//   NOT derived from TetGen. ~~Deliberately: TetGen is AGPL~~ CORRECTED
+//   2026-11-26 (gh:#1789): AGPL is acceptable (maintainer, 2026-10-20) and
+//   TetGen is being ported in `src/tetgen/`; this file is still not from it.
 //
 // This file is part of OUTRAM PARK.
 //
@@ -33,7 +35,10 @@
 //! # Approach: centroid subdivision (not from-scratch Delaunay)
 //!
 //! Per the roadmap decision (`op-hzs.32`), this does **not** build a from-scratch
-//! constrained-Delaunay mesher (TetGen is AGPL and off-limits). Instead it
+//! constrained-Delaunay mesher (~~TetGen is AGPL and off-limits~~ **CORRECTED
+//! 2026-11-26:** the maintainer's 2026-10-20 direction makes AGPL acceptable,
+//! and TetGen 1.6.0 is being ported in [`crate::tetgen`], epic gh:#1789; this
+//! module is unchanged and still not derived from it). Instead it
 //! follows the cfMesh-style route: take the crate's Cartesian/carved cell mesh
 //! and decompose each cell into tets by **centroid subdivision** — the standard,
 //! robust "polyhedron → tets" tiling:

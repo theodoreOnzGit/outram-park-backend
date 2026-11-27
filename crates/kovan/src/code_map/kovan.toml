@@ -3,9 +3,7 @@ kind = "code_folder"
 crate = "knowledge-oriented-vv-analysis-for-nuclear-sciences-kovan"
 dir = "crates/kovan/src/code_map"
 test_ids = [
-    "crates/kovan/src/app/code_map_view.rs::frames_stay_under_a_frame_budget_while_indexing",
     "crates/kovan/src/app/code_review_view.rs::a_pending_request_is_held_and_drawn_headless",
-    "crates/kovan/src/app/code_review_view.rs::organisations_window_and_attestation_picker_draw_headless",
     "crates/kovan/src/app/code_review_view.rs::review_mode_replaces_the_map_headless",
     "crates/kovan/src/app/code_review_view.rs::the_reconfirm_step_draws_the_callee_diff_headless",
     "crates/kovan/src/app/code_review_view.rs::the_stamp_dialog_opens_and_draws_every_step_headless",
@@ -22,16 +20,31 @@ test_ids = [
 path = "crate::code_map"
 
 [[module."mod.rs".function]]
+id = "fn:b9e79a2695de71d8"
+name = "load_any_workspace"
+qual = "load_any_workspace"
+hash = "sha256:6988fb9d0f9b76a2ac636863b4ce954ed7774e26b3d1a6ccc79af144782fbe5b"
+doc_hash = "sha256:23ef08b3438eda90ffcd9645fe3b828ed0f1315b700b65528e25125fa1f552e0"
+
+[[module."mod.rs".function]]
+id = "fn:bf243efdc1329fc8"
+name = "load_workspace"
+qual = "load_workspace"
+hash = "sha256:7bca0bbf633f3616dc9bac43e33a8a7fd2487261727ff023cae7c07710f8022a"
+doc_hash = "sha256:b0a3a38070770fce5582dd8787b58c639611c5ad2d0a34ac5081b85836049fe8"
+
+[[module."mod.rs".function]]
 id = "fn:9d4f8a029abd600c"
 name = "run_cargo_metadata"
 qual = "run_cargo_metadata"
-lines = [
-    13,
-    33,
-]
 hash = "sha256:b7037875f9f4a42742147e5f6e792aae24cae26027e23e7ef72a4aeaff9b9f13"
 doc_hash = "sha256:a04bc968b97767e0023ab391820a1e1d0724ba854d92151442a6a4465b4af225"
-reached_by = [
+
+[test_run]
+commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "full"
+passed = [
     "#0",
     "#1",
     "#2",
@@ -43,64 +56,6 @@ reached_by = [
     "#8",
     "#9",
     "#10",
-    "#11",
-    "#12",
-]
-
-[[module."mod.rs".function]]
-id = "fn:bf243efdc1329fc8"
-name = "load_workspace"
-qual = "load_workspace"
-lines = [
-    35,
-    40,
-]
-hash = "sha256:7bca0bbf633f3616dc9bac43e33a8a7fd2487261727ff023cae7c07710f8022a"
-doc_hash = "sha256:b0a3a38070770fce5582dd8787b58c639611c5ad2d0a34ac5081b85836049fe8"
-callees = [
-    "fn:9d4f8a029abd600c",
-    "fn:eb188c5975895d69",
-]
-uses = ["fn:be9ebef516780172"]
-reached_by = ["#9"]
-
-[[module."mod.rs".function]]
-id = "fn:b9e79a2695de71d8"
-name = "load_any_workspace"
-qual = "load_any_workspace"
-lines = [
-    42,
-    48,
-]
-hash = "sha256:6988fb9d0f9b76a2ac636863b4ce954ed7774e26b3d1a6ccc79af144782fbe5b"
-doc_hash = "sha256:23ef08b3438eda90ffcd9645fe3b828ed0f1315b700b65528e25125fa1f552e0"
-callees = [
-    "fn:7cb1666bf4e4e1fd",
-    "fn:9d4f8a029abd600c",
-]
-uses = ["fn:be9ebef516780172"]
-reached_by = [
-    "#0",
-    "#6",
-    "#9",
-]
-
-[test_run]
-commit = "13e891e5b491e162abaf022ef19097f07222b12e"
-cargo_lock = "sha256:9ea4feecb4e34d9e997dcde52a632e4edb5049bfd18c492cbc8f7cd86b4345ed"
-suite = "full"
-passed = [
-    "#1",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
 ]
 failed = []
 

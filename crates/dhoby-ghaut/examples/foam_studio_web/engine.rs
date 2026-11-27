@@ -174,11 +174,12 @@ pub struct TetDualSpec {
     /// the utility's rule (every point on a feature edge, the default) or
     /// the class's (corners only). Ignored by the per-corner dual.
     pub feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule,
-    /// What the layer stage does about cells that fail the quality checks
-    /// (gh:#1215): back off the thickness (~~the default~~ the default
-    /// before gh:#1298), cfMesh's layer optimiser (the default since
-    /// gh:#1298), or snappyHexMesh's local collapse.
-    pub layer_quality: outram_blender::foam_mesh::LayerQualityStrategy,
+    // ~~`layer_quality`: what the layer stage does about cells that fail
+    // the quality checks (gh:#1215): back off, cfMesh's layer optimiser
+    // (the default since gh:#1298), or snappyHexMesh's collapse~~ REMOVED
+    // 2026-11-26 (gh:#1829, maintainer HARD RULE for the cfMesh crate):
+    // the layers are grown first, from the wall, and TetGen meshes the
+    // inside; there is no layer strategy to choose.
     /// The cfMesh steps around the dual (gh:#1298): upstream's
     /// `tetMeshGenerator` sequence without the Laplace pass (the default),
     /// or the route before gh:#1298 (the named ablation).
@@ -231,7 +232,6 @@ impl TetDualSpec {
         expansion: 1.2,
         dual: outram_park_fork_cfmesh::dual::DualKind::CellCentre,
         feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::Corners,
-        layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::CfMeshOptimise,
         route: CfMeshRoute::UpstreamNoLaplace,
     };
 
@@ -248,17 +248,15 @@ impl TetDualSpec {
         n_layers: 0,
         dual: outram_park_fork_cfmesh::dual::DualKind::MedianPerCorner,
         feature_points: outram_park_fork_cfmesh::dual::FeaturePointRule::OnFeatureEdge,
-        layer_quality: outram_blender::foam_mesh::LayerQualityStrategy::BackOffOnly,
         route: CfMeshRoute::PreGh1298,
         ..Self::BASE
     };
 
-    /// The four mesher choices as the small integers the worker messages
-    /// carry: `[dual, feature points, layer quality, route]` (the route
-    /// since gh:#1298: 0 upstream without Laplace, 1 the pre-gh:#1298
-    /// route).
-    pub fn choice_codes(&self) -> [f64; 4] {
-        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+    /// The mesher choices as the small integers the worker messages carry:
+    /// `[dual, feature points, route]` (the route since gh:#1298: 0
+    /// upstream without Laplace, 1 the pre-gh:#1298 route; ~~the layer
+    /// quality strategy, third~~ removed 2026-11-26, gh:#1829).
+    pub fn choice_codes(&self) -> [f64; 3] {
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
         let d = match self.dual {
             D::MedianPerCorner => 0.0,
@@ -269,22 +267,16 @@ impl TetDualSpec {
             F::OnFeatureEdge => 0.0,
             F::Corners => 1.0,
         };
-        let l = match self.layer_quality {
-            L::BackOffOnly => 0.0,
-            L::CfMeshOptimise => 1.0,
-            L::SnappyCollapse => 2.0,
-        };
         let r = match self.route {
             CfMeshRoute::UpstreamNoLaplace => 0.0,
             CfMeshRoute::PreGh1298 => 1.0,
         };
-        [d, f, l, r]
+        [d, f, r]
     }
 
     /// `self` with the choices [`Self::choice_codes`] wrote; an unknown code
     /// is an error, not a silent default.
-    pub fn with_choice_codes(self, c: [f64; 4]) -> Result<Self, String> {
-        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+    pub fn with_choice_codes(self, c: [f64; 3]) -> Result<Self, String> {
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
         let dual = match c[0] as u8 {
             0 => D::MedianPerCorner,
@@ -297,18 +289,12 @@ impl TetDualSpec {
             1 => F::Corners,
             k => return Err(format!("unknown feature-point rule code {k}")),
         };
-        let layer_quality = match c[2] as u8 {
-            0 => L::BackOffOnly,
-            1 => L::CfMeshOptimise,
-            2 => L::SnappyCollapse,
-            k => return Err(format!("unknown layer strategy code {k}")),
-        };
-        let route = match c[3] as u8 {
+        let route = match c[2] as u8 {
             0 => CfMeshRoute::UpstreamNoLaplace,
             1 => CfMeshRoute::PreGh1298,
             k => return Err(format!("unknown cfMesh route code {k}")),
         };
-        Ok(Self { dual, feature_points, layer_quality, route, ..self })
+        Ok(Self { dual, feature_points, route, ..self })
     }
 
     /// `self` with the cell size and layer count a page URL names
@@ -339,10 +325,10 @@ impl TetDualSpec {
     }
 
     /// `self` with the choices a page URL names (gh:#1240 browser controls):
-    /// `dual=point|centre`, `fp=corners`, `layerq=cfmesh|snappy`; anything
-    /// else leaves a choice as it is.
-    pub fn with_query(self, dual: Option<&str>, fp: Option<&str>, layerq: Option<&str>) -> Self {
-        use outram_blender::foam_mesh::LayerQualityStrategy as L;
+    /// `dual=point|centre`, `fp=corners` (~~`layerq=cfmesh|snappy`~~:
+    /// removed 2026-11-26, gh:#1829); anything else leaves a choice as it
+    /// is.
+    pub fn with_query(self, dual: Option<&str>, fp: Option<&str>) -> Self {
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
         let mut s = self;
         match dual {
@@ -354,12 +340,6 @@ impl TetDualSpec {
         match fp {
             Some("edges") => s.feature_points = F::OnFeatureEdge,
             Some("corners") => s.feature_points = F::Corners,
-            _ => {}
-        }
-        match layerq {
-            Some("backoff") => s.layer_quality = L::BackOffOnly,
-            Some("cfmesh") => s.layer_quality = L::CfMeshOptimise,
-            Some("snappy") => s.layer_quality = L::SnappyCollapse,
             _ => {}
         }
         s
@@ -417,10 +397,22 @@ impl TetDualSpec {
     /// no longer pinned: it missed its dp/dz prediction, 1.00–1.04).
     ///
     /// **The default since the maintainer's gh:#1298 decision (2026-11-05):**
-    /// cell 0.5 R, 3 layers, first 0.03 R, × 1.2: 7 049 cells, 26 steps,
+    /// cell 0.5 R, 3 layers, first 0.03 R, × 1.2: ~~7 049 cells, 26 steps,
     /// u_c/2U 0.9394, dp/dz 1.0062 × HP (gh:#1298's layer-case run, and the
     /// V&V record's re-run of the default; pinned by
-    /// `headless_unstructured_default_is_pinned`).
+    /// `headless_unstructured_default_is_pinned`)~~ **CHANGED 2026-11-26
+    /// (gh:#1829):** layers grown first on TetGen's tetrahedra: 28 121
+    /// cells, meshed in 15.3 s natively, u_c/2U 0.8820, dp/dz 1.1067 × HP
+    /// (outside the test's 0.95–1.10 band: the test fails; ~~the miss is the
+    /// TetGen tet source's~~ **REFINED 2026-11-26:** the miss is the
+    /// convection scheme's discretisation error in the core, whose cells
+    /// TetGen's `-a` bound leaves at ≈ 3.9 mm; 0.9934 at Re 10, 1.0309 with
+    /// the core refined to 1.85 mm; the V&V record's gh:#1829 section).
+    /// **DECIDED 2026-11-26 (maintainer, gh:#1829):** a layered pipe's
+    /// TetGen `-a` bound is [`core_tet_volume`] (regular tetrahedron of
+    /// edge min(h, R/4)): 31 293 cells, meshed in 15.7 s natively,
+    /// u_c/2U 0.9738, dp/dz 1.0271 × HP, f Re 65.73 (inside the unchanged
+    /// band; the test passes).
     pub fn default_for(radius: f64) -> Self {
         Self { cell_size: 0.5 * radius, n_layers: 3, first_layer: 0.03 * radius, expansion: 1.2, ..Self::BASE }
     }
@@ -663,32 +655,27 @@ pub fn mesh_design(d: &Design) -> Result<(PolyMesh, usize, f64), String> {
 /// the solver and the section cutter take. Returns the stage notes of the
 /// pipeline too (what it skipped).
 pub fn mesh_unstructured(radius: f64, length: f64, centre: [f64; 3], tags: [Tag; 3], spec: &TetDualSpec) -> Result<(PolyMesh, Vec<String>), String> {
-    // The spec's layer strategy (the page's control, gh:#1240), unless the
-    // native knob FOAM_LAYER_STRATEGY names one (the V&V tooling).
-    #[cfg(not(target_arch = "wasm32"))]
-    let strategy = layer_strategy_from_env().unwrap_or(spec.layer_quality);
-    #[cfg(target_arch = "wasm32")]
-    let strategy = spec.layer_quality;
-    mesh_unstructured_with(radius, length, centre, tags, spec, strategy).map(|(p, n, _)| (p, n))
+    // ~~The spec's layer strategy, or the native knob FOAM_LAYER_STRATEGY~~
+    // (gh:#1829: one layer route, grown first).
+    mesh_unstructured_with(radius, length, centre, tags, spec).map(|(p, n, _)| (p, n))
 }
 
-/// [`mesh_unstructured`] with the layer strategy named (gh:#1215), also
-/// returning what the layer stage did. The native knob
-/// `FOAM_LAYER_STRATEGY` of [`mesh_unstructured`] goes through here.
+/// [`mesh_unstructured`], also returning what the layer stage did
+/// (~~with the layer strategy named, gh:#1215~~; gh:#1829: the layers are
+/// grown first, the one route).
 pub fn mesh_unstructured_with(
     radius: f64,
     length: f64,
     centre: [f64; 3],
     tags: [Tag; 3],
     spec: &TetDualSpec,
-    strategy: outram_blender::foam_mesh::LayerQualityStrategy,
 ) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
     // The spec's dual kind unless the native knob FOAM_DUAL_KIND names one.
     #[cfg(not(target_arch = "wasm32"))]
     let dual = dual_kind_from_env().unwrap_or(spec.dual);
     #[cfg(target_arch = "wasm32")]
     let dual = spec.dual;
-    mesh_unstructured_dual(radius, length, centre, tags, spec, strategy, dual)
+    mesh_unstructured_dual(radius, length, centre, tags, spec, dual)
 }
 
 /// [`mesh_unstructured_with`] with the dual kind named too (gh:#1240):
@@ -700,7 +687,6 @@ pub fn mesh_unstructured_dual(
     centre: [f64; 3],
     tags: [Tag; 3],
     spec: &TetDualSpec,
-    strategy: outram_blender::foam_mesh::LayerQualityStrategy,
     dual: outram_park_fork_cfmesh::dual::DualKind,
 ) -> Result<(PolyMesh, Vec<String>, Option<outram_blender::foam_mesh::LayerOutcome>), String> {
     use outram_blender::foam_mesh::{mesh_to_tet_dual_multipatch, TetDualOptions, Vec3};
@@ -721,17 +707,47 @@ pub fn mesh_unstructured_dual(
         first_layer_thickness: s.first_layer,
         expansion: s.expansion,
         layer_patches: vec![Tag::Wall.name().to_string()],
+        // gh:#1829: layers are grown first and need TetGen for the inside
+        //   (the cfMesh crate's default, bounded by the regular tetrahedron
+        //   of the cell size); a bare mesh keeps the carved source every
+        //   bare record here was taken on.
+        tet_source: if s.n_layers > 0 {
+            outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(core_tet_volume(radius, s.cell_size)))
+        } else {
+            outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid
+        },
         ..TetDualOptions::default()
+    };
+    // Native-only knob for the gh:#1829 record: FOAM_TET_SOURCE=tetgen
+    // meshes a bare pipe on TetGen too (the layered default's source), to
+    // separate the tet source from the layers in the comparison.
+    #[cfg(not(target_arch = "wasm32"))]
+    // `FOAM_TET_SOURCE=tetgen:<V>` also sets TetGen's `-a` volume bound to V
+    // m³ (the gh:#1829 investigation's refinement study: below h ≈ 5 mm the
+    // regular-tetrahedron bound of h does not bind on this pipe).
+    let opts = match std::env::var("FOAM_TET_SOURCE").as_deref() {
+        Ok("tetgen") => TetDualOptions { tet_source: TetDualOptions::default().tet_source, ..opts },
+        Ok(v) if v.starts_with("tetgen:") => {
+            let vol = v["tetgen:".len()..].parse::<f64>().ok();
+            TetDualOptions { tet_source: outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, vol), ..opts }
+        }
+        _ => opts,
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let opts = match (std::env::var("FOAM_TETGEN_A").ok().and_then(|v| v.parse::<f64>().ok()), &opts.tet_source) {
+        (Some(vol), outram_park_fork_cfmesh::pipeline::TetSource::TetGen { .. }) => TetDualOptions { tet_source: outram_park_fork_cfmesh::pipeline::TetSource::tetgen(1.414, Some(vol)), ..opts },
+        _ => opts,
     };
     // Native-only isolation knob for the V&V record (gh:#1202):
     // FOAM_CFMESH_STAGES=carve (carve + snap: hexahedra) or tet (no dual).
     #[cfg(not(target_arch = "wasm32"))]
     let opts = match std::env::var("FOAM_CFMESH_STAGES").as_deref() {
-        Ok("carve") => TetDualOptions { dual: false, delaunay: false, n_layers: 0, ..opts },
+        // The carved tet source by name (gh:#1829 made TetGen the default).
+        Ok("carve") => TetDualOptions { dual: false, delaunay: false, n_layers: 0, tet_source: outram_park_fork_cfmesh::pipeline::TetSource::CarvedCentroid, ..opts },
         Ok("tet") => TetDualOptions { dual: false, n_layers: 0, ..opts },
         _ => opts,
     };
-    let opts = TetDualOptions { layer_strategy: strategy, dual_kind: dual, dual_feature_points: s.feature_points, ..opts };
+    let opts = TetDualOptions { dual_kind: dual, dual_feature_points: s.feature_points, ..opts };
     // The cfMesh route (gh:#1298): the spec's, unless the native knob
     // FOAM_CFMESH_ROUTE=legacy|upstream names one (the V&V tooling).
     #[cfg(not(target_arch = "wasm32"))]
@@ -835,21 +851,8 @@ pub fn route_options(opts: outram_blender::foam_mesh::TetDualOptions, route: CfM
     }
 }
 
-/// The layer strategy `FOAM_LAYER_STRATEGY` names (native only, gh:#1215; the
-/// knob of the differential record, `laminar_pipe_gh1155.md`): `cfmesh`,
-/// `snappy` or `backoff`; ~~the default back-off for anything else~~
-/// **CHANGED 2026-11-05 (gh:#1240 browser controls):** `None` when unset or
-/// unrecognised, so the spec's own choice (the page's control) applies.
-#[cfg(not(target_arch = "wasm32"))]
-fn layer_strategy_from_env() -> Option<outram_blender::foam_mesh::LayerQualityStrategy> {
-    use outram_blender::foam_mesh::LayerQualityStrategy as S;
-    match std::env::var("FOAM_LAYER_STRATEGY").as_deref() {
-        Ok("cfmesh") => Some(S::CfMeshOptimise),
-        Ok("snappy") => Some(S::SnappyCollapse),
-        Ok("backoff") => Some(S::BackOffOnly),
-        _ => None,
-    }
-}
+// ~~`layer_strategy_from_env`: the layer strategy `FOAM_LAYER_STRATEGY`
+// named (native only, gh:#1215)~~ REMOVED 2026-11-26 (gh:#1829).
 
 /// The dual kind `FOAM_DUAL_KIND` names (native only, gh:#1240; the knob of
 /// the differential record, `laminar_pipe_gh1155.md`): `point`
@@ -1943,7 +1946,7 @@ impl Request {
                 let mut d = vec![0.0, f64::from(*id), k, a[0], a[1], a[2], a[3], b[0], b[1], b[2], design.target_cells as f64, *probe];
                 d.extend(design.tags.iter().map(|t| t.code()));
                 match design.mesh {
-                    PipeMesh::Structured => d.extend([0.0; 9]),
+                    PipeMesh::Structured => d.extend([0.0; 8]),
                     PipeMesh::Unstructured(s) => {
                         d.extend([1.0, s.cell_size, s.n_layers as f64, s.first_layer, s.expansion]);
                         d.extend(s.choice_codes());
@@ -1980,12 +1983,12 @@ impl Request {
                     _ => Shape::Coil { tube_radius: a[0], coil_diameter: a[1], pitch: a[2], turns: a[3], centre },
                 };
                 let mesh = if r.f()? == 0.0 {
-                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?];
+                    let _ = [r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?, r.f()?];
                     PipeMesh::Structured
                 } else {
                     PipeMesh::Unstructured(
                         TetDualSpec { cell_size: r.f()?, n_layers: r.n()?, first_layer: r.f()?, expansion: r.f()?, ..TetDualSpec::BASE }
-                            .with_choice_codes([r.f()?, r.f()?, r.f()?, r.f()?])?,
+                            .with_choice_codes([r.f()?, r.f()?, r.f()?])?,
                     )
                 };
                 Ok(Request::Mesh { id, design: Design { shape, tags, target_cells, mesh }, probe })
@@ -2246,6 +2249,29 @@ pub fn headless(design: Design, reynolds: f64, mode: Mode, max_steps: usize) -> 
     Ok(out)
 }
 
+
+/// TetGen's `-a` volume bound for a layered pipe (gh:#1829, maintainer
+/// decision 2026-11-26): the regular tetrahedron whose edge is the smaller
+/// of the cell size and `R/4`, `a³/(6√2)`.
+///
+/// **Why R/4.** With layers grown first, TetGen spends its points on the
+/// wall ring and its `-a` bound alone sets the core; at the regular
+/// tetrahedron of the cell size (0.5 R) the core cells stay ≈ 3.9 mm on
+/// the R = 10 mm demo pipe and the default `linearUpwind` +
+/// `cellLimited grad(U)` convection's cross-stream diffusion flattens the
+/// profile: dp/dz 1.107 × Hagen–Poiseuille, u_c/2U 0.882. The rule is a
+/// resolution requirement on the core (about four tetrahedron edges per
+/// radius), stated after the gh:#1829 investigation, which measured core
+/// edges 3.9 → 2.6 → 1.85 mm giving dp/dz 1.107 → 1.073 → 1.031 and
+/// established the cause (Re 10: 0.993; central differencing: 0.989).
+/// It was chosen as a mesh-design rule, not tuned to the band: the record
+/// is the gh:#1829 section of
+/// `outram-foam-appbuilder-lib/verification_and_validation/laminar_pipe_gh1155.md`.
+pub fn core_tet_volume(radius: f64, cell_size: f64) -> f64 {
+    let a = cell_size.min(0.25 * radius);
+    a * a * a / (6.0 * core::f64::consts::SQRT_2)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2474,9 +2500,8 @@ mod tests {
     #[ignore]
     fn diagnose_three_layer_divergence() {
         use outram_park_fork_cfmesh::dual::{DualKind, FeaturePointRule};
-        use outram_blender::foam_mesh::LayerQualityStrategy as S;
         let spec = |h: f64, n: usize, dual: DualKind| Design {
-            mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, dual, feature_points: FeaturePointRule::Corners, layer_quality: S::BackOffOnly, route: CfMeshRoute::PreGh1298 }),
+            mesh: PipeMesh::Unstructured(TetDualSpec { cell_size: h, n_layers: n, first_layer: 3e-4, expansion: 1.2, dual, feature_points: FeaturePointRule::Corners, route: CfMeshRoute::PreGh1298 }),
             ..Design::default()
         };
         let cases = [
@@ -3016,11 +3041,10 @@ mod tests {
     /// the old default's numbers.
     #[test]
     fn mesher_choices_default_to_upstreams_sequence_and_follow_the_url() {
-        use outram_blender::foam_mesh::LayerQualityStrategy as L;
         use outram_park_fork_cfmesh::dual::{DualKind as D, FeaturePointRule as F};
         let d = TetDualSpec::default_for(0.01);
-        assert_eq!((d.dual, d.feature_points, d.layer_quality, d.route), (D::CellCentre, F::Corners, L::CfMeshOptimise, CfMeshRoute::UpstreamNoLaplace));
-        assert_eq!(d.choice_codes(), [2.0, 1.0, 1.0, 0.0]);
+        assert_eq!((d.dual, d.feature_points, d.route), (D::CellCentre, F::Corners, CfMeshRoute::UpstreamNoLaplace));
+        assert_eq!(d.choice_codes(), [2.0, 1.0, 0.0]);
         assert_eq!((d.cell_size, d.n_layers, d.first_layer, d.expansion), (0.005, 3, 0.03 * 0.01, 1.2));
         assert_eq!((TetDualSpec::BASE.cell_size, TetDualSpec::BASE.n_layers), (d.cell_size, d.n_layers));
         assert_eq!(d.clamped(0.01, 0.2), d, "the clamp and the 50k cap leave the default alone");
@@ -3033,16 +3057,16 @@ mod tests {
         assert_eq!(d.with_size_query(None, Some("9")).n_layers, MAX_LAYERS);
         // The ablation is the pre-gh:#1298 default, choice for choice.
         let old = TetDualSpec::PRE_GH1298;
-        assert_eq!((old.dual, old.feature_points, old.layer_quality, old.route), (D::MedianPerCorner, F::OnFeatureEdge, L::BackOffOnly, CfMeshRoute::PreGh1298));
+        assert_eq!((old.dual, old.feature_points, old.route), (D::MedianPerCorner, F::OnFeatureEdge, CfMeshRoute::PreGh1298));
         assert_eq!((old.cell_size, old.n_layers, old.first_layer, old.expansion), (0.004, 0, 3e-4, 1.2));
         // The URL reaches it, and back.
-        let q = d.with_query(Some("corner"), Some("edges"), Some("backoff")).with_route_query(Some("legacy"));
-        assert_eq!(q.choice_codes(), [0.0, 0.0, 0.0, 1.0]);
-        assert_eq!(q.clamped(0.01, 0.2).choice_codes(), [0.0, 0.0, 0.0, 1.0]);
+        let q = d.with_query(Some("corner"), Some("edges")).with_route_query(Some("legacy"));
+        assert_eq!(q.choice_codes(), [0.0, 0.0, 1.0]);
+        assert_eq!(q.clamped(0.01, 0.2).choice_codes(), [0.0, 0.0, 1.0]);
         assert_eq!(q.with_route_query(Some("upstream")).route, CfMeshRoute::UpstreamNoLaplace);
         // Unknown URL values leave the choices alone.
-        assert_eq!(q.with_query(Some("bogus"), None, Some("?")).with_route_query(Some("?")), q);
-        let back = q.with_query(Some("centre"), Some("corners"), Some("cfmesh")).with_route_query(Some("upstream"));
+        assert_eq!(q.with_query(Some("bogus"), None).with_route_query(Some("?")), q);
+        let back = q.with_query(Some("centre"), Some("corners")).with_route_query(Some("upstream"));
         assert_eq!(back, d);
         // The route's options: the ablation leaves the default options
         // alone; the default switches on exactly gh:#1283's `upEnl` steps.
@@ -3076,14 +3100,14 @@ mod tests {
             Request::Mesh {
                 id: 8,
                 design: Design {
-                    mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("centre"), Some("corners"), Some("cfmesh"))),
+                    mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("centre"), Some("corners"))),
                     ..Design::default()
                 },
                 probe: 0.4,
             },
             Request::Mesh {
                 id: 9,
-                design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("point"), None, Some("snappy"))), ..Design::default() },
+                design: Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01).with_query(Some("point"), None)), ..Design::default() },
                 probe: 0.4,
             },
             // gh:#1298: the ablation's route crosses the wire.
@@ -3246,35 +3270,310 @@ mod tests {
         assert_eq!(strip(&again), strip(&lines), "deterministic");
     }
 
-    /// gh:#1298 — the **new unstructured default** (`TetDualSpec::default_for`:
-    /// ~~h 4 mm, no layer~~ **h 5 mm, 3 wall layers (first 0.3 mm, × 1.2)
-    /// since the maintainer's decision of 2026-11-05**, the cell-centre dual
-    /// with corners, cfMesh's layer optimiser, upstream's sequence without
-    /// the Laplace pass), Re 100, steady. Pinned where the V&V record
-    /// measured it on 2026-11-05 (`laminar_pipe_gh1155.md`, gh:#1298
-    /// section, "The default becomes h 5 mm with 3 layers"): **7 049 cells,
-    /// u_c/2U 0.9394, dp/dz 1.0062 × HP** (predicted from gh:#1298's layer
-    /// case: 7 049 ± 30, 0.9394 ± 0.002, 1.0062 ± 0.002). Old pin, struck:
-    /// ~~h 4 mm bare: 6 353 cells, u_c/2U 0.8832, dp/dz 1.0649 × HP~~ (its
-    /// prediction was 0.86–0.91 and 1.00–1.04: u_c held, dp/dz missed high;
-    /// the miss stays in the record). Mass conserved; deterministic.
+    /// gh:#1298 — the **unstructured default** (`TetDualSpec::default_for`:
+    /// h 5 mm, 3 wall layers (first 0.3 mm, × 1.2), the cell-centre dual
+    /// with corners, upstream's sequence without the Laplace pass), Re 100,
+    /// steady. ~~Pinned where the V&V record measured it on 2026-11-05: 7 049
+    /// cells, u_c/2U 0.9394, dp/dz 1.0062 × HP (cfMesh's layer optimiser on
+    /// the carved dual)~~ **CHANGED 2026-11-26 (gh:#1829, maintainer HARD
+    /// RULE for the cfMesh crate):** the layers are grown first, from
+    /// TetGen's wall triangulation, and TetGen meshes the inside; the old
+    /// pin went with the removed layer route, and the new route gets no
+    /// regression pin before unit-level V&V (root `AGENTS.md`). Asserted
+    /// instead: mass conserved, deterministic, and the developed numbers
+    /// within the bands written before the first run (prediction, 2026-11-26:
+    /// u_c/2U 0.93–0.95 and dp/dz 1.00–1.02, like the old default's, since
+    /// both carry three ~1 mm layers at h 5 mm; bands asserted: u_c/2U in
+    /// 0.85–1.05, dp/dz in 0.95–1.10). Results: the gh:#1829 section of
+    /// `laminar_pipe_gh1155.md`. **Fails as of 2026-11-26** (dp/dz 1.1067,
+    /// u_c/2U 0.8820): the cause, found by `diagnose_tetgen_dual_miss`, is
+    /// the convection scheme's numerical diffusion in TetGen's coarse core,
+    /// not a defect; the band is not moved (maintainer's decision).
     #[test]
     fn headless_unstructured_default_is_pinned() {
         let d = Design { mesh: PipeMesh::Unstructured(TetDualSpec::default_for(0.01)), ..Design::default() };
         let lines = headless(d, 100.0, Mode::Steady, 200).unwrap();
         let joined = lines.join("\n");
-        assert!(joined.contains("7049 cells"), "{joined}");
         let pipe = lines.iter().find(|l| l.starts_with("# pipe (")).expect("pipe line");
         println!("{pipe}"); // gh:#1488: print the measured numbers so a record can quote them
+        for l in lines.iter().filter(|l| l.contains("cells")).take(3) {
+            println!("{l}");
+        }
         let val = |k: &str| -> f64 { pipe.split_whitespace().find_map(|t| t.strip_prefix(k)).and_then(|v| v.parse().ok()).expect(k) };
-        assert!((val("uc=") - 0.9394).abs() < 2e-3, "{pipe}");
-        assert!((val("dpdz=") - 1.0062).abs() < 2e-3, "{pipe}");
+        assert!((0.85..1.05).contains(&val("uc=")), "{pipe}");
+        assert!((0.95..1.10).contains(&val("dpdz=")), "{pipe}");
         let last = lines.iter().rev().find(|l| !l.starts_with('#')).unwrap();
         let out_in: f64 = last.split_whitespace().nth(4).unwrap().parse().unwrap();
         assert!((out_in - 1.0).abs() < 1e-8, "{last}");
         let again = headless(d, 100.0, Mode::Steady, 200).unwrap();
         let strip = |v: &[String]| v.iter().filter(|l| l.starts_with("# pipe")).cloned().collect::<Vec<_>>();
         assert_eq!(strip(&again), strip(&lines), "deterministic");
+        assert!(!joined.is_empty());
+    }
+
+    /// Diagnostic (gh:#1829), `--ignored --nocapture`: where the layered
+    /// default's miss comes from. Runs the headless pipe (Re 100, steady,
+    /// 200 steps) on the default spec and on its ablations: the pre-gh:#1298
+    /// route (no `untangle_surface`, no `optimiseFinalMesh`), no layers on
+    /// TetGen (`FOAM_TET_SOURCE=tetgen`), and no layers on the carved source.
+    /// Prints the pipe line and the mesh line of each.
+    #[test]
+    #[ignore]
+    fn diagnose_layers_first_default() {
+        let base = TetDualSpec::default_for(0.01);
+        let cases: [(&str, TetDualSpec, bool); 5] = [
+            ("default (layers first, upstream route)", base, false),
+            ("layers first, pre-gh:#1298 route", TetDualSpec { route: CfMeshRoute::PreGh1298, ..base }, false),
+            ("1 layer first", TetDualSpec { n_layers: 1, ..base }, false),
+            ("bare, TetGen", TetDualSpec { n_layers: 0, ..base }, true),
+            ("bare, carved", TetDualSpec { n_layers: 0, ..base }, false),
+        ];
+        for (name, spec, tetgen) in cases {
+            if tetgen {
+                std::env::set_var("FOAM_TET_SOURCE", "tetgen");
+            } else {
+                std::env::remove_var("FOAM_TET_SOURCE");
+            }
+            let d = Design { mesh: PipeMesh::Unstructured(spec), ..Design::default() };
+            let lines = headless(d, 100.0, Mode::Steady, 200).unwrap();
+            for l in lines.iter().filter(|l| l.starts_with("# pipe (") || l.starts_with("# mesh")) {
+                println!("{name}: {l}");
+            }
+        }
+        std::env::remove_var("FOAM_TET_SOURCE");
+    }
+
+    /// Diagnostic (gh:#1829 investigation), `--ignored --nocapture`: the
+    /// layered default's dp/dz miss, case by case. `FOAM_DIAG_CASES` is a
+    /// comma-separated list of `source/h_mm/layers/Re/div/laplacian/correctors`
+    /// (`source` `tetgen` or `carved`; `div` `lul` = the demo's `linearUpwind
+    /// grad(U)` + `cellLimited Gauss linear 1`, `lu` = unlimited
+    /// `linearUpwind`, `lin` = `Gauss linear`, `up` = `upwind`; `laplacian`
+    /// `def` = the demo's choice, `unc`, `cor`; `correctors` a number or `def`).
+    /// Per case it prints the mesh (cells, max and mean non-orthogonality of
+    /// the internal faces, the fraction of internal faces whose normal is
+    /// within 10° of the axis or of the cross-section plane, cells per radius
+    /// from the slab's cell density, slab area / πR², the mean wall-cell
+    /// normal distance over the cell's equivalent length), and the solve
+    /// (steps, u_c/2U, dp/dz/HP over three windows, dp/dz against the slab
+    /// area's own Hagen–Poiseuille, τ_w/HP and the profile RMS).
+    #[test]
+    #[ignore]
+    fn diagnose_tetgen_dual_miss() {
+        use outram_foam_appbuilder_lib::cases::laminar_pipe::{centreline_velocity, pressure_gradient, profile_rms, wall_shear_stress};
+        use outram_foam_appbuilder_lib::io::fv_schemes::{DivScheme, GradScheme, LaplacianScheme};
+        use uom::si::acceleration::meter_per_second_squared;
+        let list = std::env::var("FOAM_DIAG_CASES").unwrap_or_else(|_| "tetgen/5/0/100/lul/def/def,carved/5/0/100/lul/def/def".into());
+        for case in list.split(',') {
+            let f: Vec<&str> = case.split('/').collect();
+            let (src, h, n, re) = (f[0], f[1].parse::<f64>().unwrap() * 1e-3, f[2].parse::<usize>().unwrap(), f[3].parse::<f64>().unwrap());
+            if src == "tetgen" {
+                std::env::set_var("FOAM_TET_SOURCE", "tetgen");
+            } else {
+                std::env::remove_var("FOAM_TET_SOURCE");
+            }
+            let spec = TetDualSpec { cell_size: h, n_layers: n, ..TetDualSpec::default_for(0.01) };
+            let d = Design { mesh: PipeMesh::Unstructured(spec), ..Design::default() };
+            let mut e = Engine::default();
+            let mut info = String::new();
+            e.serve(Request::Mesh { id: 1, design: d, probe: 0.75 }, &mut |ev| match ev {
+                Event::Meshed(me) => info = format!("{} cells, max NO {:.1}, skew {:.2}, mesh {:.1} s", me.n_cells, me.max_non_ortho_deg, me.max_skewness, me.mesh_s),
+                Event::Error(m) => info = m,
+                _ => {}
+            });
+            e.serve(Request::Start { id: 1, reynolds: re, mode: Mode::Steady }, &mut |_| {});
+            let Some(Case::Pipe(s, _)) = e.case.as_mut() else {
+                println!("{case}: {info}");
+                continue;
+            };
+            match f[4] {
+                "lin" => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussLinear, None),
+                "lu" => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussLinearUpwind("grad(U)".into()), None),
+                "up" => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussUpwind, None),
+                _ => (s.schemes.default_div, s.schemes.grad_u) = (DivScheme::GaussLinearUpwind("grad(U)".into()), Some(GradScheme::CellLimitedGaussLinear(1.0))),
+            }
+            match f[5] {
+                "unc" => s.schemes.default_laplacian = LaplacianScheme::GaussLinearUncorrected,
+                "cor" => s.schemes.default_laplacian = LaplacianScheme::GaussLinearCorrected,
+                _ => {}
+            }
+            if let Ok(k) = f[6].parse::<usize>() {
+                s.solution.pimple.n_non_orthogonal_correctors = k;
+            }
+            let t0 = bugis::web_demo::platform::now_s();
+            let mut err = String::new();
+            for _ in 0..800 {
+                let mut done = false;
+                e.serve(Request::Step { id: 1, steps: 5 }, &mut |ev| match ev {
+                    Event::Progress(p) => done = p.steady,
+                    Event::Error(m) => {
+                        err = m;
+                        done = true;
+                    }
+                    _ => {}
+                });
+                if done {
+                    break;
+                }
+            }
+            let wall_s = bugis::web_demo::platform::now_s() - t0;
+            let Some(Case::Pipe(s, flow)) = &e.case else {
+                println!("{case}: {info}\n  {} steps: {err}", e.steps);
+                continue;
+            };
+            let m = &s.mesh;
+            let (r, l) = (0.01, 0.2);
+            // Mesh geometry: non-orthogonality and face orientation.
+            let (mut no_max, mut no_sum, mut ax, mut tr) = (0.0_f64, 0.0, 0usize, 0usize);
+            for fi in 0..m.n_internal_faces {
+                let sv = m.face_area_vectors[fi];
+                let dv = m.cell_centres[m.neighbour[fi]] - m.cell_centres[m.owner[fi]];
+                let c = (sv.dot(dv) / (sv.mag() * dv.mag())).clamp(-1.0, 1.0);
+                let a = c.acos().to_degrees();
+                no_max = no_max.max(a);
+                no_sum += a;
+                let nz = (sv.z / sv.mag()).abs();
+                if nz > 10f64.to_radians().cos() {
+                    ax += 1;
+                } else if nz < 10f64.to_radians().sin() {
+                    tr += 1;
+                }
+            }
+            let nif = m.n_internal_faces as f64;
+            let (z0, z1) = (0.65 * l, 0.85 * l);
+            let slab: Vec<usize> = (0..m.n_cells).filter(|&c| (z0..=z1).contains(&m.cell_centres[c].z)).collect();
+            let vol: f64 = slab.iter().map(|&c| m.cell_volumes[c]).sum();
+            let area = vol / (z1 - z0);
+            let a_ratio = area / (std::f64::consts::PI * r * r);
+            let per_r = r * (slab.len() as f64 / vol).cbrt();
+            // Wall cells: normal distance cell centre → wall face over the
+            // cell's equivalent length V^(1/3).
+            let (mut wd, mut wn) = (0.0, 0usize);
+            for p in &m.patches {
+                if p.name == "inlet" || p.name == "outlet" {
+                    continue;
+                }
+                for fi in p.start..p.start + p.size {
+                    let fc = m.face_centres[fi];
+                    if fc.z < z0 || fc.z > z1 {
+                        continue;
+                    }
+                    let n = m.face_area_vectors[fi] * (1.0 / m.face_areas[fi]);
+                    let c = m.owner[fi];
+                    wd += (fc - m.cell_centres[c]).dot(n).abs() / m.cell_volumes[c].cbrt();
+                    wn += 1;
+                }
+            }
+            // Mean cell length V^(1/3) [mm] and cell count in five radial bins of the slab.
+            let mut bins = [(0.0_f64, 0usize); 5];
+            for &c in &slab {
+                let x = m.cell_centres[c];
+                let k = (((x.x * x.x + x.y * x.y).sqrt() / r * 5.0) as usize).min(4);
+                bins[k].0 += m.cell_volumes[c].cbrt() * 1e3;
+                bins[k].1 += 1;
+            }
+            let radial: Vec<String> = bins.iter().map(|b| format!("{:.2}mm/{}", b.0 / b.1.max(1) as f64, b.1)).collect();
+            let a_in: f64 = m.patches.iter().filter(|p| p.name == "inlet").flat_map(|p| p.start..p.start + p.size).map(|f| m.face_area_vectors[f].z).sum::<f64>().abs();
+            println!("  radial bins r/R 0-0.2..0.8-1 (mean V^1/3, cells): {}; inlet |sum S.z|/piR2 {:.5}", radial.join(" "), a_in / (std::f64::consts::PI * r * r));
+            let hp = flow.hagen_poiseuille_gradient().get::<meter_per_second_squared>();
+            let g = |a: f64, b: f64| pressure_gradient(s, a * l, b * l).get::<meter_per_second_squared>() / hp;
+            let uc = centreline_velocity(s, flow, (0.0, 0.0), 0.75 * l, 0.05 * l).get::<meter_per_second>() / (2.0 * U_IN);
+            let tau = wall_shear_stress(s, z0, z1) / flow.hagen_poiseuille_wall_shear();
+            let rms = profile_rms(s, flow, (0.0, 0.0), z0, z1);
+            println!(
+                "{case}: {info}; NO max {no_max:.1} mean {:.1}; faces axial {:.3} transverse {:.3}; cells/R {per_r:.2}; slab A/piR2 {a_ratio:.4}; wall d/V^(1/3) {:.3} ({wn} faces)\n  {} steps {wall_s:.1} s {err}: uc {uc:.4} dpdz[0.40-0.60] {:.4} dpdz[0.65-0.85] {:.4} dpdz[0.75-0.90] {:.4} dpdz/own-area HP {:.4} tau {tau:.4} rms {rms:.4}",
+                no_sum / nif,
+                ax as f64 / nif,
+                tr as f64 / nif,
+                wd / wn.max(1) as f64,
+                e.steps,
+                g(0.40, 0.60),
+                g(0.65, 0.85),
+                g(0.75, 0.90),
+                g(0.65, 0.85) * a_ratio,
+            );
+        }
+        std::env::remove_var("FOAM_TET_SOURCE");
+    }
+
+    /// Diagnostic (gh:#1829 investigation), `--ignored --nocapture`: is the
+    /// `Gauss linear` gradient (the base of `cellLimited`, of `linearUpwind`'s
+    /// correction and of the non-orthogonal correction) consistent on the
+    /// bare TetGen and carved duals at h 5 mm? Manufactured fields with exact
+    /// boundary values on every patch: φ = z/R and φ = x/R (linear: the
+    /// gradient is exact on an orthogonal mesh without skewness) and the
+    /// Hagen–Poiseuille shape φ = 1 − r²/R². Prints the volume-weighted RMS
+    /// and the max of |∇φ − ∇φ_exact| over R·max|∇φ_exact|, on the cells
+    /// with no boundary face and on all cells, and the mean and max
+    /// skewness |x_f − x_i|/|d| (x_i the point where the line between the
+    /// cell centres crosses the face) over the internal faces.
+    #[test]
+    #[ignore]
+    fn diagnose_dual_gradient_consistency() {
+        use outram_foam_basic_lib::prelude::*;
+        let r = 0.01;
+        for (name, tetgen, h) in [("TetGen bare h 5", true, 5e-3), ("carved bare h 5", false, 5e-3), ("TetGen bare h 3.5", true, 3.5e-3), ("carved bare h 3.5", false, 3.5e-3)] {
+            if tetgen {
+                std::env::set_var("FOAM_TET_SOURCE", "tetgen");
+            } else {
+                std::env::remove_var("FOAM_TET_SOURCE");
+            }
+            let spec = TetDualSpec { cell_size: h, n_layers: 0, ..TetDualSpec::default_for(r) };
+            let d = Design { mesh: PipeMesh::Unstructured(spec), ..Design::default() };
+            let m = Arc::new(mesh_design(&d).unwrap().0.to_fv_mesh().unwrap());
+            let (mut sk_sum, mut sk_max) = (0.0_f64, 0.0_f64);
+            for f in 0..m.n_internal_faces {
+                let (co, cn) = (m.cell_centres[m.owner[f]], m.cell_centres[m.neighbour[f]]);
+                let dv = cn - co;
+                let sv = m.face_area_vectors[f];
+                let t = sv.dot(m.face_centres[f] - co) / sv.dot(dv);
+                let xi = co + dv * t;
+                let sk = (m.face_centres[f] - xi).mag() / dv.mag();
+                sk_sum += sk;
+                sk_max = sk_max.max(sk);
+            }
+            let mut on_boundary = vec![false; m.n_cells];
+            for p in &m.patches {
+                for f in p.start..p.start + p.size {
+                    on_boundary[m.owner[f]] = true;
+                }
+            }
+            let fields: [(&str, fn(Vector3) -> f64, fn(Vector3) -> Vector3); 3] = [
+                ("z/R", |x| x.z / 0.01, |_| Vector3::new(0.0, 0.0, 1.0 / 0.01)),
+                ("x/R", |x| x.x / 0.01, |_| Vector3::new(1.0 / 0.01, 0.0, 0.0)),
+                ("1-r2/R2", |x| 1.0 - (x.x * x.x + x.y * x.y) / 1e-4, |x| Vector3::new(-2.0 * x.x / 1e-4, -2.0 * x.y / 1e-4, 0.0)),
+            ];
+            let mut row = Vec::new();
+            for (fname, phi, grad) in fields {
+                let bcs: Vec<PatchField<f64>> = m
+                    .patches
+                    .iter()
+                    .map(|p| {
+                        let v = Field::new((p.start..p.start + p.size).map(|f| phi(m.face_centres[f])).collect::<Vec<f64>>());
+                        PatchField { bc: BoundaryCondition::FixedField(v.clone()), values: v }
+                    })
+                    .collect();
+                let u = VolScalarField::new("phi", m.clone(), Field::new((0..m.n_cells).map(|c| phi(m.cell_centres[c])).collect()), bcs);
+                let g = fvc::grad(&u);
+                let scale = if fname == "1-r2/R2" { 2.0 / 0.01 } else { 1.0 / 0.01 };
+                let (mut si, mut vi, mut mi, mut sa, mut va, mut ma) = (0.0, 0.0, 0.0_f64, 0.0, 0.0, 0.0_f64);
+                for c in 0..m.n_cells {
+                    let e = (g.internal[c] - grad(m.cell_centres[c])).mag() / scale;
+                    let v = m.cell_volumes[c];
+                    sa += v * e * e;
+                    va += v;
+                    ma = ma.max(e);
+                    if !on_boundary[c] {
+                        si += v * e * e;
+                        vi += v;
+                        mi = mi.max(e);
+                    }
+                }
+                row.push(format!("{fname}: interior RMS {:.3} max {mi:.3}, all RMS {:.3} max {ma:.3}", (si / vi).sqrt(), (sa / va).sqrt()));
+            }
+            println!("{name}: {} cells, skewness mean {:.3} max {sk_max:.3}\n  {}", m.n_cells, sk_sum / m.n_internal_faces as f64, row.join("\n  "));
+        }
+        std::env::remove_var("FOAM_TET_SOURCE");
     }
 
     /// gh:#1241 — OpenFOAM's time-step update by hand

@@ -1,0 +1,233 @@
+schema_version = 1
+kind = "code_folder"
+crate = "dhoby-ghaut"
+dir = "crates/dhoby-ghaut/examples/lesson_triso_atops"
+
+[module."atops.rs"]
+path = "example:lesson_breathing::breath::atops"
+
+[[module."atops.rs".function]]
+id = "fn:d4aaf935e0552ac0"
+name = "Accident"
+qual = "Accident"
+item = "type"
+shape = "struct"
+hash = "sha256:d7e6d60766b2a74371b03cd8d9e31d32ca5d700ffee564574704fdcc656cc0be"
+doc_hash = "sha256:5a302ec1822b8e98ffc95f1bab5cd89422f6ada5bc426d729daff5aec6f3b010"
+
+[[module."atops.rs".function]]
+id = "fn:2c9ced23373dcc96"
+name = "a_booth"
+qual = "a_booth"
+hash = "sha256:5d1cc7a258a7e01247e5b89c2913c84d42d64207d3ec8c4a7da83e5bea0a5116"
+doc_hash = "sha256:78bda81c3b9def51f2235836f56ea0e9f7f58ee01d3cdaca15686e27ce618f4b"
+
+[[module."atops.rs".function]]
+id = "fn:2b671335eac42f62"
+name = "accident"
+qual = "accident"
+hash = "sha256:5ce71e4ecb62c3d485013ad61eccc6254ddb8cc20d87b5d3f3acbb970b58ed31"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."atops.rs".function]]
+id = "fn:20816f5ce12cadf6"
+name = "accident_fractions_a"
+qual = "accident_fractions_a"
+hash = "sha256:42e3a927f3fd9682ae7a6acd7de22e4feb5a81e6965a6c280d22e2b77e3eaf20"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."atops.rs".function]]
+id = "fn:b4e32d760e30e050"
+name = "attenuation"
+qual = "attenuation"
+hash = "sha256:9e64a152730d4eedc050f4a5327aeb9cc1d064ec6cded610150f88367fde7a44"
+doc_hash = "sha256:7339fd296a075fd9b0de4998cc70acbf40a6e1060ec3e77b0ce272934e4e959d"
+physical_interface = true
+
+[[module."atops.rs".function]]
+id = "fn:d985ebadfaf55e88"
+name = "booth_long"
+qual = "booth_long"
+hash = "sha256:7421e4a8a0dcad002ed884b0a8feae108d8fb9c3dc7f443ff9d1dd1ba91879c9"
+doc_hash = "sha256:ffc76902ecb91d7db1711726137ca999d8678ffcf48be52a8edbce0c1fae8098"
+
+[[module."atops.rs".function]]
+id = "fn:40769cb234d4977b"
+name = "booth_terms"
+qual = "booth_terms"
+hash = "sha256:bbc34ca4b4057b336b6ec75d7feae4f8476b96023151220d73e68c41eca529f4"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."atops.rs".function]]
+id = "fn:33c77d0be4d8f628"
+name = "booth_trans"
+qual = "booth_trans"
+hash = "sha256:9b7842e7648fec2945d67fd1a371109e6e0344c2235f6215ecae6c5a402b42e5"
+doc_hash = "sha256:9dbb4ef7a2e3e0d6efb6e28cc1a6f8ab7b5e5708800f32d73c84f2ad9b4696b8"
+
+[[module."atops.rs".function]]
+id = "fn:f5056a0a88a79081"
+name = "breakthrough"
+qual = "breakthrough"
+hash = "sha256:b727c9d269a9e770940b12f04c85b5f97237e4e0da83643237fc558a50f05995"
+doc_hash = "sha256:5f0435738a6bbcb1b9e974c6a3d3fd614584df44af9a4e322aa821f9e3f256e9"
+
+[[module."atops.rs".function]]
+id = "fn:90e2dca8e90e9810"
+name = "case_a"
+qual = "case_a"
+hash = "sha256:034e34d40e9d089a4fa1033e5be0ff8a69769987f3e370324d11ab21a9a8cd96"
+doc_hash = "sha256:0d146d177279ed0b4ff453c303fbfefa7bb2afdd24d43a48b47b7fc97527f527"
+
+[[module."atops.rs".function]]
+id = "fn:cad0b440bdc08bd1"
+name = "d"
+qual = "d"
+hash = "sha256:b2085c68574daa6638a6ec4ae114d7d49f03ebdd3bddc62c47bdcbbb4938cdce"
+doc_hash = "sha256:0721e11eb7304a7912865edd6fcea65d1a4dba3ecd726b6a602e83d9082a1ab0"
+
+[[module."atops.rs".function]]
+id = "fn:3678818e23bf8b60"
+name = "d_sic_ag"
+qual = "d_sic_ag"
+hash = "sha256:4a5b8b5fc19fc3d7767828e52ad9bc5d003f05c10dad4dfec1fc1790eace3266"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."atops.rs".function]]
+id = "fn:9772d0efb614ade1"
+name = "flat_below"
+qual = "flat_below"
+hash = "sha256:be242e566c62d9fa5f3fdf3a08ff1276f05dd17e14131c9ec80fa67ee3c45e2c"
+doc_hash = "sha256:5034ff37884d2a7a071a509f117f6765a49dac4f977136bf8cc7ff268d01eb18"
+
+[[module."atops.rs".function]]
+id = "fn:bb9982a9aa62ca52"
+name = "fractions_a"
+qual = "fractions_a"
+hash = "sha256:64692d1d5444236efc37a39bcb18c4d50451f549976aa0faff99016ddedc7274"
+doc_hash = "sha256:7d276118f35a7ccdf14b41cfec65e5f3f75e71650aae4e84c31293be2e00961d"
+
+[[module."atops.rs".function]]
+id = "fn:1121f066f55754ee"
+name = "group_name"
+qual = "group_name"
+hash = "sha256:650f105eb8e070182a5846b8229979ff1224f3334079a807b4808d0489631007"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."atops.rs".function]]
+id = "fn:109324f79b4e5741"
+name = "heatup"
+qual = "heatup"
+hash = "sha256:f5ff81cd8d24d09854838d8544de7ef3ab45119bb7a7d5af81e935420bf6cc75"
+doc_hash = "sha256:84eeab2d6a6004c95334fa5732f6ae200359ec9d91f53d9c4f7dade251d611c0"
+
+[[module."atops.rs".function]]
+id = "fn:3de6971958d203ac"
+name = "live"
+qual = "live"
+hash = "sha256:cfe83479b8474e4afee35e221cb1c9047b0efb00d33617954945732cde5e56e8"
+doc_hash = "sha256:6a34b05c8f73406cd5f1c696d60e3aaf96d3cf919c8aca3458d1e5a5e5f797b0"
+
+[[module."atops.rs".function]]
+id = "fn:cd27ad1e990026ba"
+name = "m"
+qual = "m"
+hash = "sha256:044f47bb922154e1e17c5e20b0fa2d39891e1a26374aa3bb661b634d07b1f56d"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."atops.rs".function]]
+id = "fn:12c04a2f44b54c11"
+name = "node"
+qual = "node"
+hash = "sha256:a55fb7a9e919bbd8e0462faea29e20e0d6d1725e37e2d0380508e3cde377fc93"
+doc_hash = "sha256:7573a9f623c642b6159685b89c16a794d2e7261cca3e06ad05dbabb42a5881ba"
+
+[[module."atops.rs".function]]
+id = "fn:7269e05e1ddc8099"
+name = "nuclide"
+qual = "nuclide"
+hash = "sha256:ff5d561eac486bc95a27c6c008229ec2da6ea537d3198ec13833dff17c9f7f95"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."atops.rs".function]]
+id = "fn:633d92c6d6ad1123"
+name = "nuclides"
+qual = "nuclides"
+hash = "sha256:1261830103b643b560fa8ba15f44ca94b244c13e1e7b84af4e4a7528afeaf335"
+doc_hash = "sha256:327167878eef2899365f622cc2014aef8060d5fa72329ba092201865ef66199e"
+
+[[module."atops.rs".function]]
+id = "fn:6be0d48d7575fbd5"
+name = "rb"
+qual = "rb"
+hash = "sha256:4fa59ff1ed00368eb4aeec8feeeaaaeb1ebf6b42f37fdc1bea55f79facd2db67"
+doc_hash = "sha256:f556db8963c7533ace81ece6d5c7ce07ba6b550dc2dca9e1be6d183846237f5e"
+
+[[module."atops.rs".function]]
+id = "fn:0b9527c1f5615c55"
+name = "released_atoms"
+qual = "released_atoms"
+hash = "sha256:ffa3df7da31a10e86fc76e6711797af44240d730d42d16b70ae1e80702791529"
+doc_hash = "sha256:63f9eabb197693ce51518acfd2340b2254f196a27f83b248a713689e1ce11227"
+
+[[module."atops.rs".function]]
+id = "fn:b7a8b932fcb27701"
+name = "temp"
+qual = "temp"
+hash = "sha256:548e5e296a1433ae578ac702c34bb15df730b230cefb1431ac335dee38c53a25"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+physical_interface = true
+
+[[module."atops.rs".function]]
+id = "fn:f7ec758e8f9611be"
+name = "years"
+qual = "years"
+hash = "sha256:9fc320039da1f90d357be3996fadd6337e75b7d30d518bc9c2370c93b2514b5f"
+doc_hash = "sha256:5ec9eb955ddda8d1e136bd2c8e993793878760f9421c957f505eb413c3ba0407"
+physical_interface = true
+
+[module."main.rs"]
+path = "example:lesson_triso_atops"
+
+[[module."main.rs".function]]
+id = "fn:488d60b5c2850f63"
+name = "arr"
+qual = "arr"
+hash = "sha256:78e7ca2b26c6d7b8268c4464b99b04ff00900d3cd7ef0d289c83a6d719e02be6"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:41d99de5af176a57"
+name = "e"
+qual = "e"
+hash = "sha256:3971b98a11193231c0e3b3754dab4dbe240cbfa2b78caf366fded290b53551da"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:91a32f041378c898"
+name = "main"
+qual = "main#1"
+hash = "sha256:aa9dd2056c9ba9fa2839bc908685ae519c41febfb8ce982aede8f498cceb92d1"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:e35943521789aae9"
+name = "main"
+qual = "main#2"
+hash = "sha256:b0fa748dd2acb1ec63d3e52329c2392be1b5284ede77bebc3543c6bfa5da7849"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:b2314d55b99f415a"
+name = "opt"
+qual = "opt"
+hash = "sha256:016dd4d6b953ba8ada0ebfc92db5a9a9504b229dabbafcfe9f0bd9bc970a2955"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[[module."main.rs".function]]
+id = "fn:227e9c07a1cac44b"
+name = "run"
+qual = "run"
+hash = "sha256:730f55f750b5a9ac06ff3544c9b64edcc471669f0b2899333d41cca03a57ba69"
+doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"

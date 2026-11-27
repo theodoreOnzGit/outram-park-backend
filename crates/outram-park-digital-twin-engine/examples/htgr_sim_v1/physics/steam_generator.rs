@@ -752,6 +752,24 @@ impl SteamGeneratorState {
     }
 }
 
+/// Volume and mass of one station of the steam generator's three arrays:
+/// see [`NodalisedCounterFlowSteamGenerator::node_inventories`].
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SgNodeInventory {
+    /// Helium (shell side) cell volume.
+    pub helium_volume: Volume,
+    /// Helium held in that cell, `rho V` at its live density.
+    pub helium_mass: Mass,
+    /// Tube-metal slice volume.
+    pub metal_volume: Volume,
+    /// Tube-metal slice mass.
+    pub metal_mass: Mass,
+    /// Water/steam (tube side) cell volume.
+    pub water_volume: Volume,
+    /// Water/steam held in that cell, `rho V` at its live density.
+    pub water_mass: Mass,
+}
+
 /// A nodalised counter-flow once-through steam generator.
 ///
 /// See the module docs for the arrangement, the no-cross argument and what is
@@ -1030,6 +1048,47 @@ impl NodalisedCounterFlowSteamGenerator {
             self.cold.rho.internal.as_slice(),
             &self.cold.mesh.cell_volumes,
         ))
+    }
+
+    /// Volume and mass of every node of the three arrays, **in hot-side
+    /// order** (element 0 is the hot inlet end, as in
+    /// [`SteamGeneratorState`]): the helium cell, the tube-metal slice and
+    /// the water/steam cell at each station. Read from the arrays' own cell
+    /// volumes and live densities (the cold array re-indexed like
+    /// [`SteamGeneratorState::cold_node_temperatures`]); the metal slice is
+    /// `1/n` of [`SteamGeneratorGeometry::metal_volume`] at the metal's
+    /// density. Added for the control-volume map (gh:#1718).
+    pub fn node_inventories(&self) -> Vec<SgNodeInventory> {
+        let n = self.config.node_count;
+        let hot_v = &self.hot.mesh.cell_volumes;
+        let hot_rho = self.hot.rho.internal.as_slice();
+        let cold_v: Vec<f64> = reverse(&self.cold.mesh.cell_volumes);
+        let cold_rho: Vec<f64> = reverse(&self.cold.rho.internal.as_slice().to_vec());
+        let metal_v = self.config.geometry.metal_volume().get::<cubic_meter>() / n as f64;
+        (0..n)
+            .map(|i| {
+                let t_metal = self
+                    .last_state
+                    .metal_node_temperatures
+                    .get(i)
+                    .copied()
+                    .unwrap_or(self.config.initial_cold_end_temperature);
+                let metal_mass = self.config.geometry.metal_mass(self.config.metal, t_metal, self.config.cold_pressure)
+                    / n as f64;
+                SgNodeInventory {
+                    helium_volume: Volume::new::<cubic_meter>(hot_v.get(i).copied().unwrap_or(f64::NAN)),
+                    helium_mass: Mass::new::<kilogram>(
+                        hot_v.get(i).copied().unwrap_or(f64::NAN) * hot_rho.get(i).copied().unwrap_or(f64::NAN),
+                    ),
+                    metal_volume: Volume::new::<cubic_meter>(metal_v),
+                    metal_mass,
+                    water_volume: Volume::new::<cubic_meter>(cold_v.get(i).copied().unwrap_or(f64::NAN)),
+                    water_mass: Mass::new::<kilogram>(
+                        cold_v.get(i).copied().unwrap_or(f64::NAN) * cold_rho.get(i).copied().unwrap_or(f64::NAN),
+                    ),
+                }
+            })
+            .collect()
     }
 
     /// The most recently computed state, without stepping.

@@ -80,7 +80,7 @@ use kovan_common::code_index::folders::{build, parent, BuildInput};
 use kovan_common::code_index::heal::{classify, is_own_orphan, Existing};
 use kovan_common::code_index::links::{self, FileOccs, Occ, Site, LINKS_FILE};
 use kovan_common::code_index::refresh::{all_claims, refresh_folder};
-use kovan_common::code_index::{deleted, upstream_draft};
+use kovan_common::code_index::{deleted, derived, upstream_draft};
 use kovan_common::review::hash::hash_both;
 use kovan_common::review::index::{FolderIndex, TestRun};
 use kovan_common::review::review_md::{parse_review_md, ReviewDocument};
@@ -218,7 +218,7 @@ fn files_named(root: &Path, members: &[(String, String)], krate: &(String, Strin
 /// one written for that folder.
 fn recover_committed(root: &Path, rel: &str) -> Option<FolderIndex> {
     let text = git(root, &["show", &format!("HEAD:{rel}")]).ok()?;
-    FolderIndex::parse(&text).ok().filter(|fi| fi.dir == parent(rel))
+    derived::load(root, &text).ok().filter(|fi| fi.dir == parent(rel))
 }
 
 /// Every review.md under the crates in scope, parsed (read only).
@@ -256,7 +256,9 @@ fn read_existing(root: &Path, members: &[(String, String)], scope: &[(String, St
         for p in files_named(root, members, m, KOVAN_TOML) {
             let Some(text) = read(root, &p) else { continue };
             let dir = parent(&p).to_string();
-            match FolderIndex::parse(&text) {
+            // Merged with the derived cache (#1777), so the previous
+            // `callees` and `reached_by` are there to carry.
+            match derived::load(root, &text) {
                 // A copy written for another folder (a test fixture): not
                 // this folder's cache; never used, never removed.
                 Ok(fi) if fi.dir != dir => {}
@@ -404,6 +406,15 @@ fn apply(root: &Path, changes: &[Change], ctl: &RunControl) -> Result<(), String
         }
     }
     ctl.step(changes.len());
+    Ok(())
+}
+
+/// Write each index's derived cache (#1778): under `target/`, so no git
+/// change and no entry in the plan.
+fn write_caches(root: &Path, indexes: &[FolderIndex]) -> Result<(), String> {
+    for fi in indexes {
+        derived::write_cache(root, fi)?;
+    }
     Ok(())
 }
 
@@ -725,10 +736,12 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
         commit,
         quantities,
     });
-    // 6. Plan the writes.
+    // 6. Plan the writes: the tracked text only (#1778); the derived
+    // cache is written after, never counted as a change.
+    let caches: Vec<FolderIndex> = built.folders.values().cloned().collect();
     for (dir, fi) in &built.folders {
         let rel = kovan_toml_of(dir);
-        let text = fi.to_toml().map_err(|e| e.to_string())?;
+        let text = derived::tracked_text(fi).map_err(|e| e.to_string())?;
         match classify(existing.texts.get(&rel).map(String::as_str), &text) {
             Existing::Unchanged => unchanged += 1,
             Existing::Foreign { kind } => {
@@ -778,6 +791,7 @@ pub fn run_controlled(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Res
     }
     ctl.check()?;
     apply(&root, &changes, ctl)?;
+    write_caches(&root, &caches)?;
     summary.written = changes.len();
     if let Some(version) = ra_used {
         let date = crate::digitiser::dataset::utc_now_iso8601();
@@ -887,16 +901,17 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
     let mut unchanged = 0usize;
     let mut flagged = 0usize;
     let mut indexed_dirs = BTreeSet::new();
+    let mut refreshed: Vec<FolderIndex> = Vec::new();
     for m in &scope {
         for rel in files_named(root, &members, m, KOVAN_TOML) {
             let Some(text) = read(root, &rel) else { continue };
             let dir = parent(&rel).to_string();
-            let previous = match FolderIndex::parse(&text) {
+            let previous = match derived::load(root, &text) {
                 Ok(fi) => Some(fi),
                 Err(kovan_common::review::index::IndexError::NotACodeFolder { kind }) if !kind.is_empty() => continue,
                 Err(_) => git(root, &["show", &format!("HEAD:{rel}")])
                     .ok()
-                    .and_then(|t| FolderIndex::parse(&t).ok()),
+                    .and_then(|t| derived::load(root, &t).ok()),
             };
             if previous.as_ref().is_some_and(|p| p.dir != dir) {
                 continue; // a copy written for another folder (a fixture)
@@ -920,7 +935,8 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
             for u in &report.unparsed {
                 ctl.say(format!("index --refresh: {u} does not parse; its entries are kept and marked out of date"));
             }
-            let new = fi.to_toml().map_err(|e| e.to_string())?;
+            let new = derived::tracked_text(&fi).map_err(|e| e.to_string())?;
+            refreshed.push(fi);
             match classify(Some(&text), &new) {
                 Existing::Unchanged => unchanged += 1,
                 e => changes.push(Change::Write { rel, text: new, why: e.label() }),
@@ -942,6 +958,7 @@ fn run_refresh(root: &Path, opts: &IndexOptions, ctl: &RunControl) -> Result<Ind
         return if changes.is_empty() { Ok(summary) } else { Err(IndexCmdError::CheckFailed(changes.len())) };
     }
     apply(root, &changes, ctl)?;
+    write_caches(root, &refreshed)?;
     summary.written = changes.len();
     Ok(summary)
 }

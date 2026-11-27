@@ -281,6 +281,13 @@ pub fn pttab(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<Option<[f64;
     let mut k = 1usize;
     let mut area1 = 0.0f64;
     let mut aneed = dprob;
+    // `slpe` is a local of the whole routine (`slpe=0` once, at entry): the
+    // `aneed < 1e-4` branch leaves it as the last bin set it, and
+    // `p(k)=p(k)+slpe*(tbmu(l)-amu(k))` then uses that stale slope. ~~Reset to 0
+    // for every bin~~ **CORRECTED 2026-11-24 (gh:#1372):** kept across bins, as
+    // upstream; F-19 `newfor = 0` MT=16 at 13 MeV moved by one unit in the 6th
+    // figure on 20 AND words until it was.
+    let mut slpe = 0.0f64;
     tbmu[1] = amu[0];
     loop {
         let area = match int {
@@ -306,7 +313,6 @@ pub fn pttab(interp: &[(u32, u32)], pairs: &[(f64, f64)]) -> Result<Option<[f64;
                 }
                 2 => {
                     let test = 1.0 / 10000.0;
-                    let mut slpe = 0.0;
                     if aneed < test {
                         tbmu[l] = a(&amu, k) + aneed / a(&p, k);
                     } else {

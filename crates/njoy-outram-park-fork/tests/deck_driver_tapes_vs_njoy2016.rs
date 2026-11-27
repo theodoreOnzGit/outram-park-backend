@@ -1094,6 +1094,46 @@ fn charged_deck_ace(case: &str, resource: &str) -> Option<njoy_outram_park_fork:
     Some(c)
 }
 
+/// **n + H-2 (ENDF/B-VIII.0, MAT 128) `reconr; acer` at 0 K: `acelcp`'s MF=6
+/// `LAW = 6` charged-particle production for an incident neutron** (gh:#873).
+///
+/// Methodology: the deck below on NJOY2016's own `tests/resources` copy of
+/// `n-001_H_002-ENDF8.0.endf`, run by NJOY2016 and by this crate; ACE unit 24
+/// compared word for word (`acer::compare`). H-2's MT=16 (n,2n) emits its
+/// proton as MF=6 `LAW = 6` (phase space, `NPSX = 3`), which `acelcp` turns
+/// into an HPD/DLWH law-66 entry (`acefc.f90:10601-10742`,
+/// `acelcp_ext::law6_grid`/`law6_h`). The charged-particle decks (50-71) reach
+/// LAW = 6 only for an incident charged particle; this is the one held
+/// incident-neutron evaluation whose charged product is LAW = 6 (the 2026-11-24
+/// survey of `reference-data/endf/` and `tests/resources` found H-2 MT=16 only;
+/// Be-9's LAW = 7 alpha is gated by `msre_salt_nuclides_900k_vs_njoy2016`).
+/// The same table also carries the **elastic recoil** (MF=4, MT=2): the
+/// struck deuteron is H-2's second charged particle
+/// (`acelcp_ext::elastic_recoil_angular`), the only held incident-neutron
+/// case of that branch. Pass criterion: every block identical, and
+/// NJOY2016's `NXS(7) = 2` (p and d), so both branches were reached.
+///
+/// **Result (2026-11-24, NJOY2016 build at `ab27c64`): identical in every
+/// word**: NXS, JXS and all 44 572 XSS words, ESZ 3 845 words, the
+/// charged-particle blocks after `END` included; `NXS(7) = 2`. (The first
+/// run of this test expected `NXS(7) = 1` and failed on it, the word
+/// comparison already identical: the elastic-recoil deuteron had been
+/// overlooked. The assertion was corrected to NJOY2016's own count.)
+#[test]
+fn test_h2_neutron_acelcp_law6_proton_ace() {
+    let root = njoy_root();
+    let deck = "reconr\n 20 21/\n 'h-2 pendf 0K'/\n 128 0/\n .001/\n 0/\nacer\n 20 21 0 24 25/\n 1 1 1 .00 0/\n 'h-2 0K'/\n 128 0./\n 1 1/\n /\nstop\n";
+    let Some((ours, njoy)) = run_pair(&root, "h2lcp", "n-001_H_002-ENDF8.0.endf", deck) else { return };
+    let c = ace_pair(&ours, &njoy, 24);
+    for l in c.report_lines() {
+        println!("{l}");
+    }
+    let theirs = njoy_outram_park_fork::acer::read::parse_type1(&std::fs::read_to_string(njoy.join("tape24")).unwrap()).unwrap();
+    assert_eq!(theirs.nxs[6], 2, "NJOY2016's table must carry two charged particles (p from MT=16, d from the elastic recoil)");
+    assert!(c.identical(), "H-2 ACE differs from NJOY2016");
+    let _ = std::fs::remove_dir_all(ours.parent().unwrap());
+}
+
 #[test]
 fn test_50_charged_particle_ace() {
     if let Some(c) = charged_deck_ace("50", "a-002_He_004-ENDF8.0.endf") {
@@ -1394,10 +1434,27 @@ fn thermal_acer_deck(case: &str, n: usize, res: &[(&str, u32)], units: &[u32]) -
 /// The differing lines `(unit, line numbers)` of [`thermal_acer_deck`]'s run,
 /// with this crate's run dated `date` when given (else NJOY's).
 fn thermal_acer_differences(case: &str, n: usize, res: &[(&str, u32)], units: &[u32], date: Option<&str>) -> Option<Vec<(u32, Vec<usize>)>> {
+    thermal_acer_differences_edited(case, n, res, units, date, None)
+}
+
+/// [`thermal_acer_differences`] on the deck with one card replaced, `(old, new)`
+/// (the same deck for both codes); `old` must occur in the deck exactly once.
+fn thermal_acer_differences_edited(
+    case: &str,
+    n: usize,
+    res: &[(&str, u32)],
+    units: &[u32],
+    date: Option<&str>,
+    edit: Option<(&str, &str)>,
+) -> Option<Vec<(u32, Vec<usize>)>> {
     let root = njoy_root();
-    let deck = deck_first_acers(&root, case, n)?;
+    let mut deck = deck_first_acers(&root, case, n)?;
+    if let Some((old, new)) = edit {
+        assert_eq!(deck.matches(old).count(), 1, "deck {case}: the card to edit must occur once");
+        deck = deck.replace(old, new);
+    }
+    let tag = format!("ta{case}{}{}", if date.is_some() { "d" } else { "" }, if edit.is_some() { "e" } else { "" });
     let (r0, rest) = res.split_first().unwrap();
-    let tag = format!("ta{case}{}", if date.is_some() { "d" } else { "" });
     let (ours, njoy) = run_pair_decks_dated(&root, &tag, r0.0, rest, &deck, &deck, date)?;
     let mut bad = Vec::new();
     for &u in units {
@@ -1446,6 +1503,48 @@ fn test_49_thermal_ace_and_directory() {
 #[test]
 fn test_67_thermal_ace_and_directory() {
     thermal_acer_deck("67", 2, &[("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)], &[70, 75, 71, 76, 55]);
+}
+
+/// **ACER `nmix > 1`** (gh:#866, 2026-11-24): deck 67 (D in 7LiD, mixed elastic,
+/// `iwt = 0`) with card 9's `nmix` set to 2, `221 20 222 2 2 10. 0`, run by
+/// NJOY2016.80 and by this crate; the first ACER's ACE unit 70 and directory 75,
+/// and the second ACER's (`iopt = 7`, reading 70 back) units 71, 76 and plot
+/// file 55, line by line. No upstream test deck has `nmix != 1`, so the deck is
+/// edited; `nmix` is a pure ACER card and changes nothing before it.
+///
+/// Upstream (`aceth.f90`, `thrlod`): `nmix` divides the three cross sections it
+/// stores and nothing else: ITCX `scr/emev/nmix` (`:730`), the incoherent
+/// elastic `sigma` `scr(indx+1)/nmix` (`:804`, here ITCXI of the mixed table) and
+/// ITIX `scr(2)/nmix` (`:830`). The port divides the finished table's three
+/// blocks (`deck::acer_thermal::thrlod_nmix`), the same single IEEE division.
+///
+/// Prediction (before the run): every unit identical, ITIX, ITCX and ITCXI
+/// halved against `nmix = 1`. Result (2026-11-24, release, NJOY2016.80
+/// `ab27c64`): all five units identical (0 differing lines).
+#[test]
+fn test_67_nmix_2_thermal_ace_is_njoy2016s() {
+    let res = [("n-001_H_002-ENDF8.0.endf", 20), ("tsl-DinLiD-ENDF8.1-beta.endf", 21)];
+    let edit = Some(("221 20 222 2 1 10. 0", "221 20 222 2 2 10. 0"));
+    let Some(bad) = thermal_acer_differences_edited("67", 2, &res, &[70, 75, 71, 76, 55], None, edit) else { return };
+    assert!(bad.is_empty(), "deck 67, nmix = 2: units differ from NJOY2016: {bad:?}");
+}
+
+/// **ACER `nmix = 3`** (gh:#866, 2026-11-24): deck 49 (Zr in ZrH, `mte = 228`,
+/// `ielas = 0`: `iel`'s MF=3 read as Bragg edges, ITCX with `idpnc = 4`;
+/// `iwt = 2`) with card 9's `nmix` set to 3, `227 80 228 0 3 1.00022 2`. A
+/// division by 3 rounds, so this is the case where the port's order of
+/// operations has to be upstream's (`scr/emev/nmix`, not `scr/(emev*nmix)`).
+///
+/// Prediction (before the run): ACE unit 61 and directory unit 71 identical.
+/// Result (2026-11-24, release): both identical (0 differing lines). Control:
+/// NJOY2016's own ACE unit 71 at `nmix = 3` differs from its `nmix = 1` table in
+/// 105 of 272 558 lines (ITIX and ITCX), so this gate can fail.
+#[test]
+fn test_49_nmix_3_thermal_ace_is_njoy2016s() {
+    let res = [("n-040_Zr_090-ENDF8.0.endf", 20), ("tsl-ZrinZrH-ENDF8.0.endf", 30)];
+    let edit = Some(("227 80 228 0 1 1.00022 2", "227 80 228 0 3 1.00022 2"));
+    let Some(bad) = thermal_acer_differences_edited("49", 1, &res, &[61, 71], None, edit) else { return };
+    assert!(bad.is_empty(), "deck 49, nmix = 3: units differ from NJOY2016: {bad:?}");
 }
 
 /// Deck 68 (H in H2O, inelastic only): ACE unit 70 and directory unit 75.

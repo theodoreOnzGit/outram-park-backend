@@ -88,6 +88,13 @@ impl AxialSevenNodeCore {
         }
     }
 
+    /// The one-node bed this placeholder currently **is** (a copy): what the
+    /// control-volume map lists for this tier until the seven-node model is real
+    /// (gh:#1718).
+    pub fn porous_media_node(&self) -> PebbleBedPorousMediaNode {
+        self.fallback
+    }
+
     /// Delegates to [`PebbleBedPorousMediaNode::step`] -- see the module doc
     /// comment for what a real seven-node march would do instead.
     ///

@@ -37,7 +37,10 @@
 //! (LAW = 2, gh:#1370). **CORRECTED 2026-11-14 (gh:#1370):** the `law = 4` cosine
 //! flip is [`TwoBodyFeed::with_law4_cosine_flip`], for File-6 `LAW = 4`
 //! (`File4Angular::from_mf6_law4`); File-6 `LAW = 5` for a neutron is
-//! `File4Angular::from_mf6_law5`. The Coulomb term is still not ported.
+//! `File4Angular::from_mf6_law5`. ~~The Coulomb term is still not ported.~~
+//! **CORRECTED 2026-11-24 (gh:#1370):** the Coulomb term, `wcut` and the `mfd = 3`
+//! accumulation are [`TwoBodyFeed::with_charged_elastic`], fed by
+//! `crate::groupr::charged_elastic`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -53,6 +56,48 @@ const EMAX: f64 = 1.0e10;
 const SMALL: f64 = 1.0e-10;
 /// `shade` (`:9406`): boundaries are treated as reached this close below.
 const SHADE: f64 = 0.999_999_95;
+/// `wcut` (`groupr.f90:9406`): the largest CM cosine kept for charged-particle
+/// elastic scattering, where the Coulomb term diverges.
+const WCUT: f64 = 0.94;
+
+/// `getdis`'s Coulomb part for charged particles (`groupr.f90:9528-9548`): the
+/// nuclear-plus-interference probability `prob` at CM cosine `wqp` divided by
+/// `1-wqp` (or `1-wqp^2` for identical particles) plus the Coulomb cross section
+/// `sigc`, at incident energy `e` with `getsig`'s `awr`. Each expression keeps
+/// upstream's operation order.
+fn coulomb_added(prob: f64, c: ChargedElastic, awr: f64, e: f64, wqp: f64) -> f64 {
+    use crate::common::phys::{AMASSN_AMU as AMASSN, AMU_G as AMU, CLIGHT_CM_S as CLIGHT, EV_ERG as EV, HBAR_ERG_S as HBAR};
+    let fm = 1.0e-12f64;
+    let lidp = i32::from(c.izap == c.izat);
+    let i2s = (2.0 * c.spi).round() as i32;
+    let ai = c.awrp * AMASSN;
+    let at = awr * AMASSN;
+    let zt = f64::from(c.izat / 1000);
+    let zi = f64::from(c.izap / 1000);
+    let cc1 = 2.0 * AMU * EV * fm.r_powi(2) / HBAR.r_powi(2);
+    let ee = (EV / 10_000_000.0) * (CLIGHT / 10.0);
+    let cc2 = ee.r_powi(4) * AMU / (2.0 * HBAR.r_powi(2) * EV);
+    let wn = at * (cc1 * e * ai).sqrt() / (ai + at);
+    let eta = zt * zi * (cc2 * ai / e).sqrt();
+    let mut sigc = 0.0;
+    if lidp == 0 {
+        sigc = (eta.r_powi(2) / wn.r_powi(2)) / (1.0 - wqp).r_powi(2);
+    }
+    if lidp == 1 {
+        // `((-1)**i2s)`: an integer power, then converted.
+        let sgn = if i2s % 2 == 0 { 1.0 } else { -1.0 };
+        sigc = ((2.0 * eta.r_powi(2) / wn.r_powi(2)) / (1.0 - wqp.r_powi(2)))
+            * ((1.0 + wqp.r_powi(2)) / (1.0 - wqp.r_powi(2)) + sgn * (eta * ((1.0 + wqp) / (1.0 - wqp)).r_ln()).r_cos() / (2.0 * c.spi + 1.0));
+    }
+    let mut prob = prob;
+    if lidp == 0 {
+        prob /= 1.0 - wqp;
+    }
+    if lidp == 1 {
+        prob /= 1.0 - wqp * wqp;
+    }
+    prob + sigc
+}
 
 /// Gauss-Legendre 4-point nodes/weights (`qp4`/`qw4`, `:9360-9364`).
 const QP4: [f64; 4] = [
@@ -219,6 +264,26 @@ pub struct TwoBodyFeed {
     /// File-6 `LAW = 4`: `if (law.eq.4) wqp=-wqp` (`:9519`), the recoil's CM
     /// cosine is the partner's negated (gh:#1370).
     law4_flip: bool,
+    /// An incident charged particle's elastic scattering, `mfd = 3`, `mtd = 2`
+    /// (`izap > 1`, gh:#1370): the Coulomb term, `wcut` and the `mfd = 3`
+    /// accumulation into one column. `None` for a neutron.
+    charged: Option<ChargedElastic>,
+    /// `mfd = 3` for that elastic: bands accumulate into one column, `iglo = 1`.
+    charged_mfd3: bool,
+}
+
+/// `getdis`'s constants for an incident charged particle's elastic scattering
+/// (`groupr.f90:9413`, `:9434`, `:9449-9452`, `:9529-9548`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ChargedElastic {
+    /// `izap`, the projectile's ZA (`conver`: `NSUB/10`, `:11481`).
+    pub izap: i32,
+    /// `izat`, the target's ZA (`getmf6`: the MF=6 head's ZA, `:7583`).
+    pub izat: i32,
+    /// `awrp`, the projectile's AWR (`conver`: MF=1 `AWI`, `:11482`).
+    pub awrp: f64,
+    /// `spi`, the projectile's spin (`conver`: the `LAW = 5` TAB2's C1, `:11576`).
+    pub spi: f64,
 }
 
 impl TwoBodyFeed {
@@ -289,6 +354,8 @@ impl TwoBodyFeed {
             ratio_mt: 0,
             lord_extra: 0,
             law4_flip: false,
+            charged: None,
+            charged_mfd3: false,
         };
         feed.reset();
         Ok(feed)
@@ -309,6 +376,59 @@ impl TwoBodyFeed {
     /// with the angular data from [`File4Angular::from_mf6_law4`] (gh:#1370).
     pub fn with_law4_cosine_flip(mut self) -> Self {
         self.law4_flip = true;
+        self
+    }
+
+    /// Make the outgoing particle's mass ratio `aprime` (`parts`,
+    /// `groupr.f90:7415-7525`) something other than the neutron's 1: a charged
+    /// particle or the residual of an MF=4 two-body reaction, `mfd = 31-36`
+    /// (gh:#1370, 2026-11-24). `getdis` reads it in `awr2` (`:9429`), the cosine
+    /// edges (`:9480`) and the critical energies (`:9621-9656`), all of which take
+    /// `self.aprime`. The state is reset as after `getdis(e = 0)`.
+    pub fn with_outgoing_mass(mut self, aprime: f64) -> Self {
+        self.aprime = aprime;
+        self.reset();
+        self
+    }
+
+    /// Take `thresh` and `alpha` from the AWR `getsig` read off the PENDF's MF=3
+    /// head (`groupr.f90:6717`, `:6751-6752`), while `awr` stays the one `getfle`
+    /// set from the MF=4 head (`:9711-9713`). Upstream's initialisation runs
+    /// `getsig(e = 0)` before `getff(e = 0)` (`:746-749`), so the two kinematic
+    /// constants keep MF=3's AWR even after `getfle` overwrites the module `awr`;
+    /// `awr2`, the cosine edges and the critical energies use MF=4's. They differ
+    /// when the two heads do (Be-9 ENDF/B-VIII.0: 8.934780 against 8.934760, which
+    /// moved `ech = egn/alpha` by 1e-6 relative; gh:#1370, 2026-11-24). The state
+    /// is reset as after `getdis(e = 0)`.
+    pub fn with_getsig_awr(mut self, awr_sig: f64) -> Self {
+        self.thresh = (awr_sig + 1.0) * (-self.q) / awr_sig;
+        self.alpha = (awr_sig - 1.0).r_powi(2) / (awr_sig + 1.0).r_powi(2);
+        self.reset();
+        self
+    }
+
+    /// Make this the `mfd = 3`, `mtd = 2` feed of an incident charged particle
+    /// (`getff` label 800, `getmf6` label 194/500 on the `LAW = 5` subsection,
+    /// `groupr.f90:7063`, `:7389`, `:7936`, `:8096`; gh:#1370, 2026-11-24).
+    /// `getdis` then adds the Coulomb term to the nuclear-plus-interference
+    /// probability (`:9529-9548`), cuts the cosine range at `wcut = 0.94` (and at
+    /// `-wcut` for identical particles, `:9449-9452`), adds 6 (and `lord`) to `npo`
+    /// (`:9427`, `:9434`), accumulates every band into one column (`:9485`,
+    /// `:9568`) and returns `iglo = 1` (`:9581`). `awr` given to [`Self::new`] must
+    /// be `getsig`'s, the MF=3 AWR over `awrp` (`:6718`), and `aprime` is set with
+    /// [`Self::with_outgoing_mass`] (`awp/awrp`, `:7629-7630`).
+    pub fn with_charged_elastic(mut self, c: ChargedElastic, lord: usize) -> Self {
+        self.charged = Some(c);
+        self.charged_mfd3 = true;
+        self.lord_extra = lord;
+        self
+    }
+
+    /// The same Coulomb term, `wcut` and `npo + 6` for the charged projectile's
+    /// elastic **matrix**, `mfd = 21-26` on `MT = 2` (`getff` label 800, `getmf6`
+    /// with `zad` the projectile, gh:#1370): bands go to label 410 as for a neutron.
+    pub fn with_coulomb(mut self, c: ChargedElastic) -> Self {
+        self.charged = Some(c);
         self
     }
 
@@ -381,7 +501,11 @@ impl TwoBodyFeed {
         let awr2 = awr * (awr + 1.0 - aprime) / aprime;
         let ld = nld - 1;
         // `npo = ld + nl + int(log(300/awr))` (`:9426`); Fortran `int` truncates.
-        let npo = (ld as i64 + nl as i64 + (300.0 / awr).r_ln().trunc() as i64).max(0) as usize + self.lord_extra;
+        let mut npo = (ld as i64 + nl as i64 + (300.0 / awr).r_ln().trunc() as i64).max(0) as usize + self.lord_extra;
+        // `if (izap.gt.1) npo=npo+6` (`:9434`).
+        if self.charged.is_some() {
+            npo += 6;
+        }
         let mut nqp0 = 4;
         if npo > 8 {
             nqp0 = 8;
@@ -402,8 +526,15 @@ impl TwoBodyFeed {
         let mut ngnow: usize = 0;
         let mut ignow = 0usize;
         let iglo = self.iech.saturating_sub(1).max(1);
-        let wmin = -1.0f64;
-        let wmax = 1.0f64;
+        let mut wmin = -1.0f64;
+        let mut wmax = 1.0f64;
+        // `:9449-9452`: `wcut` for charged-particle elastic scattering.
+        if let Some(c) = self.charged {
+            wmax = WCUT;
+            if c.izap == c.izat {
+                wmin = -WCUT;
+            }
+        }
         let mut whi = wmin;
         let mut ff = vec![vec![0.0f64; ngn1 + 2]; nl];
         let mut flt = vec![0.0f64; nl];
@@ -411,7 +542,9 @@ impl TwoBodyFeed {
         // always returns to 410 after a band, `:9567`; the ratio reactions
         // and `mfd = 3` return to 425 and keep accumulating in one column).
         let mtd = self.ratio_mt;
-        let ratio = mtd != 0;
+        // The ratio reactions and the charged `mfd = 3` elastic both go back to
+        // label 425 (`:9484-9485`, `:9567-9568`).
+        let ratio = mtd != 0 || self.charged_mfd3;
         let mut at425 = false;
         loop {
             if !at425 {
@@ -494,6 +627,9 @@ impl TwoBodyFeed {
                 for il in 1..=nld {
                     prob += fle[il - 1] * p[il - 1] * ((2 * il - 1) as f64) / 2.0;
                 }
+                if let Some(c) = self.charged {
+                    prob = coulomb_added(prob, c, awr, e, wqp);
+                }
                 let wlab = (1.0 + ast * wqp) / (1.0 + ast * ast + 2.0 * ast * wqp).sqrt();
                 let pl = legndr(wlab, nl - 1);
                 // `prob = yld*wqw*prob` (`:9555`); the product is commutative.
@@ -528,7 +664,11 @@ impl TwoBodyFeed {
             }
         }
         let mut iglo = iglo;
-        if ratio {
+        // `if (mfd.eq.3.and.mtd.eq.2) iglo=1` (`:9581`).
+        if self.charged_mfd3 {
+            iglo = 1;
+        }
+        if mtd != 0 {
             for f in ff.iter_mut() {
                 if mtd == 251 || mtd == 252 {
                     f[ng] = 1.0;
