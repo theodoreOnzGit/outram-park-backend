@@ -110,9 +110,9 @@ fn parse_log(text: &str) -> Reference {
 fn load_reference(tag: &str) -> Reference {
     let text = String::from_utf8(gunzip(&vv_dir().join(format!("refs/esfr_r75_{tag}_log.ref.txt.gz")))).expect("utf8");
     let mut r = parse_log(&text);
-    if tag == "tight" {
+    if tag.starts_with("tight") {
         for region in ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"] {
-            let p = vv_dir().join(format!("refs/esfr_r75_tight_V_{region}.ref.txt.gz"));
+            let p = vv_dir().join(format!("refs/esfr_r75_{tag}_V_{region}.ref.txt.gz"));
             if !p.exists() {
                 continue;
             }
@@ -271,6 +271,9 @@ fn esfr_transient_steps_against_the_real_binary() {
         // the fluid `h` solves of the whole step
         let mine_h: Vec<(String, f64, i64)> = rec.h_solves.iter().map(|&(a, b)| ("h".to_string(), a, b as i64)).collect();
         let up_h: Vec<(String, f64, i64)> = up.h.iter().map(|&(a, b)| ("h".to_string(), a, b)).collect();
+        if std::env::var("ESFR_T_VERBOSE").is_ok() {
+            println!("  H solves step {k}: port {:?} ... upstream {:?}", rec.h_solves.iter().take(3).collect::<Vec<_>>(), up.h.iter().take(3).collect::<Vec<_>>());
+        }
         let (eq, wr, _wa, o1, _wi) = compare_solves(&mine_h, &up_h);
         if !eq {
             h_mismatch += 1;
@@ -310,6 +313,8 @@ fn esfr_transient_steps_against_the_real_binary() {
                     if !eq {
                         tm_mismatch += 1;
                         println!("TM SOLVES DIFFER in count/order: step {k} pass {j}: port {} upstream {}", mine_tm.len(), u.len());
+                        println!("  port initial residuals {:?}", mine_tm.iter().map(|x| (x.0.as_str(), x.1, x.2)).collect::<Vec<_>>());
+                        println!("  upstream initial residuals {:?}", u.iter().map(|x| (x.0.as_str(), x.1, x.2)).collect::<Vec<_>>());
                     } else {
                         if wr > tm_worst.0 {
                             tm_worst = (wr, k);
@@ -368,6 +373,18 @@ fn esfr_transient_steps_against_the_real_binary() {
                         let scale = full.iter().fold(0.0_f64, |a, v| a.max(v.abs()));
                         let diff = mine.iter().zip(full).fold(0.0_f64, |a, (x, y)| a.max((x - y).abs()));
                         line.push_str(&format!("; full-field max|d|/max|up| {:e}", if scale > 0.0 { diff / scale } else { diff }));
+                        if std::env::var("ESFR_T_WORST").is_ok_and(|w| w == key) && scale > 0.0 && diff / scale > 1e-9 {
+                            let dim = if *name == "U" || *name == "disp" || *name == "meshDisp" { 3 } else { 1 };
+                            let mut cells: Vec<(f64, usize)> = (0..mine.len()).map(|i| ((mine[i] - full[i]).abs(), i)).collect();
+                            cells.sort_by(|a, b| b.0.total_cmp(&a.0));
+                            let fuel = port_field(&run, "fluidRegion", "T.fuelAvForNeutronics").unwrap_or_default();
+                            for (d, i) in cells.iter().take(6) {
+                                let c = i / dim;
+                                println!("    WORST {key} step {k} cell {c}: port {:e} real {:e} diff {d:e}; fuelAv {:e}", mine[*i], full[*i], fuel.get(c).copied().unwrap_or(f64::NAN));
+                            }
+                            let in_fuel = cells.iter().take(200).filter(|(_, i)| fuel.get(i / dim).is_some_and(|f| *f != 0.0)).count();
+                            println!("    of the 200 worst cells {in_fuel} are fuel-pin cells (T.fuelAvForNeutronics != 0)");
+                        }
                     }
                 }
                 println!("{line}");

@@ -79,9 +79,11 @@ struct Reference {
 }
 
 fn load_reference(tag: &str) -> Reference {
-    let with_full = tag == "tight";
+    // `r75step2` (gh:#1949, README round 75 Part C): the tight run of the round 74 case for 3 steps with the full fields kept at steps 1, 2, 3
+    let step2 = tag == "r75step2";
+    let with_full = tag == "tight" || step2;
     let mut r = Reference::default();
-    let text = String::from_utf8(gunzip(&vv_dir().join(format!("refs/esfr_r74_{tag}_log.ref.txt.gz")))).expect("utf8");
+    let text = String::from_utf8(gunzip(&vv_dir().join(if step2 { "refs/esfr_r75_step2_log.ref.txt.gz".to_string() } else { format!("refs/esfr_r74_{tag}_log.ref.txt.gz") }))).expect("utf8");
     for line in text.lines() {
         let w: Vec<&str> = line.split_whitespace().collect();
         let f = |i: usize| w[i].parse::<f64>().expect("float");
@@ -110,7 +112,8 @@ fn load_reference(tag: &str) -> Reference {
     }
     if with_full {
         for region in ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"] {
-            let t = String::from_utf8(gunzip(&vv_dir().join(format!("refs/esfr_r74_tight_V_{region}.ref.txt.gz")))).expect("utf8");
+            let name = if step2 { format!("refs/esfr_r75_step2_V_{region}.ref.txt.gz") } else { format!("refs/esfr_r74_tight_V_{region}.ref.txt.gz") };
+            let t = String::from_utf8(gunzip(&vv_dir().join(name))).expect("utf8");
             for line in t.lines() {
                 let w: Vec<&str> = line.split_whitespace().collect();
                 let k: usize = w[1].parse().unwrap();

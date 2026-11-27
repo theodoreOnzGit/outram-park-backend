@@ -20,7 +20,8 @@
 //!
 //! AI-written, not human-reviewed. Research, education and V&V only.
 //!
-//! One time step of `GeN-Foam.C` (no `multiPhysicsSolver` is configured in this case: every region is its own solver):
+//! One time step of `GeN-Foam.C` (every region is its own solver; ONE `multiPhysicsSolver` entry, gh:#1950, README round 75, runs the Picard loop
+//! of its members instead: `multiPhysicsSolver.C:156-186`, see [`RegionSolvers::step`]):
 //!
 //! 1. `runTime++` (`time += deltaT`);
 //! 2. `solvers.mapper().mapAllFields(runTime)`: for target region `i` and source region `j` in `regionSolvers` order, each
@@ -1743,5 +1744,114 @@ mod neutronics_settings_tests {
         std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"flux.*\" {{ solver GAMG; tolerance 1e-6; smoother DICGaussSeidel; }} }}")).unwrap();
         assert!(neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).is_err());
         let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod multi_physics_tests {
+    use super::*;
+
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for e in std::fs::read_dir(from).unwrap().flatten() {
+            let (src, dst) = (e.path(), to.join(e.file_name()));
+            if src.is_dir() {
+                copy_dir(&src, &dst);
+            } else {
+                std::fs::copy(&src, &dst).unwrap();
+            }
+        }
+    }
+
+    /// The staged small case (2-D `fullCoupling` steady state) with its three `regionSolvers` replaced by ONE `multiPhysicsSolver`.
+    fn staged(tag: &str, extra: &str) -> std::path::PathBuf {
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let root = std::env::temp_dir().join(format!("r75_multi_{tag}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        copy_dir(&case, &root);
+        let ctl = std::fs::read_to_string(root.join("system/controlDict")).unwrap();
+        let start = ctl.find("regionSolvers").unwrap();
+        let end = start + ctl[start..].find('}').unwrap() + 1;
+        let ctl = format!("{}regionSolvers {{ loop multiPhysicsSolver; }}{}", &ctl[..start], &ctl[end..]);
+        let ctl = ctl.replace("endTime 100;", "endTime 3;");
+        std::fs::write(root.join("system/controlDict"), ctl).unwrap();
+        let cd = std::fs::read_to_string(root.join("constant/multiRegionCouplingDict")).unwrap();
+        let block = format!(
+            "multiPhysicsSolvers {{ loop {{ solvers {{ fluidRegion onePhase; neutroRegion diffusionNeutronics; thermoMechanicalRegion legacyThermoMechanics; }} minResidual 1e-30; maxIterations 2; {extra} }} }}\n"
+        );
+        let at = cd.find("meshDeformation").unwrap();
+        std::fs::write(root.join("constant/multiRegionCouplingDict"), format!("{}{block}{}", &cd[..at], &cd[at..])).unwrap();
+        root
+    }
+
+    /// `latest_time` is the largest numeric directory; `startFrom latestTime` needs one.
+    #[test]
+    fn the_latest_time_is_the_largest_numeric_directory() {
+        let dir = std::env::temp_dir().join(format!("r75_latest_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for d in ["0", "200", "200.5", "constant", "system"] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        assert_eq!(latest_time(&dir).unwrap(), 200.5);
+        let empty = std::env::temp_dir().join(format!("r75_latest_empty_{}", std::process::id()));
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(latest_time(&empty).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
+    }
+
+    /// `read_baffle_less_geometry`: absent directory -> `None` (the baffled geometry is used), a mesh of the region's cell count -> the geometry, another
+    /// cell count -> an error naming it.
+    #[test]
+    fn the_baffle_less_start_mesh_is_read_when_present() {
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let root = std::env::temp_dir().join(format!("r75_bl_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        copy_dir(&case.join("constant/fluidRegion/polyMesh"), &root.join("200/fluidRegion.baffleLess/polyMesh"));
+        let n = DeformableMesh::read(&case.join("constant/fluidRegion/polyMesh"), PointCellsOrder::CellAscending).unwrap().mesh().n_cells;
+        assert!(read_baffle_less_geometry(&root, "fluidRegion", "200", n).unwrap().is_some());
+        assert!(read_baffle_less_geometry(&root, "fluidRegion", "100", n).unwrap().is_none());
+        assert!(read_baffle_less_geometry(&root, "fluidRegion", "200", n + 1).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The `multiPhysicsSolvers` dictionary is read in solver order with `minResidual`/`maxIterations`; a nested solver and
+    /// `includeFluidMechanicsInLoop` are refused by name.
+    #[test]
+    fn the_multi_physics_dictionary_is_read_and_its_unported_forms_are_refused() {
+        let root = staged("dict", "");
+        let (m, members) = read_multi_physics(&root, "loop").unwrap();
+        assert_eq!((m.min_residual, m.max_iterations), (1e-30, 2));
+        assert_eq!(members.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"]);
+        assert!(read_multi_physics(&root, "other").is_err());
+        let with_fluid = staged("fluidmech", "includeFluidMechanicsInLoop (fluidRegion);");
+        assert!(read_multi_physics(&with_fluid, "loop").unwrap_err().to_string().contains("includeFluidMechanicsInLoop"));
+        let nested = staged("nested", "");
+        let cd = std::fs::read_to_string(nested.join("constant/multiRegionCouplingDict")).unwrap().replace("thermoMechanicalRegion legacyThermoMechanics; }", "thermoMechanicalRegion multiPhysicsSolver; }");
+        std::fs::write(nested.join("constant/multiRegionCouplingDict"), cd).unwrap();
+        assert!(read_multi_physics(&nested, "loop").unwrap_err().to_string().contains("nested"));
+        for r in [root, with_fluid, nested] {
+            let _ = std::fs::remove_dir_all(&r);
+        }
+    }
+
+    /// Two steps of the Picard loop on the small staged case: every step runs `maxIterations` passes (the residual never falls under 1e-30), each pass logs
+    /// its thermo-mechanics solves, the regions are read in `solvers` order, and the residual is the running maximum of the members' (`residual_of`).
+    #[test]
+    fn the_multi_physics_loop_runs_its_passes_on_the_small_case() {
+        let root = staged("loop", "");
+        let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap();
+        assert_eq!(run.regions.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(), ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"]);
+        for _ in 0..2 {
+            let rec = run.step().unwrap();
+            assert_eq!(rec.multi_iterations, 2);
+            assert_eq!(rec.iterations.len(), 2);
+            assert!(rec.iterations.iter().all(|i| !i.thermo_mechanics.is_empty()));
+            assert!(rec.multi_residual.is_finite() && rec.multi_residual >= 0.0);
+            assert!(rec.k_eff > 0.0 && rec.power > 0.0);
+        }
+        let residuals: Vec<f64> = (0..run.regions.len()).map(|i| run.residual_of(i)).collect();
+        assert!(residuals.iter().all(|r| r.is_finite()));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

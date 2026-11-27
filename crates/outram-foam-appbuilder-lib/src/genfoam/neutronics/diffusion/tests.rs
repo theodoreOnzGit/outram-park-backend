@@ -468,3 +468,43 @@ fn rebind_without_v0_is_the_old_path_and_v0_weights_the_ddt_source() {
     assert!(a.rebind_mesh(slab_mesh(21), None).is_err(), "another topology is refused");
     assert!(a.rebind_mesh(mesh.clone(), Some(vec![1.0; 3])).is_err(), "V0 must be sized to the mesh");
 }
+
+/// gh:#1950 (README round 75): `multiPhysicsSolver` repeats a pass inside one time step with the OLD-TIME values of the previous time step. Without a hold a
+/// second `upstream_stationary_step` integrates from the first pass's result; with it, the pass is the same step again (bit for bit, the solve starts from
+/// the first pass's flux but `ddt` takes the held old values, so a CONVERGED pass is a fixed point), and release restores the default; the step reports
+/// `solver_residual` (`getResidual()`), at least the last pass's `neutroResidual`.
+#[test]
+fn a_repeated_pass_keeps_the_old_time_values_of_the_time_step() {
+    use super::external_source::StationaryStepControls;
+    let gc = OneGroup { d: 0.02, nu_sigma_f: 0.30, sigma_a: 0.10 };
+    let xs = one_group_xs(&gc);
+    let mesh = slab_mesh(20);
+    let n = mesh.n_cells;
+    let bc = vec![BoundaryCondition::FixedValue(0.0), BoundaryCondition::FixedValue(0.0)];
+    let build = || {
+        let mut m = DiffusionNeutronics::new(mesh.clone(), &xs, &vec![0usize; n], &[], &bc, DiffusionSettings::default()).unwrap();
+        m.set_initial_guess(&[vec![1.0; n]], 0.9);
+        m
+    };
+    let controls = StationaryStepControls::default();
+    // default: the second call integrates from the first call's result
+    let mut free = build();
+    free.upstream_stationary_step(0.01, 0.01, &controls).unwrap();
+    let after_one: Vec<f64> = free.state().flux()[0].internal.as_slice().to_vec();
+    free.upstream_stationary_step(0.01, 0.01, &controls).unwrap();
+    let free_two: Vec<f64> = free.state().flux()[0].internal.as_slice().to_vec();
+    // held: two passes of ONE step
+    let mut held = build();
+    held.hold_stationary_old_time();
+    assert!(held.stationary_old_time_is_held());
+    let s1 = held.upstream_stationary_step(0.01, 0.01, &controls).unwrap();
+    assert_eq!(held.state().flux()[0].internal.as_slice(), after_one.as_slice(), "the first pass is the ordinary step");
+    held.upstream_stationary_step(0.01, 0.01, &controls).unwrap();
+    let held_two: Vec<f64> = held.state().flux()[0].internal.as_slice().to_vec();
+    assert_ne!(held_two, free_two, "a repeated pass must not integrate from the previous pass");
+    let drift = held_two.iter().zip(&after_one).fold(0.0_f64, |a, (x, y)| a.max(((x - y) / y).abs()));
+    assert!(drift < 1e-3, "the second pass stays near the first (same old time): {drift:e}");
+    assert!(s1.solver_residual >= *s1.residual_history.last().unwrap());
+    held.release_stationary_old_time();
+    assert!(!held.stationary_old_time_is_held());
+}
