@@ -65,7 +65,7 @@
 //!   `setSnGrad`, `empty` patches.
 //! * `Boussinesq` + `hConst` + `const` ([`PhaseThermo::BoussinesqHConst`]): `fluid::rho()` is `rho0` in every term but the
 //!   buoyancy flux; `nu` and the Reynolds number use the THERMO density `rho(T)`.
-//! * `noSlip` (and `fixedValue`) velocity patches through `Vector::patch_coeffs` and `VecEqn::boundary_*`.
+//! * `noSlip` (and `fixedValue`) velocity patches through `Vector::patch_coeffs` and `UEqnCc::boundary_*` (round 46: the momentum matrix keeps `D`, `internalCoeffs` and `boundaryCoeffs` apart, as `fvMatrix` does).
 //!
 //! ## What this does not port (each refused by name in [`OnePhaseFcCase::read`])
 //!
@@ -105,8 +105,9 @@ use super::case::{read_field, read_heat_exchangers, read_nusselt, read_thermo, s
 use super::thermo::PhaseThermo;
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::{
-    dev2_div, solve_krylov, temperature, Phase, PRghPcg, Structure, TimeControls, VecEqn,
+    dev2_div, solve_krylov, temperature, Phase, PRghPcg, Structure, TimeControls,
 };
+use super::one_phase_cc::flow::UEqnCc;
 use super::one_phase_cc::{GamgPolicy, PressureSolve};
 use super::pcg::pcg_dic;
 use crate::error::AppBuilderError;
@@ -224,18 +225,6 @@ pub struct OnePhaseFcCase {
     pub end_time: f64,
     /// `deltaT`.
     pub delta_t: f64,
-}
-
-/// The per-face terms of `fvMatrix::relax` (ESI v2506 `fvMatrix.C:1149`, `:1237`) for a non-coupled boundary face with
-/// `internalCoeffs = ic` (one entry per component), relative to the `cmptAv` that [`Vector`]'s matrix assembly already folds
-/// into the diagonal: `(cmptMax(cmptMag(ic)) - cmptAv(ic), cmptAv(ic) - cmptMin(ic))` = `(pre, post)` of
-/// `OnePhaseFcSolver::relax_diag_boundary`. For three equal components `v` this is `(2 max(-v, 0), 0)`; for a `slip` wall of
-/// normal `x`, `ic = (c, 0, 0)` gives `(2c/3, c/3)`. gh:#1894.
-pub(super) fn relax_face_terms(ic: [f64; 3]) -> (f64, f64) {
-    let cmax_mag = ic[0].abs().max(ic[1].abs()).max(ic[2].abs());
-    let cmin = ic[0].min(ic[1]).min(ic[2]);
-    let cav = (ic[0] + ic[1] + ic[2]) / 3.0;
-    (cmax_mag - cav, cav - cmin)
 }
 
 fn parse_zone_models<T>(
@@ -896,15 +885,14 @@ impl OnePhaseFcSolver {
         }
     }
 
-    /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`). With the boundary coefficients folded
-    /// into the diagonal (`diag_fold = D + sum cmptAv(iCoeffs)`), OpenFOAM's add-`cmptMax(cmptMag(iCoeffs))`,
-    /// take-`max(|D|, sumOff)`, divide, subtract-`cmptMin(iCoeffs)` sequence (per boundary face) gives
-    /// `diag_fold' = max(|diag_fold + pre|, sumOff) / alpha + post`, with `pre = sum_f (cmptMax(cmptMag(iCoeffs_f)) -
-    /// cmptAv(iCoeffs_f))` and `post = sum_f (cmptAv(iCoeffs_f) - cmptMin(iCoeffs_f))` ([`relax_face_terms`]). For equal
-    /// components (a scalar equation, `zeroGradient`, `fixedValue`, `noSlip`) `pre = 2 max(-iCoeffs, 0)` (a boundary face with a
-    /// NEGATIVE internal coefficient, a convective inflow through a non-fixed patch, is not neutral) and `post = 0`; for a
-    /// `slip` wall (`iCoeffs = (c, 0, 0)`) both are non-zero (gh:#1894). Returns `D' - D` per cell, the coefficient of `psi`
-    /// in the source correction.
+    /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`) of the SCALAR energy equation, whose boundary coefficients are
+    /// folded into the diagonal (`diag_fold = D + sum iCoeffs`): OpenFOAM's add-`|iCoeffs|`, take-`max(|D|, sumOff)`, divide,
+    /// subtract-`iCoeffs` sequence (per boundary face) gives `diag_fold' = max(|diag_fold + pre|, sumOff) / alpha + post` with
+    /// `pre = 2 sum max(-iCoeffs, 0)` (a boundary face with a NEGATIVE internal coefficient, a convective inflow through a
+    /// non-fixed patch, is not neutral) and `post = 0` (the three "components" of a scalar are one). Returns `D' - D` per cell, the
+    /// coefficient of `psi` in the source correction. The momentum equation no longer goes through here: since gh:#1894 round 46 it
+    /// keeps `D` and `internalCoeffs` apart exactly as `fvMatrix` does and relaxes with `UEqnCc::relax` (per face, over the
+    /// three components: a `slip` wall's `iCoeffs` are `(c, 0, 0)`; round 45).
     fn relax_diag_boundary(&self, e: &mut Eqn, factor: f64, pre: &[f64], post: &[f64]) -> Vec<f64> {
         let n = self.geom.n_cells();
         let mut sum_off = vec![0.0; n];
@@ -929,37 +917,6 @@ impl OnePhaseFcSolver {
         self.relax_diag_boundary(e, factor, inflow2, &zero)
     }
 
-    /// The `pre` and `post` sums of [`Self::relax_diag_boundary`] for the velocity equation: per boundary face the
-    /// `internalCoeffs` of `fvm::div(alphaRhoPhi, U)` (`phi_b valueInternalCoeffs`) plus those of `-fvm::laplacian(gamma, U)`
-    /// (`-(pGamma gradientInternalCoeffs)`; `fvMatrix::operator+=` adds them component-wise before `relax` sees them), from the
-    /// patch coefficients of [`Vector::patch_coeffs`] exactly as `VecEqn::boundary_convection` and `boundary_laplacian` build them.
-    fn u_relax_boundary_terms(&self, gamma: &[f64]) -> (Vec<f64>, Vec<f64>) {
-        let g = &self.geom;
-        let fl = &self.fluid;
-        let mut pre = vec![0.0; g.n_cells()];
-        let mut post = vec![0.0; g.n_cells()];
-        for f in g.n_internal()..g.n_faces() {
-            if !g.active[f] {
-                continue;
-            }
-            let o = g.mesh.owner[f];
-            let c = fl.u.patch_coeffs(g, f, [&[], &[]]);
-            let phi = fl.alpha_rho_phi[f];
-            let mut ic = [phi * c.value_internal[0], phi * c.value_internal[1], phi * c.value_internal[2]];
-            if !(c.gradient_internal_diag == [0.0; 3] && c.gradient_boundary == [0.0; 3]) {
-                let pg = gamma[f] * g.mesh.face_areas[f];
-                let d = g.delta[f];
-                for k in 0..3 {
-                    ic[k] += -(pg * (-d * c.gradient_internal_diag[k]));
-                }
-            }
-            let (p, q) = relax_face_terms(ic);
-            pre[o] += p;
-            post[o] += q;
-        }
-        (pre, post)
-    }
-
     /// `2 sum max(-phi_b, 0)` per owner cell over the boundary faces of `phi` whose patch is not
     /// fixed-value for the transported field (`fixed(f)`): the convective inflow terms of
     /// [`Self::relax_diag`].
@@ -974,24 +931,24 @@ impl OnePhaseFcSolver {
         out
     }
 
-    /// `UEqn_1p.H` in `faceCentered` mode (laminar `nuEff`, no tortuosity).
-    fn correct_u_eqn(&self) -> VecEqn {
+    /// `UEqn_1p.H` in `faceCentered` mode (laminar `nuEff`, no tortuosity), as an `fvMatrix` that keeps its diagonal, its
+    /// per-face `internalCoeffs`/`boundaryCoeffs` and its source apart ([`UEqnCc`], round 46, gh:#1894), summed in the operation
+    /// order of the upstream expression
+    /// `UEqn = div + SuSp(-contErr) + ((-laplacian) - fvc::div(dev2)) + Sp(Kd/3) + (dev(Kd) & U)` (`UEqn_1p.H:20-46`): each fvm
+    /// term is its own matrix with its own `negSumDiag` and `fvMatrix::operator+=` adds them whole ([`UEqnCc::add`]), so
+    /// the diagonal rounds as `((div + SuSp) + lap) + Sp`, not as terms accumulated into one running diagonal. `UEqn.relax()` is
+    /// `fvMatrix::relax` ([`UEqnCc::relax`]); `A()` and `H()` are `UEqnCc::a` and `UEqnCc::h`.
+    fn correct_u_eqn(&self) -> UEqnCc {
         let g = &self.geom;
         let n = g.n_cells();
         let nf = g.n_faces();
         let ni = g.n_internal();
         let fl = &self.fluid;
-        let mut e = VecEqn::new(g);
         let zg = Scalar::uniform(g, 0.0, g.default_bcs());
-        // gh:#1878 item 4: with a non-zeroGradient velocity patch (noSlip) the boundary coefficients of `fvm::div` and
-        // `fvm::laplacian` come from the patch field (`Vector::patch_coeffs`); the all-zeroGradient channel keeps its path.
-        let patched = fl.u.has_non_zero_gradient_patch();
-        if patched {
-            e.eqn.div_upwind_internal(g, &fl.alpha_rho_phi);
-            e.boundary_convection(g, &fl.alpha_rho_phi, &fl.u, [&[], &[]]);
-        } else {
-            e.eqn.div_upwind(g, &fl.alpha_rho_phi, &zg);
-        }
+        // fvm::div(alphaRhoPhi, U) + fvm::SuSp(-contErr, U)
+        let mut e = UEqnCc::new(g);
+        e.eqn.div_upwind_internal(g, &fl.alpha_rho_phi);
+        e.boundary_convection(g, &fl.alpha_rho_phi, &fl.u);
         let ce: Vec<f64> = fl.cont_err.iter().map(|v| -v).collect();
         e.su_sp(g, &ce, &fl.u.c);
         // alpha rho nuEff, nuEff = mu / rho (laminar Stokes)
@@ -1003,31 +960,20 @@ impl OnePhaseFcSolver {
             arn.b[i] = fl.alpha.b[i] * fl.rho.b[i] * (fl.mu.b[i] / self.thermo_rho_b(i));
         }
         let gamma = fv::interp_linear(g, &arn);
-        e.eqn.neg_laplacian(g, &gamma, &zg);
-        if patched {
-            e.boundary_laplacian(g, &gamma, &fl.u, [&[], &[]]);
-        }
+        // (-fvm::laplacian(alpha rho nuEff, U)) - fvc::div(alpha rho nuEff dev2(T(grad U))): one matrix, added whole
+        let mut lap = UEqnCc::new(g);
+        lap.eqn.neg_laplacian(g, &gamma, &zg);
+        lap.boundary_laplacian(g, &gamma, &fl.u);
         let dev2 = dev2_div(g, &fl.u, &arn);
-        for c in 0..n {
-            let v = g.mesh.cell_volumes[c];
-            e.src[0][c] += v * dev2[c].x;
-            e.src[1][c] += v * dev2[c].y;
-            e.src[2][c] += v * dev2[c].z;
-        }
-        e.eqn.sp(g, &self.kd);
+        lap.sub_field(g, &dev2);
+        e.add(&lap);
+        // + fvm::Sp((1/3) tr(Kds), U): `Kd` is isotropic here, so `dev(Kds) & U` is zero (a no-op `source -= V 0`)
+        let mut sp = UEqnCc::new(g);
+        sp.eqn.sp(g, &self.kd);
+        e.add(&sp);
         if let Some(fct) = self.controls.relax_u_equation {
-            // gh:#1894: per boundary face, over the three components (a `slip` wall's `iCoeffs` are not equal in them)
-            let (pre, post) = if patched {
-                self.u_relax_boundary_terms(&gamma)
-            } else {
-                (self.convective_inflow2(&fl.alpha_rho_phi, &|f| fl.u.flux_is_fixed(g, f)), vec![0.0; n])
-            };
-            let delta = self.relax_diag_boundary(&mut e.eqn, fct, &pre, &post);
-            for c in 0..n {
-                e.src[0][c] += delta[c] * fl.u.c[c].x;
-                e.src[1][c] += delta[c] * fl.u.c[c].y;
-                e.src[2][c] += delta[c] * fl.u.c[c].z;
-            }
+            // `UEqn.relax()`, `fvMatrix::relax` per boundary face over the three components (gh:#1894 round 45, 46)
+            e.relax(g, fct, &fl.u.c);
         }
         e
     }
@@ -1047,7 +993,7 @@ impl OnePhaseFcSolver {
     }
 
     /// `pEqnf_1p.H` with its `pEqnRoutines`. Returns the first PISO initial residual.
-    fn correct_pressure(&mut self, ueqn: &VecEqn) -> f64 {
+    fn correct_pressure(&mut self, ueqn: &UEqnCc) -> f64 {
         let g = self.geom.clone();
         let n = g.n_cells();
         let nf = g.n_faces();
@@ -1071,7 +1017,7 @@ impl OnePhaseFcSolver {
         let arf = ar_by_dt(&fl.alpha.c, &fl.rho.c, &fl.alpha.b, &fl.rho.b);
         let arf0 = ar_by_dt(&fl.alpha_old, &fl.rho_old, &fl.alpha_old_b, &fl.rho_old_b);
         let mut a = Scalar::uniform(&g, 0.0, g.default_bcs());
-        a.c = ueqn.eqn.a(&g);
+        a.c = ueqn.a(&g);
         a.correct_bc(&g);
         let ai = fv::interp_linear(&g, &a);
         let rauf: Vec<f64> = (0..nf).map(|f| 1.0 / (ai[f] + arf[f])).collect();
@@ -1100,7 +1046,7 @@ impl OnePhaseFcSolver {
                 }
             }
             // phiHbyA = alpharAUf (alphaRhof0ByDt phi.old + flux(H)) + alphaf phiSbyA
-            let h = ueqn.h(&g, &self.fluid.u);
+            let h = ueqn.h(&g, &self.fluid.u.c);
             let mut hv = Vector::uniform_with_constraint_patches(&g, Vector3::ZERO);
             hv.c = h;
             hv.correct_bc(&g);
@@ -1619,5 +1565,70 @@ impl OnePhaseFcSolver {
     pub fn without_non_orthogonal_correctors(mut self) -> Self {
         self.controls.n_non_orth_correctors = 0;
         self
+    }
+}
+
+#[cfg(all(test, feature = "std"))]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    /// gh:#1894 round 46: the face-centred momentum matrix keeps `D`, `internalCoeffs` and `boundaryCoeffs` apart (ESI v2506
+    /// `fvMatrix.C`): on the shipped `1D_HX/onePhase` (`slip` walls, so `iCoeffs` of a wall face is `(c, 0, 0)`, components NOT
+    /// equal) `A()` is `(D + sum_f cmptAv(iCoeffs_f)) / V` in face order, and `relax(1)` is `D' = max(|D + sum_f cmptMax(|iCoeffs_f|)|,
+    /// sumOff)/alpha - sum_f cmptMin(iCoeffs_f)`, each recomputed here from the stored `D` and `iCoeffs` and compared bit for bit.
+    #[test]
+    fn momentum_matrix_keeps_diagonal_and_internal_coeffs_apart_and_relaxes_per_face() {
+        let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data/genfoam_1d_hx_onephase");
+        let relaxed = OnePhaseFcSolver::from_case_dir(&dir).expect("read 1D_HX/onePhase");
+        let alpha = relaxed.controls.relax_u_equation.expect("`equations \".*\" 1` relaxes UEqn");
+        let plain = OnePhaseFcSolver::from_case_dir(&dir).expect("read").without_equation_relaxation();
+        let g = &plain.geom;
+        let (ni, nf) = (g.n_internal(), g.n_faces());
+        let e0 = plain.correct_u_eqn();
+        // a slip wall's iCoeffs have unequal components (the round 45 defect lived exactly here)
+        let unequal = (0..nf - ni).filter(|i| g.active[ni + i]).any(|i| e0.ic[i][0] != e0.ic[i][1] || e0.ic[i][1] != e0.ic[i][2]);
+        assert!(unequal, "a slip wall must give non-uniform iCoeffs");
+        // A() = (D + sum cmptAv(iCoeffs)) / V
+        let mut d = e0.eqn.ldu.diag.clone();
+        for f in ni..nf {
+            if g.active[f] {
+                let ic = e0.ic[f - ni];
+                d[g.mesh.owner[f]] += (ic[0] + ic[1] + ic[2]) / 3.0;
+            }
+        }
+        let a0 = e0.a(g);
+        for c in 0..g.n_cells() {
+            assert_eq!(a0[c], d[c] / g.mesh.cell_volumes[c], "A() of cell {c}");
+        }
+        // relax: recomputed from the unrelaxed D and iCoeffs
+        let e1 = relaxed.correct_u_eqn();
+        let mut sum_off = vec![0.0; g.n_cells()];
+        for f in 0..ni {
+            sum_off[e0.eqn.ldu.neighbour[f]] += e0.eqn.ldu.lower[f].abs();
+            sum_off[e0.eqn.ldu.owner[f]] += e0.eqn.ldu.upper[f].abs();
+        }
+        let mut dd = e0.eqn.ldu.diag.clone();
+        for f in ni..nf {
+            if g.active[f] {
+                let ic = e0.ic[f - ni];
+                dd[g.mesh.owner[f]] += ic[0].abs().max(ic[1].abs()).max(ic[2].abs());
+            }
+        }
+        for c in 0..g.n_cells() {
+            dd[c] = dd[c].abs().max(sum_off[c]) / alpha;
+        }
+        for f in ni..nf {
+            if g.active[f] {
+                let ic = e0.ic[f - ni];
+                dd[g.mesh.owner[f]] -= ic[0].min(ic[1]).min(ic[2]);
+            }
+        }
+        for c in 0..g.n_cells() {
+            assert_eq!(e1.eqn.ldu.diag[c], dd[c], "relaxed D of cell {c}");
+        }
+        // H() is finite and its z component carries the relaxation source (nonzero for a moving fluid)
+        let h = e1.h(g, &relaxed.fluid.u.c);
+        assert!(h.iter().all(|v| v.x.is_finite() && v.y.is_finite() && v.z.is_finite()));
     }
 }

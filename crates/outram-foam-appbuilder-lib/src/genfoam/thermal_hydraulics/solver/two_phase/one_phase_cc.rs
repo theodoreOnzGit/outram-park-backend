@@ -73,7 +73,7 @@ use uom::si::time::second;
 
 use crate::genfoam::common::TimeProfile;
 
-mod flow;
+pub(super) mod flow;
 mod pimple;
 #[cfg(feature = "std")]
 use super::radial_power;

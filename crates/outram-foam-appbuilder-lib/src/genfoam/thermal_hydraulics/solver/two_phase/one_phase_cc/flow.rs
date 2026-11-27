@@ -177,11 +177,11 @@ pub(super) struct FlowState {
 
 /// `fvMatrix<vector>` with `internalCoeffs`/`boundaryCoeffs` kept per boundary face, as OpenFOAM keeps them
 /// (`fvMatrix::relax`, `A()` and `H()` treat them separately from the diagonal and the source).
-struct UEqnCc {
-    eqn: Eqn,
-    src: [Vec<f64>; 3],
-    ic: Vec<[f64; 3]>,
-    bcoef: Vec<[f64; 3]>,
+pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) struct UEqnCc {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) eqn: Eqn,
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) src: [Vec<f64>; 3],
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) ic: Vec<[f64; 3]>,
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) bcoef: Vec<[f64; 3]>,
 }
 
 fn cmp(v: Vector3, i: usize) -> f64 {
@@ -193,7 +193,7 @@ fn cmp(v: Vector3, i: usize) -> f64 {
 }
 
 impl UEqnCc {
-    fn new(g: &Geometry) -> Self {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn new(g: &Geometry) -> Self {
         let n = g.n_cells();
         let nb = g.n_faces() - g.n_internal();
         Self {
@@ -206,7 +206,7 @@ impl UEqnCc {
 
     /// The boundary part of `fvm::div(phi, U)`: `internalCoeffs = phi valueInternalCoeffs`,
     /// `boundaryCoeffs = -phi valueBoundaryCoeffs`.
-    fn boundary_convection(&mut self, g: &Geometry, phi: &[f64], u: &Vector) {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn boundary_convection(&mut self, g: &Geometry, phi: &[f64], u: &Vector) {
         let ni = g.n_internal();
         for f in ni..g.n_faces() {
             if !g.active[f] {
@@ -222,7 +222,7 @@ impl UEqnCc {
 
     /// The boundary part of `-fvm::laplacian(gamma, U)`: `internalCoeffs = -(pGamma gradientInternalCoeffs)`,
     /// `boundaryCoeffs = +pGamma gradientBoundaryCoeffs`.
-    fn boundary_laplacian(&mut self, g: &Geometry, gamma: &[f64], u: &Vector) {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn boundary_laplacian(&mut self, g: &Geometry, gamma: &[f64], u: &Vector) {
         let ni = g.n_internal();
         for f in ni..g.n_faces() {
             if !g.active[f] {
@@ -239,7 +239,7 @@ impl UEqnCc {
     }
 
     /// `fvm::SuSp(coeff, U)` on the left-hand side.
-    fn su_sp(&mut self, g: &Geometry, coeff: &[f64], u: &[Vector3]) {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn su_sp(&mut self, g: &Geometry, coeff: &[f64], u: &[Vector3]) {
         for c in 0..g.n_cells() {
             let v = g.mesh.cell_volumes[c];
             self.eqn.ldu.diag[c] += v * coeff[c].max(0.0);
@@ -251,7 +251,7 @@ impl UEqnCc {
     }
 
     /// `matrix + vector field`: `source -= V field`.
-    fn add_field(&mut self, g: &Geometry, f: &[Vector3]) {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn add_field(&mut self, g: &Geometry, f: &[Vector3]) {
         for c in 0..g.n_cells() {
             let v = g.mesh.cell_volumes[c];
             self.src[0][c] -= v * f[c].x;
@@ -261,7 +261,7 @@ impl UEqnCc {
     }
 
     /// `matrix - vector field`: `source += V field`.
-    fn sub_field(&mut self, g: &Geometry, f: &[Vector3]) {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn sub_field(&mut self, g: &Geometry, f: &[Vector3]) {
         for c in 0..g.n_cells() {
             let v = g.mesh.cell_volumes[c];
             self.src[0][c] += v * f[c].x;
@@ -270,9 +270,32 @@ impl UEqnCc {
         }
     }
 
+    /// `fvMatrix::operator+=(const fvMatrix&)` (ESI v2506 `fvMatrix.C`): `lduMatrix::operator+=` (diagonal, upper, lower),
+    /// `source_ +=`, `internalCoeffs_ +=` and `boundaryCoeffs_ +=`, each added as a WHOLE to the left matrix, so that a sum of
+    /// terms rounds as OpenFOAM's `A + B + C` does (each term's own `negSumDiag` first, then the sum): gh:#1894 round 46,
+    /// `OnePhaseFcSolver::correct_u_eqn`.
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn add(&mut self, o: &UEqnCc) {
+        self.eqn.add(&o.eqn);
+        for k in 0..3 {
+            for (a, b) in self.src[k].iter_mut().zip(&o.src[k]) {
+                *a += b;
+            }
+        }
+        for (a, b) in self.ic.iter_mut().zip(&o.ic) {
+            for k in 0..3 {
+                a[k] += b[k];
+            }
+        }
+        for (a, b) in self.bcoef.iter_mut().zip(&o.bcoef) {
+            for k in 0..3 {
+                a[k] += b[k];
+            }
+        }
+    }
+
     /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`) for a vector matrix: the boundary contribution is the
     /// maximum-magnitude component of `internalCoeffs` on the way in, its minimum component on the way out.
-    fn relax(&mut self, g: &Geometry, alpha: f64, u: &[Vector3]) {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn relax(&mut self, g: &Geometry, alpha: f64, u: &[Vector3]) {
         if alpha <= 0.0 {
             return;
         }
@@ -313,7 +336,7 @@ impl UEqnCc {
     }
 
     /// `fvMatrix::A()` per unit volume: `(diag + cmptAv(internalCoeffs))/V`.
-    fn a(&self, g: &Geometry) -> Vec<f64> {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn a(&self, g: &Geometry) -> Vec<f64> {
         let ni = g.n_internal();
         let mut d = self.eqn.ldu.diag.clone();
         for f in ni..g.n_faces() {
@@ -326,7 +349,7 @@ impl UEqnCc {
     }
 
     /// `fvMatrix::H()` per unit volume, cell values only (the caller evaluates the constraint patches).
-    fn h(&self, g: &Geometry, u: &[Vector3]) -> Vec<Vector3> {
+    pub(in crate::genfoam::thermal_hydraulics::solver::two_phase) fn h(&self, g: &Geometry, u: &[Vector3]) -> Vec<Vector3> {
         let n = g.n_cells();
         let ni = g.n_internal();
         let m = &g.mesh;
