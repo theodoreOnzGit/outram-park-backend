@@ -8428,3 +8428,11 @@ AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_U
 | G7 | controls differ | all five | 95 % |
 | G8 | nothing earlier moves, basic-lib untouched | yes | 97 % |
 | G9 | port wall time of a tight step (36 solves of up to 1 000 V-cycles) | 60-200 s | 60 % |
+
+## Round 70 (2D_FFTF real-binary references as shipped; orchestrating session, 2026-11-27)
+
+No port run; references only.
+
+* **Steady state as shipped.** The Allrun `steadyState` stage, unmodified (round 64 only narrowed `cases=` to stop the transient from auto-starting), on GeN-Foam 652b3da / ESI v2506, serial, GAMG. It ran 8 994 steps from t = 0 to t = 900 in about 2 h 10 min. Refs: `fftf_ss900_t900_r70.tar.gz` (the written `900` directory, all regions) and `fftf_ss900_log_summary_r70.ref.txt.gz` (per step: time, deltaT, solve count and iteration sum per field, and the `T` lines).
+* **The shipped transient stage cannot start as shipped.** The `onePhase`-only steady state writes no `900/uniform/reactorState`, and point kinetics requires one, so both `-initializeMappedFields` calls abort with `Entry 'pTarget' not found in dictionary .../transient/900/uniform/reactorState`. This is added to the draft upstream report (gh:#1910). To run it, `setTransient` gets one added line, `cp rootCase/0/uniform/reactorState $1/$endTimeSS/uniform/reactorState`; nothing else is changed. The transient (endTime 1200) was started detached in `/home/user/upstream-build/fftf_ss900/transient`; its references are to be extracted when it ends.
+* **What the 900 s state can gate.** The port's tight-protocol comparison (round 65, 163 steps) is step by step. The 8 994-step as-shipped run uses loose tolerances (GAMG, `relTol`, `residualControl`), so a port run of the same length can be compared only (a) with GAMG ported faithfully (round 67), and (b) on quantities that the loose solves do not make chaotic: the converged state at t = 900 and the dt sequence while it is Courant-limited. A step-by-step gate over 9 000 loose steps is not expected to hold to 1e-9; the criterion for it is to be written before that run.
