@@ -14,6 +14,7 @@
 
 #![cfg(feature = "std")]
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::genfoam::common::gamg::{face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgControls, GamgSmoother};
@@ -213,10 +214,16 @@ struct TmDump {
     levels: Vec<TmLevel>,
 }
 
+/// One scratch directory per call: the two S2 tests run concurrently in one process, and a directory named by the
+/// process id alone let one test read `faces` while the other was rewriting it ("expected 60408 faces, parsed 0",
+/// gates55, 2026-11-28).
+static TM_MESH_CALL: AtomicUsize = AtomicUsize::new(0);
+
 /// The legacy thermo-mechanics mesh of the repository case `cases/legacy_tm_esfr`, gunzipped into a scratch directory.
 fn tm_mesh_dir() -> Option<PathBuf> {
     let src = refs().join("../cases/legacy_tm_esfr/constant/thermoMechanicalRegion/polyMesh");
-    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1936_tm_polymesh_{}", std::process::id()));
+    let call = TM_MESH_CALL.fetch_add(1, Ordering::SeqCst);
+    let dst = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1936_tm_polymesh_{}_{call}", std::process::id()));
     std::fs::create_dir_all(&dst).ok()?;
     for f in ["points", "faces", "owner", "neighbour", "cellZones", "boundary"] {
         let gz = src.join(format!("{f}.gz"));
