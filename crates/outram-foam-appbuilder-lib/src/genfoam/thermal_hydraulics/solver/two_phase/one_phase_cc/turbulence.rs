@@ -691,6 +691,17 @@ impl TurbState {
         epsilon.c = case.epsilon.clone();
         epsilon.correct_bc(g);
         set_inlet_values(&mut epsilon, &case.epsilon_inlet, &case.epsilon_inlet_value);
+        // `porousKEpsilon.C:326-327` (the constructor, after every field is built): `bound(k_, kMin_)`, `bound(epsilon_, epsilonMin_)`
+        // (gh:#1876, README round 89: MISSING before, found by the shipped 3D_gFHR, whose `k` starts at 0 inside: the real log's
+        // `bounding k, min: 0 max: 0.005 average: 0`; the port's `epsilon` equation then divided by `k = 0`). A no-op for every start field
+        // at or above the bounds, so no earlier case moves.
+        let mut bound_count = 0;
+        if bound(g, &mut k, case.k_min) {
+            bound_count += 1;
+        }
+        if bound(g, &mut epsilon, case.epsilon_min) {
+            bound_count += 1;
+        }
         // nutkWallFunction: a fixedValue patch carrying its READ value until a wall function evaluates it
         let mut nut_bc = zg.clone();
         for (pi, _) in mesh.patches.iter().enumerate() {
@@ -711,6 +722,7 @@ impl TurbState {
         at.c = alphat.to_vec();
         at.correct_bc(g);
         debug_assert_eq!(nut.b.len(), g.n_faces() - ni);
+        let epsilon_old = epsilon.c.clone();
         Self {
             case: case.clone(),
             k_old: k.c.clone(),
@@ -718,12 +730,13 @@ impl TurbState {
             epsilon,
             nut,
             alphat: at,
-            epsilon_old: case.epsilon.clone(),
+            // ~~`case.epsilon.clone()`~~ the bounded start value (identical unless the constructor's `bound` acted; gh:#1876)
+            epsilon_old,
             cell_weight,
             wall_functions: true,
             operator_order: true,
             production: vec![0.0; n],
-            bound_count: 0,
+            bound_count,
             step_solves: Vec::new(),
         }
     }

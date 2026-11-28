@@ -10993,3 +10993,97 @@ case AND the LPS case (`phaseProperties_lumpedParam` copied over) without a refu
 |---|---|---|
 | G8 | the shipped LPS case (`phaseProperties_lumpedParam`), the whole run: the same step count as the real binary, and every `deltaT` and `T (avg min max)` min/max equal at the printed 6 digits | 50 % |
 | G8b | the same within 1e-5 relative, and the written `t = 50` fields (`T`, `p_rgh`, `U`, `k`, `epsilon`, `Tmax.lumpedNuclearStructure`, `Tsurface.lumpedNuclearStructure`) within 1e-5 of the field max | 75 % |
+
+## Round 89 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; inventory and predictions G0-G7 committed first in `1ef9b5955`, G8/G8b in `c4cc0eba2`, each BEFORE its comparison's first port run; real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH`; references in the refs submodule `a5567b6` (`gfhr_r89/`: the staged case, 23 files gzipped, 9.3 MB, largest `faces.gz` 5.7 MB; the logs, the `-initializeMappedFields` log and md5 lists, every 7th cell of the last written time; written by `scripts/run_gfhr_r89_real.sh` + `scripts/make_gfhr_r89_refs.py`); tests `tests/genfoam_gfhr_vs_upstream.rs` (4 tests behind `long-tests` + an env-only probe); unit test `neutronics::pseudo_time::tests::stop_at_controls_end_the_run_where_time_does`)
+
+### What was ported (upstream's order: the `Time` controls, then the Allrun chain)
+
+1. **`stopAt`** (`TimeIO.C:343-360`, `Time.C:876`, `Time.C:1165-1180`): [`StopAt`] (`endTime`, `noWriteNow`, `writeNow`, `nextWrite`) with
+   `StopAt::read_controls` (`endTime_ = GREAT` unless `stopAt endTime`; neither entry: 0) and `PseudoTimeClock::with_stop_at` (the step that
+   lands on a write time sets `endTime_ = value()` under `nextWrite`; `writeNow`/`noWriteNow` stop after one step). Read by `RegionSolvers::read`,
+   its restarts and `clock_controls`, and by `OnePhaseCcCase::read` (new field `stop_at`). Every earlier case has `stopAt endTime` (or none) and an
+   `endTime`, for which the new branch is a no-op.
+2. **The Allrun chain** through `RegionSolvers` (the `GeN-Foam.C` loop), REUSED: `read`, `initialize_mapped_fields` (round 81), `step` while
+   `running()`. On the shipped gFHR it writes nothing (empty `mappings`), as the real stage (the md5 of every file is unchanged): asserted.
+3. **A DEFECT of the port, found by G3's first run and fixed:** `porousKEpsilon`'s constructor ends with `bound(k_, kMin_)` and
+   `bound(epsilon_, epsilonMin_)` (`porousKEpsilon.C:326-327`); the port's `TurbState::new` had neither. gFHR starts with `k = 0` in every cell (the
+   real log: `bounding k, min: 0 max: 0.005 average: 0`), so the port's first `epsilon` equation divided by `k = 0`: every field NaN after step 1,
+   1000 iterations of every solve. With the bound ported (the two-phase `turbulence::bound`, `bound.C`, reused) the step-1 `epsilon`/`k` initial residuals are the real
+   binary's (`0.999999999890763`/`0.2534580796870386`, 4 and 3 iterations), and the `p_rgh` solves take its 23 and 4 iterations. A no-op for a start
+   field at or above the bound: every earlier case's `k`, `epsilon` are positive (regression targets below, pins unchanged). The bounded `epsilon` is
+   now also the first old-time value (`epsilon_old`; identical when the bound does not act).
+4. `OnePhaseCcSolver::temperature_boundary` (the `T` patch values as the patches evaluate them): `EEqn_1p.H:112-116` prints `min(T)`/`max(T)` of the
+   cells AND the patches. (An `empty` patch's faces are included; none on gFHR.)
+
+### Real binary
+
+| run | what | real time | outcome |
+|---|---|---|---|
+| `nssp` | the shipped Allrun NSSP stage, unedited: `-initializeMappedFields`, then `GeN-Foam` to `stopAt nextWrite` | **464.66 s ExecutionTime (7 min 47 s wall), 0.84 GB RSS**; the mapping stage 25 s | 266 steps to `t = 50`; `deltaT` 0.1, 0.1197, ... 0.1877 (maxCo 1, aligned to the write); last `Tfmax (avg min max) = 981.812 900.664 1062.96 K` against Alltest's `981.808 900.664 1062.87` (4.1e-6, 0, 8.5e-5) |
+| `lps` | the shipped Allrun LPS stage (`phaseProperties_lumpedParam`) | 393.39 s | 265 steps; last `T (avg min max) = 908.174 823.15 990.508 K` |
+| `t3` | tight: every tolerance 1e-14, `relTol 0`, `maxIter 5000`, GAMG kept, `endTime 0.3` (3 steps), `writeControl timeStep`, `writePrecision 17` | 1226.68 s (409 s per step) | **every GAMG `p_rgh` solve hits `maxIter 5000`** (final residuals 4.7e-14 to 2.9e-13), and the step-2 `h` `smoothSolver` too (1.25e-13): the real binary cannot reach 1e-14 on this hex mesh either |
+
+### The port against the real binary
+
+| quantity | `t3` (tight, 3 steps) | `nssp` AS SHIPPED, whole run (266 steps) | `lps` AS SHIPPED, whole run (265 steps) |
+|---|---|---|---|
+| steps | 3 = 3 | **266 = 266** | **265 = 265** |
+| pebble lines (6 x avg/min/max per step) | 54, worst 6.6e-16 (printed at 17 digits) | **4788 of 4788 equal at the printed 6 digits** (worst 5.0e-6 of the printed text: the printing's own rounding) | (no pebble model) |
+| `T (avg min max)` | 9, worst 2.7e-16 | **798 of 798** (worst 5.8e-7) | **795 of 795** (6.1e-7) |
+| `deltaT` | 3, worst 1.24e-14 | **266 of 266** (2.2e-6) | **265 of 265** (2.5e-6) |
+| `Time =` (the time name, `timePrecision 6`) | 3 of 3 as printed | 266 of 266 | 265 of 265 |
+| `p_rgh` initial residuals (not gated) | 6; equal at the 7 digits the harness prints except the second solve of step 1 9.6e-4 (3.117e-13 against 3.114e-13: both AT the stall floor); 5000 iterations each, as the real binary | 532, worst 4.4e-6 of the printed value; iterations as the real log | 530, worst 4.6e-6 |
+| fields at the end (every 7th cell, relative to the max) | `T` 1.5e-15, `p_rgh` 6.1e-15, `U` 3.7e-13, `k` 3.7e-13, `epsilon` 2.6e-13, `nut` 2.7e-13, `alphat` 9.8e-14, `htc` 1.6e-13, `TpS` 2.8e-15, `Tfmax` 2.6e-15 | at `t = 50`: `T` 5.1e-7, `p_rgh` 4.4e-6, `p` 4.9e-6, `U` 2.3e-6, `k` 2.8e-6, `epsilon` 1.4e-6, `nut` 2.3e-6, `alphat` 2.0e-6, `htc` 3.1e-6, `TpS` 3.3e-6, `Tfmax` 4.6e-6 (the reference is written at `writePrecision 6`) | at `t = 50`: `T` 5.0e-7, `p_rgh` 4.4e-6, `U` 2.3e-6, `k` 2.8e-6, `epsilon` 1.5e-6, `Tmax.lumpedNuclearStructure` 4.7e-6, `Tsurface.lumpedNuclearStructure` 4.0e-6 |
+| worst | **3.7e-13** (gate 1e-9) | equal at every printed digit; fields 4.9e-6 (criterion 1e-5) | equal at every printed digit; fields 4.7e-6 |
+| port wall time | 1709 s (570 s per step: 5000-iteration GAMG solves; run beside the LPS port run) | **352.7 s (1.33 s per step)**, alone | 472.3 s (1.78 s per step; run beside the `t3` port run) |
+
+**Not bit-identical under the tight protocol**, but at round-off: the step-1 pebble numbers and `T` agree to 17 digits on most entries (the first
+`Tfmax avg` is `898.47148401289382` in both), the worst log number is 6.6e-16 (3 ulp) and the worst field 3.7e-13 (`U`, `k`), which is the
+size of the GAMG stall floor (the solves stop at `maxIter` with residuals 5e-14 to 3e-13 relative, not at a tolerance) carried through three steps.
+The step-1 `deltaT` already differs by 7e-15 (0.119521626160859221 against 0.11952162616086009), downstream of the first `p_rgh` solve's stall.
+Under 1e-9 with the cause known (round-off of two codes stopped at `maxIter` on the same floor); flagged here per the code-to-code rule.
+
+### Predictions
+
+| id | prediction | probability | outcome |
+|---|---|---|---|
+| G0 | (observed before the commit) | - | `-initializeMappedFields` changes no file; the port's stage writes nothing either (asserted) |
+| G1 | the real shipped NSSP run takes 3-30 min | 75 % | **held** (7 min 47 s wall) |
+| G2 | it reproduces Alltest's `Tfmax` to 0.1 % | 80 % | **held** (8.5e-5 worst) |
+| G3 | the port runs the shipped NSSP case through `RegionSolvers` with no other refusal, the same step count | 80 % | **MISSED at the first run** (no refusal, but NaN in every field after step 1: the missing constructor `bound`, item 3); **held after the fix** (266 = 266) |
+| G4 | tight `t3`: every field, pebble number, `deltaT` <= 1e-9 | 45 % | **held** (3.7e-13; asserted) |
+| G4b | the real GAMG reaches 1e-14 on the hex mesh | 55 % | **MISSED**: every GAMG solve stops at `maxIter 5000` (and one `h` solve), as on HTR-10's tetrahedra |
+| G5 | the whole shipped run: every `deltaT`, pebble number, `T` number equal at the printed digits | 45 % | **MISSED at the first run, by the TEST HARNESS**: 5586 of 5852 equal; every miss was `T min` (266 of 266), because the harness compared the CELL minimum with the printed `min(T)`, which includes the 823.15 K inlet patch (`EEqn_1p.H:114`); every pebble number, every `deltaT` and every `T max` were equal. The harness now reads the patch values too and compares `T avg` as well; **held after the fix: 6118 of 6118** |
+| G5b | the same within 1e-5 | 80 % | **missed at the first run** (the `T min` harness defect: 7.3e-3), **held after the fix** (5.0e-6) |
+| G6 | the `t = 50` fields within 1e-6 (criterion 1e-5) | 70 % | **prediction MISSED** (worst 4.9e-6, `p`; the reference is written at `writePrecision 6`, so a value of 1e5 is known to 5e-6 relative: 1e-6 was not reachable with the shipped write precision, which the prediction did not take into account); **the 1e-5 criterion held** |
+| G7 | the port is slower per step than the real binary on the shipped settings | 70 % | **MISSED**: the port took 1.33 s per step (alone) against the real binary's 1.75 s (464.66 s / 266; 1.64 s after its 28.8 s first step) |
+| G8 | LPS whole run: the same step count, every `deltaT` and `T` number equal at the printed digits | 50 % | **held** (265 = 265, 1325 of 1325) |
+| G8b | the same within 1e-5, and the `t = 50` fields within 1e-5 | 75 % | **held** (3.4e-6, 4.7e-6) |
+
+### Earlier numbers (moved: none)
+
+No pin moved. The two changes reachable by earlier cases are no-ops there: `stopAt` (every earlier `controlDict` has `stopAt endTime` with an
+`endTime`, or neither) and the constructor `bound` (every earlier case's `k`/`epsilon` start positive). The regression targets below pass with their
+pins unchanged.
+
+### Tests run
+
+2026-11-28, release, `--no-fail-fast`, private target dir: the new `genfoam_gfhr_vs_upstream` (5 tests incl. the env-only probe; all pass,
+1868 s with the three long runs in parallel; the `t3` gate assertion was added after its run, on the gate stated before it, and passes); the 13
+targets `genfoam_{htr10 (12, 851 s), gfhr_pebble, one_phase, one_phase_fc, msr1d_coupled, msr1d_fluid, fullcoupling_fluid,
+fullcoupling_neutronics, fullcoupling_three_region, fullcoupling_transient, esfr_coupled, esfr_fluid, esfr_transient}_vs_upstream`: all pass, pins
+unchanged (the three ESFR targets run their env-gated tests only, as before). `--lib genfoam::thermal_hydraulics genfoam::neutronics::pseudo_time
+genfoam::multi_region`: 377 pass (with the new `stop_at_controls_end_the_run_where_time_does`). `cargo check --release -p outram-foam-appbuilder-lib
+--lib --no-default-features --target x86_64-unknown-none` (no_std): clean. The workspace suite was not run.
+
+### Not done (filed)
+
+- `3D_NTPfuelAssembly` (gh:#1876): not started (H2 gh:#1872, `lumpedNuclearStructure`).
+- The port's WRITTEN `t = 50` directory of gFHR is not compared with the real one (the fields were compared in memory; `RegionSolvers::write_time_directory`
+  on this case not exercised): gh:#1996.
+
+### Reproduction
+
+Real: `bash scripts/run_gfhr_r89_real.sh <dir> nssp|lps|t3`, then `python3 -I scripts/make_gfhr_r89_refs.py run <dir> <tag> refs/gfhr_r89`; delete
+`<dir>`. The staged case: `python3 -I scripts/make_gfhr_r89_refs.py case <shipped rootCase> refs/gfhr_r89`. Port:
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_gfhr_vs_upstream -- --nocapture` (`GFHR_SHIPPED_STEPS=<n>` caps the two whole runs).

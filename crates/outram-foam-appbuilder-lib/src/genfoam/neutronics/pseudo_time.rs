@@ -150,6 +150,61 @@ impl PseudoTimeControls {
     }
 }
 
+/// `Time::stopAtControls` (ESI v2506 `Time.H:99-106`, names `Time.C:50-56`): where the run stops (gh:#1876, README round 89).
+///
+/// `saUnknown` (the no-op of `Time::stopAt(saUnknown)`) is not a value a `controlDict` can select and is not represented. Checked and
+/// not reused: `crate::io::control_dict::StopControl` carries the end time inside its `EndTime` variant and its other variants are
+/// documented as "runs zero steps" for the `solvers::*` loops, which is not upstream's meaning.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum StopAt {
+    /// `endTime`: stop when the time reaches the `controlDict`'s `endTime` (the `Time` constructor's default).
+    #[default]
+    EndTime,
+    /// `noWriteNow`: the first step sets `endTime_ = value()` (one step, no forced write).
+    NoWriteNow,
+    /// `writeNow`: the first step sets `endTime_ = value()` and `writeTime_ = true` (one step, written).
+    WriteNow,
+    /// `nextWrite`: the step that lands on a write time sets `endTime_ = value()`.
+    NextWrite,
+}
+
+impl StopAt {
+    /// `stopAtControlNames` (`Time.C:50-56`): the keyword of a `stopAt` entry, `None` for an unknown word (upstream: a fatal error).
+    #[must_use]
+    pub fn from_word(w: &str) -> Option<Self> {
+        match w {
+            "endTime" => Some(Self::EndTime),
+            "noWriteNow" => Some(Self::NoWriteNow),
+            "writeNow" => Some(Self::WriteNow),
+            "nextWrite" => Some(Self::NextWrite),
+            _ => None,
+        }
+    }
+
+    /// `Time::readDict` (ESI v2506 `TimeIO.C:343-360`): the stop control and the `endTime_` a `controlDict` gives, from its `stopAt` word
+    /// (`None`: the entry is absent) and its `endTime` (`None`: absent). `stopAt endTime` needs `endTime` (`readEntry`); any other `stopAt`
+    /// sets `endTime_ = GREAT` (an `endTime` beside it is NOT read); no `stopAt` reads `endTime` if present, else `endTime_ = 0`.
+    ///
+    /// # Errors
+    /// The message upstream aborts with: an unknown `stopAt` word, or `stopAt endTime` without `endTime`.
+    pub fn read_controls(stop_at: Option<&str>, end_time: Option<f64>) -> Result<(Self, f64), String> {
+        match stop_at {
+            Some(w) => match Self::from_word(w) {
+                Some(Self::EndTime) => match end_time {
+                    Some(t) => Ok((Self::EndTime, t)),
+                    None => Err(String::from("controlDict: stopAt endTime without endTime")),
+                },
+                Some(s) => Ok((s, GREAT)),
+                None => Err(format!("controlDict: stopAt `{w}` is not one of endTime, noWriteNow, writeNow, nextWrite")),
+            },
+            None => match end_time {
+                Some(t) => Ok((Self::EndTime, t)),
+                None => Ok((Self::EndTime, 0.0)),
+            },
+        }
+    }
+}
+
 /// OpenFOAM's `Time`, as far as GeN-Foam's neutronics loop uses it.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PseudoTimeClock {
@@ -172,6 +227,8 @@ pub struct PseudoTimeClock {
     /// `Time::startTimeIndex_`: the `index` of the start directory's `uniform/time` (`Time.C:304-306`: `timeIndex_ = startTimeIndex_`), so the
     /// `timeStep` write rule counts `timeIndex_ = startTimeIndex_ + steps` (gh:#1938, README round 84). 0 for every clock not given one.
     start_time_index: usize,
+    /// `Time::stopAt_` (gh:#1876, README round 89): [`StopAt::EndTime`] for every clock not given another ([`Self::with_stop_at`]).
+    stop_at: StopAt,
 }
 
 impl PseudoTimeClock {
@@ -192,6 +249,7 @@ impl PseudoTimeClock {
             write_time: false,
             write_every_steps: None,
             start_time_index: 0,
+            stop_at: StopAt::EndTime,
         };
         let dt = clock.delta_t.min(controls.delta_t);
         clock.set_delta_t(dt, true);
@@ -215,6 +273,7 @@ impl PseudoTimeClock {
             write_time: false,
             write_every_steps: None,
             start_time_index: 0,
+            stop_at: StopAt::EndTime,
         };
         let dt = clock.delta_t.min(controls.delta_t);
         clock.set_delta_t(dt, true);
@@ -296,6 +355,42 @@ impl PseudoTimeClock {
                 self.write_time = true;
             }
         }
+        // `Time.C:1165-1180`: "Check if endTime needs adjustment to stop at the next run()/end()" (gh:#1876, README round 89)
+        if !self.end() {
+            match self.stop_at {
+                StopAt::EndTime => {}
+                StopAt::NoWriteNow => self.end_time = self.value,
+                StopAt::WriteNow => {
+                    self.end_time = self.value;
+                    self.write_time = true;
+                }
+                StopAt::NextWrite => {
+                    if self.write_time {
+                        self.end_time = self.value;
+                    }
+                }
+            }
+        }
+    }
+
+    /// `Time::end()` (`Time.C:876`): `value() > endTime + 0.5 deltaT`.
+    #[must_use]
+    pub fn end(&self) -> bool {
+        self.value > self.end_time + 0.5 * self.delta_t
+    }
+
+    /// `Time::stopAt_` as `Time::readDict` set it (gh:#1876, README round 89): the clock's end time must be the one
+    /// [`StopAt::read_controls`] gives with it (`GREAT` for every control but [`StopAt::EndTime`]).
+    #[must_use]
+    pub fn with_stop_at(mut self, stop_at: StopAt) -> Self {
+        self.stop_at = stop_at;
+        self
+    }
+
+    /// The current `endTime_` (moved by a `stopAt` other than `endTime` at the step that stops the run).
+    #[must_use]
+    pub fn end_time(&self) -> f64 {
+        self.end_time
     }
 
     /// `writeControl timeStep` with `writeInterval = n` (`Time::operator++`: `writeTime_ = !(timeIndex_ % label(writeInterval_))`, gh:#1931).
@@ -593,6 +688,39 @@ mod tests {
 
     fn controls() -> PseudoTimeControls {
         PseudoTimeControls::guided(1e-9, 60.0, 1.0, 1.0, 0.01, 1e6)
+    }
+
+    /// gh:#1876 (README round 89): `TimeIO.C:343-360` and `Time.C:1165-1180`. `stopAt nextWrite` with `adjustableRunTime` stops on the step
+    /// that lands on the first write time (the 3D_gFHR `controlDict`: `deltaT 0.1`, `writeInterval 50`, held at 0.1 here, so 500 steps);
+    /// `writeNow` and `noWriteNow` take one step (`writeNow` forces the write); `endTime` is unchanged.
+    #[test]
+    fn stop_at_controls_end_the_run_where_time_does() {
+        assert_eq!(StopAt::read_controls(Some("nextWrite"), None), Ok((StopAt::NextWrite, GREAT)));
+        assert_eq!(StopAt::read_controls(Some("nextWrite"), Some(3.0)), Ok((StopAt::NextWrite, GREAT)));
+        assert_eq!(StopAt::read_controls(Some("endTime"), Some(3.0)), Ok((StopAt::EndTime, 3.0)));
+        assert!(StopAt::read_controls(Some("endTime"), None).is_err());
+        assert!(StopAt::read_controls(Some("later"), Some(1.0)).is_err());
+        assert_eq!(StopAt::read_controls(None, Some(2.0)), Ok((StopAt::EndTime, 2.0)));
+        assert_eq!(StopAt::read_controls(None, None), Ok((StopAt::EndTime, 0.0)));
+
+        let gfhr = PseudoTimeControls { delta_t: 0.1, end_time: GREAT, write_interval: Some(50.0), adjust_time_step: true, max_delta_t: 1.0, min_delta_t: VSMALL, max_power_variation: 0.025, p_target: 0.0 };
+        let run = |stop: StopAt| -> (usize, f64, bool) {
+            let mut c = PseudoTimeClock::starting_at(&gfhr, 0.0).with_stop_at(stop);
+            let mut last_write = false;
+            while c.run() && c.time_index() < 2000 {
+                c.advance();
+                last_write = c.write_time();
+                c.set_delta_t(0.1, true);
+            }
+            (c.time_index(), c.value(), last_write)
+        };
+        let (n, t, w) = run(StopAt::NextWrite);
+        assert_eq!(n, 500);
+        assert!((t - 50.0).abs() < 1e-9 && w, "t {t}, write {w}");
+        assert_eq!(run(StopAt::WriteNow), (1, 0.1, true));
+        assert_eq!(run(StopAt::NoWriteNow), (1, 0.1, false));
+        // `endTime` = GREAT: runs to the step cap of this test
+        assert_eq!(run(StopAt::EndTime).0, 2000);
     }
 
     #[test]

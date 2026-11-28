@@ -52,6 +52,11 @@
 //! * `-initializeMappedFields`: upstream's mapped fields are `NO_READ` (TM) or `READ_IF_PRESENT` with default values (neutronics,
 //!   fluid), so a run from the SHIPPED `0/` starts from the constructors' defaults, which are used here (TM `TStructFromTH = TFuel = 1`,
 //!   `powerDensityNeutronics = 0`; neutronics `TFuel = TClad = TCool = TStruct = 0`, `disp = 0`; fluid `powerDensityNeutronics = 0`).
+//!   **CORRECTED 2026-11-28 (gh:#1876, README round 89; read from `region_solvers/mapped.rs`):** `-initializeMappedFields` is no longer
+//!   omitted: it is ported as [`RegionSolvers::initialize_mapped_fields`] (gh:#1961, round 81), and it is a no-op on a case whose
+//!   `mappings` are empty (the shipped 3D_gFHR: the real stage changes no file);
+//! * `stopAt` (gh:#1876, README round 89): all four controls of `Time::readDict`/`Time::operator++` are read ([`StopAt`]); `stopAt nextWrite`
+//!   stops on the step that lands on the first write time.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -79,7 +84,7 @@ use crate::genfoam::neutronics::point_kinetics::model::{feedback_cell_field, PkF
 use crate::genfoam::neutronics::point_kinetics::LinearSolveForm;
 use crate::genfoam::neutronics::point_kinetics::cyclic_transport::{parse_cyclic_neighbours, TransportMesh};
 use crate::genfoam::neutronics::point_kinetics::model::liquid_fuel::{AlphaUpdate, FluidFields as LiquidFuelFluidFields, LiquidFuelConfig, LiquidFuelPk, LiquidFuelStepReport};
-use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
+use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue, StopAt};
 use crate::genfoam::neutronics::xs::variables::VariableLaw;
 use crate::genfoam::neutronics::xs::CrossSectionData;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{CaseReadOptions, ControlOverrides, GamgPolicy, OnePhaseCcCase, OnePhaseCcSolver};
@@ -465,6 +470,15 @@ fn start_time_name(root: &Path, start_time: f64, c: &outram_foam_basic_lib::io::
     time_name::TimeName::for_start_directory(start_time, time_precision_of(c), |d| root.join(d).is_dir())
 }
 
+/// `Time::readDict` (`TimeIO.C:343-360`) on a `controlDict`: its `stopAt` control and the `endTime_` it gives (`GREAT` for every `stopAt`
+/// but `endTime`; gh:#1876, README round 89: the shipped 3D_gFHR has `stopAt nextWrite` and no `endTime`).
+fn stop_controls(c: &outram_foam_basic_lib::io::dict::FoamDict, root: &Path) -> Result<(StopAt, f64), AppBuilderError> {
+    match StopAt::read_controls(c.get_word("stopAt").as_deref(), c.get_scalar("endTime")) {
+        Ok(v) => Ok(v),
+        Err(m) => Err(case_err(root, m)),
+    }
+}
+
 /// The `PseudoTimeControls` a `controlDict` gives (`pTarget` is not read by the loop).
 fn clock_controls(c: &outram_foam_basic_lib::io::dict::FoamDict, root: &Path) -> Result<PseudoTimeControls, AppBuilderError> {
     let get = |k: &str| c.get_scalar(k);
@@ -476,7 +490,8 @@ fn clock_controls(c: &outram_foam_basic_lib::io::dict::FoamDict, root: &Path) ->
     };
     Ok(PseudoTimeControls {
         delta_t: get("deltaT").ok_or_else(|| case_err(root, "controlDict: no deltaT"))?,
-        end_time: get("endTime").ok_or_else(|| case_err(root, "controlDict: no endTime"))?,
+        // ~~`endTime` required~~ CHANGED 2026-11-28 (gh:#1876, README round 89): `Time::readDict`'s `stopAt` rule
+        end_time: stop_controls(c, root)?.1,
         write_interval,
         adjust_time_step: c.get_word("adjustTimeStep").is_some_and(|w| w == "true" || w == "yes" || w == "on"),
         max_delta_t: get("maxDeltaT").unwrap_or(GREAT),
@@ -1077,7 +1092,8 @@ impl RegionSolvers {
         let c = &ctl.dict;
         let get = |k: &str| c.get_scalar(k);
         let control_delta_t = get("deltaT").ok_or_else(|| case_err(root, "controlDict: no deltaT"))?;
-        let end_time = get("endTime").ok_or_else(|| case_err(root, "controlDict: no endTime"))?;
+        // ~~`endTime` required~~ CHANGED 2026-11-28 (gh:#1876, README round 89): `Time::readDict`'s `stopAt` rule (`stopAt nextWrite`: `GREAT`)
+        let (stop_at, end_time) = stop_controls(c, root)?;
         let adjust_time_step = c.get_word("adjustTimeStep").is_some_and(|w| w == "true" || w == "yes" || w == "on");
         let rs = c.get_dict("regionSolvers").ok_or_else(|| case_err(root, "controlDict: no regionSolvers"))?;
         let mut names: Vec<(String, String)> = Vec::new();
@@ -1316,6 +1332,7 @@ impl RegionSolvers {
         // `Time.C:304-306`: the restart's `timeIndex_` starts at the written `index`, and the `timeStep` write rule counts from it (gh:#1938)
         let (start_delta_t, start_delta_t0) = read_start_time_deltas(root, start_time);
         let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time)
+            .with_stop_at(stop_at)
             .with_start_time_index(start_time_index)
             .with_restart_time_dict(adjust_time_step, start_delta_t, start_delta_t0);
         if let Some(n) = write_every_steps(c) {
@@ -1422,6 +1439,7 @@ impl RegionSolvers {
         }
         if pk_variant {
             self.restart_transient_point_kinetics(root, ni, &nname, start_time, &cc, mappings, deformation)?;
+            self.clock = self.clock.with_stop_at(stop_controls(c, root)?.0);
             if let Some(n) = write_every_steps(c) {
                 self.clock = self.clock.with_write_every_steps(n);
             }
@@ -1464,6 +1482,7 @@ impl RegionSolvers {
         // the written `deltaT`/`deltaT0` the restart would read (`Time.C:291-302`): the previous stage's clock (gh:#1938)
         let (old_dt, old_dt0) = (self.clock.delta_t(), self.clock.delta_t0());
         self.clock = PseudoTimeClock::starting_at(&cc, start_time)
+            .with_stop_at(stop_controls(c, root)?.0)
             .with_start_time_index(self.start_time_index)
             .with_restart_time_dict(cc.adjust_time_step, Some(old_dt), Some(old_dt0));
         if let Some(n) = write_every_steps(c) {

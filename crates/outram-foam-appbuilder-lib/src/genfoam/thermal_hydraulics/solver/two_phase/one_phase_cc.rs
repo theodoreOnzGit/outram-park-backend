@@ -97,6 +97,7 @@ use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{Regi
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use crate::genfoam::common::TimeProfile;
+use crate::genfoam::neutronics::pseudo_time::StopAt;
 use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 
 pub(super) mod flow;
@@ -427,8 +428,11 @@ pub struct OnePhaseCcCase {
     pub controls: OnePhaseCcControls,
     /// `startTime`.
     pub start_time: f64,
-    /// `endTime`.
+    /// `endTime` (`Time::readDict`: `GREAT` when `stopAt` is not `endTime`, 0 when neither entry is given; gh:#1876, README round 89).
     pub end_time: f64,
+    /// `stopAt` (gh:#1876, README round 89): a driver stepping this case moves `end_time` as `Time::operator++` does
+    /// ([`crate::genfoam::neutronics::pseudo_time::PseudoTimeClock::with_stop_at`]). [`StopAt::EndTime`] under `ControlOverrides`.
+    pub stop_at: StopAt,
     /// `deltaT`.
     pub delta_t: f64,
     /// Structure volume fraction per cell (`volumeFraction` of the zone).
@@ -756,9 +760,17 @@ impl OnePhaseCcCase {
         };
 
         let cd = ctx.read("system/controlDict")?;
-        let (start_time, end_time, delta_t) = match options.controls {
-            Some(c) => (c.start_time, c.end_time, c.delta_t),
-            None => (scalar(&cd, "startTime").unwrap_or(0.0), ctx.f64(&cd, "endTime")?, ctx.f64(&cd, "deltaT")?),
+        // ~~`ctx.f64(&cd, "endTime")?`~~ CHANGED 2026-11-28 (gh:#1876, README round 89): `Time::readDict`'s `stopAt` rule
+        // (`TimeIO.C:343-360`); the shipped 3D_gFHR has `stopAt nextWrite` and no `endTime`
+        let (start_time, end_time, delta_t, stop_at) = match options.controls {
+            Some(c) => (c.start_time, c.end_time, c.delta_t, StopAt::EndTime),
+            None => {
+                let (stop_at, end_time) = match StopAt::read_controls(word(&cd, "stopAt").as_deref(), scalar(&cd, "endTime")) {
+                    Ok(v) => v,
+                    Err(m) => return Err(ctx.e(m)),
+                };
+                (scalar(&cd, "startTime").unwrap_or(0.0), end_time, ctx.f64(&cd, "deltaT")?, stop_at)
+            }
         };
         let include_kinetic_energy = bool_entry(&cd, "includeKineticEnergy").unwrap_or(true);
         let max_co = scalar(&cd, "maxCo").unwrap_or(1.0);
@@ -1469,6 +1481,7 @@ impl OnePhaseCcCase {
             controls,
             start_time,
             end_time,
+            stop_at,
             delta_t,
             alpha_structure,
             dh,
@@ -1870,6 +1883,17 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn temperature(&self) -> &[f64] {
         &self.t
+    }
+
+    /// The temperature's boundary values (by `face - n_internal`), as the patches evaluate them from the current cells (`fixedValue` its
+    /// value, `zeroGradient` the owner's): what `min(T)`/`max(T)` of `EEqn_1p.H:112-116` read beside the cells (gh:#1876, README round 89:
+    /// the real log's `T (avg min max)` min is the 823.15 K inlet patch while every cell is hotter).
+    #[must_use]
+    pub fn temperature_boundary(&self) -> Vec<f64> {
+        let g = &self.geom;
+        let mut ts = Scalar { c: self.t.clone(), b: vec![0.0; g.n_faces() - g.n_internal()], bc: self.t_patch_bcs() };
+        ts.correct_bc(g);
+        ts.b
     }
 
     /// Sensible enthalpy per cell [J/kg].
