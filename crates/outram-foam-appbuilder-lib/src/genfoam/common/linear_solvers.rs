@@ -552,6 +552,57 @@ mod tests {
         }
     }
 
+    /// gh:#1966 (README round 86): `solve_recorded` returns the field `solve` returns, bit for bit, and for the upstream form the record of
+    /// the solve: the name, the initial residual `pcg_dic` reports (OpenFOAM's normalisation, 1 from a zero start of this system) and its
+    /// iteration count; the twice-solve helpers append both records; basic-lib's form records nothing.
+    #[test]
+    fn solve_recorded_reports_the_solves_and_changes_nothing() {
+        use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+        use uom::si::area::square_meter;
+        use uom::si::f64::{Area, Length};
+        use uom::si::length::meter;
+        let n = 20;
+        let mesh = alloc::sync::Arc::new(
+            match create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1.0), n as i64) {
+                Ok(m) => m,
+                Err(e) => panic!("mesh: {e:?}"),
+            },
+        );
+        let (mut ldu, _, _) = chain(n);
+        ldu.upper = vec![-1.0; n - 1];
+        ldu.lower = vec![-1.0; n - 1];
+        ldu.diag = vec![3.0; n];
+        let x_exact: Vec<f64> = (0..n).map(|i| i as f64).collect();
+        let b = ldu.multiply(&x_exact);
+        let eqn = FvMatrix { mesh: mesh.clone(), ldu: ldu.clone(), source: Field::new(b.clone()) };
+        let zero = VolScalarField::uniform("x0", mesh, 0.0);
+        let settings = SolverSettings { tolerance: 1e-13, max_iter: 10_000 };
+        let s = LinearSolve::new(settings, LinearSolverForm::default());
+        let plain = s.solve(NeutronEquation::Flux, &eqn, "fluxStar0", &zero);
+        let (field, record) = s.solve_recorded(NeutronEquation::Flux, &eqn, "fluxStar0", &zero);
+        assert_eq!(plain.internal.as_slice(), field.internal.as_slice());
+        let record = match record {
+            Some(r) => r,
+            None => panic!("the upstream form records its solve"),
+        };
+        let mut x = vec![0.0; n];
+        let perf = pcg_dic(&ldu, &b, &mut x, 1e-13, 0.0, 10_000, 0);
+        assert_eq!(record, LinearSolveRecord { field: "fluxStar0".to_string(), initial_residual: perf.initial_residual, iterations: perf.iterations });
+        assert!(record.iterations > 0 && record.initial_residual > 0.0);
+        let mut log = Vec::new();
+        let (twice, _) = crate::genfoam::neutronics::pseudo_time::solve_twice_logged(&eqn, "fluxStar0", &zero, s, &mut log);
+        assert_eq!(log.len(), 2);
+        assert_eq!(log[0], record);
+        assert_eq!(log[1].iterations, 0, "the second solve starts converged");
+        let (again, _) = crate::genfoam::neutronics::pseudo_time::solve_twice(&eqn, "fluxStar0", &zero, s);
+        assert_eq!(twice.internal.as_slice(), again.internal.as_slice());
+        let mut log2 = Vec::new();
+        let _ = crate::genfoam::neutronics::pseudo_time::solve_twice_residuals_logged(&eqn, "fluxStar0", &zero, s, &mut log2);
+        assert_eq!(log2, log);
+        let (_, none) = LinearSolve::new(settings, LinearSolverForm::BasicLib).solve_recorded(NeutronEquation::Flux, &eqn, "x", &zero);
+        assert!(none.is_none());
+    }
+
     /// gh:#1956 (README round 82): the `forward_` a build leaves is the start toggled once per level attempted, the same as the solve's own
     /// build; a start of `false` builds a different agglomeration (cells paired from the other end), and the solve from either start
     /// converges to the same solution.

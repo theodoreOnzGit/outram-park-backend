@@ -10,6 +10,14 @@
 //! (`tight` or `loose`, files `refs/esfr_r75_<tag>_log.ref.txt.gz` and, for `tight`, `esfr_r75_tight_V_<region>.ref.txt.gz`; written by
 //! `scripts/extract_esfr_transient.py`) and the number of steps by `ESFR_T_STEPS` (default 3). No assertion on the real-binary numbers: the
 //! criteria of the README are judged on the printed numbers; the default-run test of this file pins the reference parser only.
+//!
+//! Round 86 (gh:#1955, gh:#1966): `ESFR_T_REF=r86_<name>` reads `refs/esfr_r86_<name>_log.ref.txt.gz` (`loose_sens`: the real loose run with
+//! every start `fluidRegion/T` value times `1 + 1e-12`; `loosets`: the real loose run with `writeControl timeStep; writeInterval 1`, every
+//! written field fingerprinted); `ESFR_T_ALLFP=1` compares every fingerprinted field the port holds (`FPX` lines); the per-pass flux solves
+//! are compared with the real `FLUX` lines; `ESFR_T_ABLATE=folded_energy` runs round 80's named ablation of the fluid `h` assembly. Results
+//! (README "Round 86 results"): loose against `esfr_r75_loose_log` power 6.90e-10 (step 52), TM initial residual 4.07e-3 (step 52), flux
+//! solve counts and iterations equal; the real binary's own 1e-12-seed sensitivity at the same step is 7.7e-10 and 4.0e-3; `loosets` power
+//! 7.6e-13, no fingerprint above 1e-9.
 #![cfg(feature = "std")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -280,6 +288,16 @@ fn esfr_transient_steps_against_the_real_binary() {
         _ => CouplingSwitches::default(),
     };
     let mut run = RegionSolvers::read(&dir, switches).unwrap_or_else(|e| panic!("read: {e}"));
+    // round 86 (gh:#1955): `ESFR_T_ABLATE=folded_energy` runs the fluid `h` matrix in the pre-round-80 assembly (round 80's named ablation
+    // `OnePhaseCcSolver::with_folded_energy_assembly`), to attribute the movement of the loose numbers between rounds 78 and 80
+    if std::env::var("ESFR_T_ABLATE").is_ok_and(|a| a == "folded_energy") {
+        for r in run.regions.iter_mut() {
+            if let RegionSolver::OnePhase(f) = &mut r.solver {
+                f.solver = f.solver.clone().with_folded_energy_assembly();
+                println!("ABLATION: {} with_folded_energy_assembly", r.name);
+            }
+        }
+    }
     if std::env::var("ESFR_T_FP0").is_ok() {
         // the fingerprints of the fields right after `read` (to compare with the written start directory)
         for (region, names) in FIELDS {

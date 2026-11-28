@@ -505,6 +505,18 @@ fn a_repeated_pass_keeps_the_old_time_values_of_the_time_step() {
     let drift = held_two.iter().zip(&after_one).fold(0.0_f64, |a, (x, y)| a.max(((x - y) / y).abs()));
     assert!(drift < 1e-3, "the second pass stays near the first (same old time): {drift:e}");
     assert!(s1.solver_residual >= *s1.residual_history.last().unwrap());
+    // gh:#1966 (README round 86): two recorded flux solves per group and neutron iteration, the first one's initial residual the
+    // iteration's `neutroResidual` (one group), and the solver's log is the last call's
+    assert_eq!(s1.flux_solves.len(), 2 * s1.neutron_iterations);
+    for (k, r) in s1.residual_history.iter().enumerate() {
+        assert_eq!(s1.flux_solves[2 * k].initial_residual, *r);
+        assert_eq!(s1.flux_solves[2 * k].field, "fluxStar0");
+    }
+    let s3 = match held.upstream_stationary_step(0.01, 0.01, &controls) {
+        Ok(s) => s,
+        Err(e) => panic!("third pass: {e}"),
+    };
+    assert_eq!(held.flux_solve_log(), s3.flux_solves.as_slice());
     held.release_stationary_old_time();
     assert!(!held.stationary_old_time_is_held());
 }
