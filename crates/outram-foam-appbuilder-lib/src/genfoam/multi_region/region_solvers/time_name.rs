@@ -55,8 +55,9 @@ impl TimeName {
     }
 
     /// `Time::setControls` (`Time.C:193-255`) for a start directory named `dir_name`: when no directory carries the name at `precision_`, the
-    /// precision is lowered from `maxPrecision_` and the SMALLEST one whose name is a directory that exists is kept (here: the one named
-    /// `dir_name`); when none matches, the precision stays. `exists` says whether a directory of that name exists.
+    /// precision is lowered from `maxPrecision_` one digit at a time, stopping as soon as the name no longer changes, and the last precision
+    /// whose name is an existing directory is kept (so a name that is the same at several precisions keeps the LARGEST of them); when none
+    /// matches, the precision stays. `exists` says whether a directory of that name exists.
     #[must_use]
     pub fn for_start_directory(value: f64, precision: usize, exists: impl Fn(&str) -> bool) -> Self {
         let mut me = Self::new(value, precision);
@@ -158,7 +159,9 @@ mod tests {
     fn a_start_directory_written_at_a_larger_precision_is_found() {
         let v = 100.000_025_959;
         let n = TimeName::for_start_directory(v, 8, |d| d == "100.000025959");
-        assert_eq!((n.precision(), n.name()), (12, "100.000025959"));
+        // upstream walks DOWN from `maxPrecision_` and stops when the name no longer changes (`Time.C:211-222`): the name is the same at
+        // 12 .. 17 digits, so the loop stops at 16 with 17 recorded, not the smallest precision that would do
+        assert_eq!((n.precision(), n.name()), (17, "100.000025959"));
         let same = TimeName::for_start_directory(100.0, 8, |d| d == "100");
         assert_eq!(same.precision(), 8);
         let none = TimeName::for_start_directory(v, 8, |_| false);

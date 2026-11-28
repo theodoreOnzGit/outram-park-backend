@@ -8472,9 +8472,9 @@ X1 held; X2 held (8 of 8); X3 held; X4 held (500 exactly); X5 held (2.5e-15); X6
 
 ### Not done / limits (stated)
 
-* The clock's `writeControl timeStep` rule still counts from step 0, not from the restart's `Time::timeIndex` (only the written `index` carries the offset): a restart whose `writeInterval` is not 1 under `timeStep` would pick different steps. Not reached by any case here (adjustableRunTime and `writeInterval 1` only).
-* `alphaRhoMagU` under `cellCenteredFaceReconstruction` and any `removeBaffles` mesh that `polyTopoChange` would renumber (or with baffles, gh:#1236) are refused by name; the multi-zone layout of `cellZones`/`faceZones` was never seen in a real file and is refused.
-* A step count other than the first write time (`120`, ...) was not compared; the real runs wrote `120 ... 200` but only `110` is packed.
+* ~~The clock's `writeControl timeStep` rule still counts from step 0, not from the restart's `Time::timeIndex` (only the written `index` carries the offset): a restart whose `writeInterval` is not 1 under `timeStep` would pick different steps. Not reached by any case here (adjustableRunTime and `writeInterval 1` only).~~ **DONE 2026-11-28 (gh:#1938, README round 84):** the clock counts from the restart's `index`; the real `writeInterval 9` restart writes at steps 1, 10, 19, ... and so does the port (62 of 62 and 63 of 63 indices equal).
+* ~~`alphaRhoMagU` under `cellCenteredFaceReconstruction` and any `removeBaffles` mesh that `polyTopoChange` would renumber (or with baffles, gh:#1236) are refused by name; the multi-zone layout of `cellZones`/`faceZones` was never seen in a real file and is refused.~~ **CORRECTED 2026-11-28 (README round 84):** `alphaRhoMagU` under `cellCenteredFaceReconstruction` is written since round 82 (gh:#1964; not compared under that mode); baffles are merged since round 78 and every baffle-less mesh is renumbered as `polyTopoChange` does (round 84: a renumbered and an unused-point fluid mesh, byte-identical to the real copies); the multi-zone layout of `cellZones`/`faceZones` was read from the real 3D_SmallESFR_old `200`/`210` and is written byte-identical.
+* ~~A step count other than the first write time (`120`, ...) was not compared; the real runs wrote `120 ... 200` but only `110` is packed.~~ **DONE 2026-11-28 (README round 84):** `120 ... 200` compared, both stages.
 * `dgdt` agrees only as noise (5e-15 per second): no run can reproduce it digit for digit.
 * The generated `docs/outram-foam-appbuilder-lib-api.md` was not regenerated (`kovan-cli api-docs` not built).
 

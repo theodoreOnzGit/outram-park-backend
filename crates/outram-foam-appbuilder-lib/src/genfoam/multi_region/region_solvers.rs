@@ -784,6 +784,34 @@ fn read_start_time_index(root: &Path, start_time: f64) -> usize {
     text.lines().find_map(|l| l.strip_prefix("index").and_then(|r| r.trim().trim_end_matches(';').trim().parse::<usize>().ok())).unwrap_or(0)
 }
 
+/// `deltaT` and `deltaT0` of `<startTime>/uniform/time` (`Time.C:291-302` reads both at a restart; gh:#1938, README round 84): `None` for
+/// an absent directory, file or entry.
+fn read_start_time_deltas(root: &Path, start_time: f64) -> (Option<f64>, Option<f64>) {
+    let td = match time_dir_name(root, start_time) {
+        Ok(td) => td,
+        Err(_) => return (None, None),
+    };
+    let text = match std::fs::read_to_string(root.join(td).join("uniform/time")) {
+        Ok(t) => t,
+        Err(_) => return (None, None),
+    };
+    let entry = |key: &str| -> Option<f64> {
+        for l in text.lines() {
+            let Some(rest) = l.strip_prefix(key) else { continue };
+            // `deltaT` must not match the `deltaT0` line
+            if !rest.starts_with(char::is_whitespace) {
+                continue;
+            }
+            match rest.trim().trim_end_matches(';').trim().parse::<f64>() {
+                Ok(v) => return Some(v),
+                Err(_) => return None,
+            }
+        }
+        None
+    };
+    (entry("deltaT"), entry("deltaT0"))
+}
+
 /// `<time>/<region>/meshPhi` of a start directory (`READ_IF_PRESENT` by `fvMesh`, kept until the mesh moves): internal faces then every
 /// boundary face (an `empty` patch has no entries: zeros), `None` when the file is absent.
 fn read_start_mesh_phi(root: &Path, region: &str, time_dir: &str, dm: &DeformableMesh) -> Result<Option<Vec<f64>>, AppBuilderError> {
@@ -1286,7 +1314,10 @@ impl RegionSolvers {
         let maps = build_maps(&regions, &mappings, &geometries, &source_geometries, root)?;
         let start_time_index = read_start_time_index(root, start_time);
         // `Time.C:304-306`: the restart's `timeIndex_` starts at the written `index`, and the `timeStep` write rule counts from it (gh:#1938)
-        let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time).with_start_time_index(start_time_index);
+        let (start_delta_t, start_delta_t0) = read_start_time_deltas(root, start_time);
+        let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time)
+            .with_start_time_index(start_time_index)
+            .with_restart_time_dict(adjust_time_step, start_delta_t, start_delta_t0);
         if let Some(n) = write_every_steps(c) {
             clock = clock.with_write_every_steps(n);
         }
@@ -1430,7 +1461,11 @@ impl RegionSolvers {
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
         self.start_time_index += self.clock.time_index();
-        self.clock = PseudoTimeClock::starting_at(&cc, start_time).with_start_time_index(self.start_time_index);
+        // the written `deltaT`/`deltaT0` the restart would read (`Time.C:291-302`): the previous stage's clock (gh:#1938)
+        let (old_dt, old_dt0) = (self.clock.delta_t(), self.clock.delta_t0());
+        self.clock = PseudoTimeClock::starting_at(&cc, start_time)
+            .with_start_time_index(self.start_time_index)
+            .with_restart_time_dict(cc.adjust_time_step, Some(old_dt), Some(old_dt0));
         if let Some(n) = write_every_steps(c) {
             self.clock = self.clock.with_write_every_steps(n);
         }
@@ -1500,7 +1535,11 @@ impl RegionSolvers {
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
         self.start_time_index += self.clock.time_index();
-        self.clock = PseudoTimeClock::starting_at(cc, start_time).with_start_time_index(self.start_time_index);
+        // the written `deltaT`/`deltaT0` the restart would read (`Time.C:291-302`): the previous stage's clock (gh:#1938)
+        let (old_dt, old_dt0) = (self.clock.delta_t(), self.clock.delta_t0());
+        self.clock = PseudoTimeClock::starting_at(cc, start_time)
+            .with_start_time_index(self.start_time_index)
+            .with_restart_time_dict(cc.adjust_time_step, Some(old_dt), Some(old_dt0));
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();
         self.step = 0;
@@ -2156,7 +2195,9 @@ mod multi_physics_tests {
         let poly = case.join("constant/fluidRegion/polyMesh");
         let dm = DeformableMesh::read(&poly, PointCellsOrder::CellAscending).unwrap();
         let read = baffle_less::read_baffle_less(&poly, &dm).unwrap();
-        let built = baffle_less::build_baffle_less(&poly, &dm).unwrap();
+        let mut built = baffle_less::build_baffle_less(&poly, &dm).unwrap();
+        // gh:#1954 (README round 84): the built copy also carries `findBaffles`' (empty) `duplicateFaces` set
+        assert_eq!(built.duplicate_face_set.take(), Some(Vec::new()));
         assert_eq!(built, read);
     }
 

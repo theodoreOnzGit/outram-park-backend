@@ -18,7 +18,9 @@ This crate provides:
    the GeN-Foam coupled loop WRITES time directories as GeN-Foam does
    (`io::foam_ascii`, `RegionSolvers::written_files` / `write_time_directory`: ~~66 of
    the 84 files~~ **CORRECTED 2026-11-27 (gh:#1935, README round 69, verified by running `the_port_writes_all_84_files_of_the_t100_directory`):** all 84 files of the real `2D_fullCoupling` `t = 100`,
-   and the first transient write time of the SH and PK stages; what is refused is named in
+   and the first transient write time of the SH and PK stages ~~;~~ (**since 2026-11-28, gh:#1938, README round 84, verified by
+   running `r84_every_later_write_time_matches_the_real_binary`:** every later write time `120 ... 200` too, and the
+   `writeControl timeStep` rule from the restart index with the grown time-name precision); what is refused is named in
    `WrittenState::not_written`); `io::output::{write_scalar_field, write_vector_field,
    write_vtk}` stay `todo!()` — their signatures carry no `location`, class or
    patch types, which the writer needs, so GeN-Foam's own state is written through

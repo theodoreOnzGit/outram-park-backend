@@ -314,6 +314,25 @@ impl PseudoTimeClock {
         self
     }
 
+    /// What `Time::setControls` reads from `<startTime>/uniform/time` besides `index` (`Time.C:291-302`; gh:#1938, README round 84): with
+    /// `adjustTimeStep` on, `deltaT` becomes `deltaT_`, `deltaTSave_` and `deltaT0_`; then `deltaT0` (whatever `adjustTimeStep` says) becomes
+    /// `deltaT0_`. Only `deltaTSave_` and `deltaT0_` are set here: the step itself is the one the controls and GeN-Foam's `setDeltaT` give (the
+    /// clock's `delta_t` is left alone). Observable in the written `deltaT0` of the first step after a restart (the real 2D_fullCoupling
+    /// `100.000001`: `deltaT0 0.20833333333333334`, the start directory's `deltaT`, while the step was 1e-6).
+    #[must_use]
+    pub fn with_restart_time_dict(mut self, adjust_time_step: bool, delta_t: Option<f64>, delta_t0: Option<f64>) -> Self {
+        if adjust_time_step {
+            if let Some(dt) = delta_t {
+                self.delta_t_save = dt;
+                self.delta_t0 = dt;
+            }
+        }
+        if let Some(dt0) = delta_t0 {
+            self.delta_t0 = dt0;
+        }
+        self
+    }
+
     /// `Time::writeTime()`: whether the last [`Self::advance`] landed on a write time (gh:#1931).
     #[must_use]
     pub fn write_time(&self) -> bool {
