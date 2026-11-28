@@ -25,11 +25,18 @@ for v in f9_cc_tort f10_fc_tort; do
   perl -0pi -e 's/(volumeFraction\s+0\.5;)/$1\n        localTortuosity     (0.7 1.3 0.01389);/' "$OUT/$v/$pp"
 done
 perl -0pi -e 's/(PIMPLE\s*\{)/$1\n    momentumMode        faceCentered;/' "$OUT/f10_fc_tort/$fv"
-hblk() { # hblk <variant> <perl substitution body applied inside the "h.*" block>
-  perl -0pi -e "s/(\"h\\.\\*\"\\s*\\{[^}]*)\\}/\$1$2}/" "$OUT/$1/$fv"; }
-perl -0pi -e 's/("h\.\*"\s*\{[^}]*?relTol\s+)0;/${1}0.1;/' "$OUT/s1_h_reltol/$fv"
-hblk s2_h_nsweeps '    nSweeps         2;\n    '
-hblk s3_h_maxiter '    maxIter         2;\n    '
-perl -0pi -e 's/("h\.\*"\s*\{[^}]*?relTol\s+)0;/${1}0.05;/' "$OUT/s4_h_all/$fv"
-hblk s4_h_all '    nSweeps         3;\n        maxIter         7;\n    '
-hblk s5_h_fixed '    nSweeps         -2;\n    '
+# ADDENDUM A (round 79, written after the first real run of s1-s5 showed every `h` solve as `diagonalPBiCGStab`, and BEFORE any port run of
+# them): the case's `"h.*"` entry is shadowed by the later catch-all `".*"` (the last matching pattern wins), so the edits above changed
+# nothing. The s-variants are now round 55's `v3_smooth` (explicit `h` and `hFinal` entries after the catch-all: exact keywords win) with
+# the same edit in both entries: s0_h_smooth is v3_smooth itself (the base of the s-variants).
+sm() { # sm <variant> <extra keys>: append explicit h and hFinal smoothSolver entries after the catch-all
+  local e="        solver          smoothSolver;\n        smoother        symGaussSeidel;\n        tolerance       1e-14;\n$2"
+  perl -0pi -e "s/(    \"\\.\\*\"\\s*\\{[^}]*\\}\\n)/\$1    h\\n    {\\n$e    }\\n    hFinal\\n    {\\n$e    }\\n/" "$OUT/$1/$fv"; }
+rm -rf "$OUT/s0_h_smooth"; mkdir -p "$OUT/s0_h_smooth"; cp -r "$BASE/0" "$BASE/constant" "$BASE/system" "$OUT/s0_h_smooth/"
+for v in s1_h_reltol s2_h_nsweeps s3_h_maxiter s4_h_all s5_h_fixed; do cp "$BASE/$fv" "$OUT/$v/$fv"; done
+sm s0_h_smooth '        relTol          0;\n'
+sm s1_h_reltol '        relTol          0.1;\n'
+sm s2_h_nsweeps '        relTol          0;\n        nSweeps         2;\n'
+sm s3_h_maxiter '        relTol          0;\n        maxIter         2;\n'
+sm s4_h_all '        relTol          0.05;\n        nSweeps         3;\n        maxIter         7;\n'
+sm s5_h_fixed '        relTol          0;\n        nSweeps         -2;\n'
