@@ -408,8 +408,11 @@ fn print(name: &str, r: &Report) {
 /// post-hoc and gated here at the bit-identity / 1e-9 rule, not at a prediction):
 /// - steps 1 and 2 are BIT-IDENTICAL in every compared quantity (power, reactivity, `liquidFuelBeta`, `precEquilibriumReactivity`, every
 ///   field of both regions, every `PBiCG`/`p_rgh` iteration count and `neutroResidual` count, `deltaT`);
-/// - the first difference is at step 3, in the fluid (`p` 2.6e-13 in all 640 cells, `U` 2.1e-15, `T` 2.0e-16 in 6 cells), while the
-///   neutronics stays bit-identical at step 3; its cause is NOT located (gh:#1960);
+/// - ~~the first difference is at step 3, in the fluid (`p` 2.6e-13 in all 640 cells, `U` 2.1e-15, `T` 2.0e-16 in 6 cells), while the
+///   neutronics stays bit-identical at step 3; its cause is NOT located (gh:#1960)~~ **CORRECTED 2026-11-28 (round 81,
+///   [`gh1960_step_three_fluid_difference_diagnostic`]):** the first difference of the compared quantities is at step 3 (`p` 2.6e-13 in all
+///   640 cells, `U` 2.1e-15, `T` 2.0e-16 in 6 cells), but the first difference of the run is at STEP 1, in `epsilon`, `nut`, `alphat`
+///   (not compared here), 2 cells by 1 ulp: PETIR's `pow` in the wall function (gh:#1963); located;
 /// - over 60 steps: power 4.2e-13, reactivity 2.9e-13, `liquidFuelBeta` 2.4e-13, `precEq` bit-identical, `deltaT` 3.5e-14, fields
 ///   <= 2.7e-12 (fluid `p`), every iteration count equal; nothing over 1e-9.
 ///
@@ -536,7 +539,8 @@ fn run_full_case(c: &Case, start: Option<PathBuf>) -> FullReport {
 /// (worst field anywhere: `precPKStar2` 4.5e-5 at t = 360); **T4** final power 6.13788e8 W against 6.13807e8 W, 3.0e-5. All four predictions
 /// (P1 60 %, P2 50 %, P3 45 %, P4 55 %) held. The differences stay <= 1.6e-9 to t = 230 and grow to ~1e-5 after t = 240, the stage of the
 /// loss of flow, where solves stopped at the shipped tolerances (1e-6 absolute; one PIMPLE outer and one pressure corrector) carry the
-/// step-3 round-off forward (not located further); a propagated difference, inside its 1e-4 allowance.
+/// step-3 round-off forward ~~(not located further)~~ (**CORRECTED 2026-11-28, round 81:** located, the step-1 `epsilon` `pow` of the wall
+/// function, gh:#1960/#1963); a propagated difference, inside its 1e-4 allowance.
 #[test]
 fn coupled_transient_full_400_s_against_the_real_binary() {
     let r = run_full();
@@ -621,4 +625,88 @@ fn thermal_coupled_transient_full_400_s_against_the_real_binary() {
         assert!(w.3 <= 1e-8, "pin: t = {} {} {:e}", w.0, w.2, w.3);
     }
     assert!(rel(r.final_power, r.up_final_power) <= 1e-3);
+}
+
+/// gh:#1960 (README round 81): which fluid quantity of the 1D_MSR transient differs FIRST, field by field and solve by solve, over steps
+/// 1-3 (`U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`; the `p_rgh` solves' initial residuals and iterations).
+///
+/// Result (2026-11-28): **located.** The first non-identical number is at STEP 1, not 3: `epsilon` in 2 of 640 cells (368, 536) by 1
+/// ulp, and with it `nut` and `alphat` in the same 2 cells; `U`, `p`, `p_rgh`, `T`, `k` and the `p_rgh` solve are bit-identical. Both
+/// cells are the wall function `Cmu^0.75 k^1.5/(kappa y)` recomputed from the start `k`: the upstream value is the platform `pow`'s, the
+/// port's is PETIR's `r_powf` (2 of 2 cells, bit for bit), the cause round 80 found in the standalone fluid stage (gh:#1963). Step 2:
+/// every one of the eight fields bit-identical again (`epsilon` is re-set from the equal `k`); step 3: the `p_rgh` solve's INITIAL residual
+/// already differs (0.03520831767608689 against 0.035208317676087335), then `p` in all 640 cells (2.6e-13). Round 80's comparison did not
+/// include `epsilon`, `nut`, `alphat`, so its "steps 1 and 2 bit-identical in every compared quantity" was true of what it compared and hid
+/// the step-1 difference. The transient-only candidates of gh:#1960 (the pump table, the variable `deltaT`) are excluded also by the
+/// laminar 1D_thermalMSR transient, which has both and stays bit-identical in `p` through 60 steps.
+#[test]
+fn gh1960_step_three_fluid_difference_diagnostic() {
+    let lg = read_log("msr1d_r80_tr_first_log.ref.txt.gz");
+    let rf = read_fields("msr1d_r80_tr_first.ref.txt.gz");
+    let root = stage("gh1960", true);
+    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).expect("read");
+    let k_start = outram_foam_appbuilder_lib::io::field_reader::read_vol_scalar_field(&root.join("100/fluidRegion/k"), 640).expect("k");
+    let mut pow_tally = (0usize, 0usize, 0usize);
+    for k in 1..=3 {
+        run.step().expect("step");
+        let time = &lg.step_time[&k];
+        if k == 1 {
+            // the step-1 `epsilon` cells that differ: the wall function `Cmu^0.75 k^1.5/(kappa y)` (two wall faces, `y = 0.5`) recomputed
+            // from the START `k` with the platform `pow` and with PETIR's `r_powf` (round 80's test, here on the restart)
+            use petir::mathf::RealMath;
+            let up = &rf[&format!("fluidRegion/epsilon {time}")];
+            for r in &run.regions {
+                if let RegionSolver::OnePhase(f) = &r.solver {
+                    let mine = f.solver.turbulent_dissipation().expect("epsilon");
+                    for c in 0..640 {
+                        if mine[c] != up[c] {
+                            let (cmu, kappa, y) = (0.09_f64, 0.41_f64, 0.5_f64);
+                            let e_std = cmu.powf(0.75) * k_start[c].powf(1.5) / (kappa * y);
+                            let e_petir = cmu.r_powf(0.75) * k_start[c].r_powf(1.5) / (kappa * y);
+                            let (w_std, w_petir) = (0.5 * e_std + 0.5 * e_std, 0.5 * e_petir + 0.5 * e_petir);
+                            pow_tally.0 += 1;
+                            pow_tally.1 += usize::from(w_std == up[c]);
+                            pow_tally.2 += usize::from(w_petir == mine[c]);
+                            println!("gh1960 step 1 epsilon cell {c}: port {:e} up {:e}; platform pow {w_std:e}, PETIR pow {w_petir:e}", mine[c], up[c]);
+                        }
+                    }
+                }
+            }
+            println!("gh1960 step 1: {} epsilon cells differ; upstream = platform pow in {}, port = PETIR pow in {}", pow_tally.0, pow_tally.1, pow_tally.2);
+            assert_eq!(pow_tally, (2, 2, 2), "every step-1 epsilon difference is the pow of the wall function");
+        }
+        for r in &run.regions {
+            if let RegionSolver::OnePhase(f) = &r.solver {
+                let s = &f.solver;
+                let fields: Vec<(&str, Vec<f64>)> = vec![
+                    ("U", s.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).collect()),
+                    ("p", s.pressure().to_vec()),
+                    ("p_rgh", s.p_rgh().expect("flow").to_vec()),
+                    ("T", s.temperature().to_vec()),
+                    ("k", s.turbulent_kinetic_energy().expect("k").to_vec()),
+                    ("epsilon", s.turbulent_dissipation().expect("epsilon").to_vec()),
+                    ("nut", s.turbulent_viscosity().expect("nut").to_vec()),
+                    ("alphat", s.turbulent_thermal_diffusivity().expect("alphat").to_vec()),
+                ];
+                for (nm, v) in &fields {
+                    let up = &rf[&format!("fluidRegion/{nm} {time}")];
+                    let nd = v.iter().zip(up).filter(|(a, b)| a != b).count();
+                    let first: Vec<(usize, f64, f64)> = (0..v.len()).filter(|&i| v[i] != up[i]).take(3).map(|i| (i, v[i], up[i])).collect();
+                    println!("gh1960 step {k} {nm}: {:.3e} ({nd}/{} differ) {first:?}", rel_max(v, up), v.len());
+                    match (k, *nm) {
+                        (1, "epsilon" | "nut" | "alphat") => assert_eq!(nd, 2, "step 1 {nm}"),
+                        (1 | 2, _) => assert_eq!(nd, 0, "step {k} {nm}"),
+                        (3, "p") => assert_eq!(nd, 640),
+                        _ => {}
+                    }
+                }
+                let ps: Vec<(f64, usize)> = s.pressure_solves().iter().map(|x| (x.initial_residual, x.iterations)).collect();
+                println!("gh1960 step {k} p_rgh solves port {ps:?} up {:?}", lg.prgh.get(&k));
+                println!("gh1960 step {k} h solves port {:?}", s.h_solves());
+                if let Some(ts) = s.turbulence_solves() {
+                    println!("gh1960 step {k} turbulence solves port {ts:?}");
+                }
+            }
+        }
+    }
 }
