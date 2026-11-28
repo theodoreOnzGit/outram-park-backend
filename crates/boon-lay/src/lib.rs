@@ -186,6 +186,14 @@ pub mod strato;
 /// is deliberately left as an input.
 pub mod fuel_failure;
 
+/// boon-lay particle mechanics: a spherically symmetric TRISO particle
+/// (equilibrium, conduction, irradiation dimensional change and creep,
+/// Weibull failure) written from scratch from the equations of the BISON
+/// Theory Manual (Hales et al. 2013, INL/EXT-13-29930) on `farrer-park`'s
+/// finite-element layer. Not BISON, whose source this project does not
+/// have. Verified against closed forms only; see the module docs.
+pub mod triso_particle_mechanics;
+
 /// Cited chemical-attack rate laws (graphite-steam oxidation, kernel
 /// hydrolysis) for the water-ingress source term (gh:#401).
 pub mod chemistry;
