@@ -608,6 +608,31 @@ impl DiffusionNeutronics {
         &self.settings
     }
 
+    /// The `GAMG` controls of the `flux.*` entry, when the settings read the case's `fvSolution` and it selects `GAMG` (gh:#1956).
+    #[must_use]
+    pub fn flux_gamg_controls(&self) -> Option<crate::genfoam::common::gamg::GamgControls> {
+        match self.settings.form {
+            LinearSolverForm::UpstreamFvSolution(e) if e.flux.kind == crate::genfoam::common::linear_solvers::NeutronSolverKind::Gamg => {
+                Some(crate::genfoam::common::gamg::GamgControls {
+                    tolerance: e.flux.tolerance,
+                    rel_tol: e.flux.rel_tol,
+                    max_iter: e.flux.max_iter,
+                    min_iter: e.flux.min_iter,
+                    ..e.flux.gamg
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// Set `pairGAMGAgglomeration::forward_` of the `flux.*` `GAMG` agglomeration (the value the process holds when it is (re)built;
+    /// gh:#1956, README round 82). No effect on any other entry.
+    pub fn set_flux_gamg_forward(&mut self, forward: bool) {
+        if let LinearSolverForm::UpstreamFvSolution(e) = &mut self.settings.form {
+            e.flux.gamg_forward = forward;
+        }
+    }
+
     /// Number of energy groups `G`.
     #[must_use]
     pub fn energy_groups(&self) -> usize {

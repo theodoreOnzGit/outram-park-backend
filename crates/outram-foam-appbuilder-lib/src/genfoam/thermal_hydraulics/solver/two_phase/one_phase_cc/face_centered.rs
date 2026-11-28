@@ -333,10 +333,13 @@ impl OnePhaseCcSolver {
             for c in 0..n {
                 self.u.c[c] = u_new[c];
             }
+            // `fluid_.correctAlphaRhoMagU()` (`reconstructU_1p.H:21`), BEFORE `magU = mag(U)` (`pEqnf_1p.H:83`; gh:#1964)
+            self.alpha_rho_mag_u = super::flow::correct_alpha_rho_mag_u(&g, &self.alpha, &self.rho, &self.rho_b, &fs.mag_u, &fs.mag_u_b);
             self.u.correct_bc(&g);
             for c in 0..n {
                 fs.mag_u[c] = self.u.c[c].mag();
             }
+            fs.mag_u_b = self.u.b.iter().map(|v| v.mag()).collect();
             // updatePP_rghRho_1p.H (psi = 0: `rho += psi (p_rgh - p_rgh_0)` adds exactly 0, no closed-volume mass correction)
             for c in 0..n {
                 self.p[c] = (fs.p_rgh.c[c] + rho[c] * fs.gh[c]).max(fc.p_min);

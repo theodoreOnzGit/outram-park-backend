@@ -922,13 +922,19 @@ fn gh1961_allrun_chain_against_the_real_binary() {
     //   `powerDensityNeutronics`, `powerDensityNeutronicsToLiquid` of the fluid) number for number equal to the real ones.
     // Found by this chain (fixed, default now): `RegionSolvers::read` set both fluid coupling fields to 0, overriding the case's
     // `initialPowerDensity` in a fluid-only stage (`T` 21 % off at t = 100 before the fix).
+    // ~~W1 MISSED / W2 MISSED (above)~~ **CORRECTED 2026-11-28 (gh:#1964, README round 82, re-run):** `Dh = SMALL` outside the structures
+    // (`Re` = `minRe` there), `alphapas_` as upstream builds it, `heatFlux.structure` on every structure cell and `correctAlphaRhoMagU()`
+    // under faceCentered: all 24 fluid files written; 24 of the 26 files byte-identical (22 of 24 fluid + both `uniform`); the two that are
+    // not are `dgdt` (1866 numbers, 5.6e-18 of max) and `p_rgh` (6 `gradient` numbers, 8.1e-28 of max): round-off of near-zero values of an
+    // 8340-step state that is not bit-identical (gh:#1963, PETIR `pow`); the chained transient unchanged (30 of 30 equal to round 80's).
     assert_eq!(rep.ss_steps, 8340);
-    assert_eq!(rep.missing, vec!["fluidRegion/alphaRhoMagU".to_string()], "W1");
+    assert!(rep.missing.is_empty(), "W1: {:?}", rep.missing);
     assert!(rep.extra.is_empty());
-    assert!(rep.byte_identical >= 20, "{}", rep.byte_identical);
-    // `Re`: the documented W2 miss (wrong in 320 cells, below)
-    assert!(rep.w2.iter().all(|w| w.2 <= 5e-6 || w.0 == "fluidRegion/Re"), "W2 on the files with the real skeleton: {:?}", rep.w2);
-    assert_eq!(rep.skeleton_differs.len(), 2, "{:?}", rep.skeleton_differs);
+    assert_eq!(rep.byte_identical, 24, "{}", rep.byte_identical);
+    assert!(rep.w2.iter().all(|w| w.2 <= 5e-6), "W2: {:?}", rep.w2);
+    let not_identical: Vec<&str> = rep.w2.iter().filter(|w| w.1 > 0).map(|w| w.0.as_str()).collect();
+    assert_eq!(not_identical, vec!["fluidRegion/dgdt", "fluidRegion/p_rgh"], "{:?}", rep.w2);
+    assert!(rep.skeleton_differs.is_empty(), "{:?}", rep.skeleton_differs);
     assert_eq!(same, 30, "the chain reproduces round 80's run from the real 100 at every written time");
     assert!(rep.w4.len() == 11 && rep.w4.iter().all(|w| w.1 == 0.0), "W4: {:?}", rep.w4);
     assert!((r.final_time - 400.0).abs() < 1e-9 && r.steps == r.up_steps && r.writes.len() == 30, "T1 T2");

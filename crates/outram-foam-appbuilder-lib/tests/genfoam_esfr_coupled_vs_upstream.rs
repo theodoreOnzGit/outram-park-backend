@@ -73,6 +73,8 @@ struct Reference {
     prgh: Vec<Vec<(f64, i64)>>,
     h: Vec<Vec<(f64, i64)>>,
     tm: Vec<Vec<(String, f64, i64)>>,
+    /// Per step: the neutronics flux solves `(field, initial residual, iterations)` (round 82 references only: the `FLUX` lines).
+    flux: Vec<Vec<(String, f64, i64)>>,
     /// `(step, "region field")` -> `[n, sum, max, sumsq]`
     fp: HashMap<(usize, String), [f64; 4]>,
     full: HashMap<(usize, String), Vec<f64>>,
@@ -81,9 +83,18 @@ struct Reference {
 fn load_reference(tag: &str) -> Reference {
     // `r75step2` (gh:#1949, README round 75 Part C): the tight run of the round 74 case for 3 steps with the full fields kept at steps 1, 2, 3
     let step2 = tag == "r75step2";
-    let with_full = tag == "tight" || step2;
+    // `r82_gtight` / `r82_gloose` (gh:#1956, README round 82): the neutronics GAMG one-edit variant, tight and as shipped
+    let r82 = tag.starts_with("r82_");
+    let with_full = tag == "tight" || step2 || r82;
     let mut r = Reference::default();
-    let text = String::from_utf8(gunzip(&vv_dir().join(if step2 { "refs/esfr_r75_step2_log.ref.txt.gz".to_string() } else { format!("refs/esfr_r74_{tag}_log.ref.txt.gz") }))).expect("utf8");
+    let log_name = if step2 {
+        "refs/esfr_r75_step2_log.ref.txt.gz".to_string()
+    } else if r82 {
+        format!("refs/esfr_{tag}_log.ref.txt.gz")
+    } else {
+        format!("refs/esfr_r74_{tag}_log.ref.txt.gz")
+    };
+    let text = String::from_utf8(gunzip(&vv_dir().join(log_name))).expect("utf8");
     for line in text.lines() {
         let w: Vec<&str> = line.split_whitespace().collect();
         let f = |i: usize| w[i].parse::<f64>().expect("float");
@@ -99,9 +110,14 @@ fn load_reference(tag: &str) -> Reference {
                     r.h.push(v);
                 }
             }
-            "TM" => {
+            "TM" | "FLUX" => {
                 let n: usize = w[2].parse().unwrap();
-                r.tm.push((0..n).map(|i| (w[3 + 3 * i].to_string(), f(4 + 3 * i), w[5 + 3 * i].parse().unwrap())).collect());
+                let v: Vec<(String, f64, i64)> = (0..n).map(|i| (w[3 + 3 * i].to_string(), f(4 + 3 * i), w[5 + 3 * i].parse().unwrap())).collect();
+                if w[0] == "TM" {
+                    r.tm.push(v);
+                } else {
+                    r.flux.push(v);
+                }
             }
             "FP" => {
                 let k: usize = w[1].parse().unwrap();
@@ -112,7 +128,13 @@ fn load_reference(tag: &str) -> Reference {
     }
     if with_full {
         for region in ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"] {
-            let name = if step2 { format!("refs/esfr_r75_step2_V_{region}.ref.txt.gz") } else { format!("refs/esfr_r74_tight_V_{region}.ref.txt.gz") };
+            let name = if step2 {
+                format!("refs/esfr_r75_step2_V_{region}.ref.txt.gz")
+            } else if r82 {
+                format!("refs/esfr_{tag}_V_{region}.ref.txt.gz")
+            } else {
+                format!("refs/esfr_r74_tight_V_{region}.ref.txt.gz")
+            };
             let t = String::from_utf8(gunzip(&vv_dir().join(name))).expect("utf8");
             for line in t.lines() {
                 let w: Vec<&str> = line.split_whitespace().collect();
@@ -174,7 +196,14 @@ fn esfr_coupled_steps_against_the_real_binary() {
     // `ESFR_REF=loose` compares with the real AS-SHIPPED (loose) run, macroscopic quantities and solve counts only (no field values were kept)
     let tag = std::env::var("ESFR_REF").unwrap_or_else(|_| "tight".to_string());
     let reference = load_reference(&tag);
-    let mut run = RegionSolvers::read(&dir, CouplingSwitches::default()).unwrap_or_else(|e| panic!("read: {e}"));
+    // round 82 (gh:#1956): `ESFR_CONTROL=shared_off` (one `forward_ = true` per region) or `reagg_off` (no neutronics rebuild after
+    // `deformMesh`), the two named controls; unset: upstream's form
+    let switches = match std::env::var("ESFR_CONTROL").as_deref() {
+        Ok("shared_off") => CouplingSwitches::default().without_shared_gamg_forward(),
+        Ok("reagg_off") => CouplingSwitches::default().without_gamg_reagglomeration_after_mesh_motion(),
+        _ => CouplingSwitches::default(),
+    };
+    let mut run = RegionSolvers::read(&dir, switches).unwrap_or_else(|e| panic!("read: {e}"));
     let mut first_diverging: Option<(usize, String, f64)> = None;
     // solve bookkeeping: [count mismatches, solves compared, worst relative initial residual (upstream above 1e-10), iteration differences > 1, worst iteration difference]
     let mut sol = [[0.0_f64; 8]; 3];
@@ -182,7 +211,25 @@ fn esfr_coupled_steps_against_the_real_binary() {
         let t0 = std::time::Instant::now();
         let rec = run.step().unwrap_or_else(|e| panic!("step {k}: {e}"));
         let wall = t0.elapsed().as_secs_f64();
+        if k == 1 {
+            // round 82 (gh:#1956): the GAMG builds of step 1 (built, levels created, the `forward_` the state holds now)
+            for r in run.regions.iter_mut() {
+                let st = match &mut r.solver {
+                    RegionSolver::OnePhase(f) => f.solver.p_rgh_gamg_state_mut(),
+                    RegionSolver::ThermoMechanics(t) => t.solver.t_struct_gamg_state_mut(),
+                    _ => None,
+                };
+                if let Some(st) = st {
+                    println!("  GAMG step 1 {}: built {} levels {} forward {}", r.name, st.is_built(), st.n_levels(), st.forward());
+                }
+            }
+        }
         let lg = reference.log[k - 1];
+        if let Some(fx) = reference.flux.get(k - 1) {
+            // the real flux GAMG solves (the port does not log its neutronics solves): count, and the iterations of each
+            let its: Vec<i64> = fx.iter().map(|x| x.2).collect();
+            println!("  FLUX step {k}: {} real solves, iterations {its:?}; port forward_ after the step {}", fx.len(), run.gamg_forward());
+        }
         println!(
             "STEP {k} ({wall:.1} s): keff {:e} vs {:e} (rel {:e}); power {:e} vs {:e} (rel {:e}); sigma {:?} vs {:e}; dt {} vs {}",
             rec.k_eff, lg[1], rel(rec.k_eff, lg[1]), rec.power, lg[2], rel(rec.power, lg[2]), rec.max_sigma_eq, lg[3], rec.dt, reference.dt.get(k.wrapping_sub(2)).copied().unwrap_or(1.0)

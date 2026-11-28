@@ -70,6 +70,7 @@ use super::cell_overlap::OverlapMesh;
 use super::coupled_loop::{adjust_delta_t, CouplingDict, MappingEntry, RegionMeshMap};
 use super::mesh_deformation::{DeformableMesh, DispPatchCondition, MeshDeformationDict, PointCellsOrder, StepClock, VolDisplacement};
 use crate::error::AppBuilderError;
+use crate::genfoam::common::linear_solvers::gamg_forward_after_build;
 use crate::genfoam::neutronics::diffusion::external_source::{NeutronicsDdtScheme, NeutronicsLaplacianScheme, StationaryStep, StationaryStepControls};
 use crate::genfoam::neutronics::diffusion::upstream_transient::diffusion_max_delta_t;
 use crate::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettings};
@@ -307,6 +308,13 @@ pub struct CouplingSwitches {
     /// NAMED ABLATION (gh:#1948, README round 75): the neutronics linear solves keep the FIXED tight form of rounds 56-74 (`PCG`/`PBiCG` at
     /// tolerance 1e-14, `relTol` 0, `maxIter` 100000) instead of the entries of the region's `fvSolution`. The default (false) is upstream's.
     pub tight_neutronics_solvers: bool,
+    /// CONTROL, NOT upstream (gh:#1956, README round 82): every region's `GAMG` agglomeration starts from `forward_ = true` (the form
+    /// before round 82: one `forward_` per region instead of the ONE process-wide `pairGAMGAgglomeration::forward_`).
+    pub no_shared_gamg_forward: bool,
+    /// CONTROL, NOT upstream (gh:#1956, README round 82): `deformMesh()` does not mark the neutronics `GAMG` agglomeration for a rebuild
+    /// (`GAMGAgglomeration::requireUpdate_` never set): it keeps the `forward_` start of its first build. The port builds the agglomeration
+    /// per solve from the CURRENT `Sf`, so this control removes the `forward_` toggling of the rebuilds, not the moved face weights.
+    pub no_gamg_reagglomeration: bool,
 }
 
 impl CouplingSwitches {
@@ -356,6 +364,20 @@ impl CouplingSwitches {
     #[must_use]
     pub fn without_integral_predictor(mut self) -> Self {
         self.no_integral_predictor = true;
+        self
+    }
+
+    /// CONTROL (gh:#1956): one `forward_ = true` per region's `GAMG` agglomeration; see [`Self::no_shared_gamg_forward`].
+    #[must_use]
+    pub fn without_shared_gamg_forward(mut self) -> Self {
+        self.no_shared_gamg_forward = true;
+        self
+    }
+
+    /// CONTROL (gh:#1956): no neutronics `GAMG` rebuild after `deformMesh()`; see [`Self::no_gamg_reagglomeration`].
+    #[must_use]
+    pub fn without_gamg_reagglomeration_after_mesh_motion(mut self) -> Self {
+        self.no_gamg_reagglomeration = true;
         self
     }
 }
@@ -418,6 +440,12 @@ pub struct RegionSolvers {
     write_interval: Option<f64>,
     /// The `multiPhysicsSolver` of `regionSolvers`, if the case selects one (the only entry then).
     multi: Option<MultiPhysics>,
+    /// `pairGAMGAgglomeration::forward_` (`pairGAMGAgglomeration.C:36`): ONE static of the process, toggled at every level of every `GAMG`
+    /// agglomeration built, whichever region's (gh:#1956, README round 82). Handed in to each region before its solves and read back after.
+    gamg_forward: bool,
+    /// Per region: the neutronics `flux.*` `GAMG` agglomeration must be (re)built at the region's next solve (`true` at the start, and
+    /// after each `deformMesh()`: `GAMGAgglomeration::movePoints` sets `requireUpdate_`, `GAMGAgglomeration.C:531-539`).
+    neutro_gamg_stale: Vec<bool>,
 }
 
 /// The `PseudoTimeControls` a `controlDict` gives (`pTarget` is not read by the loop).
@@ -517,9 +545,11 @@ fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
 /// `tight` is the named ablation: the fixed tight form of rounds 56-74.
 ///
 /// # Errors
-/// An `fvSolution` that cannot be read, an entry the port does not translate (reader's refusals), or a flux entry that selects `GAMG`
+/// An `fvSolution` that cannot be read, an entry the port does not translate (reader's refusals), ~~or a flux entry that selects `GAMG`
 /// (~~the reader would run `PCG`/`DIC` in its place~~ CHANGED 2026-11-27, gh:#1945: GAMG is ported, but the process-wide `forward_` state
-/// of upstream's pair agglomeration across regions and mesh motion is not carried, so a multi-region run refuses it by name).
+/// of upstream's pair agglomeration across regions and mesh motion is not carried, so a multi-region run refuses it by name)~~
+/// **CHANGED 2026-11-28 (gh:#1956, README round 82):** a `GAMG` flux entry runs `GAMG` (the process-wide `forward_` and the rebuild after
+/// `deformMesh` are carried by `RegionSolvers`); only the reader's named `PCG`/`DIC` substitute is refused.
 fn neutronics_diffusion_settings(root: &Path, name: &str, xs: &CrossSectionData, tight: bool) -> Result<DiffusionSettings, AppBuilderError> {
     let base = DiffusionSettings {
         k_tolerance: 1e-13,
@@ -537,8 +567,10 @@ fn neutronics_diffusion_settings(root: &Path, name: &str, xs: &CrossSectionData,
     // round 79): it is ported and is what a neutronics-only or EN-stage case runs (`LinearSolve`); in a multi-region run it is still refused,
     // because upstream's `pairGAMGAgglomeration::forward_` is ONE process-wide static that the other regions' GAMG agglomerations and every
     // re-agglomeration after `movePoints` (mesh deformation) toggle, and the port does not carry that state across regions
-    if sol.gamg_substituted || sol.entries.flux.kind == crate::genfoam::common::linear_solvers::NeutronSolverKind::Gamg {
-        return Err(case_err(root, format!("system/{name}/fvSolution: the flux entry selects GAMG; in a multi-region run GAMG for the neutronics flux is refused by name: the process-wide pairGAMGAgglomeration::forward_ shared with the other regions' agglomerations and the re-agglomeration after mesh motion are not carried (gh:#1945)")));
+    // ~~refused by name~~ CHANGED 2026-11-28 (gh:#1956, README round 82): `RegionSolvers` carries the process-wide `forward_` across the
+    // regions (`gamg_hand_in`/`gamg_hand_out`) and rebuilds the agglomeration after `deformMesh()`; only the named substitute is refused
+    if sol.gamg_substituted {
+        return Err(case_err(root, format!("system/{name}/fvSolution: the flux entry selects GAMG and the reader substituted PCG/DIC: refused in a multi-region run (gh:#1945)")));
     }
     Ok(base.with_fv_solution(sol.entries))
 }
@@ -1260,7 +1292,10 @@ impl RegionSolvers {
             source_geometries,
             write_interval,
             multi: None,
+            gamg_forward: true,
+            neutro_gamg_stale: Vec::new(),
         };
+        me.neutro_gamg_stale = vec![true; me.regions.len()];
         // the member indices of a `multiPhysicsSolver` are the regions' own (members were pushed in order)
         me.multi = multi.map(|mut m| {
             m.members = (0..me.regions.len()).collect();
@@ -1379,6 +1414,7 @@ impl RegionSolvers {
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();
         self.step = 0;
+        self.reset_gamg_process_state();
         for i in 0..self.regions.len() {
             self.correct_baffle_less_fields(i);
         }
@@ -1445,6 +1481,7 @@ impl RegionSolvers {
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();
         self.step = 0;
+        self.reset_gamg_process_state();
         for i in 0..self.regions.len() {
             self.correct_baffle_less_fields(i);
         }
@@ -1604,14 +1641,106 @@ impl RegionSolvers {
                 n.mesh.deform_mesh_at(&disp, clock).map_err(|e| case_err(Path::new(""), e.to_string()))?;
                 let v0 = n.mesh.v0().map(<[f64]>::to_vec);
                 n.solver.rebind_mesh(n.mesh.mesh().clone(), v0).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                // `fvMesh::movePoints` -> `GAMGAgglomeration::movePoints()`: `requireUpdate_` (gh:#1956)
+                if !self.switches.no_gamg_reagglomeration {
+                    self.neutro_gamg_stale[i] = true;
+                }
                 Ok(())
             }
             _ => Err(case_err(Path::new(""), format!("{}: meshDeformation of a region that is not the diffusion neutronics is not ported (gh:#1918)", r.name))),
         }
     }
 
-    /// `solvers[i].correctPhysics()`.
+    /// `solvers[i].correctPhysics()`, with the process-wide `pairGAMGAgglomeration::forward_` handed in before and read back after
+    /// (gh:#1956, README round 82).
     fn correct_physics(&mut self, i: usize) -> Result<(), AppBuilderError> {
+        self.gamg_hand_in(i)?;
+        let out = self.correct_physics_of_region(i);
+        self.gamg_hand_out(i);
+        out
+    }
+
+    /// Before region `i` solves: its `GAMG` state takes the process-wide `forward_` (gh:#1956). The fluid's `p_rgh` and the
+    /// thermo-mechanics' `TStruct` states build lazily at their first solve and then cache (a built state neither reads nor toggles it, so
+    /// the value passes through to [`Self::gamg_hand_out`] unchanged; `deformMesh` of those regions is refused here). The neutronics
+    /// `flux.*` agglomeration is built per solve from a `forward` start fixed HERE when it is stale (the region's first `GAMG` solve, or the
+    /// first after a `deformMesh`): that start is the process value now, and what its build leaves ([`gamg_forward_after_build`]) becomes
+    /// the process value. Every `correctPhysics` of a diffusion region solves the flux at least once.
+    ///
+    /// # Errors
+    /// An agglomeration the controls cannot build (as the solve itself would report).
+    fn gamg_hand_in(&mut self, i: usize) -> Result<(), AppBuilderError> {
+        let shared = !self.switches.no_shared_gamg_forward;
+        let start = if shared { self.gamg_forward } else { true };
+        let stale = self.neutro_gamg_stale[i];
+        let name = self.regions[i].name.clone();
+        match &mut self.regions[i].solver {
+            RegionSolver::OnePhase(f) => {
+                if let Some(st) = f.solver.p_rgh_gamg_state_mut() {
+                    st.set_forward(start);
+                }
+            }
+            RegionSolver::ThermoMechanics(tm) => {
+                if let Some(st) = tm.solver.t_struct_gamg_state_mut() {
+                    st.set_forward(start);
+                }
+            }
+            RegionSolver::Neutronics(n) => {
+                if let (Some(ctl), true) = (n.solver.flux_gamg_controls(), stale) {
+                    let end = gamg_forward_after_build(n.mesh.mesh(), &ctl, start).map_err(|e| case_err(Path::new(""), format!("{name}: GAMG agglomeration: {e}")))?;
+                    n.solver.set_flux_gamg_forward(start);
+                    if shared {
+                        self.gamg_forward = end;
+                    }
+                    self.neutro_gamg_stale[i] = false;
+                }
+            }
+            RegionSolver::PointKinetics(_) => {}
+        }
+        Ok(())
+    }
+
+    /// After region `i` solved: the fluid or thermo-mechanics state's `forward_` (toggled if it built in these solves, else the value handed
+    /// in) is the process value again (gh:#1956).
+    fn gamg_hand_out(&mut self, i: usize) {
+        if self.switches.no_shared_gamg_forward {
+            return;
+        }
+        let st = match &mut self.regions[i].solver {
+            RegionSolver::OnePhase(f) => f.solver.p_rgh_gamg_state_mut(),
+            RegionSolver::ThermoMechanics(tm) => tm.solver.t_struct_gamg_state_mut(),
+            _ => None,
+        };
+        if let Some(st) = st {
+            self.gamg_forward = st.forward();
+        }
+    }
+
+    /// A restart is a NEW `GeN-Foam` process (Allrun's next stage): `pairGAMGAgglomeration::forward_` starts `true` again and every
+    /// `GAMG` agglomeration is rebuilt at its first solve (gh:#1956, README round 82).
+    fn reset_gamg_process_state(&mut self) {
+        self.gamg_forward = true;
+        self.neutro_gamg_stale = vec![true; self.regions.len()];
+        for r in &mut self.regions {
+            let st = match &mut r.solver {
+                RegionSolver::OnePhase(f) => f.solver.p_rgh_gamg_state_mut(),
+                RegionSolver::ThermoMechanics(tm) => tm.solver.t_struct_gamg_state_mut(),
+                _ => None,
+            };
+            if let Some(st) = st {
+                st.invalidate();
+            }
+        }
+    }
+
+    /// The process-wide `pairGAMGAgglomeration::forward_` as the run holds it now (gh:#1956, README round 82).
+    #[must_use]
+    pub fn gamg_forward(&self) -> bool {
+        self.gamg_forward
+    }
+
+    /// The body of `solvers[i].correctPhysics()`.
+    fn correct_physics_of_region(&mut self, i: usize) -> Result<(), AppBuilderError> {
         let dt = self.dt;
         // GEM reads the FLUID region's `phi` (`calcGEMLevelAndReactivity`): taken before the neutronics region is borrowed
         let gem_flux = match &self.regions[i].solver {
@@ -1913,11 +2042,11 @@ mod neutronics_settings_tests {
         assert!(CouplingSwitches::default().with_tight_neutronics_solvers().tight_neutronics_solvers);
     }
 
-    /// A loose entry is carried through, and a GAMG flux entry is refused by name.
+    /// A loose entry is carried through, and a GAMG flux entry is read as GAMG (~~refused by name~~ before gh:#1956, README round 82).
     #[test]
-    fn loose_entries_are_read_and_gamg_is_refused() {
+    fn loose_entries_are_read_and_gamg_flux_is_accepted() {
         let (_root, xs) = xs_of_case();
-        let dir = std::env::temp_dir().join(format!("r75_nsettings_{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("r75_nsettings_{}_{:?}", std::process::id(), std::thread::current().id()));
         std::fs::create_dir_all(dir.join("system/neutroRegion")).unwrap();
         let hdr = "FoamFile { version 2.0; format ascii; class dictionary; object fvSolution; }\n";
         std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"prec.*|precStar.*\" {{ solver PBiCG; preconditioner DILU; tolerance 1e-6; relTol 1e-3; }} \"flux.*\" {{ solver PCG; preconditioner DIC; tolerance 1e-6; relTol 1e-3; }} }}")).unwrap();
@@ -1930,7 +2059,12 @@ mod neutronics_settings_tests {
             other => panic!("form {other:?}"),
         }
         std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"flux.*\" {{ solver GAMG; tolerance 1e-6; smoother DICGaussSeidel; }} }}")).unwrap();
-        assert!(neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).is_err());
+        // ~~refused by name~~ since gh:#1956 (README round 82) a GAMG flux entry runs GAMG in a multi-region run
+        let g = neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).expect("GAMG flux entry");
+        match g.form {
+            LinearSolverForm::UpstreamFvSolution(e) => assert!(e.flux.kind == NeutronSolverKind::Gamg && e.flux.gamg_forward),
+            other => panic!("form {other:?}"),
+        }
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

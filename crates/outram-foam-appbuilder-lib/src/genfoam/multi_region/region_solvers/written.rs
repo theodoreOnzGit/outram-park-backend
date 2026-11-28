@@ -83,7 +83,7 @@ impl RegionSolvers {
                         }
                     }
                     if !f.solver.writes_alpha_rho_mag_u() {
-                        not_written.push(format!("{name}/alphaRhoMagU: refused by name (momentumMode cellCenteredFaceReconstruction: correctAlphaRhoMagU() runs every corrector, not ported)"));
+                        not_written.push(format!("{name}/alphaRhoMagU: refused by name (no flow solved)"));
                     }
                     if r.remove_baffles {
                         match &r.baffle_less {

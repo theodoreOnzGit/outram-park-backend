@@ -407,6 +407,13 @@ pub struct OnePhaseCcCase {
     pub laminar: bool,
     /// `structureProperties.<zone>.passiveProperties` (`structure.C:372`); `None` when no zone has one.
     pub passive: Option<PassiveStructure>,
+    /// `alpha.passiveStructure` (`alphapas_`, gh:#1964): read, else `alpha.structure` as read (0 when not on disk), then the passive zones'
+    /// fractions (`structure.C:138-148`, `:430-460`).
+    pub alpha_passive: Vec<f64>,
+    /// The cells of every `structureProperties` zone (`structure::cells_`), where `correct` sets `heatFlux.structure` (gh:#1964).
+    pub structure_cells: Vec<bool>,
+    /// `heatFlux.structure` read from the start directory (`READ_IF_PRESENT`), if there.
+    pub heat_flux0: Option<Vec<f64>>,
     /// Controls.
     pub controls: OnePhaseCcControls,
     /// `startTime`.
@@ -417,7 +424,7 @@ pub struct OnePhaseCcCase {
     pub delta_t: f64,
     /// Structure volume fraction per cell (`volumeFraction` of the zone).
     pub alpha_structure: Vec<f64>,
-    /// Structure hydraulic diameter per cell (`Dh`).
+    /// Structure hydraulic diameter per cell (`Dh`; `SMALL` = 1e-15 outside every structure zone, upstream's constructor value, gh:#1964).
     pub dh: Vec<f64>,
     /// `volumetricArea.activeStructure`: the `fixedTemperature` power model's area per cell.
     pub ia_act: Vec<f64>,
@@ -893,7 +900,9 @@ impl OnePhaseCcCase {
         let pp = ctx.read(&format!("constant/{region}/phaseProperties"))?;
         let sp = ctx.sub(&pp, "structureProperties")?;
         let mut alpha_structure = vec![0.0; n];
-        let mut dh = vec![1.0; n];
+        // `structure_.Dh()` is constructed `SMALL` (`structure.C:74-84`); only a zone's cells get its `Dh`, so outside every structure
+        // `FSPair::Re_ = max(normalized |U| SMALL/nu, minRe) = minRe` (gh:#1964, README round 82; ~~1.0~~ before)
+        let mut dh = vec![SMALL; n];
         let mut ia_act = vec![0.0; n];
         let mut fixed_cells = vec![false; n];
         let mut momentum_source = vec![Vector3::ZERO; n];
@@ -901,6 +910,9 @@ impl OnePhaseCcCase {
         let mut momentum_profiles: Vec<(Vec<usize>, Vector3, TimeProfile)> = Vec::new();
         let mut t_fixed_default = vec![0.0; n];
         let mut passive: Option<PassiveStructure> = None;
+        // `(cells, passiveProperties.volumeFraction, zone volumeFraction)` of each passive zone, for `alphapas_` (gh:#1964, below)
+        let mut passive_zones: Vec<(Vec<usize>, Option<f64>, f64)> = Vec::new();
+        let mut structure_cells = vec![false; n];
         let mut t_profiles: Vec<(Vec<usize>, TimeProfile)> = Vec::new();
         for (key, e) in sp.iter() {
             let FoamEntry::SubDict(zd) = e else { continue };
@@ -952,6 +964,7 @@ impl OnePhaseCcCase {
             for &c in &cells {
                 alpha_structure[c] = vf;
                 dh[c] = d;
+                structure_cells[c] = true;
             }
             if let Some(pd) = zd.get_dict("passiveProperties") {
                 // `structure.C:372-475`: `volumetricArea`; `rho` and `Cp` or `rhoCp` (all three, or none, is a FatalError);
@@ -971,15 +984,16 @@ impl OnePhaseCcCase {
                 } else {
                     return Err(ctx.e(format!("structureProperties.{key}.passiveProperties: specify either rhoCp or both rho and Cp")));
                 };
-                let pas_alpha = scalar(pd, "volumeFraction").unwrap_or(vf);
                 let pas_ia = ctx.f64(pd, "volumetricArea")?;
                 let pas_t = ctx.f64(pd, "T")?;
                 let ps = passive.get_or_insert_with(|| PassiveStructure { ia: vec![0.0; n], alpha_rho_cp: vec![0.0; n], t: vec![0.0; n], t_from_file: false });
                 for &c in &cells {
                     ps.ia[c] = pas_ia;
-                    ps.alpha_rho_cp[c] = pas_alpha * rho_cp;
+                    // `rhoCp` here; multiplied by `alphapas_` once that is known (`structure.C:741-748`)
+                    ps.alpha_rho_cp[c] = rho_cp;
                     ps.t[c] = pas_t;
                 }
+                passive_zones.push((cells.clone(), scalar(pd, "volumeFraction"), vf));
             }
             for (k2, _) in zd.iter() {
                 if !matches!(k2, "volumeFraction" | "Dh" | "powerModel" | "momentumSource" | "momentumSourceTimeProfile" | "passiveProperties" | "localTortuosity") {
@@ -1131,6 +1145,46 @@ impl OnePhaseCcCase {
                 ps.t_from_file = true;
             }
         }
+        // `alphapas_` (gh:#1964, README round 82; `structure.C:138-148`, `:430-460`): `READ_IF_PRESENT`, else a copy of `alpha.structure` as
+        // the base field holds it BEFORE the constructor body (the file if `alphaHeaderOk`, else 0); then, in each passive zone, the
+        // `passiveProperties.volumeFraction` if given, else the zone's `volumeFraction` when `alpha.structure` was NOT read. A handed-over
+        // stage counts as one whose `alpha.structure` is present (it holds the dictionary's values).
+        let alpha_header_ok = hand.is_some() || fdir.join("alpha.structure").exists();
+        let mut alpha_passive = if hand.is_none() && fdir.join("alpha.passiveStructure").exists() {
+            sfield("alpha.passiveStructure")?
+        } else if hand.is_none() && alpha_header_ok {
+            sfield("alpha.structure")?
+        } else if alpha_header_ok {
+            alpha_structure.clone()
+        } else {
+            vec![0.0; n]
+        };
+        for (cells, pas_vf, zone_vf) in &passive_zones {
+            let v = match (pas_vf, alpha_header_ok) {
+                (Some(v), _) => Some(*v),
+                (None, false) => Some(*zone_vf),
+                (None, true) => None,
+            };
+            if let Some(v) = v {
+                for &c in cells {
+                    alpha_passive[c] = v;
+                }
+            }
+        }
+        if let Some(ps) = passive.as_mut() {
+            // `alphaRhoCppas_ = max(alphapas_ * alphaRhoCppas_, 1e-69)` (`structure.C:741-748`); outside the passive zones it is never used
+            let mut in_passive = vec![false; n];
+            for (cells, _, _) in &passive_zones {
+                for &c in cells {
+                    in_passive[c] = true;
+                }
+            }
+            for c in (0..n).filter(|&c| in_passive[c]) {
+                ps.alpha_rho_cp[c] = (alpha_passive[c] * ps.alpha_rho_cp[c]).max(1e-69);
+            }
+        }
+        // `heatFlux.structure` is `READ_IF_PRESENT` (`structure.C:98-109`); only the structure cells are overwritten by `correct`
+        let heat_flux0 = if hand.is_none() && fdir.join("heatFlux.structure").exists() { Some(sfield("heatFlux.structure")?) } else { None };
         // ---- the radial-conduction power models (gh:#1879): built here because they need every zone's structure alpha
         let has_radial = sp.iter().any(|(_, e)| match e {
             FoamEntry::SubDict(zd) => zd
@@ -1349,6 +1403,9 @@ impl OnePhaseCcCase {
             thermo,
             laminar,
             passive,
+            alpha_passive,
+            structure_cells,
+            heat_flux0,
             controls,
             start_time,
             end_time,
@@ -1409,7 +1466,7 @@ pub struct OnePhaseCcSolver {
     q_neutronics: Vec<f64>,
     /// `T.prevIter()` stored by `EEqn_1p.H` before the solve (`HT = Hs*T.prevIter()`).
     t_prev: Vec<f64>,
-    /// `heatFlux.structure` (`H Twall - HT`) on the radial models' cells, 0 elsewhere.
+    /// `heatFlux.structure` (`H Twall - HT`) on every structure cell (~~the radial models' cells~~ **CORRECTED 2026-11-28**, gh:#1964), the read or 0 value elsewhere.
     structure_heat_flux: Vec<f64>,
     /// CONTROL (gh:#1879): build `HT` from the post-solve `T` instead of `T.prevIter()`.
     ctl_ht_post_solve: bool,
@@ -1600,6 +1657,7 @@ impl OnePhaseCcSolver {
                 (ni0..geom.n_faces()).map(|f| alpha[geom.mesh.owner[f]] * rho_b[f - ni0] * u.b[f - ni0].mag()).collect(),
             ),
         };
+        let structure_heat_flux = case.heat_flux0.clone().unwrap_or_else(|| vec![0.0; n]);
         let mut s = Self {
             case,
             geom,
@@ -1615,7 +1673,7 @@ impl OnePhaseCcSolver {
             heat_exchangers,
             q_neutronics,
             t_prev: Vec::new(),
-            structure_heat_flux: vec![0.0; n],
+            structure_heat_flux,
             ctl_ht_post_solve: false,
             ctl_no_laplacian: false,
             ctl_no_coupled_laplacian: false,
@@ -1816,6 +1874,7 @@ impl OnePhaseCcSolver {
             }
             fs.u_old = uc;
             fs.mag_u = self.u.c.iter().map(|v| v.mag()).collect();
+            fs.mag_u_b = self.u.b.iter().map(|v| v.mag()).collect();
             fs.solves.clear();
         }
     }
@@ -2002,13 +2061,14 @@ impl OnePhaseCcSolver {
             let h = self.htc.clone();
             self.heat_exchangers.correct(&ht, &h, &h, &s_ht);
         }
-        if self.radial.is_empty() {
-            return;
-        }
         let n = self.geom.n_cells();
         let tp: &[f64] = if self.ctl_ht_post_solve { &self.t } else { &self.t_prev };
         let ht: Vec<f64> = (0..n).map(|c| self.htc[c] * tp[c]).collect();
         let h = self.htc.clone();
+        if self.radial.is_empty() {
+            self.update_structure_heat_flux(&h, &ht);
+            return;
+        }
         let volumes = self.geom.mesh.cell_volumes.clone();
         let time_index = self.steps_begun as i64;
         for i in 0..self.radial.len() {
@@ -2024,6 +2084,17 @@ impl OnePhaseCcSolver {
             }
             for &c in self.radial[i].cells() {
                 self.t_act[c] = self.radial[i].surface_temperature(c);
+            }
+        }
+        self.update_structure_heat_flux(&h, &ht);
+    }
+
+    /// The end of `structure::correct` (`structure.C:1057-1071`): `Twall = Tact`, `heatFlux = H Twall - HT` over EVERY cell of every
+    /// structure zone (`cells_`), whatever its power model (a `fixedTemperature` zone, a zone with none: `Tact = 0` there). ~~On the radial
+    /// models' cells only~~ before gh:#1964 (README round 82).
+    fn update_structure_heat_flux(&mut self, h: &[f64], ht: &[f64]) {
+        for c in 0..self.geom.n_cells() {
+            if self.case.structure_cells[c] {
                 self.structure_heat_flux[c] = h[c] * self.t_act[c] - ht[c];
             }
         }
@@ -2077,7 +2148,7 @@ impl OnePhaseCcSolver {
         &self.radial
     }
 
-    /// `heatFlux.structure` on the radial models' cells (`H Twall - HT`; 0 elsewhere).
+    /// `heatFlux.structure` on every structure cell (`H Twall - HT`; ~~the radial models' cells only~~ **CORRECTED 2026-11-28**, gh:#1964; elsewhere the read or 0 value).
     #[must_use]
     pub fn structure_heat_flux(&self) -> &[f64] {
         &self.structure_heat_flux
@@ -2356,10 +2427,9 @@ impl OnePhaseCcSolver {
             .collect();
         let mut he_scalar = Scalar { c: self.he.clone(), b: vec![0.0; nb], bc: he_bc };
         he_scalar.correct_bc(&g);
-        // `T.storePrevIter()` (EEqn_1p.H, before the solve): the temperature `structure_.correct(Hs*T.prevIter(), Hs)` sees
-        if !self.radial.is_empty() || self.heat_exchangers.is_present() || self.case.passive.is_some() {
-            self.t_prev = self.t.clone();
-        }
+        // `T.storePrevIter()` (EEqn_1p.H, before the solve): the temperature `structure_.correct(Hs*T.prevIter(), Hs)` sees; ~~only with a
+        // radial model, a heat exchanger or a passive structure~~ always since gh:#1964 (round 82: every structure cell's `heatFlux` needs it)
+        self.t_prev = self.t.clone();
         // fvm::ddt(alpha, rho, he)
         let mut e = Eqn::new(&g);
         let mut ic = vec![0.0; nb];

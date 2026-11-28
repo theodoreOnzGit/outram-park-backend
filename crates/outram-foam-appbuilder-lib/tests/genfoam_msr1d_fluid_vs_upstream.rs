@@ -830,3 +830,81 @@ fn thermal_kappa_matrix_variants_full_steady_state_against_the_real_binary() {
     // what holds `kseam` inside 1e-9
     assert!(rx.first_over.is_some(), "the control leaves 1e-9 over the stage");
 }
+
+/// gh:#1964 (README round 82, predictions A6/A7): the written-only fields `Re`, `heatFlux.structure`, `alphaRhoMagU`, `dgdt` (and
+/// `alpha.passiveStructure`, `uniform 0` upstream) at 17 digits over the first 60 steps of round 80's `tight` + `pcg` run, against the real
+/// binary (`refs/msr1d_r82_first_tight_pcg_written*`: the same real run as `msr1d_r80_first_tight_pcg`, re-run, extracted with
+/// `MSR_FIELDS="Re heatFlux.structure alphaRhoMagU dgdt alpha.passiveStructure"`). Returns per field `(name, bit-identical steps, compared
+/// steps, worst relative-to-max-norm difference, first non-identical step)`.
+fn written_only_fields_first_60(s: OnePhaseCcSolver) -> Vec<(&'static str, usize, usize, f64, Option<usize>)> {
+    let mut s = s;
+    let rf = read_fields(&vv_dir().join("refs/msr1d_r82_first_tight_pcg_written.ref.txt.gz"));
+    let lg = read_log(&vv_dir().join("refs/msr1d_r82_first_tight_pcg_written_log.ref.txt.gz"));
+    let names = ["Re", "heatFlux.structure", "alphaRhoMagU", "dgdt"];
+    let mut out: Vec<(&'static str, usize, usize, f64, Option<usize>)> = names.iter().map(|n| (*n, 0, 0, 0.0, None)).collect();
+    assert!(s.case().alpha_passive.iter().all(|&v| v == 0.0), "alpha.passiveStructure: upstream `uniform 0`");
+    let mut dt = s.case().delta_t;
+    for step in 1..=60 {
+        s.begin_time_step(dt);
+        let _ = s.correct_physics();
+        let time = lg.step_time.get(&step).cloned().expect("step time");
+        let port: [Vec<f64>; 4] = [s.reynolds().to_vec(), s.structure_heat_flux().to_vec(), s.alpha_rho_mag_u().0.clone(), s.dgdt().to_vec()];
+        for (i, name) in names.iter().enumerate() {
+            // a `uniform` field is absent from the extract: all four at step 1 only, whose real `0.001` files read `Re uniform 10` (`minRe`:
+            // `U = 0` at the start), `heatFlux.structure uniform 0`, `alphaRhoMagU uniform 0` (the start `magU_` is 0), `dgdt uniform -0`
+            // (compared by value; the sign of a zero is not checked)
+            let d = match rf.get(&format!("{name} {time}")) {
+                Some(up) => {
+                    let scale = up.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+                    let abs = port[i].iter().zip(up).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs()));
+                    if abs > 0.0 && (step % 10 == 0 || out[i].4.is_none()) {
+                        println!("r82 step {step} {name}: max|up| {scale:.3e}, max|port - up| {abs:.3e}");
+                    }
+                    rel_max(&port[i], up)
+                }
+                None => {
+                    assert!(step == 1, "{name} {time} absent");
+                    rel_max(&port[i], &vec![if *name == "Re" { 10.0 } else { 0.0 }; port[i].len()])
+                }
+            };
+            out[i].2 += 1;
+            if d == 0.0 {
+                out[i].1 += 1;
+            } else if out[i].4.is_none() {
+                out[i].4 = Some(step);
+            }
+            out[i].3 = out[i].3.max(d);
+        }
+        dt = adjust_delta_t(true, &[s.max_delta_t()], 1e-300, dt).expect("adjustable");
+    }
+    out
+}
+
+/// gh:#1964 (README round 82): see [`written_only_fields_first_60`].
+///
+/// Results (measured 2026-11-28, release): `Re`, `alphaRhoMagU`, `dgdt` bit-identical at steps 1-25, `heatFlux.structure` at steps 1-24
+/// (predictions A6, A7 HELD: the round-80 fields `U`, `p`, `T` are bit-identical through step 5 and `epsilon` first differs in ONE cell at
+/// step 6, gh:#1963; these four stay identical 20 steps longer). Over 60 steps: `Re` 2.1e-12 and `alphaRhoMagU` 3.9e-12 of their
+/// max-norms; `heatFlux.structure` 1.2e-7 (`H (Tact - T.prevIter())` in the `hx` cells: a cancellation of two ~1e7 W/m3 terms, absolute
+/// 6.5e-8 on a max of 1.0 W/m3); `dgdt` 1.9 of its max-norm, absolute 6.2e-16 on a max of 3.5e-16 (the field is round-off of a
+/// closed incompressible loop: `div(phi)` noise). Criterion A-C3 (`<= 1e-9` of the max-norm) MISSED for those two, as written; they are
+/// gated at the measured state (post-hoc pins, README round 82): bit-identical through step 24, `Re`/`alphaRhoMagU` `<= 1e-11`,
+/// `heatFlux.structure` `<= 2e-7`, `dgdt` `<= 1e-15` absolute.
+#[test]
+fn r82_written_only_fields_first_60_steps_match_the_real_binary() {
+    let r = written_only_fields_first_60(solver("r82_tight_pcg", true, true));
+    for x in &r {
+        println!("r82 written-only {:20} bit-identical {}/{} worst {:.3e} first non-identical step {:?}", x.0, x.1, x.2, x.3, x.4);
+    }
+    for x in &r {
+        assert_eq!(x.2, 60);
+        assert!(x.4.is_none_or(|k| k >= 25), "{}: bit-identical through step 24: {:?}", x.0, x.4);
+        let pin = match x.0 {
+            "heatFlux.structure" => 2e-7,
+            // relative to a max-norm of ~3e-16: the absolute bound 1e-15 is ~3 of the max-norm
+            "dgdt" => 3.0,
+            _ => 1e-11,
+        };
+        assert!(x.3 <= pin, "{}: {} (pin {pin})", x.0, x.3);
+    }
+}

@@ -230,6 +230,8 @@ pub(super) struct FlowState {
     pub phi_solver: Vec<f64>,
     /// `fluid_.magU()` per cell.
     pub mag_u: Vec<f64>,
+    /// `fluid_.magU()` on the boundary faces (`calculated`: `|U_b|` of the last `magU = mag(U)`; gh:#1964, `correctAlphaRhoMagU`).
+    pub mag_u_b: Vec<f64>,
     /// `Kd` per cell: the three diagonal entries (`xx`, `yy`, `zz`) of the diagonal drag tensor.
     pub kd: Vec<[f64; 3]>,
     /// `gh = g . C + |g| hRef` per cell.
@@ -827,6 +829,7 @@ impl FlowState {
             rho_b_old: Vec::new(),
             phi_solver: case.alpha_phi.clone(),
             mag_u: u.c.iter().map(|v| v.mag()).collect(),
+            mag_u_b: u.b.iter().map(|v| v.mag()).collect(),
             kd: vec![[0.0; 3]; n],
             gh,
             ghf,
@@ -1201,6 +1204,8 @@ impl OnePhaseCcSolver {
                 for c in 0..n {
                     self.u.c[c] = u_new[c];
                 }
+                // `fluid_.correctAlphaRhoMagU()` (`reconstructU_1p.H:21`), BEFORE `magU = mag(U)` below (gh:#1964)
+                self.alpha_rho_mag_u = correct_alpha_rho_mag_u(&g, &self.alpha, &self.rho, &self.rho_b, &fs.mag_u, &fs.mag_u_b);
             } else {
                 let rec = fv::reconstruct(&g, &rec_src);
                 for c in 0..n {
@@ -1211,6 +1216,7 @@ impl OnePhaseCcSolver {
             for c in 0..n {
                 fs.mag_u[c] = self.u.c[c].mag();
             }
+            fs.mag_u_b = self.u.b.iter().map(|v| v.mag()).collect();
             // updatePP_rghRho_1p.H (Boussinesq: psi = 0, the closed-volume mass correction is skipped)
             for c in 0..n {
                 self.p[c] = (fs.p_rgh.c[c] + rho[c] * fs.gh[c]).max(fc.p_min);
@@ -1226,6 +1232,16 @@ impl OnePhaseCcSolver {
         self.flow = Some(fs);
         self.correct_cont_err();
     }
+}
+
+/// `fluid::correctAlphaRhoMagU()` (`fluid.C:753-756`, gh:#1964, README round 82): `alphaRhoMagU_ = alpha*rho()*magU_` with the
+/// `magU_` of the previous corrector (cells; boundary faces `alpha_b rho_b |U_b|`, `alpha_b` the zero-gradient fluid fraction of the
+/// owner). Returns `(cells, boundary faces)` as [`OnePhaseCcSolver::alpha_rho_mag_u`] holds them.
+pub(super) fn correct_alpha_rho_mag_u(g: &Geometry, alpha: &[f64], rho: &[f64], rho_b: &[f64], mag_u: &[f64], mag_u_b: &[f64]) -> (Vec<f64>, Vec<f64>) {
+    let ni = g.n_internal();
+    let cells = (0..alpha.len()).map(|c| alpha[c] * rho[c] * mag_u[c]).collect();
+    let b = (ni..g.n_faces()).map(|f| alpha[g.mesh.owner[f]] * rho_b[f - ni] * mag_u_b[f - ni]).collect();
+    (cells, b)
 }
 
 /// `reconstructU_1p.H` (upstream `onePhase/include/equations/pEqnRoutines/reconstructU_1p.H`, GeN-Foam 652b3da): the velocity of

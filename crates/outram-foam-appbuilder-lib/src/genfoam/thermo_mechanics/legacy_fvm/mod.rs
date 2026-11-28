@@ -740,6 +740,12 @@ impl LegacyFvmThermoMechanics {
         self.t_gamg.as_mut().map_or_else(Vec::new, |(_, st)| st.take_log())
     }
 
+    /// The `GamgSolveState` of `TStruct` (`None` without `GAMG`): for the process-wide `pairGAMGAgglomeration::forward_` that
+    /// `RegionSolvers` hands in and reads back around this region's solves (gh:#1956, README round 82).
+    pub fn t_struct_gamg_state_mut(&mut self) -> Option<&mut GamgSolveState> {
+        self.t_gamg.as_mut().map(|(_, st)| st)
+    }
+
     /// Whether `TStruct`'s linear solve is the named `GAMG` substitute.
     pub fn t_struct_gamg_substituted(&self) -> bool {
         self.gamg_substituted

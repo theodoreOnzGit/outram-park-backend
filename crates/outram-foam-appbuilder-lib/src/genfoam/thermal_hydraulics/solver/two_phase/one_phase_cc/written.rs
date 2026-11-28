@@ -10,8 +10,9 @@
 //!
 //! [`OnePhaseCcSolver::written_fields`]: one [`FieldFile`] per field object the solver holds the state of, with the patch fields the
 //! solver's own boundary conditions give (`fixedValue` values, `fixedFluxPressure` gradients, `calculated` face values). What the solver
-//! does not hold is not written and is listed by the caller (gh:#1935, round 69: `dgdt` and `alphaRhoMagU` are now written; `alphaRhoMagU` is
-//! refused by name under `momentumMode cellCenteredFaceReconstruction`, see [`OnePhaseCcSolver::writes_alpha_rho_mag_u`]).
+//! does not hold is not written and is listed by the caller (gh:#1935, round 69: `dgdt` and `alphaRhoMagU` are now written; ~~`alphaRhoMagU` is
+//! refused by name under `momentumMode cellCenteredFaceReconstruction`~~ since gh:#1964 (round 82) it is written in every momentum mode, see
+//! [`OnePhaseCcSolver::writes_alpha_rho_mag_u`]).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -118,9 +119,10 @@ impl OnePhaseCcSolver {
             push(field_file("fluidRegion/Kd", time_name, Data::flat(9, kd), plain_patches(mesh, "zeroGradient")));
         }
 
-        // ---- alphaRhoMagU (init-time value or READ; refused by name when `correctAlphaRhoMagU()` runs) and dgdt (`fluid.C:185-224`)
-        if let Some(fc) = &self.case.flow {
-            if !fc.reconstruct_u {
+        // ---- alphaRhoMagU (init-time value or READ; under `cellCenteredFaceReconstruction`/`faceCentered` the last
+        // `correctAlphaRhoMagU()`, gh:#1964; ~~refused by name there~~ before round 82) and dgdt (`fluid.C:185-224`)
+        if self.case.flow.is_some() {
+            {
                 let patches = mesh
                     .patches
                     .iter()
@@ -163,9 +165,11 @@ impl OnePhaseCcSolver {
         let (fuel, clad) = self.fuel_clad_temperatures();
         push(zero_gradient("fluidRegion/T.fuelAvForNeutronics", fuel));
         push(zero_gradient("fluidRegion/T.cladAvForNeutronics", clad));
-        // `alpha.structure` (class `structure`), `alpha.passiveStructure`, `alpha.powerModel`: uniform in this case
+        // `alpha.structure` (class `structure`) and `alpha.powerModel`: the zone fractions; `alpha.passiveStructure`: `alphapas_` (~~the
+        // structure fraction, "uniform in this case"~~ **CORRECTED 2026-11-28**, gh:#1964: true of 2D_fullCoupling only; 1D_MSR writes `uniform 0`)
         for name in ["alpha.structure", "alpha.passiveStructure", "alpha.powerModel"] {
-            push(zero_gradient(&format!("fluidRegion/{name}"), self.case.alpha_structure.clone()));
+            let v = if name == "alpha.passiveStructure" { self.case.alpha_passive.clone() } else { self.case.alpha_structure.clone() };
+            push(zero_gradient(&format!("fluidRegion/{name}"), v));
         }
 
         // ---- nuclearFuelPin: Tfi, Tfo, Tci, Tco, Tfav, Tcav (nodes of the radial mesh) and the radial profile Trad
@@ -316,15 +320,23 @@ pub fn cyclic_constraint_patches(f: &mut FieldFile, mesh: &outram_foam_basic_lib
 }
 
 impl OnePhaseCcSolver {
-    /// Whether [`Self::written_fields`] writes `alphaRhoMagU`: not under `momentumMode cellCenteredFaceReconstruction`, where
-    /// `reconstructU_1p.H:21` calls `correctAlphaRhoMagU()` every corrector (not ported; refused by name, gh:#1935).
+    /// Whether [`Self::written_fields`] writes `alphaRhoMagU`: whenever the flow is solved. ~~Not under `momentumMode
+    /// cellCenteredFaceReconstruction`, where `reconstructU_1p.H:21` calls `correctAlphaRhoMagU()` every corrector (not ported; refused
+    /// by name, gh:#1935)~~ **CORRECTED 2026-11-28 (gh:#1964, README round 82):** `correctAlphaRhoMagU()` is ported
+    /// (`flow::correct_alpha_rho_mag_u`), in both reconstructing momentum modes.
     #[must_use]
     pub fn writes_alpha_rho_mag_u(&self) -> bool {
-        self.case.flow.as_ref().is_some_and(|f| !f.reconstruct_u)
+        self.case.flow.is_some()
     }
 }
 
 impl OnePhaseCcSolver {
+    /// The `GamgSolveState` of `p_rgh` (`None` without a flow): for the process-wide `pairGAMGAgglomeration::forward_` that `RegionSolvers`
+    /// hands in and reads back around this region's solves (gh:#1956, README round 82). A `PCG` case never builds it.
+    pub fn p_rgh_gamg_state_mut(&mut self) -> Option<&mut crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::GamgSolveState> {
+        self.flow.as_mut().map(|f| &mut f.gamg)
+    }
+
     /// `alphaRhoMagU_`: cells and boundary faces (set at construction or READ; gh:#1935).
     #[must_use]
     pub fn alpha_rho_mag_u(&self) -> &(Vec<f64>, Vec<f64>) {
