@@ -36,6 +36,7 @@ use crate::nostd_prelude::*;
 use alloc::sync::Arc;
 
 use outram_foam_basic_lib::prelude::*;
+use crate::genfoam::common::ldu_interfaces::{CoupledPatch, LduInterfaces};
 
 /// Boundary condition of one patch of a [`Scalar`] field.
 #[derive(Debug, Clone, PartialEq)]
@@ -83,6 +84,12 @@ pub struct Geometry {
     pub active: Vec<bool>,
     /// Patch index of each boundary face (indexed by `face - n_internal`).
     pub patch_of: Vec<usize>,
+    /// Per boundary face (`face - n_internal`): the cell on the other side of a `cyclic` seam (`neighbFvPatch().faceCells()`),
+    /// `usize::MAX` for a face of a non-coupled patch (gh:#1905, README round 80). A cyclic patch whose `cyclic_partner` the mesh does
+    /// not resolve is treated as a plain patch (the readers that serve a cyclic case resolve it first).
+    pub cyclic_nbr: Vec<usize>,
+    /// Per boundary face: `cyclicFvPatch::makeWeights` (`w = dni/(di + dni)`, `di = nf & (Cf - C_P)`), 0 elsewhere.
+    pub cyclic_w: Vec<f64>,
 }
 
 impl Geometry {
@@ -137,7 +144,10 @@ impl Geometry {
             let nhat = unit_area(f);
             delta[f] = 1.0 / nhat.dot(d).max(0.05 * d.mag());
         }
+        let mut cyclic_nbr = vec![usize::MAX; nf - ni];
+        let mut cyclic_w = vec![0.0; nf - ni];
         for (pi, p) in mesh.patches.iter().enumerate() {
+            let partner = if p.kind == PatchKind::Cyclic { p.cyclic_partner.filter(|&q| mesh.patches[q].size == p.size) } else { None };
             for k in 0..p.size {
                 let f = p.start + k;
                 patch_of[f - ni] = pi;
@@ -147,6 +157,23 @@ impl Geometry {
                 }
                 let o = mesh.owner[f];
                 let d = mesh.face_centres[f] - mesh.cell_centres[o];
+                if let Some(q) = partner {
+                    // `cyclicFvPatch::makeWeights` and `cyclicFvPatch::delta` (parallel: `ddi - dni`), with `nf() = Sf/magSf` per
+                    // component: the formulas of `point_kinetics::cyclic_transport::TransportMesh` (round 48, bit-identical on this mesh)
+                    let fq = mesh.patches[q].start + k;
+                    let dq = mesh.face_centres[fq] - mesh.cell_centres[mesh.owner[fq]];
+                    let sf = mesh.face_area_vectors[f];
+                    let nfv = Vector3::new(sf.x / mesh.face_areas[f], sf.y / mesh.face_areas[f], sf.z / mesh.face_areas[f]);
+                    let sq = mesh.face_area_vectors[fq];
+                    let nq = Vector3::new(sq.x / mesh.face_areas[fq], sq.y / mesh.face_areas[fq], sq.z / mesh.face_areas[fq]);
+                    let di = nfv.dot(d);
+                    let dni = nq.dot(dq);
+                    cyclic_w[f - ni] = dni / (di + dni);
+                    cyclic_nbr[f - ni] = mesh.owner[fq];
+                    let dd = d - dq;
+                    delta[f] = 1.0 / nfv.dot(dd).max(0.05 * dd.mag());
+                    continue;
+                }
                 let nhat = unit_area(f);
                 delta[f] = 1.0 / nhat.dot(d).max(0.05 * d.mag());
             }
@@ -157,7 +184,67 @@ impl Geometry {
             delta,
             active,
             patch_of,
+            cyclic_nbr,
+            cyclic_w,
         }
+    }
+
+    /// The cell across the cyclic seam of boundary face `f` (a GLOBAL face index), `None` for a non-coupled face.
+    #[must_use]
+    pub fn cyclic_nbr(&self, f: usize) -> Option<usize> {
+        let ni = self.n_internal();
+        if f < ni {
+            return None;
+        }
+        let c = self.cyclic_nbr[f - ni];
+        (c != usize::MAX).then_some(c)
+    }
+
+    /// `true` when the mesh has a resolved cyclic patch.
+    #[must_use]
+    pub fn has_cyclic(&self) -> bool {
+        self.cyclic_nbr.iter().any(|&c| c != usize::MAX)
+    }
+
+    /// `lerp(psi_N, psi_P, w)` = `(1 - w) psi_N + w psi_P` on cyclic boundary face `f`: the coupled patch value of `coupledFvPatchField::evaluate`
+    /// and of `surfaceInterpolationScheme::dotInterpolate` (ESI v2506 `scalarImpl.H` `lerp`), from the CELL values.
+    #[must_use]
+    pub fn cyclic_lerp(&self, f: usize, c: &[f64], w: f64) -> f64 {
+        let nb = self.cyclic_nbr[f - self.n_internal()];
+        (1.0 - w) * c[nb] + w * c[self.mesh.owner[f]]
+    }
+
+    /// [`Self::cyclic_lerp`] of a vector field (`VectorI.H` `lerp`: `onet a.x + t b.x` per component).
+    #[must_use]
+    pub fn cyclic_lerp_vector(&self, f: usize, c: &[Vector3], w: f64) -> Vector3 {
+        let (a, b) = (c[self.cyclic_nbr[f - self.n_internal()]], c[self.mesh.owner[f]]);
+        let onet = 1.0 - w;
+        Vector3::new(onet * a.x + w * b.x, onet * a.y + w * b.y, onet * a.z + w * b.z)
+    }
+
+    /// The coupled interfaces of a matrix on this mesh whose coupled `boundaryCoeffs` are `bou` (per boundary face, `face - n_internal`):
+    /// one [`LduInterfaces`] patch per resolved cyclic patch, in patch order (`lduInterfaceFieldPtrsList`).
+    #[must_use]
+    pub fn interfaces(&self, bou: &[f64]) -> LduInterfaces {
+        let ni = self.n_internal();
+        let cyc: Vec<usize> = (0..self.mesh.patches.len())
+            .filter(|&pi| {
+                let p = &self.mesh.patches[pi];
+                p.size > 0 && self.cyclic_nbr[p.start - ni] != usize::MAX
+            })
+            .collect();
+        let mut out = LduInterfaces::none();
+        for &pi in &cyc {
+            let p = &self.mesh.patches[pi];
+            let q = p.cyclic_partner.expect("resolved");
+            out.patches.push(CoupledPatch {
+                face_cells: (p.start..p.start + p.size).map(|f| self.mesh.owner[f]).collect(),
+                nbr_patch: cyc.iter().position(|&x| x == q).expect("the partner is cyclic"),
+                owner: pi < q,
+            });
+            out.bou.push((p.start..p.start + p.size).map(|f| bou[f - ni]).collect());
+        }
+        out
     }
 
     /// Number of cells.
@@ -278,6 +365,12 @@ impl Scalar {
                     }
                 }
                 Bc::Calculated | Bc::Empty => {}
+            }
+        }
+        // a `cyclic` patch is a coupled constraint patch whatever `Bc` it was given: `coupledFvPatchField::evaluate` (gh:#1905)
+        for f in ni..g.n_faces() {
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                self.b[f - ni] = g.cyclic_lerp(f, &self.c, g.cyclic_w[f - ni]);
             }
         }
     }
@@ -610,6 +703,10 @@ impl Vector {
                         Self::direction_mixed_value(g, f, pif, phi[f])
                     }
                 };
+                // a `cyclic` patch is a coupled constraint patch whatever `VectorBc` it was given (gh:#1905)
+                if g.cyclic_nbr[f - ni] != usize::MAX {
+                    self.b[f - ni] = g.cyclic_lerp_vector(f, &self.c, g.cyclic_w[f - ni]);
+                }
             }
         }
     }
@@ -706,7 +803,7 @@ pub fn interp_linear(g: &Geometry, s: &Scalar) -> Vec<f64> {
     }
     for f in ni..g.n_faces() {
         if g.active[f] {
-            out[f] = s.b[f - ni];
+            out[f] = if g.cyclic_nbr[f - ni] != usize::MAX { g.cyclic_lerp(f, &s.c, g.cyclic_w[f - ni]) } else { s.b[f - ni] };
         }
     }
     out
@@ -728,7 +825,8 @@ pub fn interp_linear_openfoam(g: &Geometry, s: &Scalar) -> Vec<f64> {
     }
     for f in ni..g.n_faces() {
         if g.active[f] {
-            out[f] = s.b[f - ni];
+            // a coupled patch: `lerp(N, P, w)` from the cells (`dotInterpolate`, gh:#1905), not `lambda (P - N) + N`
+            out[f] = if g.cyclic_nbr[f - ni] != usize::MAX { g.cyclic_lerp(f, &s.c, g.cyclic_w[f - ni]) } else { s.b[f - ni] };
         }
     }
     out
@@ -750,7 +848,12 @@ pub fn interp_upwind(g: &Geometry, s: &Scalar, phi: &[f64]) -> Vec<f64> {
     }
     for f in ni..g.n_faces() {
         if g.active[f] {
-            out[f] = s.b[f - ni];
+            // a coupled patch: `upwind::weights` = `pos0(phi)` on the patch too, `lerp(N, P, w)` (gh:#1905)
+            out[f] = if g.cyclic_nbr[f - ni] != usize::MAX {
+                g.cyclic_lerp(f, &s.c, if phi[f] >= 0.0 { 1.0 } else { 0.0 })
+            } else {
+                s.b[f - ni]
+            };
         }
     }
     out
@@ -769,7 +872,8 @@ pub fn flux(g: &Geometry, u: &Vector) -> Vec<f64> {
     }
     for f in ni..g.n_faces() {
         if g.active[f] {
-            out[f] = u.b[f - ni].dot(m.face_area_vectors[f]);
+            let ub = if g.cyclic_nbr[f - ni] != usize::MAX { g.cyclic_lerp_vector(f, &u.c, g.cyclic_w[f - ni]) } else { u.b[f - ni] };
+            out[f] = ub.dot(m.face_area_vectors[f]);
         }
     }
     out
@@ -790,7 +894,9 @@ pub fn flux_openfoam(g: &Geometry, u: &Vector) -> Vec<f64> {
     }
     for f in ni..g.n_faces() {
         if g.active[f] {
-            out[f] = m.face_area_vectors[f].dot(u.b[f - ni]);
+            // a coupled patch: `pSf & lerp(N, P, w)` from the cells (gh:#1905)
+            let ub = if g.cyclic_nbr[f - ni] != usize::MAX { g.cyclic_lerp_vector(f, &u.c, g.cyclic_w[f - ni]) } else { u.b[f - ni] };
+            out[f] = m.face_area_vectors[f].dot(ub);
         }
     }
     out
@@ -844,7 +950,11 @@ pub fn sn_grad(g: &Geometry, s: &Scalar) -> Vec<f64> {
     }
     for f in ni..g.n_faces() {
         if g.active[f] {
-            out[f] = (s.b[f - ni] - s.c[m.owner[f]]) * g.delta[f];
+            out[f] = match g.cyclic_nbr(f) {
+                // `coupledFvPatchField::snGrad(deltaCoeffs)`: `deltaCoeffs (N - P)`
+                Some(nb) => g.delta[f] * (s.c[nb] - s.c[m.owner[f]]),
+                None => (s.b[f - ni] - s.c[m.owner[f]]) * g.delta[f],
+            };
         }
     }
     out
@@ -1056,6 +1166,11 @@ pub struct Eqn {
     pub ldu: LduMatrix,
     /// Right-hand side.
     pub source: Vec<f64>,
+    /// `internalCoeffs` of the CYCLIC boundary faces (per boundary face, `face - n_internal`; 0 elsewhere), kept apart from the diagonal
+    /// as `fvMatrix` keeps them, by the operators that know a coupled patch ([`Self::div_upwind`], [`Self::neg_laplacian`]; gh:#1905).
+    pub cyc_int: Vec<f64>,
+    /// `boundaryCoeffs` of the cyclic boundary faces: the `interfaceBouCoeffs` of the solve ([`Geometry::interfaces`]).
+    pub cyc_bou: Vec<f64>,
 }
 
 impl Eqn {
@@ -1066,6 +1181,8 @@ impl Eqn {
         Self {
             ldu: LduMatrix::new(m.n_cells, m.owner[..m.n_internal_faces].to_vec(), m.neighbour.clone()),
             source: vec![0.0; m.n_cells],
+            cyc_int: vec![0.0; m.n_faces - m.n_internal_faces],
+            cyc_bou: vec![0.0; m.n_faces - m.n_internal_faces],
         }
     }
 
@@ -1091,7 +1208,12 @@ impl Eqn {
                 continue;
             }
             let o = m.owner[f];
-            if psi.is_fixed(g, f) {
+            if g.cyclic_nbr[f - g.n_internal()] != usize::MAX {
+                // a coupled patch (gh:#1905): `internalCoeffs = phi w`, `boundaryCoeffs = -phi (1 - w)`, `w = pos0(phi)`, kept apart
+                let w = if phi[f] >= 0.0 { 1.0 } else { 0.0 };
+                self.cyc_int[f - g.n_internal()] += phi[f] * w;
+                self.cyc_bou[f - g.n_internal()] += -phi[f] * (1.0 - w);
+            } else if psi.is_fixed(g, f) {
                 self.source[o] -= phi[f] * psi.face(g, f);
             } else {
                 self.ldu.diag[o] += phi[f];
@@ -1142,7 +1264,11 @@ impl Eqn {
                 continue;
             }
             let pg = gamma[f] * g.mesh.face_areas[f];
-            if psi.is_fixed(g, f) {
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                // a coupled patch (gh:#1905): `-(pGamma (-deltaCoeffs))` and `pGamma deltaCoeffs` (the latter the `interfaceBouCoeffs`)
+                ic[f - ni] = -(pg * (-g.delta[f]));
+                bc[f - ni] = pg * g.delta[f];
+            } else if psi.is_fixed(g, f) {
                 ic[f - ni] = pg * g.delta[f];
                 bc[f - ni] = pg * (g.delta[f] * psi.face(g, f));
             } else if let Bc::FixedGradient(gr) = &psi.bc[g.patch_of[f - ni]] {
@@ -1166,7 +1292,11 @@ impl Eqn {
         }
         for f in ni..g.n_faces() {
             if g.active[f] {
-                out[f] = ic[f - ni] * p[m.owner[f]] - bc[f - ni];
+                out[f] = match g.cyclic_nbr(f) {
+                    // a coupled patch: `InternalContrib - NeighbourContrib` = `ic psi_P - bc psi_N` (`fvMatrix::flux`, gh:#1905)
+                    Some(nb) => ic[f - ni] * p[m.owner[f]] - bc[f - ni] * p[nb],
+                    None => ic[f - ni] * p[m.owner[f]] - bc[f - ni],
+                };
             }
         }
         out
@@ -1187,7 +1317,12 @@ impl Eqn {
             if !g.active[f] {
                 continue;
             }
-            if psi.is_fixed(g, f) {
+            if g.cyclic_nbr[f - g.n_internal()] != usize::MAX {
+                // a coupled patch (gh:#1905): kept apart, as `fvMatrix` keeps `internalCoeffs`/`boundaryCoeffs`
+                let pg = gamma[f] * m.face_areas[f];
+                self.cyc_int[f - g.n_internal()] += -(pg * (-g.delta[f]));
+                self.cyc_bou[f - g.n_internal()] += pg * g.delta[f];
+            } else if psi.is_fixed(g, f) {
                 let c = gamma[f] * m.face_areas[f] * g.delta[f];
                 self.ldu.diag[m.owner[f]] += c;
                 self.source[m.owner[f]] += c * psi.face(g, f);
@@ -1237,6 +1372,12 @@ impl Eqn {
             self.ldu.upper[f] *= s[m.owner[f]];
             self.ldu.lower[f] *= s[m.neighbour[f]];
         }
+        // `internalCoeffs_ *= patchInternalField(dsf)`, `boundaryCoeffs_ *= patchInternalField(dsf)` (the cyclic ones kept here)
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
+            self.cyc_int[f - ni] *= s[m.owner[f]];
+            self.cyc_bou[f - ni] *= s[m.owner[f]];
+        }
     }
 
     /// Add another equation's coefficients.
@@ -1253,6 +1394,27 @@ impl Eqn {
         for (a, b) in self.source.iter_mut().zip(&o.source) {
             *a += b;
         }
+        for (a, b) in self.cyc_int.iter_mut().zip(&o.cyc_int) {
+            *a += b;
+        }
+        for (a, b) in self.cyc_bou.iter_mut().zip(&o.cyc_bou) {
+            *a += b;
+        }
+    }
+
+    /// The matrix `solveSegregated` hands to the linear solver with the cyclic `internalCoeffs` ([`Self::cyc_int`]) added to the diagonal
+    /// (`addBoundaryDiag`), and the coupled interfaces carrying [`Self::cyc_bou`] (gh:#1905). Without a cyclic patch the matrix is unchanged
+    /// and the interfaces are empty.
+    #[must_use]
+    pub fn with_cyclic_folded(&self, g: &Geometry) -> (LduMatrix, LduInterfaces) {
+        let mut ldu = self.ldu.clone();
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                ldu.diag[g.mesh.owner[f]] += self.cyc_int[f - ni];
+            }
+        }
+        (ldu, g.interfaces(&self.cyc_bou))
     }
 
     /// `fvMatrix<scalar>::relax(alpha)` (ESI v2506 `fvMatrix.C:1101-1238`) with the boundary coefficients `ic` (`internalCoeffs_`, per
@@ -1303,7 +1465,10 @@ impl Eqn {
         for f in ni..g.n_faces() {
             if g.active[f] {
                 out.ldu.diag[g.mesh.owner[f]] += ic[f - ni];
-                out.source[g.mesh.owner[f]] += bc[f - ni];
+                // a coupled patch's `boundaryCoeffs` are the interfaces' (`addBoundarySource(source, false)`), not the source's
+                if g.cyclic_nbr[f - ni] == usize::MAX {
+                    out.source[g.mesh.owner[f]] += bc[f - ni];
+                }
             }
         }
         out

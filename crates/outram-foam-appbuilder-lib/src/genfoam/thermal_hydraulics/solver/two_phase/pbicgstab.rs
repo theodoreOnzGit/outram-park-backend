@@ -38,6 +38,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::LduMatrix;
+use crate::genfoam::common::ldu_interfaces::{amul, LduInterfaces};
 
 /// `SolverPerformance::small_`.
 const SMALL: f64 = 1e-20;
@@ -80,6 +81,11 @@ pub(crate) fn converged(final_residual: f64, initial_residual: f64, tolerance: f
 
 /// `lduMatrix::solver::normFactor(psi, source, Apsi, tmpField)`.
 pub(crate) fn norm_factor(a: &LduMatrix, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 {
+    norm_factor_if(a, &LduInterfaces::none(), psi, source, apsi)
+}
+
+/// [`norm_factor`] with coupled interfaces (`lduMatrix::sumA` subtracts the `interfaceBouCoeffs`; gh:#1905 round 80).
+pub(crate) fn norm_factor_if(a: &LduMatrix, ifs: &LduInterfaces, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 {
     let n = psi.len();
     // sumA
     let mut sum_a = a.diag.clone();
@@ -87,6 +93,7 @@ pub(crate) fn norm_factor(a: &LduMatrix, psi: &[f64], source: &[f64], apsi: &[f6
         sum_a[a.neighbour[f]] += a.lower[f];
         sum_a[a.owner[f]] += a.upper[f];
     }
+    ifs.sum_a_update(&mut sum_a);
     let mut avg = 0.0;
     for x in psi {
         avg += x;
@@ -114,10 +121,26 @@ pub(crate) fn pbicgstab_diagonal(
     max_iter: usize,
     min_iter: usize,
 ) -> SolvePerformance {
+    pbicgstab_diagonal_if(a, &LduInterfaces::none(), source, psi, tolerance, rel_tol, max_iter, min_iter)
+}
+
+/// [`pbicgstab_diagonal`] with coupled interfaces (gh:#1905 round 80): every `Amul` and `normFactor` carries them, the `diagonal`
+/// preconditioner does not (`PBiCGStab.C`, `diagonalPreconditioner.C`). With [`LduInterfaces::none`] it is [`pbicgstab_diagonal`].
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn pbicgstab_diagonal_if(
+    a: &LduMatrix,
+    ifs: &LduInterfaces,
+    source: &[f64],
+    psi: &mut [f64],
+    tolerance: f64,
+    rel_tol: f64,
+    max_iter: usize,
+    min_iter: usize,
+) -> SolvePerformance {
     let n = psi.len();
-    let ya0 = a.multiply(psi);
+    let ya0 = amul(a, ifs, psi);
     let mut r_a: Vec<f64> = (0..n).map(|c| source[c] - ya0[c]).collect();
-    let norm = norm_factor(a, psi, source, &ya0);
+    let norm = norm_factor_if(a, ifs, psi, source, &ya0);
     let initial = g_sum_mag(&r_a) / norm;
     let mut perf = SolvePerformance { iterations: 0, initial_residual: initial, final_residual: initial };
     if min_iter == 0 && converged(perf.final_residual, initial, tolerance, rel_tol) {
@@ -155,7 +178,7 @@ pub(crate) fn pbicgstab_diagonal(
         for c in 0..n {
             y_a[c] = r_d[c] * p_a[c];
         }
-        ay_a = a.multiply(&y_a);
+        ay_a = amul(a, ifs, &y_a);
         let r_a0ay_a = g_sum_prod(&r_a0, &ay_a);
         alpha = r_a0r_a / r_a0ay_a;
         for c in 0..n {
@@ -172,7 +195,7 @@ pub(crate) fn pbicgstab_diagonal(
         for c in 0..n {
             z_a[c] = r_d[c] * s_a[c];
         }
-        let t_a = a.multiply(&z_a);
+        let t_a = amul(a, ifs, &z_a);
         let t_at_a = g_sum_prod(&t_a, &t_a);
         omega = g_sum_prod(&t_a, &s_a) / t_at_a;
         for c in 0..n {

@@ -606,6 +606,10 @@ impl DeformableMesh {
                 // `empty` is not a patch of `volPointInterpolation` (README round 56): its faces and the points only on them
                 // are interpolated as interior; no point constraint (`emptyPointPatchField` has no `evaluate`)
                 PatchKind::Patch | PatchKind::Wall | PatchKind::Empty => {}
+                // gh:#1905 (README round 80): a `cyclic` patch is accepted for a mesh that does not MOVE (the 1D_MSR neutronics and fluid
+                // regions): the point motion (`move_points`, `move_points_at`) refuses it by name, as the coupled point constraints of
+                // `volPointInterpolation` are not ported
+                PatchKind::Cyclic => {}
                 other => {
                     return Err(refused(
                         format!("patch `{}` of kind {other:?}", p.name),
@@ -692,8 +696,8 @@ impl DeformableMesh {
         let btxt = read("boundary")?;
         let toks: Vec<&str> = btxt.split(|c: char| c.is_whitespace() || c == ';').filter(|t| !t.is_empty()).collect();
         for w in toks.windows(2) {
-            if w[0] == "type" && !matches!(w[1], "patch" | "wall" | "mappedWall" | "empty") {
-                return Err(refused(format!("polyPatch type {}", w[1]), "only patch, wall and mappedWall"));
+            if w[0] == "type" && !matches!(w[1], "patch" | "wall" | "mappedWall" | "empty" | "cyclic") {
+                return Err(refused(format!("polyPatch type {}", w[1]), "only patch, wall, mappedWall, empty and (for a mesh that does not move) cyclic"));
             }
         }
         let points = parse_points(&read("points")?, "points").map_err(e)?;
@@ -752,6 +756,15 @@ impl DeformableMesh {
         self.restarted_at(&self.points.clone())
     }
 
+    /// A mesh with a `cyclic` patch may be read and used (gh:#1905), not moved: the coupled point constraints of `volPointInterpolation`
+    /// (`cyclicPointPatchField`) are not ported.
+    fn refuse_motion_with_coupled_patches(&self) -> Result<(), MeshDeformationError> {
+        if let Some(p) = self.topology.patches.iter().find(|p| p.kind == PatchKind::Cyclic) {
+            return Err(refused(format!("moving a mesh with the cyclic patch `{}`", p.name), "the coupled point constraints of volPointInterpolation are not ported"));
+        }
+        Ok(())
+    }
+
     /// `originalPoints_`.
     pub fn original_points(&self) -> &[Vector3] {
         &self.original_points
@@ -787,6 +800,7 @@ impl DeformableMesh {
     /// # Errors
     /// [`MeshDeformationError::Invalid`] if `new_points` has the wrong size.
     pub fn move_points(&mut self, new_points: Vec<Vector3>) -> Result<(), MeshDeformationError> {
+        self.refuse_motion_with_coupled_patches()?;
         if new_points.len() != self.points.len() {
             return Err(MeshDeformationError::Invalid(format!(
                 "Size of newPoints {} does not correspond to current mesh points size {}",
@@ -916,6 +930,7 @@ impl DeformableMesh {
     /// [`MeshDeformationError::Refused`] for the first move at the time index the mesh was read at (upstream's `oldPoints()` would
     /// then be the already-moved points; `runTime++` comes before `deformMesh()` in every GeN-Foam loop).
     pub fn move_points_at(&mut self, new_points: Vec<Vector3>, clock: StepClock) -> Result<(), MeshDeformationError> {
+        self.refuse_motion_with_coupled_patches()?;
         if new_points.len() != self.points.len() {
             return Err(MeshDeformationError::Invalid(format!(
                 "Size of newPoints {} does not correspond to current mesh points size {}",

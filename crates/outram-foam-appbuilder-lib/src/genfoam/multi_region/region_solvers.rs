@@ -76,6 +76,8 @@ use crate::genfoam::neutronics::diffusion::{DiffusionNeutronics, DiffusionSettin
 use crate::genfoam::neutronics::point_kinetics::case::{read_pk_case, PkCaseDicts};
 use crate::genfoam::neutronics::point_kinetics::model::{feedback_cell_field, PkFeedbackFields, PkMeshData, PkStepReport, PointKineticNeutronics};
 use crate::genfoam::neutronics::point_kinetics::LinearSolveForm;
+use crate::genfoam::neutronics::point_kinetics::cyclic_transport::{parse_cyclic_neighbours, TransportMesh};
+use crate::genfoam::neutronics::point_kinetics::model::liquid_fuel::{AlphaUpdate, FluidFields as LiquidFuelFluidFields, LiquidFuelConfig, LiquidFuelPk, LiquidFuelStepReport};
 use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
 use crate::genfoam::neutronics::xs::variables::VariableLaw;
 use crate::genfoam::neutronics::xs::CrossSectionData;
@@ -228,6 +230,11 @@ pub struct PointKineticRegion {
     pub gem: Option<GemFaces>,
     /// `keff_` as `reactorState` holds it (read at the start directory, never changed by point kinetics; written as `keff`, gh:#1935).
     pub k_eff: f64,
+    /// `liquidFuel true` (controlDict): the liquid-fuel class (`solvePointKineticsLiquidFuel.H`, round 48's `LiquidFuelPk`) that steps the region;
+    /// [`Self::pk`] is then a copy of its base taken after every step, for the readers of the solid-fuel state (gh:#1905, README round 80).
+    pub liquid: Option<LiquidFuelPk>,
+    /// The report of the last liquid-fuel step (every `PBiCG` solve, the neutron iterations, `liquidFuelBeta_`, `precEquilibriumReactivity_`).
+    pub liquid_last: Option<LiquidFuelStepReport>,
 }
 
 /// The faces `calcGEMLevelAndReactivity` sums `phi*|Sf|` over (`phiFaces_`, `phiMagSf_`), and the region whose `phi` it reads.
@@ -810,8 +817,12 @@ fn build_point_kinetics(
     secondary: Vec<f64>,
 ) -> Result<(PointKineticNeutronics, Option<crate::genfoam::neutronics::point_kinetics::case::GemRequest>), AppBuilderError> {
     let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
-    if np.dict.get_word("liquidFuel").is_some_and(|w| w == "true" || w == "yes" || w == "on") {
-        return Err(case_err(root, "neutronicsProperties.liquidFuel true: the liquid-fuel precursor transport (gh:#1882) is not wired into the loop (gh:#1905)"));
+    // ~~`neutronicsProperties.liquidFuel`~~ CORRECTED 2026-11-28 (gh:#1905, README round 80): upstream reads `liquidFuel` from the
+    // CONTROLDICT (`neutronics.C:262`, `controlDict().lookupOrDefault("liquidFuel", false)`); the shipped liquid-fuel cases
+    // (`1D_MSR_pointKinetics`) set it there, so the earlier check let them through as solid fuel
+    let cd = read_dict(root, "system/controlDict")?;
+    if cd.dict.get_word("liquidFuel").is_some_and(|w| w == "true" || w == "yes" || w == "on") {
+        return Err(case_err(root, "controlDict.liquidFuel true: the liquid-fuel point kinetics (gh:#1882) is not wired into the coupled loop (gh:#1905)"));
     }
     let nd = read_dict(root, &format!("constant/{nname}/nuclearData"))?;
     let es_rel = format!("constant/{nname}/externalSource");
@@ -845,6 +856,110 @@ fn build_point_kinetics(
         pk = pk.with_gem(g.map.clone(), g.sodium_level_ref).map_err(|e| case_err(root, format!("{nname}: GEM: {e}")))?;
     }
     Ok((pk, case.gem))
+}
+
+/// `pointKineticNeutronics` with `liquidFuel true` in the controlDict (`neutronics.C:262`; `pointKineticNeutronics.C:364-420, 540-720`;
+/// gh:#1905, README round 80): the solid-fuel case read ([`read_pk_case`]: `nuclearData`, `neutronicsProperties`, `<start>/uniform/reactorState`)
+/// plus the liquid-fuel keys: `nuclearData` `ScNo` (default 1), `initPrecursorsLiquidFuel` (default false), `initialOneGroupFluxByZone` (the
+/// one-group flux when the start directory holds no `flux<g>`: 0 outside the listed zones), `fvSolution` `neutronTransport`
+/// (`neutronIterationResidual`, `maxNeutronIterations`) and the `solvers` entry that matches `precPKStar0` (`PBiCG`/`DILU`: the only form
+/// round 48 translated). The precursor equation runs on the region's own mesh with its cyclic patches as interfaces ([`TransportMesh`]).
+/// `alpha` is written by the mapper through `primitiveFieldRef()` (`meshToMesh::mapTgtToSrc`), which stores the old time: [`AlphaUpdate::Assign`].
+///
+/// Refused by name: `flux<g>` or `precPK<k>` files in the start directory, no `initialOneGroupFluxByZone`, GEM, an external source, a read
+/// `T*Ref` with `initPrecursorsLiquidFuel false`, a `precPKStar` solver other than `PBiCG`/`DILU`.
+///
+/// # Errors
+/// [`AppBuilderError`] naming what is refused or cannot be read.
+fn build_liquid_fuel_point_kinetics(
+    root: &Path,
+    nname: &str,
+    start_time: f64,
+    fresh: &DeformableMesh,
+    n_flux_files: usize,
+    power_density: Vec<f64>,
+    secondary: Vec<f64>,
+) -> Result<LiquidFuelPk, AppBuilderError> {
+    let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
+    let nd = read_dict(root, &format!("constant/{nname}/nuclearData"))?;
+    if np.dict.get_word("externalSourceNeutronics").is_some_and(|w| w == "true" || w == "yes" || w == "on") {
+        return Err(case_err(root, "liquidFuel with externalSourceNeutronics: not ported (gh:#1905)"));
+    }
+    let rs_rel = format!("{}/uniform/reactorState", time_dir_name(root, start_time)?);
+    let rs = if root.join(&rs_rel).is_file() { Some(read_dict(root, &rs_rel)?) } else { None };
+    let dicts = PkCaseDicts { nuclear: &nd.dict, neutronics_properties: &np.dict, external_source: None, reactor_state: rs.as_ref().map(|f| &f.dict) };
+    let case = read_pk_case(&dicts, start_time).map_err(|e| case_err(root, e))?;
+    if case.gem.is_some() {
+        return Err(case_err(root, "liquidFuel with a GEMReactivityMap: not ported (gh:#1905)"));
+    }
+    let truthy = |w: Option<&str>| w.is_some_and(|w| w == "true" || w == "yes" || w == "on");
+    let init_precursors = truthy(nd.dict.get_word("initPrecursorsLiquidFuel"));
+    let r = case.refs;
+    if !init_precursors && [r.t_fuel, r.t_clad, r.t_cool, r.rho_cool, r.t_struct, r.t_struct_mech, r.t_driveline].iter().any(Option::is_some) {
+        return Err(case_err(root, "liquidFuel with read T*Ref keys and initPrecursorsLiquidFuel false: not ported (gh:#1905)"));
+    }
+    if n_flux_files > 0 {
+        return Err(case_err(root, "liquidFuel with flux<g> files in the start directory (oneGroupFlux reconstructed from them): not ported (gh:#1905)"));
+    }
+    let td = time_dir_name(root, start_time)?;
+    if root.join(&td).join(nname).join("precPK0").is_file() || root.join(&td).join(nname).join("precPKStar0").is_file() {
+        return Err(case_err(root, "liquidFuel with precPK<k>/precPKStar<k> files in the start directory (READ_IF_PRESENT precursors): not ported (gh:#1905)"));
+    }
+    let zones = read_cell_zones(&root.join(format!("constant/{nname}/polyMesh")))?;
+    let zone_cells = |names: &[String]| -> Result<Vec<Vec<usize>>, AppBuilderError> {
+        names
+            .iter()
+            .map(|n| zones.iter().find(|z| &z.name == n).map(|z| z.cells.clone()).ok_or_else(|| case_err(root, format!("{nname}: feedback zone {n} is not a cellZone"))))
+            .collect()
+    };
+    let cells = fresh.mesh().n_cells;
+    let mesh = PkMeshData {
+        volume: fresh.mesh().cell_volumes.clone(),
+        fuel: feedback_cell_field(cells, &zone_cells(&case.zones.fuel)?),
+        cool: feedback_cell_field(cells, &zone_cells(&case.zones.cool)?),
+        structure: feedback_cell_field(cells, &zone_cells(&case.zones.structure)?),
+        structure_mech: feedback_cell_field(cells, &zone_cells(&case.zones.structure_mech)?),
+        driveline: feedback_cell_field(cells, &zone_cells(&case.zones.driveline)?),
+    };
+    // `oneGroupFlux_ *= 0.0`, then the zones of `initialOneGroupFluxByZone` in dictionary order
+    let ig = nd
+        .dict
+        .get_dict("initialOneGroupFluxByZone")
+        .ok_or_else(|| case_err(root, "liquidFuel without flux<g> files needs nuclearData.initialOneGroupFluxByZone (the port has no other initial flux; gh:#1905)"))?;
+    let mut flux = vec![0.0; cells];
+    for (zone, e) in ig.iter() {
+        let FoamEntry::Scalar(v) = e else { return Err(case_err(root, format!("initialOneGroupFluxByZone.{zone}: a scalar is needed"))) };
+        let z = zones.iter().find(|z| z.name == zone).ok_or_else(|| case_err(root, format!("initialOneGroupFluxByZone.{zone}: not a cellZone")))?;
+        for &c in &z.cells {
+            flux[c] = *v;
+        }
+    }
+    let fvs = read_dict(root, &format!("system/{nname}/fvSolution"))?;
+    let nt = fvs.dict.get_dict("neutronTransport");
+    let solvers = fvs.dict.get_dict("solvers").ok_or_else(|| case_err(root, format!("system/{nname}/fvSolution: no solvers")))?;
+    let entry = crate::genfoam::thermal_hydraulics::solver::two_phase::case::lookup_pattern_last(solvers, "precPKStar0");
+    let Some(FoamEntry::SubDict(sd)) = entry else { return Err(case_err(root, format!("system/{nname}/fvSolution: no solver entry matches precPKStar0"))) };
+    if sd.get_word("solver") != Some("PBiCG") || sd.get_word("preconditioner") != Some("DILU") {
+        return Err(case_err(root, "precPKStar: only PBiCG with the DILU preconditioner is translated (round 48); refused by name"));
+    }
+    let lf = LiquidFuelConfig {
+        sc_no: nd.dict.get_scalar("ScNo").unwrap_or(1.0),
+        init_precursors,
+        neutron_iteration_residual: nt.and_then(|d| d.get_scalar("neutronIterationResidual")).unwrap_or(1e-5),
+        max_neutron_iterations: nt.and_then(|d| d.get_scalar("maxNeutronIterations")).map_or(10, |v| v as usize),
+        solver_tolerance: sd.get_scalar("tolerance").unwrap_or(1e-6),
+        solver_rel_tol: sd.get_scalar("relTol").unwrap_or(0.0),
+        solver_max_iter: sd.get_scalar("maxIter").map_or(1000, |v| v as usize),
+        solver_min_iter: sd.get_scalar("minIter").map_or(0, |v| v as usize),
+        alpha_update: AlphaUpdate::Assign,
+    };
+    let boundary = std::fs::read_to_string(root.join(format!("constant/{nname}/polyMesh/boundary"))).map_err(|e| case_err(root, format!("{nname} boundary: {e}")))?;
+    let transport = TransportMesh::from_fv_mesh(fresh.mesh(), &parse_cyclic_neighbours(&boundary)).map_err(|e| case_err(root, format!("{nname}: {e}")))?;
+    // `precPK_` and `precPKStar_` are constructed from `defaultPrec_` (`pointKineticNeutronics.C:700-735`; MUST_READ in the start directory)
+    let default_prec = crate::io::field_reader::read_vol_scalar_field(&root.join(&td).join(nname).join("defaultPrec"), cells)?;
+    LiquidFuelPk::new(case.cfg, mesh, flux, power_density, secondary, transport, lf)
+        .and_then(|pk| pk.with_default_prec(&default_prec))
+        .map_err(|e| case_err(root, format!("{nname}: liquid-fuel pointKineticNeutronics: {e}")))
 }
 
 mod baffle_less;
@@ -1072,6 +1187,21 @@ impl RegionSolvers {
                     }
                     let power_density = fields.scalar("powerDensity").map(<[f64]>::to_vec).unwrap_or_else(|| vec![0.0; n]);
                     let secondary = fields.scalar("secondaryPowerDensity").map(<[f64]>::to_vec).unwrap_or_else(|| vec![0.0; n]);
+                    if c.get_word("liquidFuel").is_some_and(|w| w == "true" || w == "yes" || w == "on") {
+                        // gh:#1905 (README round 80): `liquidFuel true` (controlDict): the liquid-fuel class; the mapped fluid fields `U`, `mu`,
+                        // `alpha`, `alphat` are READ_IF_PRESENT (`pointKineticNeutronics.C:402-470`), zero otherwise
+                        let lf = build_liquid_fuel_point_kinetics(root, name, start_time, &dm, nf.flux.len(), power_density, secondary)?;
+                        let u_path = dir.join("U");
+                        fields.set_vector("U", if u_path.is_file() { read_vol_vector_field(&u_path, n)? } else { vec![Vector3::ZERO; n] });
+                        for f in ["mu", "alpha", "alphat"] {
+                            let path = dir.join(f);
+                            fields.set_scalar(f, if path.is_file() { read_vol_scalar_field(&path, n)? } else { vec![0.0; n] });
+                        }
+                        let rs_dir = root.join(td);
+                        let k_eff = ReactorState::read(&rs_dir).map_err(|e| case_err(root, format!("{}/uniform/reactorState: {e}", rs_dir.display())))?.k_eff;
+                        let pk = lf.base().clone();
+                        RegionSolver::PointKinetics(PointKineticRegion { mesh: dm.clone(), pk, last: None, gem: None, k_eff, liquid: Some(lf), liquid_last: None })
+                    } else {
                     let (pk, gem_request) = build_point_kinetics(root, name, start_time, &dm, nf.flux, nf.prec, power_density, secondary)?;
                     if let Some(g) = gem_request {
                         gem_requests.push((regions.len(), g));
@@ -1079,7 +1209,8 @@ impl RegionSolvers {
                     {
                         let rs_dir = root.join(td);
                         let k_eff = ReactorState::read(&rs_dir).map_err(|e| case_err(root, format!("{}/uniform/reactorState: {e}", rs_dir.display())))?.k_eff;
-                        RegionSolver::PointKinetics(PointKineticRegion { mesh: dm.clone(), pk, last: None, gem: None, k_eff })
+                        RegionSolver::PointKinetics(PointKineticRegion { mesh: dm.clone(), pk, last: None, gem: None, k_eff, liquid: None, liquid_last: None })
+                    }
                     }
                 }
                 "legacyThermoMechanics" => {
@@ -1284,7 +1415,7 @@ impl RegionSolvers {
         let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
         self.regions[ni].fv = fresh.mesh().clone();
         self.geometries[ni] = geometry;
-        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None, gem: gem_faces, k_eff });
+        self.regions[ni].solver = RegionSolver::PointKinetics(PointKineticRegion { mesh: fresh, pk, last: None, gem: gem_faces, k_eff, liquid: None, liquid_last: None });
         let rebuild_phi = !self.switches.restart_keeps_phi;
         for r in self.regions.iter_mut() {
             match &mut r.solver {
@@ -1396,7 +1527,15 @@ impl RegionSolvers {
                 r.fields.set_scalar("thermo:rho", f.solver.thermo_density());
                 r.fields.set_scalar("T.fuelAvForNeutronics", fuel);
                 r.fields.set_scalar("T.cladAvForNeutronics", clad);
-                r.fields.set_scalar("T.passiveStructure", f.solver.passive_structure_temperature().to_vec());
+                // a region without `passiveProperties` still registers `T.passiveStructure` (zero, gh:#1905: the 1D_MSR mapping reads it)
+                let tp = f.solver.passive_structure_temperature();
+                r.fields.set_scalar("T.passiveStructure", if tp.is_empty() { vec![0.0; f.solver.temperature().len()] } else { tp.to_vec() });
+                // the liquid-fuel mapping (`U mu alpha thermo:alpha`, the shipped 1D_MSR coupling dictionary; gh:#1905, README round 80)
+                let (mu, alpha, alpha_h) = f.solver.liquid_fuel_coupling_fields();
+                r.fields.set_vector("U", f.solver.velocity().to_vec());
+                r.fields.set_scalar("mu", mu);
+                r.fields.set_scalar("alpha", alpha);
+                r.fields.set_scalar("thermo:alpha", alpha_h);
             }
             RegionSolver::Neutronics(_) | RegionSolver::PointKinetics(_) => {}
             RegionSolver::ThermoMechanics(t) => {
@@ -1533,6 +1672,24 @@ impl RegionSolvers {
                     t_struct: get("TStruct"),
                     t_struct_mech: get("TStructMech"),
                 };
+                if let Some(lf) = p.liquid.as_mut() {
+                    // `solvePointKineticsLiquidFuel.H` on the mapped `U`, `alpha`, `alphat`, `mu` (gh:#1905, README round 80); the time index is the
+                    // step of this run (`timeIndex() - startTimeIndex()`: 1 at the first step, when `initPrecursorsLiquidFuel` initialises)
+                    let fluid = LiquidFuelFluidFields {
+                        u: r.fields.vector("U").map(<[Vector3]>::to_vec).unwrap_or_default(),
+                        alpha: get("alpha"),
+                        alphat: get("alphat"),
+                        mu: get("mu"),
+                    };
+                    let rep = lf.step(self.step, self.time, dt, &fields, &fluid).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                    p.pk = lf.base().clone();
+                    // the liquid class rescales nothing (`solvePointKineticsLiquidFuel.H` iterates the precursors): no scale factors to report
+                    p.last = Some(PkStepReport { values: rep.values.clone(), terms: rep.terms.clone(), power_density_scale: f64::NAN, flux_scale: f64::NAN });
+                    p.liquid_last = Some(rep);
+                    r.fields.set_scalar("powerDensity", p.pk.power_density.clone());
+                    r.fields.set_scalar("secondaryPowerDensity", p.pk.secondary_power_density.clone());
+                    return Ok(());
+                }
                 if let Some(flux) = gem_flux {
                     // `correctReactivity.H:40`: `calcGEMLevelAndReactivity()` before the reactivity sum
                     p.pk.compute_gem(flux);

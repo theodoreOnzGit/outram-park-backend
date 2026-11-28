@@ -411,7 +411,12 @@ fn the_three_region_loop_matches_the_real_binary_for_476_steps() {
     }
     assert!(w.points <= 1e-12, "points {:e}", w.points);
     // MISSED criterion 6 for the fluid solves (1e-11 absolute): 1.09e-10 (step 1) and 2.4e-11 (later); asserted at those POST-RUN pins (README Round 57 results).
-    assert!(w.fluid_res_abs <= 1.2e-10 && w.fluid_res_abs_after_1 <= 3e-11 && w.fluid_it <= 3, "fluid solves {:e} {:e} {}", w.fluid_res_abs, w.fluid_res_abs_after_1, w.fluid_it);
+    // RE-PINNED 2026-11-28 (gh:#1905, README round 80, rounding rule of 2026-11-17): `fluid_res_abs_after_1` ~~<= 3e-11~~ <= 1e-10. The energy
+    // matrix is now assembled in fvMatrix operator order (`fvm::div` and `fvm::laplacian` as separate matrices added whole, as `EEqn_1p.H`
+    // writes them; the folded form stays callable as `with_folded_energy_assembly`). Measured: the worst is the `h` solve of step 2, initial
+    // residual 0.148374674 against the binary's by 8.6e-11 absolute = 5.8e-10 relative (folded form: 3.7e-13 from step 2, 1.09e-10 at
+    // step 1); every field unchanged at <= 2.5e-13. A residual is cancellation-sensitive; the direct allowance 1e-9 relative covers it.
+    assert!(w.fluid_res_abs <= 1.2e-10 && w.fluid_res_abs_after_1 <= 1e-10 && w.fluid_it <= 3, "fluid solves {:e} {:e} {}", w.fluid_res_abs, w.fluid_res_abs_after_1, w.fluid_it);
     assert!(w.tm_res_abs <= 1e-11, "tm solves {:e}", w.tm_res_abs);
     assert_eq!(w.solve_count_mismatch, 0);
     assert!(w.sigma <= GATE, "sigmaEq {:e}", w.sigma);
@@ -462,7 +467,12 @@ fn subset_asserts(w: &Worst, steps: usize) {
     assert!(w.points <= 1e-12, "points {:e}", w.points);
     // MISSED criterion 6 (fluid solve initial residuals within 1e-11 absolute): measured 1.09e-10 (an `h` solve of step 1 at the noise floor of a
     // uniform 600 K field with zero power) and 2.4e-11 from step 2 on; asserted at these POST-RUN pins (README Round 57 results), not at the criterion.
-    assert!(w.fluid_res_abs <= 1.2e-10 && w.fluid_res_abs_after_1 <= 3e-11 && w.fluid_it <= 3, "fluid solves {:e} {:e} {}", w.fluid_res_abs, w.fluid_res_abs_after_1, w.fluid_it);
+    // RE-PINNED 2026-11-28 (gh:#1905, README round 80, rounding rule of 2026-11-17): `fluid_res_abs_after_1` ~~<= 3e-11~~ <= 1e-10. The energy
+    // matrix is now assembled in fvMatrix operator order (`fvm::div` and `fvm::laplacian` as separate matrices added whole, as `EEqn_1p.H`
+    // writes them; the folded form stays callable as `with_folded_energy_assembly`). Measured: the worst is the `h` solve of step 2, initial
+    // residual 0.148374674 against the binary's by 8.6e-11 absolute = 5.8e-10 relative (folded form: 3.7e-13 from step 2, 1.09e-10 at
+    // step 1); every field unchanged at <= 2.5e-13. A residual is cancellation-sensitive; the direct allowance 1e-9 relative covers it.
+    assert!(w.fluid_res_abs <= 1.2e-10 && w.fluid_res_abs_after_1 <= 1e-10 && w.fluid_it <= 3, "fluid solves {:e} {:e} {}", w.fluid_res_abs, w.fluid_res_abs_after_1, w.fluid_it);
 }
 
 /// Subset S (fluid + neutronics in the port's loop, the real `disp` prescribed): the whole run, criteria as above for those regions.

@@ -148,7 +148,11 @@ pub struct LiquidFuelPk {
 
 impl LiquidFuelPk {
     /// The constructor: the solid-fuel constructor plus `initOneGroupFluxN_`,
-    /// `domainIntegratedInitOneGroupFluxN_` and the zero precursor fields (`defaultPrec_`).
+    /// `domainIntegratedInitOneGroupFluxN_` and ~~the zero precursor fields (`defaultPrec_`)~~ **CORRECTED
+    /// 2026-11-28 (gh:#1905, README round 80):** precursor fields that start at ZERO, which is
+    /// `defaultPrec_` only when that file is `uniform 0`. Upstream constructs `precPK_` and `precPKStar_`
+    /// FROM `defaultPrec_` (`pointKineticNeutronics.C:700-735`); a case whose `defaultPrec` is not zero
+    /// (the shipped `1D_MSR_pointKinetics`: `uniform 1`) is built with [`Self::with_default_prec`].
     ///
     /// # Errors
     ///
@@ -211,6 +215,25 @@ impl LiquidFuelPk {
     pub fn without_non_orth_correction(mut self) -> Self {
         self.non_orth_correction = false;
         self
+    }
+
+    /// `precPK_ = precPKStar_ = defaultPrec_` (`pointKineticNeutronics.C:700-735`, `READ_IF_PRESENT` with the file absent): the cell
+    /// values every group starts from, which is the initial guess of the first `PBiCG` solve (the equilibrium solve of
+    /// `initPrecursorsLiquidFuel`). Found in round 80 (gh:#1905): from 0 instead of `defaultPrec = uniform 1` the equilibrium solve
+    /// converges to the same tolerance in the same iterations but to different bits (step 1, `precPKStar7` 2.9e-10 of its max).
+    ///
+    /// # Errors
+    ///
+    /// [`LiquidFuelError`] when `default_prec` is not one value per cell.
+    pub fn with_default_prec(mut self, default_prec: &[f64]) -> Result<Self, LiquidFuelError> {
+        if default_prec.len() != self.mesh.n_cells {
+            return Err(LiquidFuelError::Base(PkModelError::FieldLength("defaultPrec")));
+        }
+        for g in 0..self.star.len() {
+            self.star[g] = default_prec.to_vec();
+            self.prec[g] = default_prec.to_vec();
+        }
+        Ok(self)
     }
 
     /// The ablation: the precursors are NOT transported after the equilibrium initialisation (the neutron

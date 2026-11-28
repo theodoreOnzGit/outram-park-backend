@@ -222,6 +222,35 @@ pub fn relax_equation(g: &Geometry, e: &mut Eqn, alpha: f64, inflow2: &[f64], ps
         sum_off[e.ldu.owner[f]] += e.ldu.upper[f].abs();
         sum_off[e.ldu.neighbour[f]] += e.ldu.lower[f].abs();
     }
+    if g.has_cyclic() {
+        // a coupled patch (`fvMatrix.C:1130-1140, 1205-1215`, gh:#1905): its `internalCoeffs` (kept apart in `Eqn::cyc_int`) go into `D`
+        // before the dominance step and come out after it; `mag(boundaryCoeffs)` goes into `sumOff`
+        let ni = g.n_internal();
+        let mut d = e.ldu.diag.clone();
+        for c in 0..n {
+            d[c] += inflow2[c];
+        }
+        for f in ni..g.n_faces() {
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                d[g.mesh.owner[f]] += e.cyc_int[f - ni];
+                sum_off[g.mesh.owner[f]] += e.cyc_bou[f - ni].abs();
+            }
+        }
+        for c in 0..n {
+            d[c] = d[c].abs().max(sum_off[c]) / alpha;
+        }
+        for f in ni..g.n_faces() {
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                d[g.mesh.owner[f]] -= e.cyc_int[f - ni];
+            }
+        }
+        for c in 0..n {
+            let d0 = e.ldu.diag[c];
+            e.ldu.diag[c] = d[c];
+            e.source[c] += (d[c] - d0) * psi[c];
+        }
+        return;
+    }
     for c in 0..n {
         let d0 = e.ldu.diag[c];
         let d = (d0 + inflow2[c]).abs().max(sum_off[c]) / alpha;
@@ -235,7 +264,8 @@ pub fn relax_equation(g: &Geometry, e: &mut Eqn, alpha: f64, inflow2: &[f64], ps
 pub fn convective_inflow2(g: &Geometry, phi: &[f64], psi: &Scalar) -> Vec<f64> {
     let mut out = vec![0.0; g.n_cells()];
     for f in g.n_internal()..g.n_faces() {
-        if g.active[f] && !psi.is_fixed(g, f) {
+        // a coupled face is not folded into the diagonal (`Eqn::cyc_int`, gh:#1905): `relax_equation` treats it
+        if g.active[f] && !psi.is_fixed(g, f) && g.cyclic_nbr[f - g.n_internal()] == usize::MAX {
             out[g.mesh.owner[f]] += 2.0 * (-phi[f]).max(0.0);
         }
     }
@@ -256,6 +286,9 @@ pub fn velocity_gradient(g: &Geometry, u: &Vector) -> Vec<[[f64; 3]; 3]> {
         let uf = if f < ni {
             let w = g.weights[f];
             u.c[m.owner[f]] * w + u.c[m.neighbour[f]] * (1.0 - w)
+        } else if g.cyclic_nbr[f - ni] != usize::MAX {
+            // a coupled patch: `lerp(U_N, U_P, w)` from the cells (gh:#1905)
+            g.cyclic_lerp_vector(f, &u.c, g.cyclic_w[f - ni])
         } else {
             u.b[f - ni]
         };

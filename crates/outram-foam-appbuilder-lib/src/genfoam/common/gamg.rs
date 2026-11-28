@@ -27,7 +27,7 @@
 //!
 //! # NOT ported (refused by name, see [`GamgControls::check_supported`])
 //!
-//! processor agglomeration and every parallel path; coupled interfaces (cyclic, AMI, processor); DIC/DICGaussSeidel on an asymmetric matrix (upstream has none; a symmetric
+//! processor agglomeration and every parallel path; ~~coupled interfaces (cyclic, AMI, processor)~~ (**CHANGED 2026-11-28, gh:#1905 README round 80:** translational `cyclic` interfaces are ported, [`gamg_dic_solve_if`]; AMI, processor and rotational cyclics are not); DIC/DICGaussSeidel on an asymmetric matrix (upstream has none; a symmetric
 //! matrix is one whose `lower` equals `upper` bit for bit; asymmetric ones run with `GaussSeidel`/`symGaussSeidel` since gh:#1936); `interpolateCorrection true`; `directSolveCoarsest
 //! true`; `mergeLevels != 1`; `cacheAgglomeration false`; agglomerators other than `faceAreaPair`; smoothers other than `DIC`,
 //! `GaussSeidel`, `DICGaussSeidel`, `symGaussSeidel` (`DILU`, `FDIC`, `DILUGaussSeidel`, `nonBlockingGaussSeidel`).
@@ -42,7 +42,8 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use super::pcg::{converged, dic_reciprocal_diag, g_sum_mag, norm_factor, pcg_dic};
+use super::ldu_interfaces::{amul, LduInterfaces};
+use super::pcg::{converged, dic_reciprocal_diag, g_sum_mag, norm_factor_if, pcg_dic_if};
 use crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::{dilu_precondition, dilu_reciprocal_diag};
 use outram_foam_basic_lib::prelude::LduMatrix;
 #[allow(unused_imports)]
@@ -483,11 +484,12 @@ fn is_symmetric(a: &LduMatrix) -> bool {
 
 /// `PBiCGStab::scalarSolve` with `preconditioner DILU` (`PBiCGStab.C:63-290`, `DILUPreconditioner`), gh:#1936: the coarsest-level solver
 /// of an asymmetric `GAMG` (`GAMGSolver::PBiCGStabSolverDict`). `psi` is the initial guess; returns `(iterations)`.
-fn pbicgstab_dilu(a: &LduMatrix, source: &[f64], psi: &mut [f64], tolerance: f64, rel_tol: f64, max_iter: usize, min_iter: usize) -> usize {
+#[allow(clippy::too_many_arguments)]
+fn pbicgstab_dilu(a: &LduMatrix, ifs: &LduInterfaces, source: &[f64], psi: &mut [f64], tolerance: f64, rel_tol: f64, max_iter: usize, min_iter: usize) -> usize {
     let n = psi.len();
-    let y_a0 = a.multiply(psi);
+    let y_a0 = amul(a, ifs, psi);
     let mut r_a: Vec<f64> = (0..n).map(|c| source[c] - y_a0[c]).collect();
-    let norm = norm_factor(a, psi, source, &y_a0);
+    let norm = norm_factor_if(a, ifs, psi, source, &y_a0);
     let initial = g_sum_mag(&r_a) / norm;
     let mut final_res = initial;
     let mut iterations = 0usize;
@@ -521,7 +523,7 @@ fn pbicgstab_dilu(a: &LduMatrix, source: &[f64], psi: &mut [f64], tolerance: f64
             }
         }
         dilu_precondition(a, &r_d, &p_a, &mut y_a);
-        ay_a = a.multiply(&y_a);
+        ay_a = amul(a, ifs, &y_a);
         let r_a0_ay_a = g_sum_prod(&r_a0, &ay_a);
         alpha = r_a0_r_a / r_a0_ay_a;
         let s_a: Vec<f64> = (0..n).map(|c| r_a[c] - alpha * ay_a[c]).collect();
@@ -533,7 +535,7 @@ fn pbicgstab_dilu(a: &LduMatrix, source: &[f64], psi: &mut [f64], tolerance: f64
             return iterations + 1;
         }
         dilu_precondition(a, &r_d, &s_a, &mut z_a);
-        let t_a = a.multiply(&z_a);
+        let t_a = amul(a, ifs, &z_a);
         let mut t_a_t_a = 0.0;
         for v in &t_a {
             t_a_t_a += v * v;
@@ -572,19 +574,25 @@ fn coarse_matrices_for(a: &LduMatrix, agg: &GamgAgglomeration, sym: bool) -> Vec
 /// `lduMatrix::residual(rA, psi, source)` (`lduMatrixATmul.C:268-340`): note `source - diag psi` first, then the faces
 /// subtracted, which is NOT `source - Amul(psi)` in floating point.
 pub(crate) fn ldu_residual(a: &LduMatrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
+    ldu_residual_if(a, &LduInterfaces::none(), psi, source)
+}
+
+/// [`ldu_residual`] with coupled interfaces: `rA[faceCells] += bou psi_nbr` after the face loop (gh:#1905 round 80).
+pub(crate) fn ldu_residual_if(a: &LduMatrix, ifs: &LduInterfaces, psi: &[f64], source: &[f64]) -> Vec<f64> {
     let mut r: Vec<f64> = (0..psi.len()).map(|c| source[c] - a.diag[c] * psi[c]).collect();
     for f in 0..a.n_internal_faces {
         let (l, u) = (a.owner[f], a.neighbour[f]);
         r[u] -= a.lower[f] * psi[l];
         r[l] -= a.upper[f] * psi[u];
     }
+    ifs.residual_update(psi, &mut r);
     r
 }
 
 /// `DICSmoother::smooth` (`DICSmoother.C:73-123`) with the reciprocal diagonal `r_d` of `DICSmoother`'s constructor.
-fn dic_smooth(a: &LduMatrix, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+fn dic_smooth(a: &LduMatrix, ifs: &LduInterfaces, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
     for _ in 0..n_sweeps {
-        let mut r_a = ldu_residual(a, psi, source);
+        let mut r_a = ldu_residual_if(a, ifs, psi, source);
         for i in 0..r_a.len() {
             r_a[i] *= r_d[i];
         }
@@ -618,11 +626,12 @@ fn owner_start(a: &LduMatrix) -> Vec<usize> {
 
 /// `GaussSeidelSmoother::smooth` (`GaussSeidelSmoother.C:74-176`, gh:#1936), no interfaces: `bPrime = source`, then per cell the owner side
 /// `psii = bPrime - sum upper psi[u]`, `psii /= diag`, the neighbour side `bPrime[u] -= lower psii`.
-fn gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+fn gauss_seidel_smooth(a: &LduMatrix, ifs: &LduInterfaces, psi: &mut [f64], source: &[f64], n_sweeps: usize) {
     let own_start = owner_start(a);
     let n = psi.len();
     for _ in 0..n_sweeps {
         let mut b_prime: Vec<f64> = source.to_vec();
+        ifs.residual_update(psi, &mut b_prime);
         for celli in 0..n {
             let mut psii = b_prime[celli];
             for facei in own_start[celli]..own_start[celli + 1] {
@@ -640,10 +649,17 @@ fn gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[f64], n_sweeps:
 /// `symGaussSeidelSmoother::smooth` (`symGaussSeidelSmoother.C:74-199`, gh:#1936): the forward sweep of [`gauss_seidel_smooth`], then a
 /// backward sweep that finishes each cell from the same `bPrime` without distributing.
 pub(crate) fn sym_gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+    sym_gauss_seidel_smooth_if(a, &LduInterfaces::none(), psi, source, n_sweeps);
+}
+
+/// [`sym_gauss_seidel_smooth`] with coupled interfaces: `bPrime = source + bou psi_nbr` before each sweep (`symGaussSeidelSmoother.C`,
+/// `updateMatrixInterfaces(false, ...)`; gh:#1905 round 80).
+pub(crate) fn sym_gauss_seidel_smooth_if(a: &LduMatrix, ifs: &LduInterfaces, psi: &mut [f64], source: &[f64], n_sweeps: usize) {
     let own_start = owner_start(a);
     let n = psi.len();
     for _ in 0..n_sweeps {
         let mut b_prime: Vec<f64> = source.to_vec();
+        ifs.residual_update(psi, &mut b_prime);
         for celli in 0..n {
             let mut psii = b_prime[celli];
             for facei in own_start[celli]..own_start[celli + 1] {
@@ -667,21 +683,21 @@ pub(crate) fn sym_gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[
 }
 
 /// `lduMatrix::smoother::smooth` of the selected smoother (`r_d` is `DICSmoother::rD_`, empty when the smoother does not use it).
-fn smooth(kind: GamgSmoother, a: &LduMatrix, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+fn smooth(kind: GamgSmoother, a: &LduMatrix, ifs: &LduInterfaces, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
     match kind {
-        GamgSmoother::Dic => dic_smooth(a, r_d, psi, source, n_sweeps),
-        GamgSmoother::GaussSeidel => gauss_seidel_smooth(a, psi, source, n_sweeps),
-        GamgSmoother::SymGaussSeidel => sym_gauss_seidel_smooth(a, psi, source, n_sweeps),
+        GamgSmoother::Dic => dic_smooth(a, ifs, r_d, psi, source, n_sweeps),
+        GamgSmoother::GaussSeidel => gauss_seidel_smooth(a, ifs, psi, source, n_sweeps),
+        GamgSmoother::SymGaussSeidel => sym_gauss_seidel_smooth_if(a, ifs, psi, source, n_sweeps),
         GamgSmoother::DicGaussSeidel => {
-            dic_smooth(a, r_d, psi, source, n_sweeps);
-            gauss_seidel_smooth(a, psi, source, n_sweeps);
+            dic_smooth(a, ifs, r_d, psi, source, n_sweeps);
+            gauss_seidel_smooth(a, ifs, psi, source, n_sweeps);
         }
     }
 }
 
 /// `GAMGSolver::scale` (`GAMGSolverScale.C:36-86`): `Acf` is scratch.
-fn scale(field: &mut [f64], a: &LduMatrix, source: &[f64]) {
-    let acf = a.multiply(field);
+fn scale(field: &mut [f64], a: &LduMatrix, ifs: &LduInterfaces, source: &[f64]) {
+    let acf = amul(a, ifs, field);
     let mut sf0 = 0.0;
     let mut sf1 = 0.0;
     for i in 0..field.len() {
@@ -717,6 +733,9 @@ struct Hierarchy {
     symmetric: bool,
     /// `DICSmoother::rD_` of the fine matrix and of each coarse one (`smoothers[0]`, `smoothers[i + 1]`).
     r_d: Vec<Vec<f64>>,
+    /// The coupled interfaces of the fine matrix (`[0]`) and of each coarse one (`[i + 1]`: `interfaceLevels_[i]` with
+    /// `interfaceLevelsBouCoeffs_[i]`); all empty for a matrix without coupled patches (gh:#1905 round 80).
+    ifs: Vec<LduInterfaces>,
 }
 
 /// `GAMGSolver::Vcycle` (`GAMGSolverSolve.C:156-380`) with `interpolateCorrection = false`; `nPreSweeps > 0` since gh:#1936.
@@ -731,12 +750,12 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
             // optional pre-smoothing of the restricted source (`GAMGSolverSolve.C:200-250`)
             let mut cc = vec![0.0; sources[leveli].len()];
             let n = (ctl.n_pre_sweeps + ctl.pre_sweeps_level_multiplier * leveli).min(ctl.max_pre_sweeps);
-            smooth(ctl.smoother, &h.mats[leveli], &h.r_d[leveli + 1], &mut cc, &sources[leveli], n);
+            smooth(ctl.smoother, &h.mats[leveli], &h.ifs[leveli + 1], &h.r_d[leveli + 1], &mut cc, &sources[leveli], n);
             if scale_corr && leveli < coarsest - 1 {
-                scale(&mut cc, &h.mats[leveli], &sources[leveli]);
+                scale(&mut cc, &h.mats[leveli], &h.ifs[leveli + 1], &sources[leveli]);
             }
             // `matrixLevels_[leveli].residual(coarseSources[leveli], coarseCorrFields[leveli], coarseSources[leveli])`
-            let resid = ldu_residual(&h.mats[leveli], &cc, &sources[leveli]);
+            let resid = ldu_residual_if(&h.mats[leveli], &h.ifs[leveli + 1], &cc, &sources[leveli]);
             sources[leveli] = resid;
             pre_smoothed[leveli] = cc;
         }
@@ -747,10 +766,10 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
     let mut corr: Vec<Vec<f64>> = vec![Vec::new(); h.mats.len()];
     let mut cc = vec![0.0; h.mats[coarsest].diag.len()];
     if h.symmetric {
-        let _ = pcg_dic(&h.mats[coarsest], &sources[coarsest], &mut cc, ctl.tolerance, ctl.rel_tol, 1000, 0);
+        let _ = pcg_dic_if(&h.mats[coarsest], &h.ifs[coarsest + 1], &sources[coarsest], &mut cc, ctl.tolerance, ctl.rel_tol, 1000, 0);
     } else {
         // `GAMGSolver.C:298-312`: an asymmetric coarsest matrix is solved by `PBiCGStab`/`DILU` (`PBiCGStabSolverDict`)
-        let _ = pbicgstab_dilu(&h.mats[coarsest], &sources[coarsest], &mut cc, ctl.tolerance, ctl.rel_tol, 1000, 0);
+        let _ = pbicgstab_dilu(&h.mats[coarsest], &h.ifs[coarsest + 1], &sources[coarsest], &mut cc, ctl.tolerance, ctl.rel_tol, 1000, 0);
     }
     corr[coarsest] = cc;
     // smoothing and prolongation going to finer levels
@@ -758,7 +777,7 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
         let map = &agg.levels[leveli + 1].restrict;
         let mut c: Vec<f64> = (0..map.len()).map(|i| corr[leveli + 1][map[i]]).collect();
         if scale_corr && leveli < coarsest - 1 {
-            scale(&mut c, &h.mats[leveli], &sources[leveli]);
+            scale(&mut c, &h.mats[leveli], &h.ifs[leveli + 1], &sources[leveli]);
         }
         if ctl.n_pre_sweeps > 0 {
             for i in 0..c.len() {
@@ -766,19 +785,19 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
             }
         }
         let n = (ctl.n_post_sweeps + ctl.post_sweeps_level_multiplier * leveli).min(ctl.max_post_sweeps);
-        smooth(ctl.smoother, &h.mats[leveli], &h.r_d[leveli + 1], &mut c, &sources[leveli], n);
+        smooth(ctl.smoother, &h.mats[leveli], &h.ifs[leveli + 1], &h.r_d[leveli + 1], &mut c, &sources[leveli], n);
         corr[leveli] = c;
     }
     // prolong the finest level correction
     let map0 = &agg.levels[0].restrict;
     let mut fc: Vec<f64> = (0..map0.len()).map(|i| corr[0][map0[i]]).collect();
     if scale_corr {
-        scale(&mut fc, a, finest_residual);
+        scale(&mut fc, a, &h.ifs[0], finest_residual);
     }
     for i in 0..psi.len() {
         psi[i] += fc[i];
     }
-    smooth(ctl.smoother, a, &h.r_d[0], psi, source, ctl.n_finest_sweeps);
+    smooth(ctl.smoother, a, &h.ifs[0], &h.r_d[0], psi, source, ctl.n_finest_sweeps);
 }
 
 /// `GAMGSolver::solve` (`GAMGSolverSolve.C:36-153`) for a symmetric `a` (`lower == upper`), with the `DIC` smoother and the `faceAreaPair`
@@ -787,6 +806,38 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
 /// # Errors
 /// An asymmetric matrix, an unsupported control, or no coarse level (upstream: `FatalError`, "No coarse levels created").
 pub fn gamg_dic_solve(a: &LduMatrix, agg: &GamgAgglomeration, ctl: &GamgControls, source: &[f64], psi: &mut [f64]) -> Result<GamgPerformance, String> {
+    gamg_solve_impl(a, &LduInterfaces::none(), agg, ctl, source, psi, true)
+}
+
+/// [`gamg_dic_solve`] on a matrix with coupled (`cyclic`) interfaces, as upstream's `GAMGSolver` handles them (gh:#1905, README
+/// "Round 80"): the agglomeration (internal faces only) is the caller's `agg`; each coarse level carries the `cyclicGAMGInterface`s
+/// [`LduInterfaces::coarsen`] builds from it, with the summed coefficients; every `Amul`, `residual`, smoother, `scale` and the
+/// coarsest `PCG`/`DIC` of every level apply their level's interfaces. With [`LduInterfaces::none`] it is [`gamg_dic_solve`].
+///
+/// # Errors
+/// As [`gamg_dic_solve`].
+pub fn gamg_dic_solve_if(a: &LduMatrix, ifs: &LduInterfaces, agg: &GamgAgglomeration, ctl: &GamgControls, source: &[f64], psi: &mut [f64]) -> Result<GamgPerformance, String> {
+    gamg_solve_impl(a, ifs, agg, ctl, source, psi, true)
+}
+
+/// CONTROL, NOT upstream (gh:#1905, README "Round 80", prediction Q9): [`gamg_dic_solve_if`] with the interfaces on the FINEST level
+/// only; every coarse level is solved as if the seam were absent.
+///
+/// # Errors
+/// As [`gamg_dic_solve`].
+pub fn gamg_dic_solve_without_coarse_interfaces(a: &LduMatrix, ifs: &LduInterfaces, agg: &GamgAgglomeration, ctl: &GamgControls, source: &[f64], psi: &mut [f64]) -> Result<GamgPerformance, String> {
+    gamg_solve_impl(a, ifs, agg, ctl, source, psi, false)
+}
+
+fn gamg_solve_impl(
+    a: &LduMatrix,
+    ifs: &LduInterfaces,
+    agg: &GamgAgglomeration,
+    ctl: &GamgControls,
+    source: &[f64],
+    psi: &mut [f64],
+    coarse_interfaces: bool,
+) -> Result<GamgPerformance, String> {
     ctl.check_supported()?;
     let sym = is_symmetric(a) && !ctl.has_lower;
     if !sym && ctl.smoother.uses_dic() {
@@ -806,18 +857,25 @@ pub fn gamg_dic_solve(a: &LduMatrix, agg: &GamgAgglomeration, ctl: &GamgControls
     } else {
         r_d.resize(mats.len() + 1, Vec::new());
     }
-    let h = Hierarchy { mats, symmetric: sym, r_d };
+    // `agglomerateLduAddressing` / `cyclicGAMGInterface`: the coarse interfaces follow the cell restriction of each level
+    let mut lvl_ifs = Vec::with_capacity(agg.levels.len() + 1);
+    lvl_ifs.push(ifs.clone());
+    for lvl in &agg.levels {
+        let next = if coarse_interfaces { lvl_ifs[lvl_ifs.len() - 1].coarsen(&lvl.restrict) } else { LduInterfaces::none() };
+        lvl_ifs.push(next);
+    }
+    let h = Hierarchy { mats, symmetric: sym, r_d, ifs: lvl_ifs };
     let scale_corr = ctl.scale_correction.unwrap_or(sym);
 
-    let apsi = a.multiply(psi);
-    let norm = norm_factor(a, psi, source, &apsi);
+    let apsi = amul(a, ifs, psi);
+    let norm = norm_factor_if(a, ifs, psi, source, &apsi);
     let mut finest_residual: Vec<f64> = (0..psi.len()).map(|i| source[i] - apsi[i]).collect();
     let initial = g_sum_mag(&finest_residual) / norm;
     let mut perf = GamgPerformance { initial_residual: initial, final_residual: initial, iterations: 0, cycles: Vec::new() };
     if ctl.min_iter > 0 || !converged(perf.final_residual, initial, ctl.tolerance, ctl.rel_tol) {
         loop {
             v_cycle(&h, agg, a, ctl, scale_corr, psi, source, &finest_residual);
-            let apsi = a.multiply(psi);
+            let apsi = amul(a, ifs, psi);
             finest_residual = (0..psi.len()).map(|i| source[i] - apsi[i]).collect();
             perf.final_residual = g_sum_mag(&finest_residual) / norm;
             perf.cycles.push(perf.final_residual);
@@ -943,7 +1001,7 @@ mod tests {
         let r = asym.residual(&x, &b);
         assert!(r.iter().all(|v| v.abs() < 1e-5));
         let mut y = vec![0.0; m.n_cells];
-        assert!(pbicgstab_dilu(&asym, &b, &mut y, 1e-12, 0.0, 1000, 0) > 0);
+        assert!(pbicgstab_dilu(&asym, &LduInterfaces::none(), &b, &mut y, 1e-12, 0.0, 1000, 0) > 0);
         assert!(asym.residual(&y, &b).iter().all(|v| v.abs() < 1e-8));
     }
 
@@ -976,7 +1034,7 @@ mod tests {
         d.upper = vec![0.0];
         d.lower = vec![0.0];
         let mut x = vec![0.0; 3];
-        gauss_seidel_smooth(&d, &mut x, &[2.0, 8.0, 5.0], 1);
+        gauss_seidel_smooth(&d, &LduInterfaces::none(), &mut x, &[2.0, 8.0, 5.0], 1);
         assert_eq!(x, vec![1.0, 2.0, 1.0]);
         let mut y = vec![0.0; 3];
         sym_gauss_seidel_smooth(&d, &mut y, &[2.0, 8.0, 0.0], 1);

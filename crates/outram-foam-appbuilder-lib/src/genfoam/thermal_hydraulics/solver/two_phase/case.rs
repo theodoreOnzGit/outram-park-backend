@@ -226,7 +226,7 @@ pub(super) fn key_matches(pattern: &str, name: &str) -> bool {
 
 /// OpenFOAM's dictionary lookup of `name`: the exact keyword if there is one, else the LAST declared pattern that matches (patterns
 /// are searched from the newest entry back, so a catch-all `".*"` declared after `"h.*"` shadows it).
-pub(super) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
+pub(crate) fn lookup_pattern_last<'a>(d: &'a FoamDict, name: &str) -> Option<&'a FoamEntry> {
     if let Some(e) = d.get(name) {
         return Some(e);
     }

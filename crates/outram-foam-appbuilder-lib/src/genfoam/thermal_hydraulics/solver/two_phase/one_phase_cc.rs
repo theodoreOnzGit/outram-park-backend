@@ -102,7 +102,7 @@ pub use flow::{CellDrag, DragLaw, OnePhaseFlowCase, PressureSolve, ReynoldsPower
 use flow::FlowState;
 pub use pimple::{LoopStep, PimpleControls, PimpleState, RelaxationDict, RelaxationFactors, ResidualSpec};
 pub use turbulence::{
-    near_wall_dist, set_values, DiagonalBicgstab, EpsilonWallSpec, NutWallSpec, OnePhaseTurbulenceCase, WallBlender, WallFunctionBlending,
+    face_centre_openfoam, near_wall_dist, near_wall_dist_with_mesh_face_centres, set_values, DiagonalBicgstab, EpsilonWallSpec, NutWallSpec, OnePhaseTurbulenceCase, WallBlender, WallFunctionBlending,
     WallFunctionCoeffs,
 };
 use turbulence::TurbState;
@@ -113,7 +113,7 @@ use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPo
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::tensor_laplacian;
 use super::thermo::PhaseThermo;
-use super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
+use super::pbicgstab::{pbicgstab_diagonal_if, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
 
 #[cfg(feature = "std")]
@@ -544,6 +544,37 @@ fn parse_value(s: &str, n: usize) -> Result<(Vec<f64>, &str), String> {
     Err("neither uniform nor nonuniform".to_string())
 }
 
+/// The `cyclic_partner` of every `cyclic` patch, from the `neighbourPatch` entries of `polyMesh/boundary` (gh:#1905, README round 80):
+/// the mesh reader does not parse that entry (round 48), and [`Geometry`] treats a cyclic patch without a partner as a plain one.
+/// `cyclicPolyPatch` pairs local face `i` of the two halves; a pair of unequal size, or a partner that is not cyclic, is refused.
+///
+/// # Errors
+/// An unreadable `boundary` file, an unknown or mismatched `neighbourPatch`.
+#[cfg(feature = "std")]
+pub(crate) fn resolve_cyclic_partners(mesh: Arc<FvMesh>, poly_mesh_dir: &Path) -> Result<Arc<FvMesh>, AppBuilderError> {
+    if !mesh.patches.iter().any(|p| p.kind == outram_foam_basic_lib::mesh::PatchKind::Cyclic && p.cyclic_partner.is_none()) {
+        return Ok(mesh);
+    }
+    let path = poly_mesh_dir.join("boundary");
+    let text = std::fs::read_to_string(&path).map_err(|e| AppBuilderError::Io { path: path.clone(), source: e })?;
+    let pairs = crate::genfoam::neutronics::point_kinetics::cyclic_transport::parse_cyclic_neighbours(&text);
+    let mut m = (*mesh).clone();
+    let names: Vec<String> = m.patches.iter().map(|p| p.name.clone()).collect();
+    for pi in 0..m.patches.len() {
+        if m.patches[pi].kind != outram_foam_basic_lib::mesh::PatchKind::Cyclic || m.patches[pi].cyclic_partner.is_some() {
+            continue;
+        }
+        let err = |what: &str| AppBuilderError::Case { case: poly_mesh_dir.to_path_buf(), msg: format!("cyclic patch `{}`: {what}", names[pi]) };
+        let nbr = pairs.iter().find(|(a, _)| *a == names[pi]).map(|(_, b)| b.clone()).ok_or_else(|| err("no neighbourPatch"))?;
+        let q = names.iter().position(|n| *n == nbr).ok_or_else(|| err("unknown neighbourPatch"))?;
+        if m.patches[q].kind != outram_foam_basic_lib::mesh::PatchKind::Cyclic || m.patches[q].size != m.patches[pi].size {
+            return Err(err("its neighbourPatch is not a cyclic patch of the same size"));
+        }
+        m.patches[pi].cyclic_partner = Some(q);
+    }
+    Ok(Arc::new(m))
+}
+
 /// One `FSDragCoefficientModel` dictionary: `ReynoldsPower` (`coeff`, `exp`, `const`), `Churchill` (`surfaceRoughness`) or `Rehme`
 /// (`numberOfPins`, `pinDiameter`, `wireDiameter`, `wireLeadLen`, `wetWrapPerimeter`); every other model is refused by name.
 #[cfg(feature = "std")]
@@ -676,7 +707,7 @@ impl OnePhaseCcCase {
     pub fn read_with_options(root: &Path, poly_mesh_dir: &Path, options: &CaseReadOptions) -> Result<Self, AppBuilderError> {
         let ctx = Ctx { root: root.to_path_buf() };
         let region = "fluidRegion";
-        let mesh = read_poly_mesh(poly_mesh_dir)?;
+        let mesh = resolve_cyclic_partners(read_poly_mesh(poly_mesh_dir)?, poly_mesh_dir)?;
         let zones = read_cell_zones(poly_mesh_dir)?;
         let g = Geometry::new_openfoam(mesh.clone());
         let n = g.n_cells();
@@ -1172,12 +1203,52 @@ impl OnePhaseCcCase {
         let power_density = if let Some(h) = hand {
             h.power_density.clone()
         } else if solve_flow && !exists("powerDensityNeutronicsToLiquid") {
-            vec![0.0; n]
+            // `fluid.C:386-420` (gh:#1905, README round 80): `fluidProperties.initialPowerDensity { <zone> <value>; }` is written into
+            // `powerDensityNeutronicsToLiquid` zone by zone, in dictionary order, when no such field is in the start directory
+            let mut q = vec![0.0; n];
+            if let Some(ipd) = pp.get_dict("fluidProperties").and_then(|fp| fp.get_dict("initialPowerDensity")) {
+                for (zone, e) in ipd.iter() {
+                    let v = match e {
+                        FoamEntry::Scalar(v) => *v,
+                        _ => return Err(ctx.e(format!("fluidProperties.initialPowerDensity.{zone}: a scalar is needed"))),
+                    };
+                    for c in zone_cells(zone)? {
+                        q[c] = v;
+                    }
+                }
+            }
+            q
         } else {
             sfield("powerDensityNeutronicsToLiquid")?
         };
-        if solve_flow && pp.get_dict("fluidProperties").is_some() {
-            return Err(ctx.e("fluidProperties/initialPowerDensity/initialAlpha are not ported for the solved flow"));
+        if solve_flow {
+            if let Some(fp) = pp.get_dict("fluidProperties") {
+                for (k, _) in fp.iter() {
+                    if k != "initialPowerDensity" {
+                        return Err(ctx.e(format!("fluidProperties.{k} is not ported for the solved flow (initialPowerDensity is)")));
+                    }
+                }
+            }
+        }
+        if g.has_cyclic() {
+            // gh:#1905 (README round 80): the cyclic (`lduInterface`) form is ported for the paths the shipped 1D_MSR case runs
+            if tortuosity.is_some() {
+                return Err(ctx.e("localTortuosity on a mesh with a cyclic patch is not ported (the tensor-diffusivity Laplacian has no coupled-patch form)"));
+            }
+            if radial.needs_laplacian {
+                return Err(ctx.e("lumpedNuclearStructure with kappaMatrix != 0 on a mesh with a cyclic patch is not ported (fvc::laplacian has no coupled-patch form here)"));
+            }
+            if heat_exchangers.is_present() {
+                return Err(ctx.e("heatExchangers on a mesh with a cyclic patch are not ported"));
+            }
+            if passive.is_some() {
+                return Err(ctx.e("passiveProperties on a mesh with a cyclic patch are not differenced against upstream (gh:#1905); refused"));
+            }
+            for (fin, kind) in [(false, controls.h_solver), (true, controls.h_solver_final)] {
+                if matches!(kind, HSolver::PbicgDilu | HSolver::SmoothSymGaussSeidel) {
+                    return Err(ctx.e(format!("solvers.h{}: PBiCG/DILU and the round-46 smoother have no cyclic-interface form here (PBiCGStab and smoothSolver do)", if fin { "Final" } else { "" })));
+                }
+            }
         }
         let u = match hand { Some(h) => h.u.clone(), None => read_vol_vector_field(&fdir.join("U"), n)? };
         let patches: Vec<(String, usize)> = mesh.patches.iter().map(|q| (q.name.clone(), q.size)).collect();
@@ -1348,6 +1419,12 @@ pub struct OnePhaseCcSolver {
     ctl_no_tort_momentum: bool,
     ctl_no_tort_energy: bool,
     ctl_no_alphat_patch: bool,
+    /// ABLATION (gh:#1905, README round 80): the `h` matrix's `div` and `laplacian` accumulated straight onto the running diagonal (the
+    /// form before round 80) instead of being assembled as their own matrices and added whole (`fvMatrix` operator order).
+    ctl_folded_energy: bool,
+    /// CONTROL (gh:#1905, README round 80): the `faceCentered` `dev2` divergence with the weighted interpolation `w P + (1 - w) N` (the form
+    /// of rounds 73-79) instead of `dotInterpolate`'s `lambda (P - N) + N`.
+    pub(super) ctl_weighted_dev2: bool,
     htc: Vec<f64>,
     /// `regimeMapModels` weights per cell (`oneParameter::correct`), from the Reynolds number of the previous `correctModels`.
     regime_weights: Vec<Vec<(String, f64)>>,
@@ -1542,6 +1619,8 @@ impl OnePhaseCcSolver {
             ctl_no_tort_momentum: false,
             ctl_no_tort_energy: false,
             ctl_no_alphat_patch: false,
+            ctl_folded_energy: false,
+            ctl_weighted_dev2: false,
             htc,
             regime_weights: vec![Vec::new(); n],
             regime_re: regime_re_init,
@@ -1807,6 +1886,32 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn pressure_solves(&self) -> &[PressureSolve] {
         self.flow.as_ref().map_or(&[], |f| f.solves.as_slice())
+    }
+
+    /// The cell fields the liquid-fuel mapping reads (`multiRegionCouplingDict` of the shipped 1D_MSR case, gh:#1905 README round 80):
+    /// `mu` (the thermo's `mu(p, T)`), `alpha` (the fluid fraction `1 - alpha.structure`) and `thermo:alpha` (`heThermo::alpha_`, the
+    /// laminar enthalpy diffusivity `constTransport::alphah = mu rPr`; for another transport `kappa/Cp`).
+    #[must_use]
+    pub fn liquid_fuel_coupling_fields(&self) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+        let th = &self.case.thermo;
+        let n = self.t.len();
+        let mu: Vec<f64> = (0..n).map(|c| th.props(self.p[c], self.t[c]).mu).collect();
+        let alpha_h: Vec<f64> = (0..n)
+            .map(|c| {
+                th.alpha_h_const().unwrap_or_else(|| {
+                    let pp = th.props(self.p[c], self.t[c]);
+                    pp.kappa / pp.cp
+                })
+            })
+            .collect();
+        (mu, self.alpha.clone(), alpha_h)
+    }
+
+    /// The diagonal `(xx, yy, zz)` of the fluid-structure drag tensor `Kd` per cell, as the last `correctModels` left it (empty without
+    /// flow; gh:#1905 round 80, differenced against the written `Kd`).
+    #[must_use]
+    pub fn drag_coefficients(&self) -> &[[f64; 3]] {
+        self.flow.as_ref().map_or(&[], |f| f.kd.as_slice())
     }
 
     /// `FSPair::correct` quantities that do not need the fluid dynamics: `Re` (`nu = mu/rho(T)`).
@@ -2077,6 +2182,48 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// CONTROL, NOT upstream (gh:#1905, README round 80): the `faceCentered` momentum `fvc::div(alpha rho nuEff dev2(T(grad U)))` with the
+    /// weighted face interpolation `w P + (1 - w) N` of the gradient's face velocity and of the face tensor (the form of rounds 73-79). The
+    /// default is `dotInterpolate`'s `lambda (P - N) + N` (`surfaceInterpolationScheme.C:270`), which made step 3 of the shipped 1D_MSR case
+    /// bit-identical.
+    #[must_use]
+    pub fn with_weighted_dev2_interpolation(mut self) -> Self {
+        self.ctl_weighted_dev2 = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1905, README round 80, prediction Q8): every `cyclic` patch treated as a plain patch (the face
+    /// evaluated from its owner cell, no `lduInterface`): what the port did with a cyclic mesh before round 80.
+    #[must_use]
+    pub fn without_cyclic_interfaces(mut self) -> Self {
+        for c in self.geom.cyclic_nbr.iter_mut() {
+            *c = usize::MAX;
+        }
+        for w in self.geom.cyclic_w.iter_mut() {
+            *w = 0.0;
+        }
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1905, README round 80, prediction Q9): the `p_rgh` `GAMG` solves keep the cyclic interfaces on the finest
+    /// level only.
+    #[must_use]
+    pub fn with_gamg_interfaces_on_the_finest_level_only(mut self) -> Self {
+        if let Some(fs) = self.flow.as_mut() {
+            fs.gamg = core::mem::take(&mut fs.gamg).without_coarse_interfaces();
+        }
+        self
+    }
+
+    /// ABLATION (gh:#1905, README round 80): assemble `EEqn_1p.H`'s `fvm::div` and `fvm::laplacian` onto the running diagonal of the
+    /// `fvm::ddt` matrix (the form before round 80). The default builds each as its own matrix and adds it whole, as `ddt + div + SuSp -
+    /// laplacian` does in `fvMatrix` (the per-cell sums of face coefficients round before they reach the diagonal).
+    #[must_use]
+    pub fn with_folded_energy_assembly(mut self) -> Self {
+        self.ctl_folded_energy = true;
+        self
+    }
+
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
         // `onePhase::correctModels`: `correctRegimeMaps()` FIRST (`oneParameter::correct`, with the `Re` field as `FSPair` left it at
@@ -2121,7 +2268,7 @@ impl OnePhaseCcSolver {
     /// `fvMatrix::relax(alpha)` (ESI v2506 `fvMatrix.C:1101`) for the scalar energy matrix, with the boundary coefficients kept
     /// apart as `fvMatrix` keeps them (`ic` = `internalCoeffs` per boundary face, not folded into `diag`): `D += |ic|` per boundary face,
     /// `D = max(|D|, sumOff)`, `D /= alpha`, `D -= ic`; returns `D' - D0` per cell (the source gets `(D' - D0) psi`).
-    fn relax_scalar(&self, e: &mut Eqn, ic: &[f64], factor: f64) -> Vec<f64> {
+    fn relax_scalar(&self, e: &mut Eqn, ic: &[f64], bco: &[f64], factor: f64) -> Vec<f64> {
         let g = &self.geom;
         let (n, ni) = (g.n_cells(), g.n_internal());
         let mut sum_off = vec![0.0; n];
@@ -2133,7 +2280,13 @@ impl OnePhaseCcSolver {
         let mut d = d0.clone();
         for f in ni..g.n_faces() {
             if g.active[f] {
-                d[g.mesh.owner[f]] += ic[f - ni].abs();
+                if g.cyclic_nbr[f - ni] != usize::MAX {
+                    // a coupled patch (`fvMatrix.C:1130-1140`, gh:#1905): `D += component(ic, 0)`, `sumOff += mag(component(bc, 0))`
+                    d[g.mesh.owner[f]] += ic[f - ni];
+                    sum_off[g.mesh.owner[f]] += bco[f - ni].abs();
+                } else {
+                    d[g.mesh.owner[f]] += ic[f - ni].abs();
+                }
             }
         }
         for c in 0..n {
@@ -2203,10 +2356,22 @@ impl OnePhaseCcSolver {
             e.source[c] += rdt * self.alpha[c] * self.rho_old[c] * self.he_old[c] * v;
         }
         // fvm::div(alphaRhoPhi, he, "div(alphaRhoPhi,he)"): the boundary coefficients stay apart (`internalCoeffs`, `boundaryCoeffs`)
-        e.div_upwind_internal(&g, &phi);
+        if self.ctl_folded_energy {
+            e.div_upwind_internal(&g, &phi);
+        } else {
+            let mut dv = Eqn::new(&g);
+            dv.div_upwind_internal(&g, &phi);
+            e.add(&dv);
+        }
         for f in ni..g.n_faces() {
             if g.active[f] {
-                let (vi, vb) = he_scalar.convection_coeffs(&g, f, [&[], &[]]);
+                // a coupled patch: `valueInternalCoeffs(w) = w`, `valueBoundaryCoeffs(w) = 1 - w`, `w = pos0(phi)` (gh:#1905)
+                let (vi, vb) = if g.cyclic_nbr[f - ni] != usize::MAX {
+                    let w = if phi[f] >= 0.0 { 1.0 } else { 0.0 };
+                    (w, 1.0 - w)
+                } else {
+                    he_scalar.convection_coeffs(&g, f, [&[], &[]])
+                };
                 ic[f - ni] += phi[f] * vi;
                 bco[f - ni] += -phi[f] * vb;
             }
@@ -2240,7 +2405,13 @@ impl OnePhaseCcSolver {
         } else {
             let ae_f = fv::interp_linear_openfoam(&g, &ae);
             let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
-            e.neg_laplacian_internal(&g, &gam);
+            if self.ctl_folded_energy {
+                e.neg_laplacian_internal(&g, &gam);
+            } else {
+                let mut lp = Eqn::new(&g);
+                lp.neg_laplacian_internal(&g, &gam);
+                e.add(&lp);
+            }
             Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar)
         };
         for i in 0..nb {
@@ -2328,19 +2499,23 @@ impl OnePhaseCcSolver {
         e.su(&g, &pd);
         // EEqn.relax()
         if let Some(fct) = self.case.controls.relax.equation("h", self.pimple.final_iteration).filter(|f| *f > 0.0) {
-            let delta = self.relax_scalar(&mut e, &ic, fct);
+            let delta = self.relax_scalar(&mut e, &ic, &bco, fct);
             for c in 0..n {
                 e.source[c] += delta[c] * self.he[c];
             }
         }
-        // `solveSegregated`: the boundary coefficients join the diagonal and the source at the solve
+        // `solveSegregated`: the boundary coefficients join the diagonal and the source at the solve; a coupled patch's
+        // `boundaryCoeffs` are the `interfaceBouCoeffs` instead (`addBoundarySource(source, false)`, gh:#1905)
         for f in ni..g.n_faces() {
             if g.active[f] {
                 let o = g.mesh.owner[f];
                 e.ldu.diag[o] += ic[f - ni];
-                e.source[o] += bco[f - ni];
+                if g.cyclic_nbr[f - ni] == usize::MAX {
+                    e.source[o] += bco[f - ni];
+                }
             }
         }
+        let ifs = g.interfaces(&bco);
         let mut x = self.he.clone();
         // `EEqn.solve()` selects `hFinal` when `isFinalIteration()`
         let fin = self.pimple.final_iteration;
@@ -2350,7 +2525,7 @@ impl OnePhaseCcSolver {
         let kind = if fin { ctl.h_solver_final } else { ctl.h_solver };
         let (initial_residual, iterations) = match kind {
             HSolver::PBiCGStabDiagonal => {
-                let perf = pbicgstab_diagonal(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+                let perf = pbicgstab_diagonal_if(&e.ldu, &ifs, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
                 (perf.initial_residual, perf.iterations)
             }
             HSolver::PbicgDilu => {
@@ -2359,7 +2534,7 @@ impl OnePhaseCcSolver {
             }
             HSolver::SmoothSolver(sweeps) => {
                 let ctl = crate::genfoam::common::smooth_solver::SmoothSolverControls { tolerance: tol, rel_tol, min_iter, sweeps };
-                let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&e.ldu, &e.source, &mut x, &ctl);
+                let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel_if(&e.ldu, &ifs, &e.source, &mut x, &ctl);
                 (perf.initial_residual, perf.iterations)
             }
             HSolver::SmoothSymGaussSeidel => {
