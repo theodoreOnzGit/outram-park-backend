@@ -9457,3 +9457,36 @@ One-edit variant of the shipped `2D_MSFR` `steadyStateEN` stage (`Allrun` replay
 | A4 | AS SHIPPED: criterion 2 met (`<= 1e-9` at every step) | 55 % (a `relTol 0.01` threshold crossing amplifies matrix-rounding differences, round 67) |
 | A5 | ABLATION: the PCG/DIC substitute misses the real as-shipped step-1 `keff_` by more than 1e-8 relative (it stops at a different point) | 75 % |
 | A6 | criterion 4: no earlier pin moves | 95 % |
+
+
+## Part B (gh:#1943): `localTortuosity` in the faceCentered branch of onePhase (predictions and criteria written BEFORE any real or port run of the variants)
+
+### Read in upstream first
+
+`UEqn_1p.H:20-52`: ONE expression for both momentum modes; `structure_.tortuosityPtr().valid()` selects `- fvm::laplacian(alpha rho nuEff tortuosity, U) - fvc::div(alpha rho nuEff tortuosity & dev2(T(grad U)))`; only `fvm::ddt` is guarded by `momentumMode_ != faceCentered`. `pEqnf_1p.H` and `reconstructU_1p.H` read no tortuosity. So the faceCentered branch needs exactly the tensor-diffusivity terms the cell-centred branch has had since round 64 (`tensor_laplacian`), assembled as their own matrix and added whole (`UEqnCc::add`, the per-term order of round 73's faceCentered UEqn).
+
+**Searched before writing:** `one_phase_cc/flow.rs` (the cell-centred tortuous branch), `tensor_laplacian.rs` (`tortuosity_fields`, `scale`, `interpolate`, `decompose`, `add_neg_laplacian_vector`), `two_phase/mod.rs::dev2_div_tortuous`: all reused, nothing new written but the branch in `face_centered.rs`; the refusal in `OnePhaseCcCase::read` is removed.
+
+### Variants (`scripts/make_round79_variants.sh`, one-edit variants of `cases/fullcoupling_fluid`, tight round 55 protocol, 20 steps, `END_TIME 4.9`; real binary `ROUND=r79 scripts/run_round73_variants.sh`)
+
+`f9_cc_tort`: `localTortuosity (0.7 1.3 0.01389)` on `zone0` (all 144 cells; the round 64 value), cell-centred: the control. `f10_fc_tort`: `f9` + `momentumMode faceCentered` (named pair): the piece.
+
+**Criteria (round 73's, fixed here):** at each of the 20 steps `U` (on max|U|), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics` `<= 1e-12` of the field's max; solve count and order equal; `dt` `<= 1e-12`; `T` lines `<= 1e-12`; noise-floor iteration counts reported, not gated. ABLATION: `without_tortuosity_in_momentum()` on `f10` must miss the real `f10` by more than 1e-6 in `U` (the edit is a real branch), and the real `f10` must differ from the real round 73 `f1`.
+
+**Predictions.** B1: port `f9` `<= 1e-12` (80 %: round 64's code, a new mesh). B2: port `f10` `<= 1e-12` at the first run (65 %; the risk is the per-term assembly order of the tensor Laplacian inside the separate `lap` matrix). B3: the ablation misses by more than 1e-6 (90 %).
+
+## Part C (gh:#1942): `smoothSolver` (`symGaussSeidel`) with `relTol`, `nSweeps`, `maxIter` for the onePhase `h` equation, its own module (predictions and criteria written BEFORE any real or port run of the variants)
+
+### Read in upstream first (ESI v2506)
+
+`smoothSolver.C:73-77` (`nSweeps` default 1), `:93-117` (`nSweeps < 0`: `-nSweeps` sweeps, `nIterations -= nSweeps`, no residual at all: the log prints residual 0), `:119-209` (`Amul`, `normFactor`, initial residual; `if (minIter_ > 0 || !checkConvergence(tolerance, relTol))`; `do { smooth(nSweeps); residual } while (((nIter += nSweeps) < maxIter && !converged) || nIter < minIter)`), `SolverPerformance.C:63-88` (`relTol > small_` and `final < relTol initial`), `symGaussSeidelSmoother.C:74-199` (each of the `nSweeps` sweeps restarts `bPrime = source`).
+
+**Searched before writing:** `one_phase::smooth_solve_sym_gauss_seidel_openfoam` (round 46: `nSweeps 1`, no `relTol`), `gamg::sym_gauss_seidel_smooth` and `gamg::ldu_residual` (round 72: reused, made `pub(crate)`), `pcg::{norm_factor, converged, g_sum_mag}` (reused), `turbulence.rs` (k/epsilon `smoothSolver`, refuses `relTol`/`nSweeps`: not touched, filed), basic-lib `gauss_seidel.rs` (fixed sweeps, no OpenFOAM residual: not reusable). New module `genfoam/common/smooth_solver.rs` (`smooth_solver_sym_gauss_seidel`), `HSolver::SmoothSolver(SmoothSolverSweeps)` is what the cell-centred reader now selects for every `smoothSolver` `h` entry; at `nSweeps 1`, `relTol 0`, `maxIter 1000` it is bit-identical to the round 46 function (unit test), so no earlier case moves.
+
+### Variants (same harness; `scripts/make_round79_variants.sh`)
+
+`s1_h_reltol` (`relTol 0.1`), `s2_h_nsweeps` (`nSweeps 2`), `s3_h_maxiter` (`maxIter 2`), `s4_h_all` (`relTol 0.05`, `nSweeps 3`, `maxIter 7`: named triple), `s5_h_fixed` (`nSweeps -2`).
+
+**Criteria:** as Part B (every field `<= 1e-12`, solve count/order, `dt`, `T` lines), plus: the `h` iteration counts EQUAL the real log's in every solve whose upstream initial residual is above 1e-10 (they are set by `relTol`/`nSweeps`/`maxIter`, not by the noise floor, in `s1`, `s3`, `s4`, `s5`); `s5`'s `h` residuals are 0 in both. ABLATION: the round 46 form (`nSweeps 1`, `relTol 0`) on `s1` must miss the real `s1` `T` by more than 1e-10.
+
+**Predictions.** C1: all five variants `<= 1e-12` (70 %). C2: `h` iteration counts equal in every non-floor solve of `s1`, `s3`, `s4`, `s5` (80 %). C3: `s4` stops at 9 (`3 + 3 + 3`, the first count `>= 7`) wherever `relTol` does not stop it first (90 %). C4: the ablation misses `s1` by more than 1e-10 in `T` (85 %). C5: the earlier fullcoupling-fluid and ESFR pins do not move (95 %).

@@ -1,6 +1,6 @@
 #!/bin/bash
 # gh:#1939, #1940 round 73: run the real GeN-Foam binary on each variant of make_round73_variants.sh (END_TIME default 4.9: 20 steps) and extract
-# the references <out>/fc_fluid_r73_<name>.ref.txt / _log.ref.txt.   usage: run_round73_variants.sh <variants dir> <out dir> [variant names...]
+# the references <out>/fc_fluid_r73_<name>.ref.txt / _log.ref.txt (round 79: ROUND=r79 names them fc_fluid_r79_<name>).   usage: run_round73_variants.sh <variants dir> <out dir> [variant names...]
 VAR=$1
 OUT=$2
 shift 2
@@ -12,5 +12,5 @@ for v in $NAMES; do
   c="$VAR/$v"
   sed -i "s/^endTime .*/endTime         ${END_TIME:-4.9};/" "$c/system/controlDict"
   (cd "$VAR" && GeN-Foam -case "$v" > "$v/log.GeN-Foam" 2>&1; echo "$v exit $?")
-  bash "$HERE/extract_fullcoupling_fluid.sh" "$c" "$OUT/fc_fluid_r73_$v"
+  bash "$HERE/extract_fullcoupling_fluid.sh" "$c" "$OUT/fc_fluid_${ROUND:-r73}_$v"
 done
