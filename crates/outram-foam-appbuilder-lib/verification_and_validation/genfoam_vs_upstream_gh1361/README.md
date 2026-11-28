@@ -10763,8 +10763,8 @@ Real binary (GeN-Foam 652b3da on ESI v2506, serial; `scripts/run_htr10_r88_real.
 `scripts/make_htr10_r88_refs.py` into `refs/htr10_r88/`): `ct2` = the round-87 tight case (`refs/htr10_r87/case`: tolerance 1e-14,
 `relTol 0`, `p_rgh` PCG/DIC `maxIter 5000` because the shipped GAMG stalls near 1e-10, `writePrecision 17`) with the SHIPPED
 `Gauss linear corrected` / `corrected` restored, one step; `clam` = `ct2` laminar; `ct3` = the same to `endTime 0.55` (7 steps);
-`sh20` = the UNEDITED shipped `rootCase` (GAMG 1e-6, every shipped solver setting) with only `endTime 0.645` (20 steps),
-`writeControl timeStep`, `purgeWrite 1`, `writePrecision 17`. The shipped run to 10 s is round 87's (`refs/htr10_r87/shipped_log.gz`,
+`sh20` = the UNEDITED shipped `rootCase` (GAMG 1e-6, every shipped solver setting) with only `endTime 0.645` (~~20 steps~~ **CORRECTED: 19 steps**, see the results),
+`writeControl timeStep`, `purgeWrite 1`, `writePrecision 17` (**CORRECTED 2026-11-28:** `writeControl timeStep` is not only an output change: it drops `Time::adjustDeltaT`'s alignment of `deltaT` with the next `adjustableRunTime` write, so `sh20`'s `deltaT` sequence is not the shipped one; it is still a whole-case run with every shipped solver setting, compared with a real run of the same files). The shipped run to 10 s is round 87's (`refs/htr10_r87/shipped_log.gz`,
 4320 s). Comparison as round 87: every 7th cell, max-norm relative to the reference's max-norm; pebble log numbers; `deltaT`; first
 `p_rgh` residuals. Gate on the tight variants: 1e-9 relative with the cause explained (bit-identity the goal). On `sh20` the solvers
 stop at 1e-6/1e-5 (`p_rgh` GAMG 1e-6, `h` 1e-5, `k`/`epsilon` `relTol 0.01`), so the gate is NOT 1e-9: the criterion stated before the
@@ -10789,3 +10789,72 @@ log's 6-digit numbers compared as printed.
 |---|---|---|
 | P8 | the port's first 500 steps of the case AS SHIPPED (to about 3.6 s, `endTime 10`, compared with round 87's `shipped_log.gz`): every pebble number (6 lines x avg/min/max per step) and every `deltaT` equal at the printed 6 digits | 45 % |
 | P8b | the same, every one within 1e-5 relative of the printed value | 80 % |
+
+## Round 88 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions P1-P7 committed first in `3318bf864`, P8 in `547c4b8f1`, each BEFORE its comparison's first port run; real binary 652b3da on ESI v2506, serial; references in the refs submodule (`htr10_r88/`, written by `scripts/run_htr10_r88_real.sh` + `make_htr10_r88_refs.py` + `make_htr10_r88_patch_refs.py`); tests `tests/genfoam_htr10_vs_upstream.rs`, all behind `long-tests` (they stage a 25 MB case); unit test `non_orth::tests::correction_vectors_match_the_implicit_delta_and_a_linear_field_is_recovered`)
+
+### What was ported (`two_phase/non_orth.rs`, wired where upstream applies it)
+
+| place | upstream | port |
+|---|---|---|
+| correction vectors | `basicFvGeometryScheme::nonOrthCorrectionVectors` | REUSED: basic-lib `fvc::non_orth_correction_vectors` (bit for bit the `Geometry::delta` of the implicit part: unit test) |
+| gradient | `gaussGrad` of the field's cells and STORED patch values | REUSED: `tensor_laplacian::grad_component` (round 64) |
+| `fullGradCorrection` | `dotInterpolate(k, grad)` = `k & (w (g_P - g_N) + g_N)`, internal faces | `NonOrthCorrection::sn_grad_correction` |
+| `fvm::laplacian` | `faceFluxCorrection = gammaMagSf corr`, `source -= V div(...)` | `face_flux_correction`, `neg_laplacian_source` (`V (sum/V)`) |
+| `UEqn_1p.H` | `- fvm::laplacian(alpha rho nuEff, U)` per component | the `lap` matrix's three sources, before `- fvc::div(dev2)` |
+| `EEqn_1p.H` | `- fvm::laplacian(interpolate(alpha) interpolate(alphaEff), he)` | the `lp` matrix's source (boundary coefficients apart, as before) |
+| `porousKEpsilon` | the `epsilon`, `k` Laplacians | the Laplacian matrix's source before its folded boundary terms; the gradient reads `epsilon`/`k` patch values as stored BEFORE the inlet patches' `updateCoeffs` (which write `refValue` into the port's face value) |
+| `calcPhiSbyA_1p.H` | `fvc::snGrad(rho)` = `snGrad + correction` | `sn_grad` plus the correction on internal faces |
+| `pEqnf_1p.H` | `pEqnIncomp` rebuilt from the CURRENT `p_rgh` at each non-orthogonal pass; `pEqnIncomp.flux()` adds the negated `faceFluxCorrection` | the pressure matrix cloned from a pre-`setReference` base at each pass, its source `s_comp + (corr - V div(phiHbyA))`; the final pass's correction flux added last in the flux |
+
+The reader (`OnePhaseCcCase::read_with_options`) reads both schemes always (`non_orth::read_schemes`: `Gauss linear corrected|uncorrected`, `corrected|uncorrected`, `gradSchemes Gauss linear` under `corrected`) and refuses `corrected` by name: with the flow solved in any mode but `faceCentered` or for an incompressible fluid, on a cyclic mesh, with `localTortuosity`, with a `lumpedNuclearStructure` `kappaMatrix`, and `limited corrected`. **A defect found and fixed on the way:** before this round a case with `solveFluidMechanics false` was never checked for its schemes, so a `corrected` case ran its energy Laplacian UNcorrected without a word; the schemes are now read whatever the flow does.
+
+### Real binary
+
+| run | what | real wall | outcome |
+|---|---|---|---|
+| `ct2` | tight, shipped `corrected`, one step | 59 s (0.78 GB) | 4 PCG solves: 500, 450, 462, 448 iterations |
+| `clam` | `ct2` laminar | 49 s | 501, 478, 472, 471 |
+| `ct3` | tight, shipped `corrected`, `endTime 0.55` | 112 s | **THE REAL BINARY DIVERGES**: step 2 `deltaT` 3.4e-5 (Courant max 2394), `T` min 294.9 K (< the 523.15 K inlet), step 4 `T` min -4497 K, aborts in step 5 (`Negative initial temperature T0: -2395.3`, SIGABRT). Its last written time is step 4 (`0.508238`). The shipped settings do NOT diverge (`sh20`, round 87's 1584 steps). |
+| `sh20` | the shipped `rootCase` (every shipped solver setting), `endTime 0.645` | 209 s (writing every step at 17 digits) | **19 steps** (the README protocol said 20: the 20th step would start at 0.6415 > 0.645 - dt/2; an arithmetic slip of the protocol, not of a run); GAMG 34, 19, 25, 18 iterations at step 1 as in the shipped log |
+
+### The port against the real binary (max-norm over every 7th cell, relative to the field's max)
+
+| quantity | `ct2` step 1 | `clam` step 1 | `ct3` step 4 (inside the real divergence) | `sh20` step 19 (AS SHIPPED) |
+|---|---|---|---|---|
+| `T` | 4.9e-16 | 7.5e-15 | 4.2e-8 | 8.9e-12 |
+| `p`, `p_rgh` | 8.1e-14 | 3.4e-14 | 1.7e-8 | 8.6e-14 |
+| `U` | 5.2e-11 | **1.33e-9** | 3.4e-8 | 4.3e-11 |
+| `k`, `epsilon`, `nut`, `alphat` | 5.9e-16, 2.1e-16, 1.7e-15, 1.6e-15 | - | 6.0e-10, 1.2e-9, 1.1e-9, 2.7e-9 | 2.0e-11, 2.5e-11, 9.1e-12, 6.1e-12 |
+| `htc`, `TpS`, `Tfmax` | 0, 0, 0 | 0, 0, 0 | 2.7e-9, 1.0e-9, 9.8e-10 | 5.4e-11, 2.6e-11, 2.5e-11 |
+| pebble log numbers | 18 of 18 bit-identical | 18 of 18 bit-identical | 18 of 72 bit-identical, worst 2.1e-9 | 24 of 342 bit-identical, worst 2.4e-10 |
+| `deltaT` | 1.1e-11 | 1.3e-10 | 1.1e-11, 2.0e-10, 2.0e-10, 4.1e-8 | <= 4.7e-11 at every step |
+| first `p_rgh` initial residual | 2.4e-12 | 1.5e-14 | - | 2.5e-12 |
+| CG / GAMG iterations | 535, 450, 462, 448 (real 500 at the first solve) | 501, 478, 472, 471 (= real) | 16 solves, the real counts | as the real log |
+| worst | **5.2e-11** | **1.33e-9** | 4.2e-8 | **2.4e-10** |
+| port wall time | 21.5 s | 23.9 s | 87.6 s (4 steps) | 126.4 s (6.65 s per step) |
+
+**Sensitivity control (CONTROL, NOT upstream; `r88_clam_sensitivity_control`):** `clam` twice in the port, the second time with every start temperature times `1 + 1e-14`: `T` moves 1.6e-14, `p_rgh` 8.8e-14, **`U` 8.1e-10**, the four `p_rgh` initial residuals 1.2e-11 to 3.2e-10 (iterations 501 and 500 at the first solve). A change of a few ulps at the start moves `U` by 8e-10 in one step: `U` is reconstructed from the flux of four 470-500-iteration CG solves converged to 1e-14 and sits at that round-off amplification floor. That is the cause of `clam`'s 1.33e-9, as far as it is known; it is NOT bit-identity.
+
+**gh:#1992 probe (`r88_ct2_turbulence_patch_values_match_the_real_binary`):** after step 1 of `ct2` the port's `nut` and `alphat` PATCH values on the three `calculated` patches (`Inlet` 2966, `Defueling_end` 253, `Outlet` 479 faces) against the real written ones: `Inlet` and `Defueling_end` **bit-identical on every face** (both fields), `Outlet` 124 / 120 faces bit-identical, worst 1.4e-15 / 1.6e-15. So the `nut` boundary values (`Cmu k_b^2/epsilon_b + magU_b DhStruct/laminarReStruct`) and `alphat_b` are NOT the seed of the 2e-12 turbulent first-`p_rgh` difference (it persists with `corrected`: 2.4e-12 on `ct2`, 1.5e-14 on `clam`, P6). `alpha.structure` is `zeroGradient` on every patch, so `alpha_b` is the owner's value in both codes. Left: `nu_b = mu_b/rho_b` at the inlets, the turbulent `nuEff` interpolation, and the CG iteration count of the first solve (535 against 500 with the same 2.4e-12 start): gh:#1992 stays open.
+
+### Predictions
+
+| id | prediction | probability | outcome |
+|---|---|---|---|
+| P1 | `ct2` step 1 <= 1e-9 | 45 % | **held** (5.2e-11) |
+| P2 | `clam` first `p_rgh` residual <= 1e-12 | 50 % | **held** (1.5e-14) |
+| P3 | `ct3` 7 steps <= 1e-9 | 35 % | **not testable as stated, and missed where testable**: the REAL binary diverges at step 2 and aborts in step 5; over the 4 steps it completed the port follows it to 2e-10 for 3 steps and 4.2e-8 at step 4 (`T` min -4497 K in the real run), so the port reproduces the divergence itself |
+| P4 | `sh20` every field <= 1e-5, every `deltaT` <= 1e-5 | 40 % | **held**, by five orders of magnitude (2.4e-10; 19 steps, not 20) |
+| P5 | `sh20` step-1 pebble lines equal at 6 digits | 50 % | **held** (worst over all 19 steps 2.4e-10 relative) |
+| P6 | the `ct2` first-residual difference >= 10x the `clam` one | 60 % | **held** (2.4e-12 against 1.5e-14) |
+| P7 | the port is slower per step than the real binary on the shipped settings | 70 % | **held**: 6.65 s per step (19 steps, step 1 included) against 5.37 s (steps 2-19 of the shipped log) |
+| gate | `clam` <= 1e-9 on every field | (criterion) | **MISSED on `U` (1.33e-9)**: the gate is not moved; `r88_clam_step1_matches_the_real_binary` asserts it on every other number and prints `U` (decision needed: gh:#1993) |
+| P8 | 500 shipped steps against `shipped_log.gz`, every pebble number and `deltaT` equal at 6 digits | 45 % | **MISSED at the first run**: 500 of 500 `deltaT` differ (step 1: port 8.14423e-3, printed 8.14751e-3; worst 4.5e-4), 1405 of 9000 pebble numbers differ at 6 digits (worst 8.5e-6); the last compared `Tfmax max` (step 500) 1450.431 against the printed 1450.43. **Cause: the TEST HARNESS, not the solver.** The shipped `controlDict` has `writeControl adjustableRunTime`, `writeInterval 10`, and `Time::adjustDeltaT` (ESI v2506 `Time.C:102`) then aligns every `deltaT` with the next write time (`9.5/round(9.5/0.0081442) = 0.0081475`); the harness in `tests/genfoam_htr10_vs_upstream.rs` applied only the Courant `setDeltaT`. `sh20` (`writeControl timeStep`) has no alignment, which is why it agreed. The harness now applies it (`adjust_to_write_time`, the formula of `OnePhaseFcSolver::adjust_to_write_time`). Port wall time of the 500 steps: 2528 s (5.06 s per step; the real run's first 500 steps: 2122 s) |
+| P8b | the same within 1e-5 of the printed value | 80 % | **MISSED** (`deltaT` 4.5e-4, for the cause above); the pebble numbers were within 8.5e-6 |
+
+**Added after the P8 run, before the rerun with the write-time alignment (P9):**
+
+| id | prediction | probability |
+|---|---|---|
+| P9 | with `adjustableRunTime` applied, the 500 shipped steps: every `deltaT` and every pebble number equal at the printed 6 digits | 55 % |
+| P9b | the same within 1e-5 relative of the printed value | 85 % |

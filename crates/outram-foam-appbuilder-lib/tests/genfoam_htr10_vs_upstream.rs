@@ -8,8 +8,8 @@
 //!
 //! The case is the shipped `rootCase` (337 675 tetrahedra, one `fluidRegion`, `onePhase` `faceCentered`, helium `perfectGas` +
 //! `hPolynomial` + `polynomial`, `porousKEpsilon`, `nuclearSteadyStatePebble`) with ONE scheme edit and the tight protocol:
-//! `laplacianSchemes Gauss linear uncorrected`, `snGradSchemes uncorrected` (the shipped `corrected` is not ported: gh:#1876
-//! remainder), every solver `tolerance 1e-14`, `relTol 0`, `p_rgh` `PCG`/`DIC` `maxIter 5000` (the shipped `GAMG` stalls near
+//! `laplacianSchemes Gauss linear uncorrected`, `snGradSchemes uncorrected` (~~the shipped `corrected` is not ported: gh:#1876
+//! remainder~~ ported in round 88, gh:#1991: see below), every solver `tolerance 1e-14`, `relTol 0`, `p_rgh` `PCG`/`DIC` `maxIter 5000` (the shipped `GAMG` stalls near
 //! 1e-10 on this mesh in the real binary: 1000 iterations, README round 87), `writePrecision 17`, `endTime 0.55`,
 //! `writeControl timeStep`, `purgeWrite 1`. It is staged from the refs submodule (`refs/htr10_r87/case`, written by
 //! `scripts/make_htr10_r87_refs.py`), where the real binary (GeN-Foam 652b3da on OpenFOAM-ESI v2506, serial) ran on the same
@@ -20,9 +20,19 @@
 //! <= 1e-9 relative. Bit-identity is the goal; the residual differences come from the 1e-14 solver tolerance (the solutions are
 //! converged only to it, and the two codes stop the CG iterations at different counts on the near-floor second passes).
 //!
+//! **Round 88 (gh:#1991):** the shipped `corrected` schemes are ported, so the variants above are joined by the SHIPPED schemes
+//! (`refs/htr10_r88`): `ct2` (tight, one step), `clam` (laminar), `ct3` (tight to `endTime 0.55`: the REAL binary diverges at step 2
+//! and aborts in step 5, so the port is compared over the 4 steps it completed), `sh20` (the case AS SHIPPED, every shipped solver
+//! setting, 19 steps; criterion 1e-5 because the solvers stop at 1e-6/1e-5), the shipped run to 10 s of round 87 through its log
+//! (`r88_shipped_prefix_follows_the_shipped_log`, `HTR10_SHIPPED_STEPS`), a sensitivity control (CONTROL, NOT upstream) and the
+//! `nut`/`alphat` patch-value probe of gh:#1992. Every test here stages the 25 MB case and is behind `long-tests`.
+//!
 //! ## Results (measured 2026-11-28)
 //!
-//! Printed by `--nocapture`; README "Round 87 results" records them.
+//! Printed by `--nocapture`; README "Round 87 results" and "Round 88 results" record them. Round 88: `ct2` worst 5.2e-11; `clam`
+//! worst 1.33e-9 on `U` (the 1e-9 gate MISSED on `U` only; the port's own `U` moves 8.1e-10 for a `1 + 1e-14` change of the start
+//! temperatures); `ct3` 2e-10 over 3 steps, 4.2e-8 at step 4 inside the real divergence; `sh20` worst 2.4e-10 after 19 steps;
+//! `nut`/`alphat` patch values bit-identical on `Inlet` and `Defueling_end`.
 #![cfg(feature = "std")]
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -249,6 +259,49 @@ impl Outcome {
     }
 }
 
+/// `writeInterval` of a staged case whose `controlDict` has `writeControl adjustableRunTime`, else `None`.
+fn adjustable_write_interval(root: &Path) -> Option<f64> {
+    let text = match std::fs::read_to_string(root.join("system/controlDict")) {
+        Ok(t) => t,
+        Err(e) => panic!("{e}"),
+    };
+    let entry = |key: &str| -> Option<String> {
+        text.lines().find_map(|l| {
+            let mut it = l.split_whitespace();
+            match it.next() {
+                Some(k) if k == key => it.next().map(|v| v.trim_end_matches(';').to_string()),
+                _ => None,
+            }
+        })
+    };
+    match entry("writeControl").as_deref() {
+        Some("adjustableRunTime") => match entry("writeInterval").map(|v| v.parse::<f64>()) {
+            Some(Ok(w)) => Some(w),
+            _ => panic!("controlDict: adjustableRunTime without a writeInterval"),
+        },
+        _ => None,
+    }
+}
+
+/// ESI v2506 `Time::adjustDeltaT` for `writeControl adjustableRunTime` before the first write (`writeTimeIndex_ = 0`):
+/// `timeToNextWrite = max(0, writeInterval - (t - startTime))`, `n = max(1, round(timeToNextWrite/deltaT))`, the new `deltaT` within
+/// a factor 2 up and 5 down. The same formula as `OnePhaseFcSolver::adjust_to_write_time` (round 38), which is private.
+fn adjust_to_write_time(dt: f64, elapsed: f64, write_interval: f64) -> f64 {
+    let to_next = (write_interval - elapsed).max(0.0);
+    let n_steps = to_next / dt;
+    if n_steps < f64::from(i32::MAX) {
+        let n = n_steps.round().max(1.0);
+        let new_dt = to_next / n;
+        if new_dt >= dt {
+            new_dt.min(2.0 * dt)
+        } else {
+            new_dt.max(0.2 * dt)
+        }
+    } else {
+        dt
+    }
+}
+
 /// Run the staged case to the real run's last step and compare (`tag`: the reference set; `laminar`: the `vlam` edit).
 fn run_and_compare(tag: &str, laminar: bool, max_steps: usize) -> Outcome {
     run_variant(tag, Variant { refs: "htr10_r87", laminar, corrected: false, shipped_system: false, t_rel: 0.0, shipped_end: false }, max_steps).0
@@ -310,6 +363,10 @@ fn run_variant(tag: &str, var: Variant, max_steps: usize) -> (Outcome, f64) {
     let mut o = Outcome { rows: Vec::new(), fields: HashMap::new(), pebble_values: Vec::new(), pebble: Vec::new(), dts: Vec::new(), prgh: Vec::new(), turb: Vec::new(), steps: 0 };
     let mut dt = solver.case().delta_t;
     let mut time = solver.case().start_time;
+    let start = time;
+    // `writeControl adjustableRunTime` (the shipped `controlDict`): `Time::setDeltaT` aligns `deltaT` with the next write time
+    // (README round 88: missing from this harness at the first long shipped-prefix run, `deltaT` 4.5e-4 off the shipped log)
+    let adjustable_write = adjustable_write_interval(&root);
     let mut solve_i = 0usize;
     let clock = std::time::Instant::now();
     // `Time::run()`: `value() < endTime - 0.5 deltaT`
@@ -345,6 +402,9 @@ fn run_variant(tag: &str, var: Variant, max_steps: usize) -> (Outcome, f64) {
             Some(v) => v,
             None => panic!("deltaT: not adjustable"),
         };
+        if let Some(wi) = adjustable_write {
+            dt = adjust_to_write_time(dt, time - start, wi);
+        }
         if let Some(&r) = real_dts.get(o.steps - 1) {
             o.dts.push((dt, r));
         }
@@ -445,7 +505,7 @@ fn r88_ct2_step1_matches_the_real_binary() {
 /// **Recorded MISS of the pre-stated gate (README round 88, measured 2026-11-28): `U` 1.326e-9 > 1e-9.** Every other number holds
 /// (pebble 18 of 18 bit-identical, `T` 7.5e-15, `p_rgh` 3.4e-14, first `p_rgh` residual 1.5e-14, the four CG solves take the
 /// real binary's iteration counts 501, 478, 472, 471, `deltaT` 1.3e-10). The gate is NOT moved: `U` is excluded from the assertion
-/// below and printed, pending the maintainer's decision (gh issue filed in round 88). The evidence on its cause is
+/// below and printed, pending the maintainer's decision (gh:#1993). The evidence on its cause is
 /// [`r88_clam_sensitivity_control`]: a `1 + 1e-14` change of the start temperatures moves the port's own `U` by 8.1e-10 in this
 /// step, so `U` sits at the round-off amplification floor of the four 470-500-iteration CG solves.
 #[test]

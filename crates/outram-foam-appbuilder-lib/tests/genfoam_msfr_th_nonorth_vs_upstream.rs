@@ -420,7 +420,9 @@ fn the_extra_pass_does_not_change_the_answer_of_the_port() {
     assert!(d <= 1e-9, "U differs by {d:e}");
 }
 
-/// A `corrected` Laplacian would need the explicit non-orthogonal correction: refused by name.
+/// ~~A `corrected` Laplacian would need the explicit non-orthogonal correction: refused by name.~~ CHANGED 2026-11-28 (gh:#1991, README
+/// round 88): the correction is ported for `faceCentered` with a compressible fluid; this incompressible cell-centred case (`pEqn_1p.H`)
+/// is still refused by name, with the reader's new message.
 #[test]
 fn corrected_schemes_are_refused_by_name() {
     let (root, poly) = stage("refuse_corrected", "no_1");
@@ -428,5 +430,5 @@ fn corrected_schemes_are_refused_by_name() {
     let text = std::fs::read_to_string(&p).expect("read");
     std::fs::write(&p, text.replacen("Gauss linear uncorrected;", "Gauss linear corrected;", 1)).expect("write");
     let err = OnePhaseCcSolver::from_case_dir(&root, &poly).expect_err("must refuse").to_string();
-    assert!(err.contains("laplacianSchemes") && err.contains("uncorrected"), "{err}");
+    assert!(err.contains("`corrected` Laplacian") && err.contains("ported only for momentumMode faceCentered"), "{err}");
 }

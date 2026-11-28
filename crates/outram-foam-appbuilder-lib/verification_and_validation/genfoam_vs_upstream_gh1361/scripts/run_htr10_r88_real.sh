@@ -5,7 +5,9 @@
 #   clam  ct2 with `simulationType laminar`
 #   ct3   the round-87 tight case with the shipped schemes restored, endTime 0.55 (7 steps), purgeWrite 1
 #   sh20  the unedited shipped rootCase (shipped fvSolution, fvSchemes) with endTime 0.645 (20 steps), writeControl timeStep,
-#         writeInterval 1, purgeWrite 1, writePrecision 17: only the output and the end time differ from the shipped run
+#         writeInterval 1, purgeWrite 1, writePrecision 17: ~~only the output and the end time differ from the shipped run~~
+#         CORRECTED 2026-11-28 (README round 88): `writeControl timeStep` also drops `Time::adjustDeltaT`'s alignment of
+#         deltaT with the next adjustableRunTime write, so sh20's deltaT sequence is NOT the shipped one (4.0e-4 apart after step 1)
 # The run directory is left in place for make_htr10_r88_refs.py; delete it afterwards.
 D=$1; V=$2
 S=$(dirname "$(readlink -f "$0")")
