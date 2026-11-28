@@ -10076,3 +10076,78 @@ Part A: `bash scripts/run_msr1d_fluid_r80.sh <d>/full_tight_pcg tight pcg full`,
 **Finding (from the `b*` solve logs):** in every step the LAST `h.liquid` solve of upstream's log does not follow the variant's controls (`b1`, `relTol 0.1`: 3 iterations where the port does 1; `b5`, `nSweeps -2`: a non-zero residual): `customPimpleControl::loop` calls `mesh.data().setFinalIteration(true)` in the outer iteration whose criteria are met (`customPimpleControl.C:250-257`), and `fvMatrix::solve` then selects `h.liquidFinal`, which in `b*` resolves to the catch-all `".*"` (`PBiCGStab`). The port selected the non-Final entry in every iteration, in `two_phase` (`h`, and `k`/`epsilon`) and in `one_phase_fc` (`h`); every shipped case resolves both to the same entry, so no shipped number can move. The `c*` variants carry identical `h`/`hFinal` entries and cannot see it. **Change (before its first run):** `TwoPhaseControls::{h_pbicgstab_final, h_smooth_final}`, `PorousKEpsilon2PhaseCorrected::{k_solver_final, epsilon_solver_final}`, `OnePhaseFcControls::{h_pbicgstab_final, h_smooth_final}`, selected in the iteration the port flags converged (`pimple_converged`, the same flag). **Added variant (before its real run):** `c6` = `c1` without the `hFinal` entry. Criteria for `c6`: A-C1, A-C4. Predictions: A10 `b0`-`b5` meet A-C2 and A-C4 after the change (65 %); A11 `c6` meets A-C1 and A-C4 (75 %); A12 the change moves no earlier gate (95 %).
 
 **First-run numbers, recorded before the change (not gated):** `c0`-`c5` met A-C1 (every field `<= 1.7e-13`), A-C4 held for `c1`, `c3`, `c4` (534 solves above 1e-10), `c5` logs residual 0 in both; the `c1` ablation (round 46 form) missed `T` by 5.4e-12: A-C5 (`> 1e-10`) MISSED. `b0`-`b5` met A-C2 (`b1` `T.liquid` 1.2e-11), A-C4 failed on `b1` at the final-iteration solve (above). `q0`, `q1`: B-C1..B-C4 met; ablations: radial-only heat flux misses `q0` by 1.0 (of max), `Dh = 1` misses `q1`'s `Re.liquid.structure` by 1.2e2 and leaves every flow field bit-for-bit the default's.
+
+## Round 83 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria committed first in `a7e84d11d`, BEFORE any port comparison run; addendum A `775b0cd16`, BEFORE any run with the Final selection or of `c6`; real binary 652b3da on ESI v2506, serial; references in the refs submodule `b6fd880` (`r83_{c0..c6,b0..b5,q0,q1,k0..k5}{,_log}`, 40 files, 25.6 MB, each under 3.7 MB); tests `tests/genfoam_one_phase_fc_vs_upstream.rs::r83_fc_h_smooth_solver_controls_match_the_real_binary` (1 s), `tests/genfoam_two_phase_mules_vs_upstream.rs::r83_two_phase_{h_smooth_solver_controls,structure_fields}_match_the_real_binary` (1 s), `tests/genfoam_psbt2_turbulence_vs_upstream.rs::r83_two_phase_k_epsilon_smooth_solver_controls_match_the_real_binary` (95 s); `--nocapture` prints every number below)
+
+AI-written, not human-reviewed. Research, education and V&V only. No kovan-reviewed function was touched (no `kind = "review"` block in this crate).
+
+### What was ported (upstream -> Rust)
+
+| upstream | Rust |
+|---|---|
+| `smoothSolver::solve` with every control (`smoothSolver.C:73-209`) for the twoPhase `k`/`epsilon` | `SmoothSolve::{rel_tol, n_sweeps}`, `turbulence::smooth_solve` -> `common::smooth_solver` (round 79, unchanged); the refusals of `relTol != 0`, `nSweeps != 1` removed; ablation `with_round16_smoother` / `TwoPhaseSolver::with_round16_k_epsilon_smoother` |
+| the same for the twoPhase `h.<fluid>` (resolved per fluid) and the `h` of `one_phase_fc` | `TwoPhaseControls::h_smooth`, `OnePhaseFcControls::h_smooth`; ablations `TwoPhaseSolver::with_round16_h_smoother`, `OnePhaseFcSolver::with_round46_h_smoother` |
+| `setFinalIteration(true)` in the converged outer iteration (`customPimpleControl.C:250-257`), `psi.select(finalIteration)` (addendum A) | `TwoPhaseControls::{h_pbicgstab_final, h_smooth_final}`, `PorousKEpsilon2PhaseCorrected::{k_solver_final, epsilon_solver_final}`, `OnePhaseFcControls::{h_pbicgstab_final, h_smooth_final}` |
+| `structure::Dh_` constructed `SMALL` (`structure.C:74-84`) | twoPhase `TwoPhaseCase::read`: `dh = SMALL` outside the zones (~~1.0~~) |
+| `heatFlux_ = H Twall - HT` over `cells_` (`structure.C:1057-1071`) | `Structure::cells` (`with_cells`), `TwoPhaseSolver::update_structure_heat_flux` |
+| `alphapas_` (`structure.C:138-148`, `:430-460`) | `Structure::alpha_passive` (0: `passiveProperties` and a start-directory `alpha.structure` refused by name, the latter new) |
+| solve logs (for the counts) | `PorousKEpsilon2PhaseCorrected::solve_log`, `TwoPhaseSolver::h_solve_log`, `OnePhaseFcSolver::last_step_h_solves` |
+
+### Part A (gh:#1957): `smoothSolver` controls
+
+| variants | fields (worst over all steps) | iteration counts (solves with upstream initial residual > 1e-10) | ablation (`relTol 0.1` variant, earlier form) |
+|---|---|---|---|
+| `c0`-`c6`, channel, 108 steps | every field `<= 1.7e-13`, `T` `<= 1.7e-15`, `dt` 0, `p_rgh` counts equal | `c1`, `c3`, `c4`, `c6`: **equal in all 534**; `c5`: residual 0 in both; `c0`/`c2` reported: floor-stagnation solves (1000 against 2-4 sweeps, in both directions, from step 36) | round 46 form on `c1`: `T` **5.4e-12** (3900x the default; A-C5's 1e-10 missed) |
+| `b0`-`b5`, 1D_boiling, 60 steps (after addendum A) | every field `<= 1.5e-13`, `T.liquid` `<= 1.5e-15`, `heatFlux.structure` `<= 1.7e-12`, `dt` 0, sub-cycles equal | `b1`, `b3`, `b4`: **equal in all 740**; `b5`: the 120 Final solves equal; `b0`/`b2` floor stagnation reported | round 16 sweeps on `b1`: `T.liquid` **1.4e-11** (11000x; A-C5's 1e-10 missed) |
+| `b1` BEFORE addendum A (first run; control `no_final_selection` since) | `T.liquid` 1.2e-11 | the final solve of every step: 1 sweep against upstream's 3-5 (`PBiCGStab` of `h.liquidFinal` -> `".*"`) | |
+| `c6` with the `h` entry in the final iteration (control) | | counts differ (worst 4) | |
+| `k0`-`k5`, PhaseII_Ex1, 24 steps | every variant within the Ex1 limits with `k0`'s worst fields: `p` 1.5e-9, `U.liquid` 6.5e-7, `T.liquid` 4.5e-9, `k.liquid` 6.4e-7, `epsilon.liquid` 6.8e-7, `k.vapour` 3.4e-2, `epsilon.vapour` 2.6e-2 | liquid `k`/`epsilon` **equal in all 450** of `k0`-`k4` (upstream: 2-8 sweeps under `k0`, 1 under `k1`, 2 under `k3`); `k5` residual 0 in both | round 16 smoother on `k1`: `k.liquid` 6.4e-7 = the default's (A-C5 MISSED on the fields: round 17's remainder hides the controls); counts differ (worst 7; post-run instrument) |
+
+### Part B (gh:#1967): the twoPhase structure fields (60 steps)
+
+| run | `heatFlux.structure` (all 40 cells) | `Re.liquid.structure` | `Re.vapour.structure` | `alpha.passiveStructure` | flow |
+|---|---|---|---|---|---|
+| `q0` (1D_boiling) | **1.7e-12** of max (`mid`, the fixedPower cells; 0 elsewhere in both) | 8.1e-14 | 0 | 0 = 0 | `<= 1.6e-13` |
+| `q1` (no `low:top` structure) | 1.6e-12 | 6.5e-14 (`minRe` = 10 in `low`/`top` in both) | 0 | 0 = 0 | `<= 8.5e-14` |
+| ablation `q0`, radial-only heat flux (the form before) | **1.0** of max | | | | |
+| ablation `q1`, `Dh = 1` outside the zones (the form before) | | **1.2e2** of max | | | every flow field the default's to the last printed digit |
+
+### Predictions: held / missed
+
+| # | verdict |
+|---|---|
+| A1 (75 %) | **held** (1.7e-13) |
+| A2 (65 %) | **held** at the first run (A-C2's 1e-10: `b1` `T.liquid` 1.2e-11 before addendum A, 1.3e-15 after) |
+| A3 (60 %) | **held** |
+| A4 (75 %) | **held** (`c1`, `c3`, `c4`; `c5` residual 0) |
+| A5 (65 %) | **MISSED** at the first run (`b1`: the Final solve, addendum A); held after the Final selection (A10) |
+| A6 (50 %) | **held** (450 of 450) |
+| A7 (70 %) | **MISSED** for all three: `c1` 5.4e-12, `b1` 1.4e-11 (both above 10x but below 1e-10), `k1` none on the fields; the tests assert post-run pins (`> 1e-13` and `> 10x`; for `k1` the counts), named in their doc comments |
+| A8 (80 %) | **held** (`k.vapour` 3.4e-2 with the new smoother: the vapour remainder is not the smoother) |
+| A9 (75 %) | see the tests below |
+| A10 (65 %), A11 (75 %) | **held** |
+| A12 (95 %) | see the tests below |
+| B1 (75 %), B2 (75 %), B3 (90 %), B4 (55 %), B5 (80 %) | **held** |
+| B6 (35 %, the `Dh = 1` ablation moves the flow) | **MISSED** (it did not move; below) |
+| B7 (90 %) | see the tests below |
+
+### Earlier numbers (A9, A12, B7)
+
+The only default that changes on a shipped case is the twoPhase `k`/`epsilon` smoother (round 16 sweeps -> `smoothSolver::solve`; the Final entries resolve to the same `"(k|epsilon|Theta).*"` entry). Every PSBT/CHF gate passes at its pin (`genfoam_psbt2_turbulence_vs_upstream` 6 + 2 ignored, incl. the Ex1 25-step gate and Ex2/Ex3; `genfoam_psbt_shipped`, `psbt_trace`, `psbt_closures`, `chf_shipped`, `chf_trace`): **no pin moved**. The Ex1 gate's own measured worst values were not re-printed (the test asserts limits only); the 24-step `k0` run above (the same case and protocol) gives `p` 1.5e-9, `U.liquid` 6.5e-7, `T.liquid` 4.5e-9 against round 17's recorded 25-step 1.5e-9, 6.7e-7, 5.9e-9 (different spans: not a like-for-like movement, reported only). `Dh = SMALL`, the heat flux and the Final selection move nothing on a shipped case (every cell in a zone; written-only field; both entries the same). A9, A12, B7 **held**.
+
+**B6 (35 %) MISSED as a claim, as expected:** the `Dh = 1` ablation leaves `q1`'s flow bit-for-bit the default's (single phase: the continuous-phase diameter of the structure-free cells does not reach any ported term before the onset).
+
+### Tests run (2026-11-28, release, `--no-fail-fast`, private target dir)
+
+44 integration targets: `genfoam_{two_phase_1d_boiling, two_phase_mules_solve_phase, two_phase_mules, two_phase_radial_power, two_phase, psbt2_turbulence, psbt_closures, psbt_shipped, psbt_trace, chf_shipped, chf_trace, heat_exchanger, heat_exchanger_cc, heat_exchanger_3d, one_phase, one_phase_fc, msr1d_fluid, msr1d_coupled, fullcoupling_fluid, fullcoupling_neutronics, fullcoupling_three_region, fullcoupling_transient, esfr_fluid, esfr_coupled, esfr_transient, fftf_pieces, external_source, radial_power_models, radial_power_wired, written_state, baffle_less, coupled_deformation, fv_solution_df, gamg_smoothers, msfr_th, msfr_th_pimple, msfr_th_options, msfr_th_nonorth, msfr_allrun, msfr_coupled, msfr_transient, msfr_gamg}` (`_vs_upstream` where named so), `genfoam_coupled_tutorials_requirements`, `genfoam_gamg_is_default`: **355 passed, 0 failed, 65 ignored**. `--lib` `genfoam::`: 526 passed. `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`: clean. Not run: the ignored long tests, `scripts/check-nostd.sh` and `scripts/check-wasm.sh` as wholes, the workspace suite.
+
+### Not done (filed)
+
+- `smoothSolver` for the onePhase `porousKEpsilon` `k`/`epsilon` (`one_phase_cc/turbulence.rs` accepts `PBiCGStab`/`diagonal` and `PBiCG`/`DILU` only): gh:#1984.
+- A variant where the twoPhase `k`/`epsilon` controls move the FIELDS above round 17's PSBT remainder (here only the counts discriminate), and that remainder itself: gh:#1985.
+- `p_rghFinal` selection in `twoPhase`/`one_phase_fc` (gh:#1857, commented).
+- `heatFlux.structure` and `alpha.passiveStructure` `READ_IF_PRESENT` from a twoPhase start directory, and a twoPhase writer, with the passive structures and a start-directory `alpha.structure`: gh:#1986.
+
+### Reproduction
+
+`bash scripts/run_round83_variants.sh c0 c1 c2 c3 c4 c5 c6 b0 b1 b2 b3 b4 b5 q0 q1 k0 k1 k2 k3 k4 k5` (17 s per `c`, about 1 min per `b`/`q`, 3 min per `k`; real binary on `PATH` through `with-of.sh`); port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_one_phase_fc_vs_upstream --test genfoam_two_phase_mules_vs_upstream --test genfoam_psbt2_turbulence_vs_upstream r83 -- --nocapture`.

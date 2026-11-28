@@ -506,3 +506,329 @@ fn mules_ablation_to_implicit_upwind_misses_the_shipped_run_by_the_pinned_amount
 fn round13_flags() -> Vec<String> {
     std::env::var("ROUND13_OFF").map(|v| v.split(',').map(str::to_string).collect()).unwrap_or_default()
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 83 (gh:#1957, gh:#1967): the twoPhase `h` with `smoothSolver` `relTol`, `nSweeps`, `maxIter` (variants `b0`-`b5`), and the
+// structure's `heatFlux.structure`, `Dh` outside the zones and `alpha.passiveStructure` (`q0`, `q1`), against the real binary. The
+// variants are `scripts/make_round83_variant.py`'s, applied here as the same text edits after round 7's protocol ([`protocol_copy`]);
+// references `refs/r83_<v>` (fields, steps 1-60) and `refs/r83_<v>_log` (`S <step> <field> <initial residual> <iterations>`).
+// Methodology, criteria and predictions (committed first): README "Round 83".
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// Round 79's keys of variant `k` (`0`..`5`), as `make_round83_variant.py`'s `EXTRA`.
+fn r83_extra(k: usize) -> &'static str {
+    match k {
+        0 => "        relTol          0;\n",
+        1 => "        relTol          0.1;\n",
+        2 => "        relTol          0;\n        nSweeps         2;\n",
+        3 => "        relTol          0;\n        maxIter         2;\n",
+        4 => "        relTol          0.05;\n        nSweeps         3;\n        maxIter         7;\n",
+        _ => "        relTol          0;\n        nSweeps         -2;\n",
+    }
+}
+
+fn r83_read(f: &Path) -> String {
+    match std::fs::read_to_string(f) {
+        Ok(t) => t,
+        Err(e) => panic!("{}: {e}", f.display()),
+    }
+}
+
+fn r83_write(f: &Path, t: &str) {
+    match std::fs::write(f, t) {
+        Ok(()) => {}
+        Err(e) => panic!("{}: {e}", f.display()),
+    }
+}
+
+/// `make_round83_variant.py`'s `after_catch_all` with `h.liquid`, `h.vapour`.
+fn r83_h_entries(dir: &Path, extra: &str) {
+    let f = dir.join("system/fluidRegion/fvSolution");
+    let t = r83_read(&f);
+    let nl = match t.find("\".*\"").and_then(|i| t[i..].find('}').map(|c| i + c)).and_then(|c| t[c..].find('\n').map(|l| c + l + 1)) {
+        Some(nl) => nl,
+        None => panic!("{}: no catch-all `\".*\"` entry", f.display()),
+    };
+    let entries: String = ["h.liquid", "h.vapour"]
+        .iter()
+        .map(|n| format!("    {n}\n    {{\n        solver          smoothSolver;\n        smoother        symGaussSeidel;\n        tolerance       1e-14;\n{extra}    }}\n"))
+        .collect();
+    r83_write(&f, &format!("{}{}{}", &t[..nl], entries, &t[nl..]));
+}
+
+/// `make_round83_variant.py`'s `q1`: the `"low:top"` structure entry removed, the `liquid.structure` drag zone `"low:mid:top"` -> `"mid"`.
+fn r83_q1(dir: &Path) {
+    let f = dir.join("constant/fluidRegion/phaseProperties");
+    let t = r83_read(&f);
+    let i = match t.find("    \"low:top\"\n    {") {
+        Some(i) => i,
+        None => panic!("no `low:top` structure entry"),
+    };
+    let close = match t[i..].find("    }\n") {
+        Some(c) => i + c + "    }\n".len(),
+        None => panic!("unterminated `low:top` entry"),
+    };
+    let t = format!("{}{}", &t[..i], &t[close..]);
+    assert!(t.contains("            \"low:mid:top\"\n"), "the drag zone line");
+    r83_write(&f, &t.replacen("            \"low:mid:top\"\n", "            \"mid\"\n", 1));
+}
+
+/// `S` lines of a round 83 solve-log reference, per step (index `step - 1`).
+fn r83_solve_log(name: &str) -> Vec<Vec<(String, f64, usize)>> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/refs").join(format!("{name}.ref.txt.gz"));
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => panic!("reference {} missing (git submodule update --init the refs submodule): {e}", path.display()),
+    };
+    let text = match decompress_to_vec(&bytes[10..bytes.len() - 8]) {
+        Ok(v) => match String::from_utf8(v) {
+            Ok(s) => s,
+            Err(e) => panic!("{name}: not utf8: {e}"),
+        },
+        Err(e) => panic!("{name}: not a gzip stream: {e:?}"),
+    };
+    let mut out: Vec<Vec<(String, f64, usize)>> = Vec::new();
+    for line in text.lines() {
+        let w: Vec<&str> = line.split_whitespace().collect();
+        if w.len() != 5 || w[0] != "S" {
+            continue;
+        }
+        let (step, ini, it): (usize, f64, usize) = match (w[1].parse(), w[3].parse(), w[4].parse()) {
+            (Ok(a), Ok(b), Ok(c)) => (a, b, c),
+            _ => panic!("{name}: bad line `{line}`"),
+        };
+        while out.len() < step {
+            out.push(Vec::new());
+        }
+        out[step - 1].push((w[2].to_string(), ini, it));
+    }
+    out
+}
+
+/// The round 83 port fields: [`port_fields`] plus the structure's written fields.
+fn r83_fields(s: &TwoPhaseSolver) -> Vec<(&'static str, Vec<f64>)> {
+    let mut v = port_fields(s);
+    v.push(("heatFlux.structure", s.structure.heat_flux.clone()));
+    v.push(("Re.liquid.structure", s.re_fs[0].clone()));
+    v.push(("Re.vapour.structure", s.re_fs[1].clone()));
+    v.push(("alpha.passiveStructure", s.structure.alpha_passive.clone()));
+    v
+}
+
+/// What a round 83 run changes in the port: case edits and the solver ablations.
+#[derive(Clone, Copy, Default)]
+struct R83 {
+    /// `h.liquid`/`h.vapour` variant `b<k>`.
+    h_variant: Option<usize>,
+    /// `q1`'s edits.
+    q1: bool,
+    /// ABLATION: the round 16 `h` sweeps.
+    round16_h: bool,
+    /// ABLATION: `heatFlux.structure` on the radial cells only (the form before round 83): `Structure::cells` emptied.
+    radial_only_heat_flux: bool,
+    /// ABLATION: `Dh = 1` outside the structure zones (the form before round 83).
+    dh_one_outside: bool,
+    /// CONTROL (addendum A): the non-Final `h.<fluid>` entry in every outer iteration (the form before round 83).
+    no_final_selection: bool,
+}
+
+/// Rows (step, dt difference, sub-cycles equal, worst per field) and the per-step `h` solves `(fluid, initial, iterations)`.
+fn r83_run(reference: &str, o: R83) -> (Vec<Row>, Vec<Vec<(usize, f64, usize)>>) {
+    let r = load_reference(reference);
+    let dir = protocol_copy(&format!("r83_{reference}"));
+    if let Some(k) = o.h_variant {
+        r83_h_entries(&dir, r83_extra(k));
+    }
+    if o.q1 {
+        r83_q1(&dir);
+    }
+    let mut case = match TwoPhaseCase::read(&dir) {
+        Ok(c) => c,
+        Err(e) => panic!("read {reference}: {e}"),
+    };
+    let _ = std::fs::remove_dir_all(&dir);
+    if o.radial_only_heat_flux {
+        case.structure.cells.clear();
+    }
+    if o.dh_one_outside {
+        let n = case.structure.dh.len();
+        let mut inside = vec![false; n];
+        for &c in &case.structure.cells {
+            inside[c] = true;
+        }
+        for c in 0..n {
+            if !inside[c] {
+                case.structure.dh[c] = 1.0;
+            }
+        }
+    }
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    if o.round16_h {
+        s = s.with_round16_h_smoother();
+    }
+    if o.no_final_selection {
+        s.controls.h_pbicgstab_final = s.controls.h_pbicgstab;
+        s.controls.h_smooth_final = s.controls.h_smooth;
+    }
+    if o.h_variant.is_some() && !o.round16_h {
+        assert!(s.controls.h_pbicgstab.is_none() && s.controls.h_smooth.iter().all(|h| h.is_some()), "the explicit h entries win");
+    }
+    let (mut rows, mut h) = (Vec::new(), Vec::new());
+    for n in 1..r.first + r.times.len() {
+        let rep = match s.step() {
+            Ok(rep) => rep,
+            Err(e) => panic!("{reference} step {n}: {e:?}"),
+        };
+        h.push(s.h_solve_log.clone());
+        let dt_up = if n == 1 { 1e-3 } else { r.dt[n - 2] };
+        let dt_rel = (rep.dt - dt_up).abs() / dt_up;
+        let sub_ok = i64::try_from(s.alpha_sub_cycles).unwrap_or(-2) == r.subcyc[n - 1] || r.subcyc[n - 1] < 0;
+        let tname = &r.times[n - r.first];
+        let mut worst = Vec::new();
+        for (name, v) in r83_fields(&s) {
+            if let Some(u) = r.fields.get(&(tname.clone(), name.to_string())) {
+                worst.push((name, worst_rel(&v, u)));
+            }
+        }
+        rows.push((n, dt_rel, sub_ok, rep.outer_iterations, worst));
+    }
+    (rows, h)
+}
+
+/// A-C2 (round 7's M1/M2 gate) over every step, with B-C1/B-C2/B-C3 for the structure fields.
+fn r83_bound(k: &str, n: usize) -> f64 {
+    match k {
+        "heatFlux.structure" => 1e-9,
+        "alpha.passiveStructure" => 0.0,
+        _ if n <= 2 => 1e-10,
+        "alpha.vapour" | "dmdt.liquid.vapour" | "alphaPhi.vapour" => 0.0,
+        "T.interface" => 2e-9,
+        "T.vapour" => 1e-9,
+        _ => 1e-10,
+    }
+}
+
+/// Per-field worst over the rows.
+fn r83_worst(rows: &[Row]) -> Vec<(&'static str, f64)> {
+    let mut out: Vec<(&'static str, f64)> = Vec::new();
+    for (_, _, _, _, w) in rows {
+        for (k, v) in w {
+            match out.iter_mut().find(|(n, _)| n == k) {
+                Some(e) => e.1 = e.1.max(*v),
+                None => out.push((k, *v)),
+            }
+        }
+    }
+    out
+}
+
+fn r83_field(rows: &[Row], f: &str) -> f64 {
+    r83_worst(rows).iter().find(|(k, _)| *k == f).map_or(f64::NAN, |(_, v)| *v)
+}
+
+fn r83_gate(name: &str, rows: &[Row]) {
+    for (n, dt_rel, sub_ok, _, w) in rows {
+        assert!(*dt_rel <= 1e-12, "{name} step {n}: dt differs by {dt_rel:.3e}");
+        assert!(*sub_ok, "{name} step {n}: MULES sub-cycles differ");
+        for (k, v) in w {
+            assert!(*v <= r83_bound(k, *n), "{name} step {n}: {k} {v:.3e} above {:.1e}", r83_bound(k, *n));
+        }
+    }
+    let cells: Vec<String> = r83_worst(rows).iter().map(|(k, v)| format!("{k} {v:.2e}")).collect();
+    println!("{name}: {} steps; worst {}", rows.len(), cells.join(", "));
+}
+
+/// Worst `h` iteration difference over the solves above 1e-10 (both fluids), and how many (a count mismatch gives `usize::MAX`).
+fn r83_counts(name: &str, port: &[Vec<(usize, f64, usize)>], up: &[Vec<(String, f64, usize)>]) -> (usize, usize) {
+    let (mut worst, mut n) = (0usize, 0usize);
+    for (k, p) in port.iter().enumerate() {
+        let u: Vec<&(String, f64, usize)> = match up.get(k) {
+            Some(v) => v.iter().filter(|x| x.0.starts_with("h.")).collect(),
+            None => Vec::new(),
+        };
+        if u.len() != p.len() {
+            eprintln!("{name} step {}: port {} h solves, upstream {}", k + 1, p.len(), u.len());
+            worst = usize::MAX;
+            continue;
+        }
+        for (a, b) in p.iter().zip(u) {
+            let fluid = if b.0 == "h.liquid" { 0 } else { 1 };
+            assert_eq!(a.0, fluid, "{name} step {}: solve order", k + 1);
+            if b.1 > 1e-10 {
+                n += 1;
+                let d = a.2.abs_diff(b.2);
+                worst = worst.max(d);
+                if d > 0 {
+                    eprintln!("  {name} step {}: {} iterations port {} (initial {:.3e}), upstream {} (initial {:.3e})", k + 1, b.0, a.2, a.1, b.2, b.1);
+                }
+            }
+        }
+    }
+    (worst, n)
+}
+
+/// # gh:#1957 (round 83, A2/A5/A7): the twoPhase `h.liquid`/`h.vapour` with `smoothSolver` controls (1D_boiling, 60 steps)
+///
+/// Methodology: README "Round 83", Part A; variants `b0`-`b5` against the real binary; criteria A-C2 (round 7's M1/M2 gate), A-C4 (`h`
+/// iteration counts equal in every solve above 1e-10 for `b1`, `b3`, `b4`, `b5`), A-C5 (the round 16 sweeps on `b1` miss `T.liquid` by
+/// more than 1e-10 and 10x the default).
+///
+/// Results (2026-11-28, 60 steps each, after addendum A's Final selection): every field of every variant `<= 1.5e-13` (`T.liquid`
+/// `<= 1.5e-15`, `heatFlux.structure` `<= 1.7e-12`), `dt` bit-identical, sub-cycles equal: A-C2 met. `h` counts EQUAL in all 740 solves
+/// above 1e-10 of `b1`, `b3`, `b4` and the 120 of `b5` (the Final solves); `b0`/`b2` reported (floor stagnation). Before the Final
+/// selection `b1` was `T.liquid` 1.2e-11 with the final solve of every step 1 against 3-5 iterations (the control below). Ablation (round
+/// 16 sweeps) on `b1`: `T.liquid` 1.4e-11, A-C5's 1e-10 MISSED (post-run pin).
+#[test]
+fn r83_two_phase_h_smooth_solver_controls_match_the_real_binary() {
+    let mut t1 = 0.0;
+    for k in 0..6 {
+        let name = format!("r83_b{k}");
+        let (rows, h) = r83_run(&name, R83 { h_variant: Some(k), ..R83::default() });
+        r83_gate(&name, &rows);
+        if k == 1 {
+            t1 = r83_field(&rows, "T.liquid");
+        }
+        let (worst, n) = r83_counts(&name, &h, &r83_solve_log(&format!("{name}_log")));
+        println!("{name}: h solves above 1e-10: {n}, worst iteration difference {worst}");
+        if matches!(k, 1 | 3 | 4 | 5) {
+            assert_eq!(worst, 0, "{name}: h iteration counts (A-C4)");
+        }
+    }
+    let (rows, _h) = r83_run("r83_b1", R83 { h_variant: Some(1), round16_h: true, ..R83::default() });
+    let abl = r83_field(&rows, "T.liquid");
+    println!("b1 ABLATION (round 16 sweeps): T.liquid {abl:.2e} (default {t1:.2e})");
+    // A-C5 as committed (`> 1e-10`) MISSED (1.4e-11); asserted at a POST-RUN pin (`> 1e-13` and `> 10x` the default, 1.3e-15)
+    assert!(abl > 1e-13 && abl > 10.0 * t1, "relTol must matter (post-run pin; A-C5's 1e-10 missed at 1.4e-11): {abl:e}");
+    // CONTROL (addendum A): without the Final selection the last solve of each step follows the variant's controls, unlike upstream's
+    let (rows, h) = r83_run("r83_b1", R83 { h_variant: Some(1), no_final_selection: true, ..R83::default() });
+    let (worst, _) = r83_counts("b1 control", &h, &r83_solve_log("r83_b1_log"));
+    println!("b1 CONTROL (no Final selection): T.liquid {:.2e}, worst h iteration difference {worst}", r83_field(&rows, "T.liquid"));
+    assert!(worst > 0, "the Final selection must be visible in the counts");
+}
+
+/// # gh:#1967 (round 83, B1-B7): `heatFlux.structure` on every structure cell, `Dh = SMALL` outside the zones, `alpha.passiveStructure`
+///
+/// Methodology: README "Round 83", Part B; `q0` (1D_boiling, round 7 protocol) and `q1` (no `low:top` structure, drag on `mid` only)
+/// against the real binary, 60 steps; criteria B-C1..B-C5. Ablations: the radial-only heat flux on `q0`, `Dh = 1` outside the zones on `q1`.
+///
+/// Results (2026-11-28): `q0` `heatFlux.structure` 1.7e-12 of max on all 40 cells (the `mid` fixedPower cells; 0 elsewhere in both),
+/// `Re.liquid.structure` 8.1e-14, `Re.vapour.structure` 0, `alpha.passiveStructure` 0 = 0, flow `<= 1.6e-13`; `q1` the same at
+/// `<= 1.6e-12` (`Re.liquid.structure` 6.5e-14: `minRe` in `low`/`top`). Ablations: radial-only heat flux 1.0 of max; `Dh = 1` misses
+/// `Re.liquid.structure` by 1.2e2 of max and leaves every flow field bit-for-bit the default's (single phase: `Dh` does not reach the flow).
+#[test]
+fn r83_two_phase_structure_fields_match_the_real_binary() {
+    let (rows, _) = r83_run("r83_q0", R83::default());
+    r83_gate("q0", &rows);
+    let (rows1, _) = r83_run("r83_q1", R83 { q1: true, ..R83::default() });
+    r83_gate("q1", &rows1);
+    let (abl0, _) = r83_run("r83_q0", R83 { radial_only_heat_flux: true, ..R83::default() });
+    let a0 = r83_field(&abl0, "heatFlux.structure");
+    println!("q0 ABLATION (heatFlux on the radial cells only): heatFlux.structure {a0:.2e}");
+    assert!(a0 > 0.1, "the fixedPower cells' heat flux must be set: {a0:e}");
+    let (abl1, _) = r83_run("r83_q1", R83 { q1: true, dh_one_outside: true, ..R83::default() });
+    let a1 = r83_field(&abl1, "Re.liquid.structure");
+    let flow: Vec<String> =
+        ["p", "U.liquid", "T.liquid", "U.vapour", "T.vapour"].iter().map(|f| format!("{f} {:.2e} (default {:.2e})", r83_field(&abl1, f), r83_field(&rows1, f))).collect();
+    println!("q1 ABLATION (Dh = 1 outside the zones): Re.liquid.structure {a1:.2e}; {}", flow.join(", "));
+    assert!(a1 > 0.1, "Dh = SMALL must set Re = minRe outside the zones: {a1:e}");
+}

@@ -42,7 +42,8 @@
 //! `simulationType` other than `laminar`/`RAS`; `RASModel` other than `porousKEpsilon2PhaseCorrected` (`kEpsilon`,
 //! `porousKEpsilon`, `LaheyKEpsilon`, `mixtureKEpsilon`, ...); a `DhStruct` key (`nutStabilization`); wall-function
 //! patches of `nut`, `k`, `epsilon`; a linear solver for `k`/`epsilon` other than `smoothSolver` + `symGaussSeidel`
-//! with `relTol 0`; non-uniform initial fields.
+//! ~~with `relTol 0`~~ (**CORRECTED 2026-11-28, gh:#1957 round 83:** every control of the `smoothSolver` entry is honoured: `relTol`,
+//! `nSweeps` (also negative), `maxIter`, `minIter`, through [`crate::genfoam::common::smooth_solver`]); non-uniform initial fields.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -62,11 +63,16 @@ use super::TwoPhaseSolver;
 /// `SMALL` of OpenFOAM's double precision (`doubleScalarSMALL`), the default of `kMin` and `epsilonMin`.
 pub const SMALL: f64 = 1.0e-15;
 
-/// The linear solver of `k` / `epsilon`: `smoothSolver` with `symGaussSeidel` (one sweep per iteration).
+/// The linear solver of `k` / `epsilon`: `smoothSolver` with `symGaussSeidel` and every control of the entry (gh:#1957 round 83:
+/// `relTol` and `nSweeps` were refused by name before).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SmoothSolve {
     /// Absolute tolerance of the normalised residual.
     pub tolerance: f64,
+    /// `relTol` (default 0).
+    pub rel_tol: f64,
+    /// `nSweeps` (default 1; negative: `-nSweeps` fixed sweeps, no residual).
+    pub n_sweeps: i64,
     /// `minIter`: sweeps done even when the system is already converged.
     pub min_iter: usize,
     /// `maxIter` (OpenFOAM default 1000).
@@ -123,6 +129,12 @@ pub struct PorousKEpsilon2PhaseCorrected {
     pub k_solver: SmoothSolve,
     /// Linear solver of `epsilon`.
     pub epsilon_solver: SmoothSolve,
+    /// Linear solver of `k` in the outer iteration `customPimpleControl::loop` flags final (`k.<fluid>Final`, exact keyword else the
+    /// last matching pattern; `fvMatrix::solve` selects `psi.select(finalIteration)`; gh:#1957 round 83, README addendum A). Every
+    /// shipped case resolves it to the same `"(k|epsilon|Theta).*"` entry as [`Self::k_solver`].
+    pub k_solver_final: SmoothSolve,
+    /// Linear solver of `epsilon` in the final outer iteration (`epsilon.<fluid>Final`, see [`Self::k_solver_final`]).
+    pub epsilon_solver_final: SmoothSolve,
     /// `relaxationFactors.equations` entry matching `k.<fluid>` (upstream calls `relax()` on every equation).
     pub k_equation_relaxation: Option<f64>,
     /// `relaxationFactors.equations` entry matching `epsilon.<fluid>`.
@@ -131,6 +143,13 @@ pub struct PorousKEpsilon2PhaseCorrected {
     pub production: Vec<f64>,
     /// How many times `bound` had to act on `k` and `epsilon` (diagnostic; X5 of README round 16).
     pub bound_count: usize,
+    /// `(field, initial residual, iterations)` of every `epsilon` / `k` solve of the current time step, in solve order (what upstream's
+    /// log prints as `smoothSolver: Solving for epsilon.<fluid>`; cleared at the start of each step; gh:#1957 round 83).
+    pub solve_log: Vec<(&'static str, f64, usize)>,
+    /// ABLATION (gh:#1957 round 83, named): solve `k`/`epsilon` with the round 16 smoother (`one_phase::smooth_solve_sym_gauss_seidel`:
+    /// `nSweeps 1`, `relTol` and `nSweeps` ignored, its own residual arithmetic, `minIter` as a second call) instead of upstream's
+    /// `smoothSolver::solve` ([`crate::genfoam::common::smooth_solver`], the default). Set by [`Self::with_round16_smoother`].
+    pub round16_smoother: bool,
     pub(super) k_old: Vec<f64>,
     pub(super) epsilon_old: Vec<f64>,
 }
@@ -147,6 +166,7 @@ impl PorousKEpsilon2PhaseCorrected {
     pub(super) fn begin_time_step(&mut self) {
         self.k_old = self.k.c.clone();
         self.epsilon_old = self.epsilon.c.clone();
+        self.solve_log.clear();
     }
 
     /// DEPRECATED ablation (gh:#1802, README round 16 X7): skip `fvMatrix::relax()` of both equations.
@@ -154,6 +174,14 @@ impl PorousKEpsilon2PhaseCorrected {
     pub fn without_equation_relaxation(mut self) -> Self {
         self.k_equation_relaxation = None;
         self.epsilon_equation_relaxation = None;
+        self
+    }
+
+    /// ABLATION (gh:#1957 round 83): the round 16 `k`/`epsilon` smoother ([`Self::round16_smoother`]) instead of upstream's
+    /// `smoothSolver::solve` with every control of the entry.
+    #[must_use]
+    pub fn with_round16_smoother(mut self) -> Self {
+        self.round16_smoother = true;
         self
     }
 }
@@ -336,9 +364,26 @@ pub fn production_invariant(t: &[[f64; 3]; 3]) -> f64 {
     sum
 }
 
-/// `smoothSolver` + `symGaussSeidel` of `k` / `epsilon`: `minIter` sweeps are done even when the initial residual is below the tolerance.
-fn smooth_solve(e: &Eqn, x: &mut [f64], s: SmoothSolve) {
-    let (sweeps, _, _) = super::super::one_phase::smooth_solve_sym_gauss_seidel(
+/// `smoothSolver` + `symGaussSeidel` of `k` / `epsilon` (ESI v2506 `smoothSolver.C:73-209`, every control of the entry, gh:#1957 round 83);
+/// with `round16` the earlier form ([`round16_smooth_solve`], the named ablation). Returns `(initial residual, iterations)`.
+fn smooth_solve(e: &Eqn, x: &mut [f64], s: SmoothSolve, round16: bool) -> (f64, usize) {
+    if round16 {
+        return round16_smooth_solve(e, x, s);
+    }
+    let ctl = crate::genfoam::common::smooth_solver::SmoothSolverControls {
+        tolerance: s.tolerance,
+        rel_tol: s.rel_tol,
+        min_iter: s.min_iter,
+        sweeps: crate::genfoam::common::smooth_solver::SmoothSolverSweeps { n_sweeps: s.n_sweeps, max_iter: s.max_iter },
+    };
+    let p = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&e.ldu, &e.source, x, &ctl);
+    (p.initial_residual, p.iterations)
+}
+
+/// The round 16 form of [`smooth_solve`] (ABLATION, gh:#1957 round 83): `nSweeps 1`, `relTol`/`nSweeps` ignored, and `minIter` sweeps done
+/// only when the initial residual is already below the tolerance. Returns `(initial residual, iterations)`.
+fn round16_smooth_solve(e: &Eqn, x: &mut [f64], s: SmoothSolve) -> (f64, usize) {
+    let (sweeps, ini, _) = super::super::one_phase::smooth_solve_sym_gauss_seidel(
         &e.ldu,
         &e.source,
         x,
@@ -351,7 +396,9 @@ fn smooth_solve(e: &Eqn, x: &mut [f64], s: SmoothSolve) {
             x,
             SolverSettings { tolerance: 0.0, max_iter: s.min_iter },
         );
+        return (ini, s.min_iter);
     }
+    (ini, sweeps)
 }
 
 impl TwoPhaseSolver {
@@ -375,6 +422,8 @@ impl TwoPhaseSolver {
         let Some(mut t) = self.fluids[k].turbulence.take() else {
             return;
         };
+        // the converged (final) outer iteration solves with the `<field>Final` entries (gh:#1957 round 83)
+        let (k_solver, epsilon_solver) = if self.pimple_converged { (t.k_solver_final, t.epsilon_solver_final) } else { (t.k_solver, t.epsilon_solver) };
         let fl = &self.fluids[k];
         let rdt = 1.0 / self.dt;
         let vol = &g.mesh.cell_volumes;
@@ -457,7 +506,8 @@ impl TwoPhaseSolver {
             relax_equation(&g, &mut e, a, &inflow2, &t.epsilon.c);
         }
         let mut x = t.epsilon.c.clone();
-        smooth_solve(&e, &mut x, t.epsilon_solver);
+        let (ini, it) = smooth_solve(&e, &mut x, epsilon_solver, t.round16_smoother);
+        t.solve_log.push(("epsilon", ini, it));
         t.epsilon.c = x;
         t.epsilon.correct_bc(&g);
         if bound(&g, &mut t.epsilon, t.epsilon_min) {
@@ -489,7 +539,8 @@ impl TwoPhaseSolver {
             relax_equation(&g, &mut e, a, &inflow2, &t.k.c);
         }
         let mut x = t.k.c.clone();
-        smooth_solve(&e, &mut x, t.k_solver);
+        let (ini, it) = smooth_solve(&e, &mut x, k_solver, t.round16_smoother);
+        t.solve_log.push(("k", ini, it));
         t.k.c = x;
         t.k.correct_bc(&g);
         if bound(&g, &mut t.k, t.k_min) {
@@ -780,21 +831,23 @@ pub(super) fn read_porous_k_epsilon_2phase(
     // linear solvers and equation relaxation of k.<fluid> and epsilon.<fluid>
     let solvers = ctx.sub(fs, "solvers")?;
     let solver_of = |field: &str| -> Result<SmoothSolve, AppBuilderError> {
-        let name = format!("{field}.{fluid}");
+        // `kFinal_` / `epsilonFinal_`: the Final entry `k.<fluid>Final` (round 83)
+        let name = match field.strip_suffix("Final_") {
+            Some(f) => format!("{f}.{fluid}Final"),
+            None => format!("{field}.{fluid}"),
+        };
         let Some(FoamEntry::SubDict(d)) = lookup_last_regex(solvers, &name) else {
             return Err(ctx.e(format!("fvSolution: no solver for {name}")));
         };
         if word(d, "solver").as_deref() != Some("smoothSolver") || word(d, "smoother").as_deref() != Some("symGaussSeidel") {
             return Err(ctx.e(format!("fvSolution: {name} must be smoothSolver with symGaussSeidel (the only linear solver ported for k and epsilon)")));
         }
-        if scalar(d, "relTol").unwrap_or(0.0) != 0.0 {
-            return Err(ctx.e(format!("fvSolution: {name}: relTol != 0 is not ported for k and epsilon")));
-        }
-        if scalar(d, "nSweeps").unwrap_or(1.0) != 1.0 {
-            return Err(ctx.e(format!("fvSolution: {name}: nSweeps != 1 is not ported")));
-        }
+        // ~~relTol != 0 and nSweeps != 1 refused by name~~ ported (gh:#1957 round 83): `smoothSolver.C:73-77` (`nSweeps` default 1),
+        // `lduMatrixSolver.C` `readControls` (`relTol` default 0, `maxIter` 1000, `minIter` 0)
         Ok(SmoothSolve {
             tolerance: ctx.f64(d, "tolerance")?,
+            rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+            n_sweeps: scalar(d, "nSweeps").unwrap_or(1.0) as i64,
             min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
             max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
         })
@@ -834,9 +887,13 @@ pub(super) fn read_porous_k_epsilon_2phase(
         equilibrium_epsilon: vec![0.0; n],
         k_solver: solver_of("k")?,
         epsilon_solver: solver_of("epsilon")?,
+        k_solver_final: solver_of("kFinal_")?,
+        epsilon_solver_final: solver_of("epsilonFinal_")?,
         k_equation_relaxation: relax_of("k"),
         epsilon_equation_relaxation: relax_of("epsilon"),
         production: vec![0.0; n],
         bound_count: 0,
+        solve_log: Vec::new(),
+        round16_smoother: false,
     }))
 }
