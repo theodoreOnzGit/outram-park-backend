@@ -880,7 +880,16 @@ impl TwoPhaseCase {
         // structure
         let sp = ctx.sub(&pp, "structureProperties")?;
         let mut alpha_s = vec![0.0; n];
-        let mut dh_s = vec![1.0; n];
+        // ~~`1.0` outside every structure zone~~ gh:#1967 round 83: `structure::Dh_` is constructed `SMALL` (`structure.C:74-84`) and set
+        // only in the cells of a `structureProperties` zone (`:300-317`), as round 82 fixed for onePhase
+        let mut dh_s = vec![super::turbulence::SMALL; n];
+        // `structure::cells_`: every zone's cells, appended in `structureProperties` order (`structure.C:283-286`)
+        let mut structure_cells: Vec<usize> = Vec::new();
+        // gh:#1967 round 83: upstream reads `alpha.structure` from the start directory when present (`alphaHeaderOk`: the zone
+        // `volumeFraction`s are then NOT applied, and `alpha.passiveStructure` starts from it, `structure.C:138-148`, `:300-317`)
+        if root.join(format!("0/{region}/alpha.structure")).exists() {
+            return Err(ctx.e("0/fluidRegion/alpha.structure (a structure fraction read from the start directory) is not ported"));
+        }
         let mut power: Vec<Option<FixedPower>> = vec![None; n];
         let mut power_off = None;
         let mut power_density_file: Option<Vec<f64>> = None;
@@ -902,6 +911,7 @@ impl TwoPhaseCase {
                 alpha_s[c] = vf;
                 dh_s[c] = dh;
             }
+            structure_cells.extend(cells.iter().copied());
             for (k2, _) in zd.iter() {
                 if !matches!(k2, "volumeFraction" | "Dh" | "powerModel") {
                     return Err(ctx.e(format!("structureProperties.{key}.{k2} is not ported")));
@@ -1011,7 +1021,8 @@ impl TwoPhaseCase {
             }
         }
         let structure = Structure::new(&g, alpha_s, dh_s, power, power_off)
-            .with_radial_power_models(radial.models, radial.q_neutronics, radial.needs_laplacian);
+            .with_radial_power_models(radial.models, radial.q_neutronics, radial.needs_laplacian)
+            .with_cells(structure_cells);
 
         // regime map
         let mut regime_map_name: Option<String> = None;
@@ -1333,6 +1344,60 @@ impl TwoPhaseCase {
             }
             _ => None,
         };
+        // gh:#1957 round 83: `h.<fluid>` resolved per fluid (exact keyword, else the last matching pattern); a `smoothSolver` +
+        // `symGaussSeidel` entry runs upstream's `smoothSolver::solve` with all its controls (`smoothSolver.C:73-77`: `nSweeps` default 1;
+        // `lduMatrixSolver.C`: `relTol` 0, `maxIter` 1000, `minIter` 0). `suffix` "Final": the entry `fvMatrix::solve` selects in the
+        // outer iteration `customPimpleControl::loop` flags final (`mesh.data().setFinalIteration(true)`, `customPimpleControl.C:250-257`;
+        // `psi.select(finalIteration)`), found in round 83 (README addendum A).
+        type HSmooth = [Option<crate::genfoam::common::smooth_solver::SmoothSolverControls>; 2];
+        let resolve_h = |suffix: &str| -> Result<(Option<HPbicgstab>, HSmooth), AppBuilderError> {
+            let mut pb0: Option<HPbicgstab> = None;
+            let mut smooth: HSmooth = [None, None];
+            for (k, nm) in names.iter().enumerate() {
+                let fname = format!("h.{nm}{suffix}");
+                let entry = lookup_pattern_last(solvers, &fname);
+                let pb_k = match entry {
+                    Some(FoamEntry::SubDict(d))
+                        if word(d, "solver").as_deref() == Some("PBiCGStab") && word(d, "preconditioner").as_deref() == Some("diagonal") =>
+                    {
+                        Some(HPbicgstab {
+                            tolerance: ctx.f64(d, "tolerance")?,
+                            rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                            min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                        })
+                    }
+                    _ => None,
+                };
+                if let Some(FoamEntry::SubDict(d)) = entry {
+                    if word(d, "solver").as_deref() == Some("smoothSolver") && word(d, "smoother").as_deref() == Some("symGaussSeidel") {
+                        smooth[k] = Some(crate::genfoam::common::smooth_solver::SmoothSolverControls {
+                            tolerance: ctx.f64(d, "tolerance")?,
+                            rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                            min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                            sweeps: crate::genfoam::common::smooth_solver::SmoothSolverSweeps {
+                                n_sweeps: scalar(d, "nSweeps").unwrap_or(1.0) as i64,
+                                max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                            },
+                        });
+                    }
+                }
+                if k == 0 {
+                    pb0 = pb_k;
+                } else if pb_k != pb0 {
+                    // the enthalpy solve takes ONE `PBiCGStab` entry for both fluids: a per-fluid mix is refused by name
+                    return Err(ctx.e(format!(
+                        "solvers: {fname} resolves to a different linear solver than h.{}{suffix} (a per-fluid enthalpy solver is not ported unless both are smoothSolver)",
+                        names[0]
+                    )));
+                }
+            }
+            Ok((pb0, smooth))
+        };
+        let (h_pb_check, h_smooth) = resolve_h("")?;
+        if h_pb_check != h_pbicgstab {
+            return Err(ctx.e("solvers: the h.<fluid> PBiCGStab entries disagree (not ported)"));
+        }
+        let (h_pbicgstab_final, h_smooth_final) = resolve_h("Final")?;
         // upstream resolves `p_rgh` to the exact keyword, else the LAST matching pattern; `PCG` + `DIC` is run as OpenFOAM does
         let p_rgh_pcg = match lookup_pattern_last(solvers, "p_rgh") {
             Some(FoamEntry::SubDict(d))
@@ -1477,6 +1542,9 @@ impl TwoPhaseCase {
             h_tolerance: h_tol,
             h_min_iter: h_min,
             h_pbicgstab,
+            h_smooth,
+            h_pbicgstab_final,
+            h_smooth_final,
             p_rgh_pcg,
             p_rgh_gamg,
             h_symmetry_constraint: true,

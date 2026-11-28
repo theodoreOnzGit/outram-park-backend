@@ -64,6 +64,7 @@ use outram_foam_basic_lib::prelude::{
 };
 
 use super::gamg::{face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgControls, GamgPerformance};
+use outram_foam_basic_lib::mesh::FvMesh;
 use super::pcg::pcg_dic;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::pbicgstab::{converged, g_sum_mag, g_sum_prod, norm_factor};
 use crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::{dilu_precondition, dilu_reciprocal_diag, pbicg_dilu};
@@ -135,19 +136,23 @@ pub struct NeutronSolverEntry {
     /// The `GAMG` keys of the entry (smoother, sweeps, `nCellsInCoarsestLevel`, ...), read only when `kind` is
     /// [`NeutronSolverKind::Gamg`]; its `tolerance`/`relTol`/`maxIter`/`minIter` equal the four fields above (gh:#1945).
     pub gamg: GamgControls,
+    /// `pairGAMGAgglomeration::forward_` when the mesh's `GAMG` agglomeration was (last) built (gh:#1956, README round 82): `true` in a
+    /// process whose first `GAMG` agglomeration is this one (neutronics-only and EN stages); in a multi-region run `RegionSolvers` sets it
+    /// from its one process-wide value at each (re)build. Read only when `kind` is [`NeutronSolverKind::Gamg`].
+    pub gamg_forward: bool,
 }
 
 impl NeutronSolverEntry {
     /// An entry of kind `kind` with every control at OpenFOAM's default.
     #[must_use]
     pub fn with_defaults(kind: NeutronSolverKind) -> Self {
-        Self { kind, tolerance: 1e-6, rel_tol: 0.0, max_iter: 1000, min_iter: 0, gamg: GamgControls::default() }
+        Self { kind, tolerance: 1e-6, rel_tol: 0.0, max_iter: 1000, min_iter: 0, gamg: GamgControls::default(), gamg_forward: true }
     }
 
     /// A `GAMG` entry with the controls `ctl` (its `tolerance`, `relTol`, `maxIter` and `minIter` become the entry's).
     #[must_use]
     pub fn gamg(ctl: GamgControls) -> Self {
-        Self { kind: NeutronSolverKind::Gamg, tolerance: ctl.tolerance, rel_tol: ctl.rel_tol, max_iter: ctl.max_iter, min_iter: ctl.min_iter, gamg: ctl }
+        Self { kind: NeutronSolverKind::Gamg, tolerance: ctl.tolerance, rel_tol: ctl.rel_tol, max_iter: ctl.max_iter, min_iter: ctl.min_iter, gamg: ctl, gamg_forward: true }
     }
 }
 
@@ -232,6 +237,7 @@ impl LinearSolve {
                     max_iter: self.settings.max_iter,
                     min_iter,
                     gamg: GamgControls::default(),
+                    gamg_forward: true,
                 };
                 run_entry(eqn, name, start, entry)
             }
@@ -258,7 +264,7 @@ fn run_entry(eqn: &FvMatrix, name: &str, start: &VolScalarField, entry: NeutronS
         }
         NeutronSolverKind::Gamg => {
             let ctl = GamgControls { tolerance: tol, rel_tol, max_iter, min_iter, ..entry.gamg };
-            let _ = gamg_solve_on_mesh(eqn, &ctl, &b, &mut x).unwrap_or_else(|e| panic!("{name}: {e}"));
+            let _ = gamg_solve_on_mesh_from(eqn, &ctl, entry.gamg_forward, &b, &mut x).unwrap_or_else(|e| panic!("{name}: {e}"));
         }
     }
     let boundary = eqn.mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect();
@@ -271,20 +277,48 @@ fn run_entry(eqn: &FvMatrix, name: &str, start: &VolScalarField, entry: NeutronS
 /// Upstream builds the agglomeration once per mesh (`GAMGAgglomeration::New`, the mesh registry) on the first `GAMG` solve, with
 /// `pairGAMGAgglomeration::forward_` as the process left it, and rebuilds it only after `movePoints` (`requireUpdate_`). Here it is
 /// built at every solve with `forward_ = true`: the same agglomeration, value for value, for a mesh that does not move in a process
-/// whose first `GAMG` agglomeration is this mesh's (every flux solve of one region resolves to the one `flux.*` entry). A run where
+/// whose first `GAMG` agglomeration is this mesh's (every flux solve of one region resolves to the one `flux.*` entry). ~~A run where
 /// another region agglomerates first, or where the neutronics mesh moves, is refused by name by the readers that can tell
-/// (`multi_region::region_solvers`), not run here differently.
+/// (`multi_region::region_solvers`), not run here differently.~~ **CHANGED 2026-11-28 (gh:#1956, README round 82):** such a run goes
+/// through [`gamg_solve_on_mesh_from`] with the `forward_` start `RegionSolvers` hands in ([`NeutronSolverEntry::gamg_forward`]), fixed
+/// at each (re)build: the process-wide value after the other regions' builds, and again after each `deformMesh`.
 ///
 /// # Errors
 /// An unsupported control, an asymmetric matrix with a `DIC`-type smoother, or a matrix too small for a coarse level (upstream:
 /// `FatalError`).
 pub fn gamg_solve_on_mesh(eqn: &FvMatrix, ctl: &GamgControls, source: &[f64], x: &mut [f64]) -> Result<GamgPerformance, String> {
+    gamg_solve_on_mesh_from(eqn, ctl, true, source, x)
+}
+
+/// [`gamg_solve_on_mesh`] with the agglomeration built from `pairGAMGAgglomeration::forward_ = forward` (gh:#1956, README round 82): the
+/// value the process held when upstream built (or, after `movePoints`, rebuilt) this mesh's cached agglomeration. Built per solve: the
+/// same agglomeration, value for value, as upstream's cached one, as long as the mesh has not moved since that build (the caller,
+/// `RegionSolvers`, hands in a new `forward` at each rebuild).
+///
+/// # Errors
+/// As [`gamg_solve_on_mesh`].
+pub fn gamg_solve_on_mesh_from(eqn: &FvMatrix, ctl: &GamgControls, forward: bool, source: &[f64], x: &mut [f64]) -> Result<GamgPerformance, String> {
     let ni = eqn.ldu.owner.len();
     let sf: Vec<[f64; 3]> = eqn.mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect();
     let w = face_area_pair_weights(&sf);
-    let mut forward = true;
+    let mut forward = forward;
     let agg = pair_agglomerate(eqn.ldu.n_cells, &eqn.ldu.owner, &eqn.ldu.neighbour, &w, ctl, &mut forward)?;
     gamg_dic_solve(&eqn.ldu, &agg, ctl, source, x)
+}
+
+/// `pairGAMGAgglomeration::forward_` after building the `faceAreaPair` agglomeration of `mesh` with `ctl` from `forward` (each level
+/// attempted toggles it, `pairGAMGAgglomerate.C:333`): what a build of this mesh leaves for the next one in the process (gh:#1956,
+/// README round 82). The same build as [`gamg_solve_on_mesh_from`]'s (the matrix's `owner`/`neighbour` are the mesh's internal faces).
+///
+/// # Errors
+/// As [`pair_agglomerate`].
+pub fn gamg_forward_after_build(mesh: &FvMesh, ctl: &GamgControls, forward: bool) -> Result<bool, String> {
+    let ni = mesh.n_internal_faces;
+    let sf: Vec<[f64; 3]> = mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect();
+    let w = face_area_pair_weights(&sf);
+    let mut forward = forward;
+    let _ = pair_agglomerate(mesh.n_cells, &mesh.owner[..ni], &mesh.neighbour[..ni], &w, ctl, &mut forward)?;
+    Ok(forward)
 }
 
 /// Result of a solve, as OpenFOAM's `solverPerformance`.
@@ -476,6 +510,49 @@ mod tests {
             let x = LinearSolve::new(settings, form).solve(NeutronEquation::Flux, &eqn, "x", &zero);
             for i in 0..n {
                 assert!((x.internal.as_slice()[i] - x_exact[i]).abs() < 1e-8, "{form:?} cell {i}");
+            }
+        }
+    }
+
+    /// gh:#1956 (README round 82): the `forward_` a build leaves is the start toggled once per level attempted, the same as the solve's own
+    /// build; a start of `false` builds a different agglomeration (cells paired from the other end), and the solve from either start
+    /// converges to the same solution.
+    #[test]
+    fn gamg_forward_after_build_matches_the_solves_build() {
+        use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+        use uom::si::area::square_meter;
+        use uom::si::f64::{Area, Length};
+        use uom::si::length::meter;
+        let n = 41;
+        let mesh = alloc::sync::Arc::new(create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1.0), n as i64).expect("mesh"));
+        let (mut ldu, _, _) = chain(n);
+        ldu.upper = vec![-1.0; n - 1];
+        ldu.lower = vec![-1.0; n - 1];
+        ldu.diag = vec![2.5; n];
+        let ctl = GamgControls { n_cells_in_coarsest_level: 2, tolerance: 1e-14, ..GamgControls::default() };
+        let ni = mesh.n_internal_faces;
+        let sf: Vec<[f64; 3]> = mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect();
+        let w = face_area_pair_weights(&sf);
+        for start in [true, false] {
+            let mut f = start;
+            let agg = pair_agglomerate(n, &ldu.owner, &ldu.neighbour, &w, &ctl, &mut f).expect("agglomerate");
+            assert!(!agg.levels.is_empty());
+            assert_eq!(gamg_forward_after_build(&mesh, &ctl, start).expect("build"), f, "start {start}");
+        }
+        let (mut a, mut b) = (true, false);
+        let (aa, bb) = (
+            pair_agglomerate(n, &ldu.owner, &ldu.neighbour, &w, &ctl, &mut a).expect("t"),
+            pair_agglomerate(n, &ldu.owner, &ldu.neighbour, &w, &ctl, &mut b).expect("f"),
+        );
+        assert_ne!(format!("{:?}", aa.levels[0]), format!("{:?}", bb.levels[0]), "forward and backward pairings differ on an odd chain");
+        let x_exact: Vec<f64> = (0..n).map(|i| (i as f64).sin()).collect();
+        let src = ldu.multiply(&x_exact);
+        let eqn = FvMatrix { mesh: mesh.clone(), ldu, source: Field::new(src.clone()) };
+        for start in [true, false] {
+            let mut x = vec![0.0; n];
+            let _ = gamg_solve_on_mesh_from(&eqn, &ctl, start, &src, &mut x).expect("solve");
+            for i in 0..n {
+                assert!((x[i] - x_exact[i]).abs() < 1e-10, "start {start} cell {i}");
             }
         }
     }

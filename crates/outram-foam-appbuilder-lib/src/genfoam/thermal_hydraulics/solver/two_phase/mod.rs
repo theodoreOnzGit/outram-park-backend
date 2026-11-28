@@ -501,6 +501,18 @@ pub struct TwoPhaseControls {
     /// upstream's log prints: `diagonalPBiCGStab: Solving for h.liquid`), run by [`pbicgstab::pbicgstab_diagonal`]. `None`:
     /// the port's earlier `symGaussSeidel` sweeps with [`Self::h_tolerance`] ([`TwoPhaseSolver::with_smooth_solver_for_enthalpy`]).
     pub h_pbicgstab: Option<HPbicgstab>,
+    /// `Some` for fluid `k` when `h.<fluid k>` resolves (exact keyword, else the last matching pattern) to `smoothSolver` with
+    /// `symGaussSeidel`: upstream's `smoothSolver::solve` with every control of the entry (`relTol`, `nSweeps`, `maxIter`, `minIter`;
+    /// [`crate::genfoam::common::smooth_solver`], gh:#1957 round 83). No shipped case selects it (their catch-all `".*"` wins);
+    /// before round 83 such an entry ran the port's earlier sweeps with [`Self::h_tolerance`], `relTol`/`nSweeps`/`maxIter` ignored.
+    pub h_smooth: [Option<crate::genfoam::common::smooth_solver::SmoothSolverControls>; 2],
+    /// [`Self::h_pbicgstab`] of `h.<fluid 1>Final`: what the enthalpy solve gets in the outer iteration `customPimpleControl::loop`
+    /// flags final (`mesh.data().setFinalIteration(true)` in the iteration whose criteria are met, `customPimpleControl.C:250-257`;
+    /// `fvMatrix::solve` selects `psi.select(finalIteration)`). gh:#1957 round 83 (README addendum A): before it the port used the
+    /// non-Final entry in every iteration; every shipped case resolves both to the catch-all `".*"`, so no shipped number moves.
+    pub h_pbicgstab_final: Option<HPbicgstab>,
+    /// [`Self::h_smooth`] of `h.<fluid>Final` (see [`Self::h_pbicgstab_final`]).
+    pub h_smooth_final: [Option<crate::genfoam::common::smooth_solver::SmoothSolverControls>; 2],
     /// The linear solver `p_rgh` really gets (gh:#1361 round 17, gh:#1833). `Some`: the case selects `PCG` with the `DIC`
     /// preconditioner, run by [`pcg::pcg_dic`] with OpenFOAM's normalised-residual stopping rule. `None`: the port's
     /// ILU(0)-BiCGStab stopped at `||r||/||b|| < 1e-13` (every other `p_rgh` solver, `GAMG` included, which has no port;
@@ -769,8 +781,18 @@ pub struct Structure {
     pub radial: Vec<RadialPowerModel>,
     /// The structure's `powerDensityNeutronics` per cell [W/m^3] (the radial models' `q`).
     pub q_neutronics: Vec<f64>,
-    /// `heatFlux.structure` (`H Twall - HT`) on the radial models' cells, 0 elsewhere.
+    /// `heatFlux.structure` (`H Twall - HT`) ~~on the radial models' cells, 0 elsewhere~~ on EVERY structure cell
+    /// ([`Self::cells`]; `structure.C:1057-1071`, gh:#1967 round 83, as round 82 fixed for onePhase), 0 elsewhere (its constructor value).
+    /// Written only: no ported closure reads it (`useExplicitHeatFlux true` of Shah/Gorenflo is refused by name).
     pub heat_flux: Vec<f64>,
+    /// `structure::cells_`: the cells of every `structureProperties` zone, in dictionary order ([`Self::with_cells`]; empty for a
+    /// structure built by [`Self::new`] alone, whose `heatFlux` is then set on the radial models' cells only).
+    pub cells: Vec<usize>,
+    /// `alpha.passiveStructure` (`structure::alphapas_`, `structure.C:138-148`, `:430-460`): a copy of the structure field as
+    /// constructed, i.e. `alpha.structure` as read from the start directory, else 0, then the `passiveProperties.volumeFraction` of
+    /// each passive zone. The twoPhase reader refuses `passiveProperties` and a start-directory `alpha.structure` by name, so it is 0
+    /// in every cell (gh:#1967 round 83; written only, no ported equation reads it).
+    pub alpha_passive: Vec<f64>,
     /// Whether a `lumpedNuclearStructure` region needs `fvc::laplacian(Tmatrix)` (`kappaMatrix != 0`).
     pub radial_needs_laplacian: bool,
     /// CONTROLS, not upstream (gh:#1884): each deliberately breaks one ingredient of the radial wiring.
@@ -897,6 +919,9 @@ pub struct TwoPhaseSolver {
     pub interfacial_area: Vec<f64>,
     /// Phase-change rate fluid 1 → fluid 2 [kg/(m^3 s)].
     pub dmdt: Vec<f64>,
+    /// `(fluid, initial residual, iterations)` of every enthalpy solve of the last time step, in solve order (upstream's log
+    /// `...: Solving for h.<fluid>`; gh:#1957 round 83).
+    pub h_solve_log: Vec<(usize, f64, usize)>,
     /// Latent heat [J/kg].
     pub latent_heat: Vec<f64>,
     /// Diagnostic (gh:#1361 round 13): when `Some`, every evaluation of `multiRegimeBoilingTRACE` appends the
@@ -1007,6 +1032,7 @@ impl TwoPhaseSolver {
             radial_t_pre: None,
             interfacial_area: vec![0.0; n],
             dmdt: vec![0.0; n],
+            h_solve_log: Vec::new(),
             latent_heat: vec![0.0; n],
             trace_probe: None,
             dmdt_w: vec![0.0; n],
@@ -1163,6 +1189,7 @@ impl TwoPhaseSolver {
             return Err(crate::error::AppBuilderError::Diverged { iter: 0, residual: f64::NAN });
         }
         let n = self.geom.n_cells();
+        self.h_solve_log.clear();
         for k in 0..2 {
             let f = &mut self.fluids[k];
             f.alpha_old = f.alpha.c.clone();
@@ -3225,7 +3252,13 @@ impl TwoPhaseSolver {
             let e = e.folded(&g, &eic, &ebc);
             let prev = fl.he.c.clone();
             let mut x = prev.clone();
-            let (sweeps, ini) = if let Some(pb) = self.controls.h_pbicgstab {
+            // the converged (final) outer iteration solves with the `h.<fluid>Final` entry (gh:#1957 round 83)
+            let (h_pb, h_sm) = if self.pimple_converged {
+                (self.controls.h_pbicgstab_final, self.controls.h_smooth_final[k])
+            } else {
+                (self.controls.h_pbicgstab, self.controls.h_smooth[k])
+            };
+            let (sweeps, ini) = if let Some(pb) = h_pb {
                 // upstream resolves `h.<fluid>` to the LAST matching pattern of `solvers` (`".*"`: PBiCGStab, diagonal)
                 let perf = pbicgstab::pbicgstab_diagonal(
                     &e.ldu,
@@ -3236,7 +3269,11 @@ impl TwoPhaseSolver {
                     pbicgstab::DEFAULT_MAX_ITER,
                     pb.min_iter,
                 );
-                (perf.iterations.max(1), perf.initial_residual)
+                (perf.iterations, perf.initial_residual)
+            } else if let Some(ctl) = h_sm {
+                // gh:#1957 round 83: `smoothSolver::solve` with every control of the `h.<fluid>` entry
+                let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&e.ldu, &e.source, &mut x, &ctl);
+                (perf.iterations, perf.initial_residual)
             } else {
                 let (sweeps, ini, _) = super::one_phase::smooth_solve_sym_gauss_seidel(
                     &e.ldu,
@@ -3246,7 +3283,8 @@ impl TwoPhaseSolver {
                 );
                 (sweeps, ini)
             };
-            if self.controls.h_pbicgstab.is_none() && sweeps == 0 && self.controls.h_min_iter > 0 {
+            self.h_solve_log.push((k, ini, sweeps));
+            if h_pb.is_none() && h_sm.is_none() && sweeps == 0 && self.controls.h_min_iter > 0 {
                 let _ = super::one_phase::smooth_solve_sym_gauss_seidel(
                     &e.ldu,
                     &e.source,
@@ -3310,6 +3348,8 @@ impl TwoPhaseSolver {
         }
         // the radial models of the table (`structure::correct`: `iter()->correct(HT, H); iter()->correctT(Tact_)`, gh:#1884)
         self.radial_structure_correct();
+        // `structure::correct` ends with `heatFlux = H Twall - HT` over `cells_` (structure.C:1057-1071; gh:#1967 round 83)
+        self.update_structure_heat_flux();
         // `structure::correct` ends with `Twall = Tact` in its cells
         self.structure.t_wall = self.structure.t_act.clone();
         if self.structure_old_time_stale {
@@ -3364,6 +3404,29 @@ impl TwoPhaseSolver {
                 }
                 self.structure.heat_flux[c] = h[c] * self.structure.t_act[c] - ht[c];
             }
+        }
+    }
+
+    /// The end of `structure::correct(H1s T1 + H2s T2, H1s + H2s)` (`structure.C:1057-1071`, `EEqns_2p.H:331`): `heatFlux = H Tact - HT`
+    /// on every structure cell (`cells_`, [`Structure::cells`]), from the post-solve temperatures (gh:#1967 round 83). The radial models'
+    /// cells keep the value [`Self::radial_structure_correct`] set (the same expression; its `ht_pre_solve` CONTROL uses the pre-solve
+    /// temperatures there). Before round 83 the fixedPower and power-free structure cells kept `heatFlux` 0.
+    fn update_structure_heat_flux(&mut self) {
+        let n = self.geom.n_cells();
+        let mut radial = vec![false; n];
+        for m in &self.structure.radial {
+            for &c in m.cells() {
+                radial[c] = true;
+            }
+        }
+        for i in 0..self.structure.cells.len() {
+            let c = self.structure.cells[i];
+            if radial[c] {
+                continue;
+            }
+            let h = self.htc_fs[0][c] + self.htc_fs[1][c];
+            let ht = self.htc_fs[0][c] * self.fluids[0].t.c[c] + self.htc_fs[1][c] * self.fluids[1].t.c[c];
+            self.structure.heat_flux[c] = h * self.structure.t_act[c] - ht;
         }
     }
 
@@ -3588,6 +3651,28 @@ impl TwoPhaseSolver {
         self
     }
 
+    /// ABLATION (gh:#1957 round 83): an `h.<fluid>` entry that resolves to `smoothSolver` runs the round 16 sweeps
+    /// (`one_phase::smooth_solve_sym_gauss_seidel` with [`TwoPhaseControls::h_tolerance`]: `nSweeps 1`, `relTol`, `nSweeps`, `maxIter` ignored)
+    /// instead of `smoothSolver::solve` with every control of the entry.
+    #[must_use]
+    pub fn with_round16_h_smoother(mut self) -> Self {
+        self.controls.h_smooth = [None, None];
+        self.controls.h_smooth_final = [None, None];
+        self
+    }
+
+    /// ABLATION (gh:#1957 round 83): `k`/`epsilon` of both fluids solved with the round 16 smoother
+    /// ([`turbulence::PorousKEpsilon2PhaseCorrected::with_round16_smoother`]).
+    #[must_use]
+    pub fn with_round16_k_epsilon_smoother(mut self) -> Self {
+        for f in self.fluids.iter_mut() {
+            if let Some(t) = f.turbulence.as_mut() {
+                t.round16_smoother = true;
+            }
+        }
+        self
+    }
+
     /// Reproduce upstream GeN-Foam 652b3da's `customPimpleControl::loop` DEFECT
     /// ([`TwoPhaseControls::stale_pimple_converged_flag`] `= true`): a step whose criteria were first
     /// met in the last outer iteration leaves `converged_` set and the NEXT step solves nothing.
@@ -3625,6 +3710,9 @@ impl TwoPhaseSolver {
     #[must_use]
     pub fn with_smooth_solver_for_enthalpy(mut self) -> Self {
         self.controls.h_pbicgstab = None;
+        self.controls.h_smooth = [None, None];
+        self.controls.h_pbicgstab_final = None;
+        self.controls.h_smooth_final = [None, None];
         self
     }
 
@@ -4135,6 +4223,14 @@ impl Phase {
 }
 
 impl Structure {
+    /// The structure's cells (`structure::cells_`, `structure.C:283-286`), on which `structure::correct` sets `Twall` and
+    /// `heatFlux` (gh:#1967 round 83).
+    #[must_use]
+    pub fn with_cells(mut self, cells: Vec<usize>) -> Self {
+        self.cells = cells;
+        self
+    }
+
     /// A structure from per-cell volume fraction, hydraulic diameter and power
     /// models (`iAact` is each model's interfacial area).
     #[must_use]
@@ -4170,6 +4266,8 @@ impl Structure {
             radial: Vec::new(),
             q_neutronics: vec![0.0; n],
             heat_flux: vec![0.0; n],
+            cells: Vec::new(),
+            alpha_passive: vec![0.0; n],
             radial_needs_laplacian: false,
             radial_controls: RadialControls::default(),
             heat_exchangers: HeatExchangerSet::default(),

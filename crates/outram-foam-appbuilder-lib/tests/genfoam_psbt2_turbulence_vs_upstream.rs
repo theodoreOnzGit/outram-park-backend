@@ -534,3 +534,216 @@ fn phase_ii_ex2_and_ex3_run_and_agree_with_upstream() {
         }
     }
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 83 (gh:#1957): `smoothSolver` `relTol`, `nSweeps`, `maxIter` for the twoPhase `k`/`epsilon` (`porousKEpsilon2PhaseCorrected`),
+// against the real binary. Variants `k0`-`k5` of `scripts/make_round83_variant.py` (the shipped `"(k|epsilon|Theta).*"` entry with its
+// `relTol 0;` replaced by round 79's keys), applied here as the same text edit after [`protocol_copy`]; references `refs/r83_k<n>`
+// (steps 1-24) and `refs/r83_k<n>_log` (`S <step> <field> <initial residual> <iterations>`). Criteria and predictions (committed
+// first): README "Round 83".
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// Round 79's keys of variant `k` (`1`..`5`), as `make_round83_variant.py`'s `EXTRA`.
+fn r83_extra(k: usize) -> &'static str {
+    match k {
+        1 => "        relTol          0.1;\n",
+        2 => "        relTol          0;\n        nSweeps         2;\n",
+        3 => "        relTol          0;\n        maxIter         2;\n",
+        4 => "        relTol          0.05;\n        nSweeps         3;\n        maxIter         7;\n",
+        _ => "        relTol          0;\n        nSweeps         -2;\n",
+    }
+}
+
+/// `make_round83_variant.py`'s `turbulence_entry`.
+fn r83_turbulence_entry(dir: &Path, extra: &str) {
+    let f = dir.join("system/fluidRegion/fvSolution");
+    let t = match std::fs::read_to_string(&f) {
+        Ok(t) => t,
+        Err(e) => panic!("{}: {e}", f.display()),
+    };
+    let (i, close) = match t.find("\"(k|epsilon|Theta).*\"").and_then(|i| t[i..].find('}').map(|c| (i, i + c))) {
+        Some(p) => p,
+        None => panic!("no `(k|epsilon|Theta).*` entry"),
+    };
+    let block = &t[i..close];
+    assert_eq!(block.matches("        relTol          0;\n").count(), 1, "{block}");
+    let out = format!("{}{}{}", &t[..i], block.replace("        relTol          0;\n", extra), &t[close..]);
+    match std::fs::write(&f, out) {
+        Ok(()) => {}
+        Err(e) => panic!("{}: {e}", f.display()),
+    }
+}
+
+/// `S` lines of a round 83 solve-log reference, per step (index `step - 1`).
+fn r83_solve_log(name: &str) -> Vec<Vec<(String, f64, usize)>> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/refs").join(format!("{name}.ref.txt.gz"));
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => panic!("reference {} missing (git submodule update --init the refs submodule): {e}", path.display()),
+    };
+    let text = match decompress_to_vec(&bytes[10..bytes.len() - 8]) {
+        Ok(v) => match String::from_utf8(v) {
+            Ok(s) => s,
+            Err(e) => panic!("{name}: not utf8: {e}"),
+        },
+        Err(e) => panic!("{name}: not a gzip stream: {e:?}"),
+    };
+    let mut out: Vec<Vec<(String, f64, usize)>> = Vec::new();
+    for line in text.lines() {
+        let w: Vec<&str> = line.split_whitespace().collect();
+        if w.len() != 5 || w[0] != "S" {
+            continue;
+        }
+        let (step, ini, it): (usize, f64, usize) = match (w[1].parse(), w[3].parse(), w[4].parse()) {
+            (Ok(a), Ok(b), Ok(c)) => (a, b, c),
+            _ => panic!("{name}: bad line `{line}`"),
+        };
+        while out.len() < step {
+            out.push(Vec::new());
+        }
+        out[step - 1].push((w[2].to_string(), ini, it));
+    }
+    out
+}
+
+/// One `k<n>` variant: rows and, per step, the liquid `(field, initial residual, iterations)` of every `epsilon`/`k` solve.
+fn r83_run(variant: usize, round16: bool) -> (Vec<Row>, Vec<Vec<(&'static str, f64, usize)>>) {
+    let name = format!("r83_k{variant}");
+    let r = load_reference(&name);
+    let dir = protocol_copy(&name);
+    if variant > 0 {
+        r83_turbulence_entry(&dir, r83_extra(variant));
+    }
+    let case = match TwoPhaseCase::read(&dir) {
+        Ok(c) => c,
+        Err(e) => panic!("read {name}: {e}"),
+    };
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut s = TwoPhaseSolver::new(case).with_upstream_stale_pimple_converged_flag();
+    if round16 {
+        s = s.with_round16_k_epsilon_smoother();
+    }
+    let (mut rows, mut log) = (Vec::new(), Vec::new());
+    for n in 1..r.first + r.times.len() {
+        let rep = match s.step() {
+            Ok(rep) => rep,
+            Err(e) => panic!("{name} step {n}: {e:?}"),
+        };
+        log.push(match s.fluids[0].turbulence.as_ref() {
+            Some(t) => t.solve_log.clone(),
+            None => panic!("{name}: RAS expected"),
+        });
+        let dt_up = if n == 1 { 1e-3 } else { r.dt[n - 2] };
+        let tname = &r.times[n - r.first];
+        let mut worst = Vec::new();
+        for (f, v) in port_fields(&s) {
+            if let Some(u) = r.fields.get(&(tname.clone(), f.to_string())) {
+                worst.push((f, worst_rel(&v, u)));
+            }
+        }
+        rows.push((n, (rep.dt - dt_up).abs() / dt_up, rep.outer_iterations, worst));
+    }
+    (rows, log)
+}
+
+/// A-C3: round 17's PhaseII_Ex1 limits.
+const R83_LIMITS: [(&str, f64); 18] = [
+    ("p", 2.5e-9),
+    ("p_rgh", 2.5e-9),
+    ("T.liquid", 9e-9),
+    ("T.vapour", 3e-10),
+    ("T.fixedPower", 7e-9),
+    ("U.liquid", 1e-6),
+    ("U.vapour", 1e-6),
+    ("alpha.vapour", 0.0),
+    ("dgdt.liquid", 2e-6),
+    ("htc.liquid.structure", 6e-7),
+    ("k.liquid", 1.1e-6),
+    ("epsilon.liquid", 1.2e-6),
+    ("nut.liquid", 6e-7),
+    ("alphat.liquid", 6e-7),
+    ("k.vapour", 6e-2),
+    ("epsilon.vapour", 4.5e-2),
+    ("nut.vapour", 7e-2),
+    ("alphat.vapour", 7e-2),
+];
+
+fn r83_worst(rows: &[Row], f: &str) -> f64 {
+    rows.iter().flat_map(|r| r.3.iter()).filter(|(k, _)| *k == f).map(|(_, v)| *v).fold(0.0, f64::max)
+}
+
+/// Worst liquid `k`/`epsilon` iteration difference over the solves above 1e-10, and how many (a count mismatch gives `usize::MAX`).
+fn r83_counts(name: &str, port: &[Vec<(&'static str, f64, usize)>], up: &[Vec<(String, f64, usize)>]) -> (usize, usize) {
+    let (mut worst, mut n) = (0usize, 0usize);
+    for (s, p) in port.iter().enumerate() {
+        let u: Vec<&(String, f64, usize)> = match up.get(s) {
+            Some(v) => v.iter().filter(|x| x.0 == "k.liquid" || x.0 == "epsilon.liquid").collect(),
+            None => Vec::new(),
+        };
+        if u.len() != p.len() {
+            eprintln!("{name} step {}: port {} liquid k/epsilon solves, upstream {}", s + 1, p.len(), u.len());
+            worst = usize::MAX;
+            continue;
+        }
+        for (a, b) in p.iter().zip(u) {
+            assert_eq!(format!("{}.liquid", a.0), b.0, "{name} step {}: solve order", s + 1);
+            if b.1 > 1e-10 {
+                n += 1;
+                let d = a.2.abs_diff(b.2);
+                worst = worst.max(d);
+                if d > 0 {
+                    eprintln!("  {name} step {}: {} iterations port {} (initial {:.3e}), upstream {} (initial {:.3e})", s + 1, b.0, a.2, a.1, b.2, b.1);
+                }
+            }
+        }
+    }
+    (worst, n)
+}
+
+/// # gh:#1957 (round 83, A3/A6/A7/A8): `smoothSolver` controls for the twoPhase `k`/`epsilon` (PhaseII_Ex1, 24 steps)
+///
+/// Methodology: README "Round 83", Part A; variants `k0`-`k5` against the real binary; criteria A-C3 (round 17's Ex1 limits), A-C4
+/// (liquid `k`/`epsilon` iteration counts equal in every solve above 1e-10 for `k1`, `k3`, `k4`, `k5`), A-C5 (the round 16 smoother on
+/// `k1` misses `k.liquid` by more than 1e-10 and 10x the default).
+///
+/// Results (2026-11-28, 24 steps each): every variant within the Ex1 limits with the SAME worst fields as `k0` (`p` 1.5e-9, `U.liquid`
+/// 6.5e-7, `k.liquid` 6.4e-7, `epsilon.liquid` 6.8e-7, `k.vapour` 3.4e-2): A-C3 met. Liquid `k`/`epsilon` counts EQUAL in all 450 solves
+/// above 1e-10 of `k0`-`k4` (upstream: 2-8 sweeps under `k0`, 1 under `k1`, 2 under `k3`, ...); `k5` logs residual 0. Ablation (round 16
+/// smoother) on `k1`: `k.liquid` 6.4e-7, the default's: A-C5 MISSED on the fields (round 17's remainder hides the controls); its counts
+/// differ (post-run instrument).
+#[test]
+fn r83_two_phase_k_epsilon_smooth_solver_controls_match_the_real_binary() {
+    let mut k1 = 0.0;
+    for v in 0..6 {
+        let name = format!("r83_k{v}");
+        let (rows, log) = r83_run(v, false);
+        for (n, dt_rel, _, w) in &rows {
+            assert!(*dt_rel <= 1e-12, "{name} step {n}: dt differs by {dt_rel:e}");
+            for (k, x) in w {
+                if let Some((_, lim)) = R83_LIMITS.iter().find(|(f, _)| f == k) {
+                    assert!(*x <= *lim, "{name} step {n} {k}: {x:e} exceeds {lim:e}");
+                }
+            }
+        }
+        if v == 1 {
+            k1 = r83_worst(&rows, "k.liquid");
+        }
+        let cells: Vec<String> = ["p", "U.liquid", "T.liquid", "k.liquid", "epsilon.liquid", "k.vapour", "epsilon.vapour"]
+            .iter()
+            .map(|f| format!("{f} {:.2e}", r83_worst(&rows, f)))
+            .collect();
+        let (worst, n) = r83_counts(&name, &log, &r83_solve_log(&format!("{name}_log")));
+        println!("{name}: {}; liquid k/epsilon solves above 1e-10: {n}, worst iteration difference {worst}", cells.join(", "));
+        if matches!(v, 1 | 3 | 4 | 5) {
+            assert_eq!(worst, 0, "{name}: k/epsilon iteration counts (A-C4)");
+        }
+    }
+    let (rows, log) = r83_run(1, true);
+    let abl = r83_worst(&rows, "k.liquid");
+    let (worst, _) = r83_counts("k1 ablation", &log, &r83_solve_log("r83_k1_log"));
+    println!("k1 ABLATION (round 16 smoother): k.liquid {abl:.2e} (default {k1:.2e}); worst iteration difference {worst}");
+    // A-C5 as committed (fields) MISSED: every variant's fields are those of `k0` to 3 significant figures, set by round 17's flow
+    // remainder (`k.liquid` 6.4e-7), so the controls' effect on the fields is not visible here. POST-RUN instrument: the counts
+    // (upstream's 1 sweep per solve under `relTol 0.1` against 2-8 under `k0`) must differ with the round 16 smoother.
+    assert!(worst > 0, "the round 16 smoother must miss upstream's k/epsilon iteration counts");
+}

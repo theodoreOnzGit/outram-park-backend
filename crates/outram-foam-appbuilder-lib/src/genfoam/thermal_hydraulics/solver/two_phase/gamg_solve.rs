@@ -36,6 +36,32 @@ impl Default for GamgSolveState {
 }
 
 impl GamgSolveState {
+    /// `pairGAMGAgglomeration::forward_` as this state holds it: the value its next agglomeration starts from, or (once built) the value
+    /// its build left (gh:#1956, README round 82).
+    #[must_use]
+    pub fn forward(&self) -> bool {
+        self.forward
+    }
+
+    /// Hand in the process-wide `forward_` before a region's solves ([`crate::genfoam::multi_region::region_solvers::RegionSolvers`] keeps
+    /// ONE for every region, as upstream's static is one per process); read it back with [`Self::forward`] after them. A state that is
+    /// already built does not use it (its agglomeration is cached), so the value then passes through unchanged.
+    pub fn set_forward(&mut self, forward: bool) {
+        self.forward = forward;
+    }
+
+    /// Whether the agglomeration is built (cached).
+    #[must_use]
+    pub fn is_built(&self) -> bool {
+        self.agg.is_some()
+    }
+
+    /// Drop the cached agglomeration (a new process, or `GAMGAgglomeration::requireUpdate_` after `movePoints`): the next solve rebuilds it
+    /// from the `forward_` handed in.
+    pub fn invalidate(&mut self) {
+        self.agg = None;
+    }
+
     /// Number of agglomeration levels once built (0 before the first solve).
     #[must_use]
     pub fn n_levels(&self) -> usize {

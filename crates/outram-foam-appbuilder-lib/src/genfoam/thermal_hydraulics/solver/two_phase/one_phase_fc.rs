@@ -150,6 +150,18 @@ pub struct OnePhaseFcControls {
     /// `pbicgstab_diagonal`. `None`: the `symGaussSeidel` sweeps with [`Self::h_tolerance`] (the port's earlier choice, which took
     /// the FIRST matching pattern).
     pub h_pbicgstab: Option<HPbicgstab>,
+    /// `Some` when `h` resolves (exact keyword, else the last matching pattern) to `smoothSolver` with `symGaussSeidel`: upstream's
+    /// `smoothSolver::solve` with every control of the entry (`relTol`, `nSweeps`, `maxIter`, `minIter`; [`crate::genfoam::common::smooth_solver`],
+    /// gh:#1957 round 83). Before round 83 such an entry ran the round 46 form (`nSweeps 1`, no `relTol`, `maxIter 1000`) with
+    /// [`Self::h_tolerance`]; that form stays what `h_pbicgstab = None, h_smooth = None` runs.
+    pub h_smooth: Option<crate::genfoam::common::smooth_solver::SmoothSolverControls>,
+    /// [`Self::h_pbicgstab`] of `hFinal`: what the energy solve gets in the outer iteration `customPimpleControl::loop` flags final
+    /// (`mesh.data().setFinalIteration(true)`, `customPimpleControl.C:250-257`; `fvMatrix::solve` selects `psi.select(finalIteration)`).
+    /// gh:#1957 round 83 (README addendum A): before it the port used the `h` entry in every iteration; the shipped cases resolve both
+    /// to the catch-all `".*"`.
+    pub h_pbicgstab_final: Option<HPbicgstab>,
+    /// [`Self::h_smooth`] of `hFinal` (see [`Self::h_pbicgstab_final`]).
+    pub h_smooth_final: Option<crate::genfoam::common::smooth_solver::SmoothSolverControls>,
     /// `residualControl.p_rgh.tolerance` (with `useFirstPISOInitialResidual`).
     pub residual_control_p_rgh: Option<f64>,
     /// `residualControl.h.tolerance`.
@@ -545,6 +557,50 @@ impl OnePhaseFcCase {
                 }
                 _ => None,
             },
+            h_smooth: match lookup_pattern_last(solvers, "h") {
+                Some(FoamEntry::SubDict(d))
+                    if word(d, "solver").as_deref() == Some("smoothSolver") && word(d, "smoother").as_deref() == Some("symGaussSeidel") =>
+                {
+                    Some(crate::genfoam::common::smooth_solver::SmoothSolverControls {
+                        tolerance: ctx.f64(d, "tolerance")?,
+                        rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                        min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                        sweeps: crate::genfoam::common::smooth_solver::SmoothSolverSweeps {
+                            n_sweeps: scalar(d, "nSweeps").unwrap_or(1.0) as i64,
+                            max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                        },
+                    })
+                }
+                _ => None,
+            },
+            h_pbicgstab_final: match lookup_pattern_last(solvers, "hFinal") {
+                Some(FoamEntry::SubDict(d))
+                    if word(d, "solver").as_deref() == Some("PBiCGStab") && word(d, "preconditioner").as_deref() == Some("diagonal") =>
+                {
+                    Some(HPbicgstab {
+                        tolerance: ctx.f64(d, "tolerance")?,
+                        rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                        min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                    })
+                }
+                _ => None,
+            },
+            h_smooth_final: match lookup_pattern_last(solvers, "hFinal") {
+                Some(FoamEntry::SubDict(d))
+                    if word(d, "solver").as_deref() == Some("smoothSolver") && word(d, "smoother").as_deref() == Some("symGaussSeidel") =>
+                {
+                    Some(crate::genfoam::common::smooth_solver::SmoothSolverControls {
+                        tolerance: ctx.f64(d, "tolerance")?,
+                        rel_tol: scalar(d, "relTol").unwrap_or(0.0),
+                        min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
+                        sweeps: crate::genfoam::common::smooth_solver::SmoothSolverSweeps {
+                            n_sweeps: scalar(d, "nSweeps").unwrap_or(1.0) as i64,
+                            max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                        },
+                    })
+                }
+                _ => None,
+            },
             residual_control_p_rgh: rc_tol("p_rgh"),
             residual_control_h: rc_tol("h"),
             p_min: scalar(&pp, "pMin").unwrap_or(0.0),
@@ -703,6 +759,8 @@ pub struct OnePhaseFcSolver {
     /// Every `p_rgh` solve of the last [`Self::step`], in upstream's log order (`DICPCG: Solving for p_rgh`);
     /// empty on the [`OnePhaseFcControls::p_rgh_pcg`] `None` path.
     pub last_step_solves: Vec<PressureSolve>,
+    /// `(initial residual, iterations)` of every `h` solve of the last [`Self::step`], in log order (gh:#1957 round 83).
+    pub last_step_h_solves: Vec<(f64, usize)>,
     /// The cached `GAMG` agglomeration of the mesh (`GamgPolicy::Native`, gh:#1936).
     pub gamg: GamgSolveState,
     outer_now: usize,
@@ -761,6 +819,7 @@ impl OnePhaseFcSolver {
             end_time: case.end_time,
             pimple_converged: false,
             last_step_solves: Vec::new(),
+            last_step_h_solves: Vec::new(),
             gamg: GamgSolveState::default(),
             outer_now: 0,
             rho_var: Scalar::uniform(&geom, 0.0, vec![Bc::Calculated; m.patches.len()]),
@@ -1400,9 +1459,15 @@ impl OnePhaseFcSolver {
         }
         let prev = fl.he.c.clone();
         let mut x = prev.clone();
-        let ini = if let Some(pb) = self.controls.h_pbicgstab {
+        // the converged (final) outer iteration solves with the `hFinal` entry (gh:#1957 round 83)
+        let (h_pb, h_sm) = if self.pimple_converged {
+            (self.controls.h_pbicgstab_final, self.controls.h_smooth_final)
+        } else {
+            (self.controls.h_pbicgstab, self.controls.h_smooth)
+        };
+        let ini = if let Some(pb) = h_pb {
             // `fvScalarMatrix::solveSegregated` with `PBiCGStab` + `diagonal` (the last matching pattern of `solvers`)
-            super::pbicgstab::pbicgstab_diagonal(
+            let perf = super::pbicgstab::pbicgstab_diagonal(
                 &e.ldu,
                 &e.source,
                 &mut x,
@@ -1410,16 +1475,23 @@ impl OnePhaseFcSolver {
                 pb.rel_tol,
                 super::pbicgstab::DEFAULT_MAX_ITER,
                 pb.min_iter,
-            )
-            .initial_residual
+            );
+            self.last_step_h_solves.push((perf.initial_residual, perf.iterations));
+            perf.initial_residual
+        } else if let Some(ctl) = h_sm {
+            // gh:#1957 round 83: `smoothSolver::solve` with every control of the `h` entry
+            let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&e.ldu, &e.source, &mut x, &ctl);
+            self.last_step_h_solves.push((perf.initial_residual, perf.iterations));
+            perf.initial_residual
         } else {
-            let (_sweeps, ini, _) = super::super::one_phase::smooth_solve_sym_gauss_seidel_openfoam(
+            let (sweeps, ini, _) = super::super::one_phase::smooth_solve_sym_gauss_seidel_openfoam(
                 &e.ldu,
                 &e.source,
                 &mut x,
                 SolverSettings { tolerance: self.controls.h_tolerance, max_iter: 1000 },
                 self.controls.h_min_iter,
             );
+            self.last_step_h_solves.push((ini, sweeps));
             ini
         };
         self.fluid.he.c = x;
@@ -1502,6 +1574,7 @@ impl OnePhaseFcSolver {
             }
         }
         self.last_step_solves.clear();
+        self.last_step_h_solves.clear();
         let mut report = OnePhaseStepReport { time: self.time, dt: self.dt, ..OnePhaseStepReport::default() };
         let n_outer = self.controls.n_outer.max(1);
         let mut corr = 0;
@@ -1599,6 +1672,15 @@ impl OnePhaseFcSolver {
         self.controls.lazy_old_time_first_step = false;
         self.p_old_stored = true;
         self.structure_old_time_stale = false;
+        self
+    }
+
+    /// ABLATION (gh:#1957 round 83): an `h` entry that resolves to `smoothSolver` runs the round 46 form (`nSweeps 1`, `relTol` and
+    /// `nSweeps`/`maxIter` of the entry ignored, `maxIter 1000`) instead of `smoothSolver::solve` with every control.
+    #[must_use]
+    pub fn with_round46_h_smoother(mut self) -> Self {
+        self.controls.h_smooth = None;
+        self.controls.h_smooth_final = None;
         self
     }
 

@@ -894,3 +894,217 @@ fn r72_control_pcg_dic_differs_from_the_real_gamg_solve_log() {
     eprintln!("R-fc control (PCG/DIC against the real GAMG log): {tally:?}");
     assert!(tally.violations_tier.iter().sum::<usize>() + tally.steps_count_mismatch > 0, "the substitute must be distinguishable: {tally:?}");
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 83 (gh:#1957): `smoothSolver` `relTol`, `nSweeps`, `maxIter` for the `h` of `one_phase_fc`, against the real binary. Variants
+// `c0`-`c5` of `scripts/make_round83_variant.py` (explicit `h`/`hFinal` entries after the catch-all, round 79's keys), applied here as
+// the same text edit after round 38's channel protocol; references `refs/r83_c<k>` (fields, `P` lines) and `refs/r83_c<k>_log`
+// (`S <step> h <initial residual> <iterations>`). Methodology, criteria and predictions (committed first): README "Round 83".
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// Round 79's keys of variant `k` (`0`..`5`), as `make_round83_variant.py`'s `EXTRA`.
+fn r83_extra(k: usize) -> &'static str {
+    match k {
+        0 => "        relTol          0;\n",
+        1 => "        relTol          0.1;\n",
+        2 => "        relTol          0;\n        nSweeps         2;\n",
+        3 => "        relTol          0;\n        maxIter         2;\n",
+        4 => "        relTol          0.05;\n        nSweeps         3;\n        maxIter         7;\n",
+        _ => "        relTol          0;\n        nSweeps         -2;\n",
+    }
+}
+
+/// `make_round83_variant.py`'s `after_catch_all`: explicit `smoothSolver` entries `names` (tolerance 1e-14 + `extra`) after `".*"`.
+fn r83_after_catch_all(dir: &Path, names: &[&str], extra: &str) {
+    let f = dir.join("system/fluidRegion/fvSolution");
+    let t = match std::fs::read_to_string(&f) {
+        Ok(t) => t,
+        Err(e) => panic!("{}: {e}", f.display()),
+    };
+    let nl = match t.find("\".*\"").and_then(|i| t[i..].find('}').map(|c| i + c)).and_then(|c| t[c..].find('\n').map(|l| c + l + 1)) {
+        Some(nl) => nl,
+        None => panic!("{}: no catch-all `\".*\"` entry (the variant edits after it)", f.display()),
+    };
+    let entries: String = names
+        .iter()
+        .map(|n| format!("    {n}\n    {{\n        solver          smoothSolver;\n        smoother        symGaussSeidel;\n        tolerance       1e-14;\n{extra}    }}\n"))
+        .collect();
+    match std::fs::write(&f, format!("{}{}{}", &t[..nl], entries, &t[nl..])) {
+        Ok(()) => {}
+        Err(e) => panic!("{}: {e}", f.display()),
+    }
+}
+
+/// `S` lines of a round 83 solve-log reference: per step (index `step - 1`), the `(field, initial residual, iterations)` of each solve.
+fn r83_solve_log(name: &str) -> Vec<Vec<(String, f64, usize)>> {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/refs").join(format!("{name}.ref.txt.gz"));
+    let bytes = match std::fs::read(&path) {
+        Ok(b) => b,
+        Err(e) => panic!("reference {} missing (git submodule update --init the refs submodule): {e}", path.display()),
+    };
+    let text = match decompress_to_vec(&bytes[10..bytes.len() - 8]) {
+        Ok(v) => match String::from_utf8(v) {
+            Ok(s) => s,
+            Err(e) => panic!("{name}: not utf8: {e}"),
+        },
+        Err(e) => panic!("{name}: not a gzip stream: {e:?}"),
+    };
+    let mut out: Vec<Vec<(String, f64, usize)>> = Vec::new();
+    for line in text.lines() {
+        let w: Vec<&str> = line.split_whitespace().collect();
+        if w.len() != 5 || w[0] != "S" {
+            continue;
+        }
+        let step: usize = match w[1].parse() {
+            Ok(s) => s,
+            Err(e) => panic!("{name}: step {}: {e}", w[1]),
+        };
+        let ini: f64 = match w[3].parse() {
+            Ok(v) => v,
+            Err(e) => panic!("{name}: residual {}: {e}", w[3]),
+        };
+        let it: usize = match w[4].parse() {
+            Ok(v) => v,
+            Err(e) => panic!("{name}: iterations {}: {e}", w[4]),
+        };
+        while out.len() < step {
+            out.push(Vec::new());
+        }
+        out[step - 1].push((w[2].to_string(), ini, it));
+    }
+    out
+}
+
+/// Worst `h` iteration difference over the solves whose upstream initial residual is above 1e-10, and how many there were (a step whose
+/// solve count differs is reported and counts as a difference of `usize::MAX`).
+fn r83_count_check(port: &[Vec<(f64, usize)>], up: &[Vec<(String, f64, usize)>]) -> (usize, usize) {
+    let (mut worst, mut n) = (0usize, 0usize);
+    for (k, p) in port.iter().enumerate() {
+        let u: Vec<&(String, f64, usize)> = match up.get(k) {
+            Some(v) => v.iter().collect(),
+            None => Vec::new(),
+        };
+        if u.len() != p.len() {
+            eprintln!("step {}: port {} h solves, upstream {}", k + 1, p.len(), u.len());
+            worst = usize::MAX;
+            continue;
+        }
+        for (a, b) in p.iter().zip(u) {
+            if b.1 > 1e-10 {
+                n += 1;
+                worst = worst.max(a.1.abs_diff(b.2));
+                if a.1.abs_diff(b.2) > 2 {
+                    eprintln!("  step {}: h iterations port {} (initial {:.3e}), upstream {} (initial {:.3e})", k + 1, a.1, a.0, b.2, b.1);
+                }
+            }
+        }
+    }
+    (worst, n)
+}
+
+/// One round 83 channel variant: rows, the `p_rgh` solve tally and the per-step `h` solves of the port.
+fn r83_run(k: usize, modify: fn(OnePhaseFcSolver) -> OnePhaseFcSolver) -> (Rows, SolveTally, Vec<Vec<(f64, usize)>>) {
+    static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let r = load_reference(&format!("r83_c{k}"));
+    let tag = format!("r83c{k}_{}", COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst));
+    let dir = protocol_copy_impl("genfoam_1d_onephase", &tag, true, false);
+    // c6 (addendum A): `h` only, `relTol 0.1`; `hFinal` resolves to the catch-all
+    if k == 6 {
+        r83_after_catch_all(&dir, &["h"], r83_extra(1));
+    } else {
+        r83_after_catch_all(&dir, &["h", "hFinal"], r83_extra(k));
+    }
+    let mut s = match OnePhaseFcSolver::from_case_dir(&dir) {
+        Ok(s) => modify(s),
+        Err(e) => panic!("read c{k}: {e}"),
+    };
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(s.controls.h_pbicgstab.is_none(), "the explicit `h` entry wins over the catch-all");
+    let (mut rows, mut tally, mut h) = (Vec::new(), SolveTally::default(), Vec::new());
+    for n in 1..=r.n_steps {
+        let dt_used = s.dt;
+        let dt_up = if n == 1 { 1e-3 } else { r.dt[n - 2] };
+        tally.worst_dt_rel = tally.worst_dt_rel.max((dt_used - dt_up).abs() / dt_up);
+        match s.step() {
+            Ok(_) => {}
+            Err(e) => panic!("c{k} step {n}: {e}"),
+        }
+        if let Some(up) = r.solves.get(n - 1) {
+            if !tally_solves(&mut tally, n, &s.last_step_solves, up) {
+                tally.steps_count_mismatch += 1;
+            }
+        }
+        h.push(s.last_step_h_solves.clone());
+        let w = compare(&s, &r, n, dt_used);
+        if !w.is_empty() {
+            rows.push((n, w));
+        }
+    }
+    (rows, tally, h)
+}
+
+/// Round 38's channel gate (A-C1): every field `<= 1e-11`, `contErr`/`dgdt` `<= 1e-9`; returns the worst `T`.
+fn r83_channel_gate(name: &str, rows: &Rows, tally: &SolveTally) -> f64 {
+    let mut worst_t = 0.0_f64;
+    let mut worst_other = 0.0_f64;
+    for (n, w) in rows {
+        for (k, v) in w {
+            if *k == "T" {
+                worst_t = worst_t.max(*v);
+            }
+            if !matches!(*k, "contErr" | "dgdt") {
+                worst_other = worst_other.max(*v);
+            }
+            assert!(*v <= 1e-9 || !matches!(*k, "contErr" | "dgdt"), "{name} step {n}: {k} {v:.3e}");
+            assert!(*v <= 1e-11 || matches!(*k, "contErr" | "dgdt"), "{name} step {n}: {k} {v:.3e} above the 1e-11 gate");
+        }
+    }
+    assert!(tally.worst_dt_rel <= 1e-12, "{name}: dt {:e}", tally.worst_dt_rel);
+    assert_eq!(tally.steps_count_mismatch, 0, "{name}: p_rgh solve counts per step");
+    println!("{name}: worst field (not contErr/dgdt) {worst_other:.2e}, T {worst_t:.2e}, dt {:.2e}", tally.worst_dt_rel);
+    worst_t
+}
+
+/// # gh:#1957 (round 83, A1/A4/A7): `smoothSolver` controls for the `h` of `one_phase_fc` (the faceCentered channel, 108 steps)
+///
+/// Methodology: README "Round 83", Part A; the six variants `c0`-`c5` against the real binary; criteria A-C1 (round 38's channel gate),
+/// A-C4 (`h` iteration counts equal in every solve above 1e-10 for `c1`, `c3`, `c4`, `c5`; `c0`, `c2` reported), A-C5 (the round 46
+/// form on `c1` misses `T` by more than 1e-10 and 10x the default).
+///
+/// Results (2026-11-28, 108 steps each): every field of every variant `<= 1.7e-13` (`T` `<= 1.6e-15`), `dt` bit-identical, `p_rgh`
+/// solve counts equal: A-C1 met. `h` counts EQUAL in all 534 solves above 1e-10 of `c1`, `c3`, `c4`; `c5` (`nSweeps -2`) logs residual 0
+/// in both. `c0`/`c2` (reported): one floor solve stagnates to `maxIter` in one code (worst difference 998). Ablation on `c1`: `T` 5.4e-12
+/// (3900x the default, but A-C5's 1e-10 MISSED; post-run pin below). `c6` (addendum A: `h` only, `hFinal` -> the catch-all): fields
+/// `<= 1.3e-13`, counts EQUAL in all 534 solves; without the `hFinal` selection (control) the counts differ.
+#[test]
+fn r83_fc_h_smooth_solver_controls_match_the_real_binary() {
+    let mut t1 = 0.0;
+    for k in 0..7 {
+        let (rows, tally, h) = r83_run(k, |s| s.with_upstream_stale_pimple_converged_flag());
+        let wt = r83_channel_gate(&format!("c{k}"), &rows, &tally);
+        if k == 1 {
+            t1 = wt;
+        }
+        let (worst, n) = r83_count_check(&h, &r83_solve_log(&format!("r83_c{k}_log")));
+        println!("c{k}: h solves above 1e-10: {n}, worst iteration difference {worst}");
+        if matches!(k, 1 | 3 | 4 | 5 | 6) {
+            assert_eq!(worst, 0, "c{k}: h iteration counts (A-C4)");
+        }
+    }
+    // CONTROL (addendum A): `c6` with the `h` entry also in the final outer iteration (the form before round 83)
+    let (_rows, _t, h) = r83_run(6, |s| {
+        let mut s = s.with_upstream_stale_pimple_converged_flag();
+        s.controls.h_pbicgstab_final = s.controls.h_pbicgstab;
+        s.controls.h_smooth_final = s.controls.h_smooth;
+        s
+    });
+    let (worst, _) = r83_count_check(&h, &r83_solve_log("r83_c6_log"));
+    println!("c6 CONTROL (no hFinal selection): worst h iteration difference {worst}");
+    assert!(worst > 0, "the hFinal selection must be visible in the counts");
+    let (rows, _t, _h) = r83_run(1, |s| s.with_upstream_stale_pimple_converged_flag().with_round46_h_smoother());
+    let abl = rows.iter().flat_map(|(_, w)| w.iter()).filter(|(k, _)| *k == "T").map(|(_, v)| *v).fold(0.0_f64, f64::max);
+    println!("c1 ABLATION (round 46 form): T {abl:.2e} (default {t1:.2e})");
+    // A-C5 as committed (`> 1e-10`) MISSED at the first run (5.4e-12: the channel's `T` hardly moves, so `relTol 0.1` changes it by
+    // little); asserted at a POST-RUN pin (`> 1e-13` and `> 10x` the default, 1.4e-15), named as such in README "Round 83 results"
+    assert!(abl > 1e-13 && abl > 10.0 * t1, "relTol must matter (post-run pin; A-C5's 1e-10 missed at 5.4e-12): {abl:e}");
+}
