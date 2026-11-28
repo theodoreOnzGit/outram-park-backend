@@ -498,9 +498,12 @@ fn a_case_that_solves_fluid_mechanics_is_refused_by_name() {
     std::fs::write(&p, text.replace("solveFluidMechanics false", "solveFluidMechanics true")).expect("write");
     let err = OnePhaseCcSolver::from_case_dir(&st.fluid_root, &st.poly).expect_err("must refuse").to_string();
     // ~~round 19 (gh:#1837) ported the turbulence-off flow: this case (turbulence true) is refused for THAT~~
-    // **CORRECTED 2026-11-26 (round 20, gh:#1838/#1839):** `turbulence true` is ported, so the reader now gets as far as the
-    // shipped `p_rgh` solver (`GAMG`, not ported: the references of rounds 18-20 replace it by `PCG`/`DIC`)
-    assert!(err.contains("solvers.p_rgh: only PCG with the DIC preconditioner is ported"), "{err}");
+    // ~~**CORRECTED 2026-11-26 (round 20, gh:#1838/#1839):** `turbulence true` is ported, so the reader now gets as far as the
+    // shipped `p_rgh` solver (`GAMG`, not ported: the references of rounds 18-20 replace it by `PCG`/`DIC`)~~
+    // **CORRECTED 2026-11-28 (round 76, gh:#1947):** GAMG is ported and `GamgPolicy::Native` is the default, so the shipped
+    // `p_rgh` solver is accepted. The reader now stops at the next real requirement: a case that solves the flow needs the
+    // `p_rgh` field, which this frozen-flow staged case does not carry at its start time 165. Nothing is refused any more.
+    assert!(err.contains("165/fluidRegion/p_rgh") && err.contains("No such file"), "{err}");
 }
 
 
