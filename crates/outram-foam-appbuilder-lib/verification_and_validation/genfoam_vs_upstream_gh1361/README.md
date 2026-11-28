@@ -9847,3 +9847,71 @@ The shared-code changes: the coupled Laplacian (only on a cyclic mesh), the lump
 
 - gh:#1964: the three wrong written files of a `onePhase` `100` (`Re` outside the structures, `alpha.passiveStructure`, `heatFlux.structure` of a `fixedTemperature` structure) and `alphaRhoMagU` under `faceCentered`;
 - gh:#1963 (PETIR `pow` against the platform `pow`) is now the located cause of BOTH 1D_MSR first differences (standalone and transient).
+
+
+# Round 82 (gh:#1964, gh:#1956 under #1216): the four wrong or missing files of a port-written `onePhase` time directory; GAMG for the neutronics flux in multi-region `RegionSolvers` runs (one process-wide `pairGAMGAgglomeration::forward_`, re-agglomeration after `movePoints`)
+
+> Research, education and V&V only. AI draft, unreviewed. Predictions and criteria below were written and committed BEFORE any port run against a real-binary number of this round. The real binary was started first on the new runs (allowed, as in round 81); none of its numbers had been read when this was written (only exit status and step counts).
+
+## Part A (gh:#1964): read before any port code (GeN-Foam 652b3da)
+
+* **`Re`**: `FSPair::correct` (`FSPair.C:337-345`) uses `structure_.Dh()`, whose constructor value is `SMALL` (`structure.C:74-84`, `dimensionedScalar("", dimLength, SMALL)`, 1e-15); only the cells of a `structureProperties` zone get the zone's `Dh` (`:300-317`). Outside every structure `Re = max(normalized |U| SMALL / nu, minRe) = minRe`. The port fills `Dh = 1` outside the structures (`one_phase_cc.rs`, `let mut dh = vec![1.0; n]`): the defect. Every other use of `Dh` outside a structure is multiplied by a coefficient that is 0 there (`porousKEpsilon.C:555-583`: `turbulenceIntensityCoeff_`, `turbulenceIntensityExp_`, `turbulenceLengthScaleCoeff_` default 0 outside the zones; the `max(.., SMALL)` length is `SMALL` either way) or is evaluated only in structure cells (drag, `htc`).
+* **`alpha.passiveStructure`**: `alphapas_` is `READ_IF_PRESENT`, constructed as a copy of `*this` (`structure.C:138-148`) BEFORE the constructor body sets the zone fractions, i.e. `alpha.structure` as read from the start directory, else 0 (`phaseBase.C`: `dimensionedScalar("alpha", dimless, 0)`); in a zone with `passiveProperties` it is that dictionary's `volumeFraction` if present, else (only when `alpha.structure` was NOT read, `!alphaHeaderOk`) the zone's `volumeFraction` (`:430-460`). 1D_MSR has no `passiveProperties` and no `alpha.structure` at `t = 0`: 0 everywhere (`uniform 0`). 2D_fullCoupling has `passiveProperties` without `volumeFraction` on `zone0`: the zone fraction there (what the port writes today, its 84-file gate). `alphaRhoCppas_ = max(alphapas_ * rhoCp, 1e-69)` (`:741-748`).
+* **`heatFlux.structure`**: `structure::correct(Hs*T.prevIter(), Hs)` (`EEqn_1p.H:100-104`) ends with `heatFlux_[c] = H[c]*Twall - HT[c]`, `Twall = Tact_[c]`, over `cells_`: EVERY cell of every structure zone (`structure.C:1057-1071`), after every power model's `correctT(Tact_)` (`fixedTemperature::correctT` = `temperatureUpdate`, then `Tact = T_`). The port sets it only on the radial models' cells (and returns early without a radial model). `heatFlux_` is `READ_IF_PRESENT`.
+* **`alphaRhoMagU`**: `fluid::correctAlphaRhoMagU()` = `alpha*rho()*magU_` (`fluid.C:753-756`) runs inside `reconstructU_1p.H:21`, in the final non-orthogonal pass of each corrector, BEFORE `fluid_.magU() = mag(U)` (`pEqnf_1p.H:79-83`; `pEqn_1p.H:68-84` for `cellCenteredFaceReconstruction`): it takes the `magU_` of the PREVIOUS corrector (cells, and the `calculated` boundary `|U_b|`). The port tracks `magU_` of the cells only and refuses the file by name (`writes_alpha_rho_mag_u`).
+* Searched: `update_re`, `structure_correct`, `PassiveStructure`, `FlowState::mag_u`, `written.rs` (all reused; the new code is the state they lack).
+
+## Part A protocol and criteria (fixed now)
+
+* The chain test `gh1961_allrun_chain_against_the_real_binary` (round 81): the port-written `100` against the real Allrun `100` (6-digit text), byte for byte, all 24 fluid files.
+* NEW instrument, 17 digits: round 80's real run `run_msr1d_fluid_r80.sh <d> tight pcg first 60`, unchanged, extracted with `MSR_FIELDS="Re heatFlux.structure alphaRhoMagU dgdt alpha.passiveStructure"` (`refs/msr1d_r82_first_tight_pcg_written*`; a uniform field is absent from the extract): the fields at each of the first 60 steps against the port's standalone `onePhase` run of round 80, whose `U`, `p`, `T`, `k`, `epsilon` are bit-identical through step 5 (round 80).
+* **A-C1** `Re`, `heatFlux.structure`, `alpha.passiveStructure` byte-identical in the chain; **A-C2** `alphaRhoMagU` written and byte-identical; **A-C3** at 17 digits: the fields bit-identical at every step where round 80's fields are (steps 1-5) and `<= 1e-9` of their max-norm over 60 steps; **A-C4** the chained transient still equals round 80's run from the real `100` at all 30 written times; **A-C5** no earlier pin moves (the 84-file `2D_fullCoupling` writer gates included).
+
+## Part A predictions
+
+| id | claim | P |
+|---|---|---|
+| A1 | `Re` byte-identical in the chain after `Dh = SMALL` outside the structures | 85 % |
+| A2 | `alpha.passiveStructure` byte-identical (`uniform 0`) | 85 % |
+| A3 | `heatFlux.structure` byte-identical | 65 % (the `T.prevIter()` the port holds at the end of `EEqn` must be upstream's) |
+| A4 | `alphaRhoMagU` written and byte-identical | 55 % |
+| A5 | `dgdt` and `p_rgh` STILL differ in the chain (round-off of near-zero values; the 8340-step state is not bit-identical, gh:#1963) | 85 % |
+| A6 | at 17 digits, `dgdt` bit-identical at steps 1-5 of the standalone tight run | 55 % |
+| A7 | at 17 digits, `Re`, `heatFlux.structure`, `alphaRhoMagU` bit-identical at steps 1-5 | 60 % |
+| A8 | A-C4 holds | 90 % |
+| A9 | A-C5 holds | 80 % |
+
+## Part B (gh:#1956): read before any port code (OpenFOAM-ESI v2506, GeN-Foam 652b3da)
+
+* `GAMGAgglomeration::New(mesh, dict)` (`GAMGAgglomeration.C:313-338`): the mesh registry object, built at the FIRST `GAMG` solve on that mesh; if `requireUpdate_` is set it is checked out and rebuilt. `GAMGAgglomeration` is a `MeshObject<lduMesh, MoveableMeshObject, ..>` (`GAMGAgglomeration.H:90`); `fvMesh::movePoints` calls `meshObject::movePoints<lduMesh>` (`fvMesh.C:952-953`) -> `GAMGAgglomeration::movePoints()` sets `requireUpdate_` when `requiresUpdate()` (`updateInterval 1`: always; `:520-539`).
+* `movePoints` is called by `deformMesh()` of every region listed in `meshDeformation` (`neutronics.C:360-408`, `thermalHydraulicsModel.C:385-420`, `thermoMechanics.C:355-390`); `GeN-Foam.C:193-197` runs `deformMesh(); correctPhysics();` per region in `regionSolvers` order each step; `multiPhysicsSolver` deforms every member first and again in each pass (round 75).
+* `pairGAMGAgglomeration::forward_` (`pairGAMGAgglomeration.C:36`): ONE static of the process, toggled at every level attempted (`pairGAMGAgglomerate.C:333`). In a coupled run the start value of each build is set by the level counts of every earlier build, in solve order.
+* The only shipped multi-region case with a neutronics `GAMG` block is `3D_SmallESFR` (`NewSolverVerification/legacySolver`, `_old`), commented out; its fluid `p_rgh` and thermo-mechanics `TStruct` already run `GAMG`, and its neutronics mesh moves every step (`meshDeformation neutroRegion disp`). 2D_fullCoupling has one `GAMG` region (`TStruct`), 1D_MSR and the MSFR coupled stages one (`p_rgh`): their forward state cannot change.
+* Searched: `GamgSolveState` (fluid, two-phase, TM: one each, own `forward = true`), `gamg_solve_on_mesh` (neutronics, built per solve from `true`), `pair_agglomerate` (takes `&mut forward`), `RegionSolvers::{step, correct_multi_physics, deform_mesh}`, the refusal in `neutronics_diffusion_settings`. Reused; the new code is the shared state and its hand-over.
+
+## Part B protocol
+
+* Variant (ONE edit, `scripts/make_esfr_neutro_gamg_variant_r82.py`, `NEUTRO_GAMG=1` in `make_esfr_coupled_case.sh`): the shipped `legacySolver` with the neutronics `flux.*` PCG lines commented and the shipped GAMG block uncommented; 20 steps; TIGHT (`TIGHT=1`: every tolerance 1e-14, `relTol 0`) and AS SHIPPED (`TIGHT=0`). Real: `GeN-Foam` serial (`libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH`), `extract_esfr_coupled_stream.py` (now also `FLUX k n field ini it`), refs `esfr_r82_gtight_*`, `esfr_r82_gloose_*`. Port: `RegionSolvers` on a copy of the same directory.
+* Controls (each named): `without_shared_gamg_forward` (every agglomeration starts at `forward_ = true`: the form before this round) and `without_gamg_reagglomeration_after_mesh_motion` (the neutronics build keeps the `forward_` start of its first build: no `requireUpdate_` toggling).
+* Re-run of the existing GAMG comparisons in coupled runs: round 74 ESFR (fluid + TM GAMG, PCG neutronics), 2D_fullCoupling, 1D_MSR / MSFR coupled targets.
+
+## Part B criteria (fixed now)
+
+* **B-C1 tight**: per step `keff`, `power` `<= 1e-11` relative; fingerprints and full fields at the kept steps `<= 1e-9`; flux solve counts equal; iteration counts reported.
+* **B-C2 as shipped**: per step `keff`, `power` `<= 1e-9` over the 20 steps; FLUX, `p_rgh`, TM iteration counts equal (reported per step where not).
+* **B-C3 controls**: each control differs from the real as-shipped run by more than the default in at least one of `keff`, `power`, an iteration count, OR is shown inert by the level parities (then it does not test the piece, and that is recorded).
+* **B-C4**: earlier GAMG comparisons in coupled runs do not move except through the shared state; any moved number listed old -> new and judged against the real binary.
+
+## Part B predictions
+
+| id | claim | P |
+|---|---|---|
+| B1 | the real tight and as-shipped variant runs complete 20 steps | 90 % |
+| B2 | tight: B-C1 met | 70 % |
+| B3 | as shipped: `keff`/`power` `<= 1e-9` at every step | 55 % |
+| B4 | as shipped: every FLUX iteration count equal | 50 % |
+| B5 | at least one level count in the ESFR build sequence is odd, so `forward_` changes some build (fluid -> neutro -> TM, or the per-step neutronics rebuild) | 70 % |
+| B6 | `without_shared_gamg_forward` differs from the real as-shipped run more than the default (given B5) | 65 % |
+| B7 | `without_gamg_reagglomeration_after_mesh_motion` differs from the real as-shipped run more than the default | 50 % |
+| B8 | the round 74 ESFR numbers (PCG neutronics) do not move: the fluid builds first at `true` as before, TM's start becomes the parity of the fluid's level count; only if that is odd do TM numbers move | 55 % (no movement) |
+| B9 | 2D_fullCoupling, 1D_MSR, MSFR coupled: nothing moves (one GAMG region each) | 95 % |

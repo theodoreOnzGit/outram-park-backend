@@ -70,6 +70,9 @@ def main():
             tm = [(f, a, c) for (f, a, b, c) in solve if f in ('TStruct', 'dispx', 'dispz', 'dispy', 'fuelDisp', 'CRDisp')]
             out.write(f'PRGH {k} {len(pr)} ' + ' '.join(f'{a} {c}' for a, c in pr) + '\n')
             out.write(f'H {k} {len(hh)} ' + ' '.join(f'{a} {c}' for a, c in hh) + '\n')
+            # round 82 (gh:#1956): the neutronics flux solves (`flux*`), `FLUX k n field ini it ...`
+            fx = [(f, a, c) for (f, a, b, c) in solve if f.startswith('flux')]
+            out.write(f'FLUX {k} {len(fx)} ' + ' '.join(f'{f} {a} {c}' for f, a, c in fx) + '\n')
             out.write(f'TM {k} {len(tm)} ' + ' '.join(f'{f} {a} {c}' for f, a, c in tm) + '\n')
             if k - 1 < len(dtnext):
                 out.write(f'DT {k} {dtnext[k - 1]}\n')
