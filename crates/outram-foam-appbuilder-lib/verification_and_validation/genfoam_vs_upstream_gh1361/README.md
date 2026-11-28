@@ -10005,3 +10005,68 @@ The fluid builds first and starts at `true` as before. On the round 74 ESFR case
 ### Reproduction
 
 Part A: `bash scripts/run_msr1d_fluid_r80.sh <d>/full_tight_pcg tight pcg full`, then `... <d>/first_tight_pcg tight pcg first 60`, `MSR_FIELDS="Re heatFlux.structure alphaRhoMagU dgdt alpha.passiveStructure" bash scripts/extract_msr1d_fluid_r80.sh <d>/first_tight_pcg <prefix>`; `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msr1d_fluid_vs_upstream r82 -- --nocapture`; `--test genfoam_msr1d_coupled_vs_upstream gh1961`. Part B: `NEUTRO_GAMG=1 TIGHT=1|0 END=20 INFLATE=1 bash scripts/make_esfr_coupled_case.sh <c>`; the real run with `libThermoMechanicsSolvers.so` (`/home/user/upstream-build/gh1781/lib`) on `LD_LIBRARY_PATH` and `python3 -I scripts/extract_esfr_coupled_stream.py <c> <prefix> 20 1,2,3,5,10,20`; port: `ESFR_COUPLED_CASE=<copy of c> ESFR_STEPS=20 ESFR_REF=r82_gtight|r82_gloose [ESFR_CONTROL=shared_off|reagg_off] cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_coupled_vs_upstream esfr_coupled_steps -- --nocapture`.
+
+
+
+# Round 83 (gh:#1957, gh:#1967 under #1216): `smoothSolver` `relTol`/`nSweeps`/`maxIter` for `k`/`epsilon` (twoPhase), the `h` of `one_phase_fc` and the twoPhase `h`; the twoPhase `heatFlux.structure`, `Dh` outside the structures and `alpha.passiveStructure`
+
+> Research, education and V&V only. AI draft, unreviewed. Predictions and criteria below were written and committed BEFORE any port run against a real-binary number of this round. The real binary was run first on the new variants (allowed, as in rounds 81-82); none of its numbers had been read when this was written (only exit status and step counts: `c*` 108 steps, `b*`/`q*` 60, `k*` 24).
+
+## Part A (gh:#1957): read before any port code
+
+* Upstream: round 79's reading (`smoothSolver.C:73-209`, `SolverPerformance.C:63-88`, `symGaussSeidelSmoother.C:74-199`), unchanged.
+* **Which `turbulence.rs`:** the issue's refusals (`relTol != 0`, `nSweeps != 1`) are in `two_phase/turbulence.rs` (`porousKEpsilon2PhaseCorrected` of the twoPhase solver). The onePhase `porousKEpsilon` (`one_phase_cc/turbulence.rs`) accepts only `PBiCGStab`/`diagonal` and `PBiCG`/`DILU` for `k`/`epsilon` and refuses `smoothSolver` by name: not in this round (filed).
+* The twoPhase `k`/`epsilon` solve was `one_phase::smooth_solve_sym_gauss_seidel` (round 16): `nSweeps 1`, residual `b - A x` after a multiply (an ulp from upstream's `lduMatrix::residual`, round 46), `minIter` as a second call only when the first did nothing. The twoPhase `h` selects `PBiCGStab` when `h.<fluid>` resolves to it (every shipped case: the catch-all `".*"` wins) and otherwise runs the same round 16 sweeps with the first fluid's tolerance, whatever the entry says. `one_phase_fc` runs the round 46 form there (`nSweeps 1`, no `relTol`, `maxIter 1000`).
+* **Searched:** `genfoam/common/smooth_solver.rs` (round 79, reused unchanged), `HSolver::SmoothSolver` (cc only), `scripts/make_round79_variants.sh` (the edit pattern reused in `scripts/make_round83_variant.py`), `lookup_pattern_last` (reused).
+* Port (new code): `SmoothSolve::{rel_tol, n_sweeps}` read from the entry (refusals removed) and solved by `smooth_solver_sym_gauss_seidel`; `TwoPhaseControls::h_smooth[fluid]` (per fluid, `h.<fluid>` resolved on its own; a per-fluid `PBiCGStab` mix refused by name); `OnePhaseFcControls::h_smooth`. Named ablations: `PorousKEpsilon2PhaseCorrected::with_round16_smoother` / `TwoPhaseSolver::with_round16_k_epsilon_smoother`, `TwoPhaseSolver::with_round16_h_smoother`, `OnePhaseFcSolver::with_round46_h_smoother`. Solve logs for the counts: `PorousKEpsilon2PhaseCorrected::solve_log`, `TwoPhaseSolver::h_solve_log`, `OnePhaseFcSolver::last_step_h_solves`.
+
+## Part A protocol (variants: `scripts/make_round83_variant.py`, real runs `scripts/run_round83_variants.sh`, refs `refs/r83_<v>{,_log}`)
+
+* `c0`-`c5`: `tests/data/genfoam_1d_onephase` (the faceCentered channel) with round 38's `fc_channel_pcg` protocol (`fc_protocol.sh TIGHT=1 PSOLVER=pcg`, 108 steps), plus explicit `h`/`hFinal` `smoothSolver` entries after the catch-all (tolerance 1e-14) carrying round 79's `s0`-`s5` keys (`relTol 0` | `relTol 0.1` | `nSweeps 2` | `maxIter 2` | `relTol 0.05`, `nSweeps 3`, `maxIter 7` | `nSweeps -2`).
+* `b0`-`b5`: `tests/data/genfoam_1d_boiling` with round 7's protocol (`boiling_mules_protocol.sh EVERY_STEP=1 TIGHT=1`, MULES as shipped, 60 steps, single phase), plus explicit `h.liquid`/`h.vapour` entries with the same keys.
+* `k0`-`k5`: `tests/data/genfoam_psbt2_ex1_gh1802` (PhaseII_Ex1, RAS `porousKEpsilon2PhaseCorrected` on both fluids) with round 16's protocol (`psbt2_pcg_protocol.sh`, 24 steps); `k0` = the protocol case (shipped `"(k|epsilon|Theta).*"`: `smoothSolver`, `minIter 1`), `k1`-`k5` = its `relTol 0;` replaced by the same keys.
+
+## Part A criteria (fixed now)
+
+* **A-C1 (c):** round 38's channel gate at every one of the 108 steps (every field `<= 1e-11`, `contErr`/`dgdt` `<= 1e-9`, `dt` `<= 1e-12`, `p_rgh` solve counts per step equal).
+* **A-C2 (b):** round 7's M1/M2 gate over the 60 steps (steps 1-2 every field `<= 1e-10`; 3-60 `alpha.vapour`, `dmdt`, `alphaPhi.vapour` exactly 0, `T.interface` `<= 2e-9`, `T.vapour` `<= 1e-9`, the rest `<= 1e-10`; `dt` `<= 1e-12`, MULES sub-cycles equal).
+* **A-C3 (k):** every field within round 17's PhaseII_Ex1 limits (`phase_ii_ex1_turbulence_agrees_with_upstream_at_the_flow_baseline_and_the_ablation_misses`: `p` 2.5e-9, `U.liquid` 1e-6, `k.liquid` 1.1e-6, `k.vapour` 6e-2, ...) over the 24 steps; `dt` `<= 1e-12`.
+* **A-C4 (counts):** the `h` (c, b) and liquid `k`/`epsilon` (k) iteration counts EQUAL the real log's in every solve whose upstream initial residual is above 1e-10, for the variants whose stop is set by the controls (`*1`, `*3`, `*4`, `*5`); `*0`, `*2` reported (they stop at the 1e-14 floor, round 79 addendum B).
+* **A-C5 (ablations):** on `c1`, `b1`, `k1` (`relTol 0.1`) the earlier form (round 46 / round 16) misses the real `T` (c, b) or `k.liquid` (k) by more than 1e-10 and by more than 10x the default.
+* **A-C6:** no earlier pin moves except where the twoPhase `k`/`epsilon` smoother itself changes the PSBT numbers (the only default that changes on a shipped case); any moved number listed old -> new.
+
+## Part A predictions
+
+| id | claim | P |
+|---|---|---|
+| A1 | `c0`-`c5` meet A-C1 | 75 % |
+| A2 | `b0`-`b5` meet A-C2 | 65 % |
+| A3 | `k0`-`k5` meet A-C3 | 60 % |
+| A4 | A-C4 holds for `c1`, `c3`, `c4`, `c5` | 75 % |
+| A5 | A-C4 holds for `b1`, `b3`, `b4`, `b5` (both fluids) | 65 % |
+| A6 | A-C4 holds for the liquid `k`/`epsilon` of `k1`, `k3`, `k4`, `k5` | 50 % |
+| A7 | A-C5 holds for each of `c1`, `b1`, `k1` | 70 % |
+| A8 | the new `k`/`epsilon` smoother on `k0` (the shipped entry) leaves round 17's vapour-turbulence remainder (`k.vapour` up to 5e-2) above 1e-6 (i.e. that remainder is NOT the smoother's residual arithmetic) | 80 % |
+| A9 | the existing PSBT gates (Ex1, Ex2, Ex3, CHF, PSBT shipped) pass at their pins with the new `k`/`epsilon` smoother | 75 % |
+
+## Part B (gh:#1967): read before any port code (GeN-Foam 652b3da)
+
+* `structure.C:74-84`: `Dh_` constructed `SMALL`; `:300-317` the zone `Dh` on the zone cells only. The twoPhase reader filled `Dh = 1` outside the zones (`case.rs`, `vec![1.0; n]`): the round 82 form. Where `structure_.Dh()` enters twoPhase physics outside a zone: `FSPair::correct` `Re = max(normalized |U| Dh/nu, minRe)` (`FSPair.C:337-345`, written `Re.<fluid>.structure`), `fluidDiameterModel::correctField` (`Dh_fluid = Dhs` where the dispersion is 0, so the FF pair's dispersed/continuous diameters), the FS drag `0.5/Dh` (only where a drag model is set). The shipped twoPhase cases the port runs (1D_boiling, PSBT, CHF, 2D_voidMotionNoPhaseChange) have every cell in a `structureProperties` zone (cellZones counted), so no shipped number can move; `2D_KNS37-L22` (cellZone `pipe`, 70 cells, no structure) is not run by the port.
+* `structure.C:1057-1071`: `heatFlux_ = H Twall - HT`, `Twall = Tact`, over `cells_` (every zone), at the end of `structure::correct(H1s T1 + H2s T2, H1s + H2s)` (`EEqns_2p.H:331`). The port set it only on the radial models' cells (`radial_structure_correct`): the `fixedPower` cells of the shipped 1D_boiling kept 0. Written only: `Shah`/`Gorenflo` `useExplicitHeatFlux true` (the only readers, `ShahFSHeatTransferCoefficient.C:95`) are refused by name.
+* `structure.C:138-148`, `:430-460`: `alphapas_` = `alpha.structure` as constructed (read from the start directory, else 0), then the passive zones' `volumeFraction`. The twoPhase reader refuses `passiveProperties` (only `volumeFraction`/`Dh`/`powerModel` keys) and IGNORED a start-directory `alpha.structure` (upstream then uses it INSTEAD of the zone fractions, `alphaHeaderOk`); no shipped twoPhase case has one. So `alpha.passiveStructure` is 0 everywhere in every case the port accepts; it is written-only and the port has no twoPhase writer. Port: `Structure::alpha_passive` (0), and a start-directory `alpha.structure` refused by name.
+* Port (new code): `dh = SMALL` outside the zones; `Structure::cells` (`with_cells`, dictionary order); `TwoPhaseSolver::update_structure_heat_flux` over the non-radial structure cells (the radial ones keep their round 41 value, the same expression).
+
+## Part B protocol, criteria, predictions
+
+* `q0`: 1D_boiling, round 7 protocol, 60 steps, extracting also `Re.liquid.structure`, `Re.vapour.structure`, `alpha.passiveStructure`. `q1`: `q0` with the `"low:top"` `structureProperties` entry removed and the `liquid.structure` drag zone `"low:mid:top"` -> `"mid"` (named pair; without the second edit the structure-free cells' drag would be `0.5/SMALL`).
+* **B-C1:** `heatFlux.structure` on all 40 cells `<= 1e-9` relative (round 41's bound) at every step of `q0` and `q1`; **B-C2:** `Re.liquid.structure`, `Re.vapour.structure` `<= 1e-10` on all 40 cells; **B-C3:** `alpha.passiveStructure` 0 in both; **B-C4:** `q1` flow fields within A-C2; **B-C5 (ablations):** the radial-only heat flux misses `q0` by O(1); `Dh = 1` outside the zones misses `q1`'s `Re.liquid.structure` by O(1), and its effect on the flow fields is reported.
+
+| id | claim | P |
+|---|---|---|
+| B1 | B-C1 on `q0` and `q1` | 75 % |
+| B2 | B-C2 on `q0` and `q1` | 75 % |
+| B3 | B-C3 | 90 % |
+| B4 | B-C4 (`q1` runs, the port reads it and its flow matches) | 55 % |
+| B5 | upstream's `Re.liquid.structure` in `q1`'s `low`/`top` cells is exactly `minRe` = 10 | 80 % |
+| B6 | the `Dh = 1` ablation moves `q1`'s flow fields by more than 1e-12 within 60 steps (single phase: `Dh` enters through the FF diameters only) | 35 % |
+| B7 | no earlier twoPhase pin moves (every shipped case has every cell in a zone; the heat flux is written only) | 90 % |
