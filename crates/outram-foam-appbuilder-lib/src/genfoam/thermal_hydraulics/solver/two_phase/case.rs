@@ -913,7 +913,7 @@ impl TwoPhaseCase {
                     // built after the loop by `read_radial_power_models`, which needs every zone's structure alpha (gh:#1884)
                     continue;
                 }
-                if let Some(t) = ty.as_deref().filter(|t| matches!(*t, "nuclearFuelPinTest" | "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU")) {
+                if let Some(t) = ty.as_deref().filter(|t| matches!(*t, "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU")) {
                     return Err(ctx.e(super::radial_power::refusal_reason(t)));
                 }
                 if ty.as_deref() != Some("fixedPower") {
@@ -1347,6 +1347,23 @@ impl TwoPhaseCase {
             }
             _ => None,
         };
+        // gh:#1936 (README round 72): `GAMG` for `p_rgh` runs upstream's own solver; `p_rghFinal` is not selected separately here, so a
+        // differing `GAMG` Final entry is refused by name (every shipped twoPhase case has the same options in both)
+        let p_rgh_gamg = match lookup_pattern_last(solvers, "p_rgh") {
+            Some(FoamEntry::SubDict(d)) if word(d, "solver").as_deref() == Some("GAMG") => {
+                let c = super::gamg_solve::read_gamg_controls("p_rgh", d, None).map_err(|e| ctx.e(e))?;
+                if let Some(FoamEntry::SubDict(f)) = lookup_pattern_last(solvers, "p_rghFinal") {
+                    if word(f, "solver").as_deref() == Some("GAMG") {
+                        let cf = super::gamg_solve::read_gamg_controls("p_rghFinal", f, None).map_err(|e| ctx.e(e))?;
+                        if cf != c {
+                            return Err(ctx.e("solvers.p_rghFinal differs from solvers.p_rgh: the twoPhase solver does not select the Final entry (not ported)"));
+                        }
+                    }
+                }
+                Some(c)
+            }
+            _ => None,
+        };
         let alpha_d = match lookup_regex(solvers, "alpha") {
             Some(FoamEntry::SubDict(d)) => d.clone(),
             _ => return Err(ctx.e("no alpha solver dictionary")),
@@ -1461,6 +1478,7 @@ impl TwoPhaseCase {
             h_min_iter: h_min,
             h_pbicgstab,
             p_rgh_pcg,
+            p_rgh_gamg,
             h_symmetry_constraint: true,
             residual_control_p_rgh: rc_tol("p_rgh"),
             residual_control_h1: rc_tol(&format!("h.{}", names[0])),

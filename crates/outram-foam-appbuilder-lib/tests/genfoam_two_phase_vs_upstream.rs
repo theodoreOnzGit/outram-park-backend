@@ -414,7 +414,10 @@ fn one_d_boiling_default_is_the_corrected_pimple_ending() {
     let case = TwoPhaseCase::read(&dir).expect("read 1D_boiling");
     let _ = std::fs::remove_dir_all(&dir);
     let end = case.end_time;
-    let fresh = TwoPhaseSolver::new(case);
+    // gh:#1936 (round 72): the default `p_rgh` solver is now upstream's own GAMG, whose different ulp draws move the chaotic post-onset
+    // markers pinned below (1363 steps, flags empty). The pins are of the PORT'S EARLIER `p_rgh` path, kept callable by name: the
+    // ILU(0)-BiCGStab ablation `with_krylov_for_p_rgh` (numbers unchanged: 1363 steps).
+    let fresh = TwoPhaseSolver::new(case).with_krylov_for_p_rgh();
     assert!(!fresh.controls.stale_pimple_converged_flag, "the default must be the corrected ending");
     let run = |mut s: TwoPhaseSolver| {
         let (mut skipped, mut would) = (Vec::new(), Vec::new());
@@ -830,4 +833,31 @@ fn one_d_boiling_pimple_flow_tight_matches_upstream_until_the_trajectories_split
 #[ignore]
 fn full_tight_default_ending_diagnostic() {
     full("full_tight_default", "boiling_tight_full", true, 1e-10, false);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// gh:#1936 (README round 72, criterion R-2p): upstream's own GAMG for `p_rgh` (the default since this round) against the round 3 reference
+// (`boiling_tight_steps80`: the real binary with `solver GAMG; smoother DIC;` for `p_rgh` at 1e-14, so the reference's `p_rgh` solver IS
+// upstream's GAMG). 30 steps before the boiling onset; every gated field within 1e-9, `dt` within 1e-12. The ablation
+// `with_krylov_for_p_rgh` (the earlier ILU(0)-BiCGStab) is the control: it must be farther from upstream than the native run.
+// ---------------------------------------------------------------------------------------------------------------------------
+
+fn worst_over(rows: &Rows, lo: usize, hi: usize, field: &str) -> f64 {
+    rows.iter().filter(|(n, _, _)| *n >= lo && *n <= hi).flat_map(|(_, _, w)| w.iter()).filter(|(k, _)| *k == field).fold(0.0_f64, |m, (_, v)| m.max(*v))
+}
+
+#[test]
+fn r72_thirty_boiling_steps_with_upstreams_own_gamg_for_p_rgh() {
+    let native = run_steps_with("r72_native", "boiling_tight_steps80", true, 30, |s| s.with_upstream_stale_pimple_converged_flag());
+    assert!(native.len() == 30);
+    assert_bounds(&native, 1, 30, &|_| 1e-9);
+    let krylov = run_steps_with("r72_krylov", "boiling_tight_steps80", true, 30, |s| s.with_upstream_stale_pimple_converged_flag().with_krylov_for_p_rgh());
+    for f in ["p", "p_rgh", "U.liquid", "T.interface", "T.vapour", "U.vapour"] {
+        let (a, b) = (worst_over(&native, 1, 30, f), worst_over(&krylov, 1, 30, f));
+        eprintln!("R-2p {f}: native GAMG worst {a:.3e}, ILU-BiCGStab ablation worst {b:.3e} (steps 1-30)");
+        assert!(b > a, "the control must be farther from upstream on {f}: native {a:e}, ablation {b:e}");
+    }
+    // the control is clearly farther on the velocity (measured 38x at the time of writing)
+    assert!(worst_over(&krylov, 1, 30, "U.liquid") > 10.0 * worst_over(&native, 1, 30, "U.liquid"));
+    assert!(first_exceeding(&native, 1e-9).is_none());
 }

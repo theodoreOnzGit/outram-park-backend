@@ -40,7 +40,7 @@
 //! `powerDensity.heatedPin`. A `hollow` test (`innerRadius >= 1e-5`) and the interfacial areas are the models' (round 35).
 //!
 //! ## Refused by name
-//! `nuclearFuelPinTest` (gh:#1787), `nuclearFuelFMU`, `fixedPower` here (the two-phase solver owns it) and any other
+//! ~~`nuclearFuelPinTest` (gh:#1787)~~ **CORRECTED 2026-11-27 (gh:#1911, README round 71): ported as `RadialPowerModel::NuclearFuelPinTest`**, `nuclearFuelFMU`, `fixedPower` here (the two-phase solver owns it) and any other
 //! type; a start directory that already holds a model's own written fields (`Trad.<model>`, `Ti/To.heatedPin`,
 //! `Tfi/Tfo/Tci/Tco.nuclearFuelPin`, `T.`/`Tmatrix.`/`Tsurface.lumpedNuclearStructure`, `powerDensity.heatedPin`,
 //! `T.interpolatedNuclearFuelPin`): upstream restarts from them, the port does not read them.
@@ -94,7 +94,8 @@ mod reader {
     use crate::genfoam::thermal_hydraulics::structure::radial_power_model::RadialPowerModel;
 
     /// The radial power-model type names this reader builds.
-    pub const RADIAL_TYPES: [&str; 4] = ["heatedPin", "nuclearFuelPin", "lumpedNuclearStructure", "interpolatedNuclearFuelPin"];
+    pub const RADIAL_TYPES: [&str; 5] =
+        ["heatedPin", "nuclearFuelPin", "nuclearFuelPinTest", "lumpedNuclearStructure", "interpolatedNuclearFuelPin"];
 
     /// The models of a case and the structure's initial `powerDensityNeutronics`.
     #[derive(Debug, Clone, PartialEq)]
@@ -225,18 +226,24 @@ mod reader {
             let own_files: &[&str] = match ty.as_str() {
                 "heatedPin" => &["Trad.heatedPin", "Ti.heatedPin", "To.heatedPin", "powerDensity.heatedPin"],
                 "nuclearFuelPin" => &["Trad.nuclearFuelPin", "Tfi.nuclearFuelPin", "Tfo.nuclearFuelPin", "Tci.nuclearFuelPin", "Tco.nuclearFuelPin"],
+                "nuclearFuelPinTest" => &["Trad.nuclearFuelPinTest", "Tfi.nuclearFuelPinTest", "Tfo.nuclearFuelPinTest", "Tci.nuclearFuelPinTest", "Tco.nuclearFuelPinTest"],
                 "lumpedNuclearStructure" => &["T.lumpedNuclearStructure", "Tmatrix.lumpedNuclearStructure", "Tsurface.lumpedNuclearStructure"],
                 _ => &["T.interpolatedNuclearFuelPin"],
             };
             // `nuclearFuelPin`: `Trad.nuclearFuelPin` is READ (`foundTrad`, `nuclearFuelPin.C:212-215`) and then wins over `Tfi`, `Tfo`, `Tci`,
             // `Tco` (`foundBoundaryTemperatures` is only consulted when `Trad` is absent, `:441-537`: that reconstruction is not ported)
-            let trad_file = if ty == "nuclearFuelPin" && fdir.join("Trad.nuclearFuelPin").exists() { Some(fdir.join("Trad.nuclearFuelPin")) } else { None };
+            // gh:#1950 (README round 75): `nuclearFuelPinTest.C:226-228,306,458` reads `Trad.nuclearFuelPinTest` exactly as `nuclearFuelPin` reads its own
+            // (the two sources differ by comments and a commented-out `powerDensity`: `diff` after renaming the class), so a start directory that
+            // holds it is a restart of the same kind
+            let is_pin = ty == "nuclearFuelPin" || ty == "nuclearFuelPinTest";
+            let trad_name = alloc::format!("Trad.{ty}");
+            let trad_file = if is_pin && fdir.join(&trad_name).exists() { Some(fdir.join(&trad_name)) } else { None };
             for f in own_files {
                 // `powerDensity.heatedPin` is READ when the caller supplies it (`heated_pin_q_file`): upstream's `setRegionField` then does nothing
                 if *f == "powerDensity.heatedPin" && heated_pin_q_file.is_some() {
                     continue;
                 }
-                if trad_file.is_some() && ty == "nuclearFuelPin" {
+                if trad_file.is_some() && is_pin {
                     continue;
                 }
                 if fdir.join(f).exists() {
@@ -277,7 +284,7 @@ mod reader {
                     }
                     models.push(RadialPowerModel::HeatedPin(m));
                 }
-                "nuclearFuelPin" => {
+                "nuclearFuelPin" | "nuclearFuelPinTest" => {
                     let mut rs = Vec::new();
                     for (zone, pm) in regs {
                         let cells = zone_cells(zone)?;
@@ -323,7 +330,7 @@ mod reader {
                         }
                         None => m,
                     };
-                    models.push(RadialPowerModel::NuclearFuelPin(m));
+                    models.push(if ty == "nuclearFuelPinTest" { RadialPowerModel::NuclearFuelPinTest(m) } else { RadialPowerModel::NuclearFuelPin(m) });
                 }
                 "lumpedNuclearStructure" => {
                     let mut rs = Vec::new();
@@ -377,7 +384,6 @@ mod reader {
     #[must_use]
     pub fn refusal_reason(ty: &str) -> String {
         match ty {
-            "nuclearFuelPinTest" => "the `nuclearFuelPinTest` powerModel is not ported (gh:#1787)".to_string(),
             "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU" => format!("the FMU powerModel `{ty}` is not ported (needs FMU4FOAM, gh:#1786)"),
             "fixedPower" | "nuclearSteadyStatePebble" => format!("the `{ty}` powerModel is not ported in the one-phase cell-centred region"),
             other => format!("the `{other}` powerModel is not ported here"),

@@ -170,6 +170,9 @@ pub struct OnePhaseFlowCase {
     pub p_rgh_need_reference: bool,
     /// One `p_rgh` boundary condition per patch (`fixedFluxPressure` as `FixedGradient`, `wedge` as `ZeroGradient`).
     pub p_rgh_bc: Vec<Bc>,
+    /// Per patch: the `p_rgh` patch was declared `fixedFluxExtrapolatedPressure` (behaves as `fixedFluxPressure`; the writer refuses to
+    /// write it under the other name).
+    pub p_rgh_extrapolated: Vec<bool>,
     /// `p_rgh` at the start time (cells).
     pub p_rgh0: Vec<f64>,
     /// `nut` at the start time (cells; never updated with `turbulence false`).
@@ -181,6 +184,9 @@ pub struct OnePhaseFlowCase {
     pub momentum_source: Vec<Vector3>,
     /// `momentumMode cellCenteredFaceReconstruction` (`pEqn_1p.H`: `U` from `reconstructU_1p.H`, gh:#1865, gh:#1870 round 62).
     pub reconstruct_u: bool,
+    /// `momentumMode faceCentered` (`UEqn_1p.H` without `ddt`, `pEqnf_1p.H`, gh:#1939, README round 73): also sets [`Self::reconstruct_u`]
+    /// (`pEqnf_1p.H` always runs `reconstructU_1p.H`).
+    pub face_centered: bool,
     /// `porous_sharp` (default 0), the weight of `reconstruct(phi_)/alpha` in `reconstructU_1p.H`.
     pub porous_interface_sharpness: f64,
     /// `momentumSourceTimeProfile` of each pump zone (`pump::correct`, gh:#1870 round 62): the zone's cells, its `momentumSource`
@@ -216,6 +222,10 @@ pub(super) struct FlowState {
     pub p_rgh: Scalar,
     /// `fluid_.phi()`, every face (a `fixedValue` patch keeps `Sf . U_b`).
     pub phi: Vec<f64>,
+    /// `fluid_.phi().oldTime()` (every face): the flux at the start of the time step (`pEqnf_1p.H`: `alphaRhof0ByDt*phi.oldTime()`).
+    pub phi_old: Vec<f64>,
+    /// `rho.oldTime()` on the boundary faces (index `face - n_internal`).
+    pub rho_b_old: Vec<f64>,
     /// The solver's `phi_` (the volumetric flux the Courant number is built from).
     pub phi_solver: Vec<f64>,
     /// `fluid_.magU()` per cell.
@@ -457,6 +467,39 @@ impl UEqnCc {
     }
 }
 
+/// The `T` patch types of a FROZEN-flow start directory (`solveFluidMechanics false`: no flow case is read, gh:#1952, README round 78):
+/// `fixedValue` (a uniform value) is `Bc::Fixed`, `zeroGradient`/`wedge` `Bc::ZeroGradient`, an `empty` patch `Bc::Empty`. Before round 78 every
+/// patch of a frozen region was taken as `zeroGradient`, which is wrong for a `fixedValue` inlet (`he` is `fixedEnergy` there: the inlet enthalpy flux
+/// enters the first cell's balance); the real binary's tight 3D_SmallESFR_old restart showed it as a step-1 `h` residual of 7.6e-6 against 4e-16.
+/// Any other patch type keeps the earlier `zeroGradient` (not differenced against the real binary).
+///
+/// # Errors
+/// A `fixedValue` patch without a uniform value, or an unreadable `T`.
+#[cfg(feature = "std")]
+pub(super) fn read_frozen_t_bcs(ctx: &Ctx, g: &Geometry, path: &str) -> Result<Vec<Bc>, AppBuilderError> {
+    let tf = read_field_bcs_only(ctx, path)?;
+    let mut t_bc = Vec::new();
+    for p in g.mesh.patches.iter() {
+        if p.kind == PatchKind::Empty {
+            t_bc.push(Bc::Empty);
+            continue;
+        }
+        let (_, ty, tv) = tf
+            .bcs
+            .iter()
+            .find(|(nm, _, _)| *nm == p.name)
+            .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", tf.name, p.name)))?;
+        t_bc.push(match ty.as_str() {
+            "fixedValue" => {
+                let v = tv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("T.{}: fixedValue needs a uniform value", p.name)))?;
+                Bc::Fixed(vec![v; p.size])
+            }
+            _ => Bc::ZeroGradient,
+        });
+    }
+    Ok(t_bc)
+}
+
 /// Read the `solveFluidMechanics true` part of a case (boundary conditions, solver entries, pump and drag per cell).
 ///
 /// # Errors
@@ -478,8 +521,8 @@ pub(super) fn read_flow_case(
     let n = g.n_cells();
     let ni = g.n_internal();
     let mode = word(pimple, "momentumMode").unwrap_or_else(|| "cellCentered".to_string());
-    if mode != "cellCentered" && mode != "cellCenteredFaceReconstruction" {
-        return Err(ctx.e(format!("PIMPLE.momentumMode `{mode}` is not ported (cellCentered and cellCenteredFaceReconstruction only)")));
+    if mode != "cellCentered" && mode != "cellCenteredFaceReconstruction" && mode != "faceCentered" {
+        return Err(ctx.e(format!("PIMPLE.momentumMode `{mode}` is not ported (cellCentered, cellCenteredFaceReconstruction and faceCentered)")));
     }
     // `thermalHydraulicsModel.C:202`: `porous_sharp`, default 0; read in every mode, used by `reconstructU_1p.H` only
     let porous_sharp = scalar(pimple, "porousInterfaceSharpness").unwrap_or(0.0);
@@ -588,20 +631,26 @@ pub(super) fn read_flow_case(
         None => vec![p0; n],
     };
     let mut p_rgh_bc = Vec::new();
+    let mut p_rgh_extrapolated = vec![false; g.mesh.patches.len()];
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         if p.kind == PatchKind::Empty {
             p_rgh_bc.push(Bc::Empty);
             continue;
         }
         let (ty, pv) = patch_bc(&pf, pi)?;
+        p_rgh_extrapolated[pi] = ty == "fixedFluxExtrapolatedPressure";
         p_rgh_bc.push(match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) => Bc::ZeroGradient,
-            ("fixedFluxPressure", _) => Bc::FixedGradient(vec![0.0; p.size]),
+            // `fixedFluxExtrapolatedPressureFvPatchScalarField` (ESI v2506) is a constructor-only subclass of `fixedFluxPressure`
+            // (no override; `setSnGrad<fixedFluxPressure>` matches it by `isA`): the same boundary condition (gh:#1939, README round 73)
+            ("fixedFluxPressure" | "fixedFluxExtrapolatedPressure", _) => Bc::FixedGradient(vec![0.0; p.size]),
+            // a `zeroGradient` `p_rgh` patch is not touched by `setSnGrad<fixedFluxPressure>` (gh:#1939)
+            ("zeroGradient", _) => Bc::ZeroGradient,
             ("fixedValue", _) => {
                 let v = pv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("p_rgh.{}: fixedValue needs a uniform value", p.name)))?;
                 Bc::Fixed(vec![v; p.size])
             }
-            (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, fixedValue, wedge)", p.name))),
+            (other, _) => return Err(ctx.e(format!("p_rgh.{}: `{other}` is not ported (fixedFluxPressure, fixedFluxExtrapolatedPressure, fixedValue, zeroGradient, wedge)", p.name))),
         });
     }
     let tf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/T"))?;
@@ -667,11 +716,13 @@ pub(super) fn read_flow_case(
         t_bc,
         u_bc,
         p_rgh_bc,
+        p_rgh_extrapolated,
         p_rgh0: p_rgh_cells,
         nut: vec![nut0; n],
         nut_boundary,
         momentum_source,
-        reconstruct_u: mode == "cellCenteredFaceReconstruction",
+        reconstruct_u: mode == "cellCenteredFaceReconstruction" || mode == "faceCentered",
+        face_centered: mode == "faceCentered",
         porous_interface_sharpness: porous_sharp,
         momentum_profiles: Vec::new(),
         drag,
@@ -696,6 +747,8 @@ impl FlowState {
             u_old: u.c.clone(),
             p_rgh,
             phi: fv::flux_openfoam(g, u),
+            phi_old: fv::flux_openfoam(g, u),
+            rho_b_old: Vec::new(),
             phi_solver: case.alpha_phi.clone(),
             mag_u: u.c.iter().map(|v| v.mag()).collect(),
             kd: vec![[0.0; 3]; n],
@@ -801,6 +854,11 @@ impl OnePhaseCcSolver {
             arn.b[i] = self.alpha[o] * rho_b[i] * (nut_b[i] + nu);
         }
         let gamma = fv::interp_linear_openfoam(&g, &arn);
+        if fc.face_centered {
+            // `onePhase::correctFluidMechanics`: `momentumMode_ == faceCentered` selects `pEqnf_1p.H` and drops `fvm::ddt` (gh:#1939)
+            self.correct_fluid_mechanics_face_centered(outer, fs, &fc, &arn, &gamma);
+            return;
+        }
         let zg = Scalar::uniform(&g, 0.0, g.default_bcs());
         let mut e = UEqnCc::new(&g);
         e.eqn.div_upwind_internal(&g, &self.alpha_rho_phi);
@@ -1125,5 +1183,22 @@ mod tests {
         let d = ReynoldsPowerDrag { coeff: 0.5, exp: -0.25, constant: 0.1 };
         let re = 16.0;
         assert!((d.value(re) - (0.5 * 0.5 + 0.1)).abs() < 1e-15);
+    }
+
+    /// gh:#1952 (README round 78): a frozen-flow start directory's `fixedValue` `T` patch is `Bc::Fixed` (the shipped fullcoupling case:
+    /// `inlet` 600 K, `outlet` `zeroGradient`), every other kept `zeroGradient`; `OnePhaseCcCase::frozen_t_bcs` falls back to `zeroGradient`.
+    #[test]
+    fn a_frozen_flow_fixed_value_inlet_temperature_is_read_from_the_t_file() {
+        use crate::genfoam::multi_region::mesh_deformation::{DeformableMesh, PointCellsOrder};
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let dm = DeformableMesh::read(&case.join("constant/fluidRegion/polyMesh"), PointCellsOrder::CellAscending).unwrap();
+        let g = Geometry::new_openfoam(dm.mesh().clone());
+        let ctx = Ctx { root: case.clone() };
+        let bcs = read_frozen_t_bcs(&ctx, &g, "0/fluidRegion/T").unwrap();
+        assert_eq!(bcs.len(), g.mesh.patches.len());
+        let inlet = g.mesh.patches.iter().position(|p| p.name == "inlet").expect("inlet patch");
+        assert!(matches!(&bcs[inlet], Bc::Fixed(v) if v.len() == g.mesh.patches[inlet].size && v.iter().all(|x| *x == 600.0)));
+        let outlet = g.mesh.patches.iter().position(|p| p.name == "outlet").expect("outlet patch");
+        assert!(matches!(bcs[outlet], Bc::ZeroGradient));
     }
 }

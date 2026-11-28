@@ -1,6 +1,8 @@
 #!/bin/bash
 # gh:#1361 round 6: the 2D_MSFR tutorial's Allrun chain without foamDictionary (not built here).
 # Usage: run_msfr_chain.sh <stage: steadyStateTH|steadyStateEN|transient> [RUN_ROOT]
+# gh:#1945 round 79: NEUTRO_FVSOLUTION=<file> replaces the EN stage's neutroRegion fvSolution.
+# gh:#1951 round 77: TH_END overrides endTimeTH (default 15; the dir steadyStateTH/$TH_END must exist), EN_END and END_TIME as before.
 # Replays upstream's Allrun setSteadyStateTH / setSteadyStateEN / setTransient with sed/perl, then
 # runs the real GeN-Foam binary serially, logging to <stage>/log.GeN-Foam.
 # The ONLY edits beyond Allrun's own: writePrecision 17 in rootCase (done by the caller before
@@ -10,7 +12,7 @@ source /home/user/upstream-build/scripts/of-env.sh >/dev/null 2>&1
 STAGE=$1
 R=${2:-/home/user/upstream-build/gh1361/runs/msfr}
 cd "$R" || exit 1
-endTimeTH=15; endTimeEN=${EN_END:-165}; endTimeTransient=175   # gh:#1814 round 14: EN_END, EN_WRITE override the EN end time and write interval (the light chain uses 20 and 20)
+endTimeTH=${TH_END:-15}; endTimeEN=${EN_END:-165}; endTimeTransient=175   # gh:#1814 round 14: EN_END, EN_WRITE override the EN end time and write interval (the light chain uses 20 and 20)
 tighten_solvers() {
   for f in $1/system/*/fvSolution; do
     # only plain `tolerance x;` / `relTol x;` lines: the neutroRegion file has a /* ... relTol 0.01;*/ block
@@ -39,6 +41,8 @@ elif [ "$STAGE" = steadyStateEN ]; then
   rm $C/constant/multiRegionCouplingDict_*
   # gh:#1814 round 11: PROTOCOL=tight for the EN stage tightens the linear solvers only (writeInterval stays 50:
   # a write per step of 600 steps would not fit the disk); the per-step numbers come from the log at precision 17.
+  # gh:#1945 round 79: NEUTRO_FVSOLUTION replaces system/neutroRegion/fvSolution (the one-edit GAMG variant cases/msfr_neutro/fvSolution.gamg)
+  if [ -n "$NEUTRO_FVSOLUTION" ]; then cp "$NEUTRO_FVSOLUTION" $C/system/neutroRegion/fvSolution; fi
   if [ "$PROTOCOL" = tight ]; then tighten_solvers "$C"; fi
 elif [ "$STAGE" = transient ]; then
   rm -rf transient; cp -r rootCase transient; C=transient

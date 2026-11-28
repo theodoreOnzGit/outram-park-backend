@@ -35,6 +35,7 @@ use outram_foam_appbuilder_lib::genfoam::workflow::{
     EigenvalueRunControls, EigenvalueStage, EnergyEigenvalueRecord, EnergyNeutroDiffusion, NeutronLinear, NormalisedState, ReactorState, TransientRun,
     TransientSettings, TransientStart, WorkflowError,
 };
+use outram_foam_appbuilder_lib::io::nuclear_data::fv_solution::{read_neutron_fv_solution_with, GamgPolicy};
 use outram_foam_appbuilder_lib::io::nuclear_data::read_nuclear_data;
 use outram_foam_appbuilder_lib::io::poly_mesh::{read_cell_zones, read_poly_mesh, zone_of_cell};
 use outram_foam_basic_lib::ldu_matrix::SolverSettings;
@@ -110,6 +111,11 @@ fn stage(tag: &str) -> Staged {
 }
 
 fn build(st: &Staged) -> (EnergyNeutroDiffusion, TransientSettings) {
+    build_with(st, NeutronLinear::Explicit(SolverSettings { tolerance: 1e-14, max_iter: 100_000 }))
+}
+
+/// [`build`] with the neutronics linear solvers `linear` (gh:#1945: the `fvSolution` of a variant).
+fn build_with(st: &Staged, linear: NeutronLinear) -> (EnergyNeutroDiffusion, TransientSettings) {
     let mesh = read_poly_mesh(&st.poly).expect("polyMesh");
     let input = read_nuclear_data(&st.neutro.join("nuclearData")).expect("nuclearData");
     let xs = CrossSectionData::from_input(&input).expect("cross sections");
@@ -132,7 +138,7 @@ fn build(st: &Staged) -> (EnergyNeutroDiffusion, TransientSettings) {
         zone_map,
         &albedo,
         UpstreamTransientControls { neutron_iteration_residual: 1e-6, max_neutron_iterations: 50, sc_no: 1.0 },
-        NeutronLinear::Explicit(SolverSettings { tolerance: 1e-14, max_iter: 100_000 }),
+        linear,
         reactor,
         1.0,
         1.0,
@@ -447,4 +453,88 @@ fn msfr_light_chain_matches_upstream() {
         "LIGHT CHAIN: transient 5 steps worst rel dt {:.3e}, T {:.3e}, power {:.3e}, h1 {:.3e}; step-1 power {:.6e}; wall {:.1} s",
         trep.worst_dt, trep.worst_t, trep.worst_p, trep.worst_h1, trep.first_power, started.elapsed().as_secs_f64()
     );
+}
+
+/// The `flux.*` entries of a committed variant `fvSolution` of `cases/msfr_neutro` (gh:#1945) under `policy`.
+fn variant_linear(file: &str, policy: GamgPolicy) -> NeutronLinear {
+    let path = vv_dir().join("cases/msfr_neutro").join(file);
+    let sol = read_neutron_fv_solution_with(&path, 6, 8, 0, policy).expect("variant fvSolution");
+    NeutronLinear::FvSolution(sol.entries)
+}
+
+/// Run the 20 EN steps (15 s -> 20 s) of the port with `linear`, compare them and the t = 20 s fields with `r`, and return the
+/// report and the worst t = 20 s field differences (flux and precStar, powerDensity, fluid T, keff). `fluid_fv` replaces the staged
+/// fluid `fvSolution` (the as-shipped protocol: `cases/msfr_fluid/fvSolution.en_as_shipped`, the real loose run's own file).
+fn en20_against(tag: &str, linear: NeutronLinear, r: &HashMap<String, Vec<f64>>, fluid_fv: Option<&str>) -> (EnReport, f64, f64, f64, f64) {
+    let st = stage(tag);
+    if let Some(f) = fluid_fv {
+        std::fs::copy(vv_dir().join("cases/msfr_fluid").join(f), st.fluid_root.join("system/fluidRegion/fvSolution")).expect("fluid fvSolution");
+    }
+    let (stage, _) = build_with(&st, linear);
+    let normalised = EigenvalueStage::EnergyNeutroDiffusion { stage, controls: EigenvalueRunControls { start_time: 15.0, end_time: 20.0, delta_t: 0.25 } }
+        .run()
+        .expect("eigenvalue stage");
+    let NormalisedState::EnergyNeutroDiffusion { stage: s, history } = normalised else { unreachable!() };
+    assert_eq!(history.len(), 20);
+    let rep = compare_en(&history, r, true);
+    let mut fields: f64 = 0.0;
+    for g in 0..s.neutro.energy_groups() {
+        let flux = s.neutro.state().flux()[g].internal.as_slice().to_vec();
+        fields = fields.max(worst_rel(&flux, &r[&format!("END_flux{g}")]));
+    }
+    for (k, p) in s.neutro.prec_star_values().iter().enumerate() {
+        fields = fields.max(worst_rel(p, &r[&format!("END_precStar{k}")]));
+    }
+    let dpd = worst_rel(&s.neutro_power_density, &r["END_powerDensity"]);
+    let dt_end = worst_rel(s.fluid.temperature(), &r["END_T"]);
+    let dk_end = rel(s.reactor.k_eff, r["END_KEFF"][0]);
+    println!(
+        "{tag}: worst rel keff {:.3e} (first > 1e-9: {:?}), power {:.3e}, h1 {:.3e}, T lines {:.3e}; t = 20 s: flux/precStar {fields:.3e}, powerDensity {dpd:.3e}, T {dt_end:.3e}, keff {dk_end:.3e}",
+        rep.worst_keff, rep.first_keff_bad, rep.worst_power, rep.worst_h1, rep.worst_tstat
+    );
+    (rep, fields, dpd, dt_end, dk_end)
+}
+
+/// # Round 79 Part A (gh:#1945): GAMG for the neutronics flux, TIGHT protocol, against the real binary
+///
+/// Methodology: the one-edit variant `cases/msfr_neutro/fvSolution.gamg_tight` of the shipped 2D_MSFR neutroRegion `fvSolution`
+/// (the shipped, commented-out `GAMG` block uncommented: `DICGaussSeidel`, `nPreSweeps 1`, `nPostSweeps 1`, `nFinestSweeps 1`,
+/// `nCellsInCoarsestLevel 20`; then every `tolerance 1e-14`, `relTol 0`), run by the real binary (652b3da on ESI v2506, serial,
+/// `NEUTRO_FVSOLUTION=... PROTOCOL=tight EN_END=20 EN_WRITE=20 scripts/run_msfr_chain.sh steadyStateEN`) and by the port
+/// (`GamgPolicy::Native`, the default) for the 20 `steadyStateEN` steps 15 s -> 20 s. Reference `refs/msfr_en20_gamg_tight.ref.txt.gz`
+/// (`extract_msfr_en_reference.sh`). Criteria (README round 79, Part A, fixed before the run): keff/power `<= 1e-11` per step, `T`
+/// lines `<= 1e-12`, first `h` residual `<= 1e-7`, t = 20 s fields `<= 1e-9` (fluid `T` `<= 1e-12`).
+///
+/// Results (2026-11-28): worst over 20 steps `keff_` 3.4e-16, `power:` 3.7e-16, `T` lines 1.3e-15, first `h` residual 3.0e-10 (as the PCG
+/// EN test); at t = 20 s flux/precStar 3.1e-14, powerDensity 3.7e-15, `T` 2.0e-15, `keff` 3.4e-16: criterion 1 met. README "Round 79 results".
+#[test]
+fn r79_gamg_neutronics_tight_en20_matches_the_real_binary() {
+    let r = read_ref(&vv_dir().join("refs/msfr_en20_gamg_tight.ref.txt.gz"));
+    let (rep, fields, dpd, dt_end, dk_end) = en20_against("r79_gamg_tight", variant_linear("fvSolution.gamg_tight", GamgPolicy::Native), &r, None);
+    assert!(rep.worst_time < 1e-14);
+    assert!(rep.worst_keff < 1e-11 && rep.worst_power < 1e-11, "keff {:e}, power {:e}", rep.worst_keff, rep.worst_power);
+    assert!(rep.worst_tstat < 1e-12 && rep.worst_h1 < 1e-7, "T {:e}, h1 {:e}", rep.worst_tstat, rep.worst_h1);
+    assert!(fields < 1e-9 && dpd < 1e-9 && dt_end < 1e-12 && dk_end < 1e-11);
+}
+
+/// # Round 79 Part A (gh:#1945): GAMG for the neutronics flux, AS SHIPPED (`tolerance 1e-6`, `relTol 0.01`), and the ablation
+///
+/// Methodology: as [`r79_gamg_neutronics_tight_en20_matches_the_real_binary`] with `cases/msfr_neutro/fvSolution.gamg` (no tightening)
+/// and the real run without `PROTOCOL=tight` (`refs/msfr_en20_gamg.ref.txt.gz`); the port's fluid region reads the real run's own as-shipped
+/// fluid `fvSolution` (`cases/msfr_fluid/fvSolution.en_as_shipped`: `h` etc. at `1e-7`; the first port run used the tight fluid file of
+/// `cases/msfr_fluid` by mistake, a protocol mismatch, README round 79 results). Criteria: keff/power `<= 1e-9` per step, `T` lines
+/// `<= 1e-9`; the ABLATION `GamgPolicy::SubstitutePcgDic` (PCG/DIC at the entry's `1e-6`/`0.01`) must miss the real
+/// `keff_`/`power:` by more than the native port does.
+///
+/// Results (2026-11-28): worst over 20 steps `keff_` 8.4e-12, `power:` 1.2e-11, `T` lines 1.8e-12 (criterion 2 met); at t = 20 s
+/// flux/precStar 3.7e-10, `T` 1.1e-12. ABLATION: the PCG/DIC substitute misses `keff_` by 4.5e-5 at step 1 (power 7.3e-5). README "Round 79 results".
+#[test]
+fn r79_gamg_neutronics_as_shipped_en20_matches_the_real_binary_and_the_substitute_does_not() {
+    let r = read_ref(&vv_dir().join("refs/msfr_en20_gamg.ref.txt.gz"));
+    let (rep, ..) = en20_against("r79_gamg_loose", variant_linear("fvSolution.gamg", GamgPolicy::Native), &r, Some("fvSolution.en_as_shipped"));
+    let (abl, ..) = en20_against("r79_gamg_loose_pcg", variant_linear("fvSolution.gamg", GamgPolicy::SubstitutePcgDic), &r, Some("fvSolution.en_as_shipped"));
+    println!("ABLATION PCG/DIC substitute: worst rel keff {:.3e}, power {:.3e}", abl.worst_keff, abl.worst_power);
+    assert!(rep.worst_keff < 1e-9 && rep.worst_power < 1e-9, "keff {:e}, power {:e}", rep.worst_keff, rep.worst_power);
+    assert!(rep.worst_tstat < 1e-9, "T {:e}", rep.worst_tstat);
+    assert!(abl.worst_keff.max(abl.worst_power) > rep.worst_keff.max(rep.worst_power), "the substitute must miss by more than the native form");
 }

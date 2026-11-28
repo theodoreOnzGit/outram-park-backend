@@ -20,6 +20,10 @@ if [ "${PSOLVER:-gamg}" = pcg ]; then
   perl -0pi -e 's/solver\s+GAMG;\s*smoother\s+DIC;/solver          PCG;\n        preconditioner  DIC;/g' "$f"
   awk -v tol="${TOL:-1e-14}" 'BEGIN{ins=0} /^solvers/{ins=1} /^PIMPLE/{ins=0} { if(ins && $1=="maxIter") next; print }' "$f" > "$f.new" && mv "$f.new" "$f"
 fi
+# gh:#1936 round 72: NOMAXITER=1 removes every `maxIter` line inside `solvers` with the GAMG solver kept (PSOLVER=gamg, the default)
+if [ -n "$NOMAXITER" ]; then
+  awk 'BEGIN{ins=0} /^solvers/{ins=1} /^PIMPLE/{ins=0} { if(ins && $1=="maxIter") next; print }' "$f" > "$f.new" && mv "$f.new" "$f"
+fi
 #   FINAL_RELTOL : the `relTol` of the `p_rghFinal` entry (round 38, item 1: a loose Final solve at the last pass of the last corrector)
 if [ -n "$FINAL_RELTOL" ]; then
   awk -v r="$FINAL_RELTOL" '/^ *p_rghFinal/{inf=1} inf && $1=="relTol"{sub(/relTol .*/,"relTol          " r ";"); inf=0} {print}' "$f" > "$f.new" && mv "$f.new" "$f"

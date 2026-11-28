@@ -29,9 +29,12 @@ use crate::solvers::non_orthogonal::LaplacianCorrection;
 pub enum TStructGamgPolicy {
     /// Refuse `GAMG` by name.
     Refuse,
-    /// Run `PBiCG`/`DILU` at the entry's tolerances (the named deviation, [`TStructSolver::GamgSubstitutedByPbicgDilu`]).
-    #[default]
+    /// Run `PBiCG`/`DILU` at the entry's tolerances (the named deviation, [`TStructSolver::GamgSubstitutedByPbicgDilu`]). Before round 72
+    /// the default; now an explicit ablation.
     SubstitutePbicgDilu,
+    /// Run upstream's own `GAMGSolver` (`GaussSeidel`, asymmetric path; gh:#1936, README round 72). **The default**: upstream's form.
+    #[default]
+    Native,
 }
 
 /// A region case read from disk.
@@ -65,6 +68,8 @@ pub struct LegacyFvmCase {
     /// `thermoMechanics.C:84-110`, `legacyThermoMechanics.C:259`; gh:#1926, README round 66); `None` for a case that starts at `0` with its
     /// zero uniform fields.
     pub start_fields: Option<TmStartFields>,
+    /// `Some` when `solvers.TStruct` is `GAMG` and [`TStructGamgPolicy::Native`] runs it (gh:#1936).
+    pub t_gamg: Option<crate::genfoam::common::gamg::GamgControls>,
 }
 
 /// The cell fields of a written time directory of the thermo-mechanics region (see [`LegacyFvmCase::start_fields`]).
@@ -404,6 +409,7 @@ impl LegacyFvmCase {
         let t_solver_kind = match (ts.as_str(), tpc.as_str(), gamg) {
             ("PBiCG", "DILU", _) => TStructSolver::PbicgDilu,
             ("GAMG", _, TStructGamgPolicy::SubstitutePbicgDilu) => TStructSolver::GamgSubstitutedByPbicgDilu,
+            ("GAMG", _, TStructGamgPolicy::Native) => TStructSolver::Gamg,
             _ => {
                 return Err(unsupported(
                     "solvers",
@@ -411,6 +417,12 @@ impl LegacyFvmCase {
                     "the TStruct matrix is asymmetric: PBiCG with DILU (or GAMG, substituted by it by name)",
                 ))
             }
+        };
+        let t_gamg = if t_solver_kind == TStructSolver::Gamg {
+            let Some(FoamEntry::SubDict(d)) = lookup_pattern(solvers, "TStruct") else { unreachable!("read above") };
+            Some(crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::read_gamg_controls("TStruct", d, None).map_err(|m| err(root, m))?)
+        } else {
+            None
         };
         let sa = fv.get_dict("stressAnalysis").ok_or_else(|| err(root, "fvSolution: no stressAnalysis"))?;
         let compact_normal_stress = switch(sa, "compactNormalStress", false).map_err(|m| err(root, m))?;
@@ -550,7 +562,7 @@ impl LegacyFvmCase {
         } else {
             None
         };
-        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2, solution_d, t_patches, start_fields })
+        Ok(Self { mesh, settings, zones, cards, disp_patches, fuel_patches, cr_patches, t_struct0, delta_t, d2dt2, solution_d, t_patches, start_fields, t_gamg })
     }
 
     /// Build the solver from the case.
@@ -569,6 +581,10 @@ impl LegacyFvmCase {
             self.t_struct0.clone(),
             self.delta_t,
         )
+        .map(|s| match self.t_gamg {
+            Some(ctl) => s.with_t_struct_gamg(ctl),
+            None => s,
+        })
         .map(|s| s.with_d2dt2(self.d2dt2).with_solution_directions(self.solution_d).with_t_struct_patches(self.t_patches.clone()))
         .map(|s| match &self.start_fields {
             Some(f) => s.with_read_fields(&f.disp, &f.fuel_disp, &f.cr_disp, &f.mesh_disp),

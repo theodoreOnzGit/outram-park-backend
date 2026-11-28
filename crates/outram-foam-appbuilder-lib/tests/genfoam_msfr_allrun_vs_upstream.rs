@@ -290,6 +290,31 @@ fn the_workflow_reads_the_neutronics_fv_solution() {
     assert!(err.contains("smoothSolver") || err.contains("flux"), "{err}");
 }
 
+/// gh:#1947 (README round 76): the SHIPPED `2D_MSFR` rootCase (`p_rgh` `GAMG`) is read by the ordinary path, `CaseReadOptions::default()`,
+/// with upstream's own `GAMGSolver` (`GamgPolicy::Native` is the default; ~~`Refuse`~~ was); `AllrunEdits::default()` stays the PROTOCOL
+/// of the committed references (`GAMG` -> `PCG`/`DIC` in both runs) and `AllrunEdits::as_shipped_gamg()` keeps `GAMG` as shipped.
+/// Pattern: `outram-mc-libs/tests/correct_physics_is_default.rs` (construct through the ordinary path, assert the physics is present).
+#[test]
+fn gamg_is_the_default_and_the_allrun_protocol_is_named() {
+    let root = stage("gamg_default", false);
+    // the ordinary path: no policy named
+    let ordinary = CaseReadOptions { check_region_solvers: false, ..CaseReadOptions::default() };
+    assert_eq!(ordinary.gamg, GamgPolicy::Native);
+    let case = OnePhaseCcCase::read_with_options(&root.root, &root.fluid_poly_mesh, &ordinary).expect("the shipped GAMG case is read by default");
+    let flow = case.flow.as_ref().expect("flow");
+    assert!(!flow.p_rgh_gamg_substituted, "default: no PCG/DIC substitution");
+    // the named ablation is still an explicit act
+    let ablated = CaseReadOptions { gamg: GamgPolicy::SubstitutePcgDic, ..ordinary.clone() };
+    let case = OnePhaseCcCase::read_with_options(&root.root, &root.fluid_poly_mesh, &ablated).expect("substituted");
+    assert!(case.flow.as_ref().expect("flow").p_rgh_gamg_substituted);
+    // the protocol and its as-shipped sibling
+    assert_eq!(AllrunEdits::default().gamg, GamgPolicy::SubstitutePcgDic, "the references' protocol replaced GAMG by PCG/DIC in the real run");
+    let shipped = AllrunEdits::as_shipped_gamg();
+    assert_eq!(shipped.gamg, GamgPolicy::Native);
+    assert_eq!(shipped.end_time_th, AllrunEdits::default().end_time_th, "only the GAMG choice differs");
+    root.steady_state_th(&shipped).expect("the case as shipped (GAMG) is accepted by steadyStateTH under the as-shipped protocol");
+}
+
 /// The remaining refusals are by name: `GAMG` when not substituted, a coupling dictionary that maps, a non-TH state,
 /// and the stages without a port.
 #[test]

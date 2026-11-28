@@ -80,7 +80,11 @@ impl OnePhaseCcSolver {
                 .patches
                 .iter()
                 .zip(&fl.p_rgh.bc)
-                .map(|(p, bc)| match bc {
+                .enumerate()
+                .map(|(pi, (p, bc))| match bc {
+                    Bc::FixedGradient(_) if self.case.flow.as_ref().is_some_and(|f| f.p_rgh_extrapolated[pi]) => {
+                        Err(FoamWriteError::PatchType("p_rgh fixedFluxExtrapolatedPressure (written as its own type is not ported)".to_string()))
+                    }
                     _ if p.kind == PatchKind::Empty => Ok(PatchOut::plain(&p.name, "empty")),
                     Bc::FixedGradient(g) => Ok(PatchOut {
                         name: p.name.clone(),
@@ -165,6 +169,9 @@ impl OnePhaseCcSolver {
 
         // ---- nuclearFuelPin: Tfi, Tfo, Tci, Tco, Tfav, Tcav (nodes of the radial mesh) and the radial profile Trad
         for m in &self.radial {
+            if let RadialPowerModel::NuclearFuelPinTest(_) = m {
+                return Err(FoamWriteError::PatchType("nuclearFuelPinTest written fields (`Tfi/Tfo/Tci/Tco/Tfav/Tcav/Trad.nuclearFuelPinTest`): refused by name, gh:#1911".to_string()));
+            }
             if let RadialPowerModel::NuclearFuelPin(pin) = m {
                 let (mut tfi, mut tfo, mut tci, mut tco) = (vec![0.0; n], vec![0.0; n], vec![0.0; n], vec![0.0; n]);
                 let (mut tfav, mut tcav) = (vec![0.0; n], vec![0.0; n]);

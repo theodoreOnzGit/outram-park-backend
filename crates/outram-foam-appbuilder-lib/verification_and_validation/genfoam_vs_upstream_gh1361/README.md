@@ -6928,7 +6928,7 @@ DONE = ported and differenced; PART = ported in part; MISSING = nothing in the p
 | 3 | `heRhoThermo` `icoPolynomial` + `hPolynomial` + `polynomial` transport in the `cellCentered` region | needs | no (Boussinesq/hConst) | no | ~~PART: the polynomial stack exists (`two_phase/thermo.rs`, `PhaseThermo::Polynomial`), the cc region holds only `BoussinesqHConst`; non-Boussinesq `fluid::rho()` is the variable thermo `rho`~~ **CORRECTED 2026-11-27 (gh:#1913, README round 55)**: DONE: `OnePhaseCcCase::thermo` is a `PhaseThermo`; `fluid::rho()` is a per-cell and per-boundary-face field with its old-time value (`ddt(alpha, rho, he)`, `ddt(alpha, rho, U)`, `contErr`, `p_rgh = p - rho gh`, the `Kd` and `alphaRhoPhi = interpolate(rho) alphaPhi`); the `Cp`, `kappa = Cp alpha`, `Pr` placeholder fields lag as upstream's do. `psi = 0` only (icoPolynomial, Boussinesq): a compressible equation of state is refused by name |
 | 4 | `NusseltReynoldsPrandtlPower` heat-transfer model in the solved cc region | needs | needs | needs | ~~MISSING in the cc reader (only `constant`); the closure exists, unit-tested~~ **CORRECTED 2026-11-27 (gh:#1913, README round 55)**: DONE (`FsHtcModel::Nusselt`, the existing closure; `expTc != 0` refused by name: it needs `T.wall`); `htc` <= 3.6e-14 over 476 steps; variant V2 (constant `htc`) isolates the rest |
 | 5 | `passiveProperties` (`T.passiveStructure`, mapped to the neutronics) | needs | needs (6 zones) | no | ~~MISSING: `structureProperties.<z>.passiveProperties is not ported`~~ **CORRECTED 2026-11-27 (gh:#1913, README round 55)**: DONE (`PassiveStructure`: `iApas`, `alphaRhoCp`, `Tpas`, the `Q` terms of `linearizedSemiImplicitHeatSource`, the `structure::correct` update); `T.passiveStructure` <= 5.6e-15 over 476 steps; variant V1 (no passive) isolates the rest; the passive structure moves `T` by 8e-3 of `max T` in 20 steps (A1) |
-| 6 | `nuclearFuelPin` wired in the cc region, `gapH` constant / `gapHPowerDensity` table | needs (constant) | needs (table) | no | DONE (round 37, MSFR variant); shipped dictionaries not yet run |
+| 6 | `nuclearFuelPin` wired in the cc region, `gapH` constant / `gapHPowerDensity` table | needs (constant) | needs (table) | no | DONE (round 37, MSFR variant); shipped dictionaries not yet run | **UPDATED 2026-11-27 (gh:#1911, round 71): the ESFR tutorials add `nuclearFuelPinTest` (outerCore): DONE in the cc region (`RadialPowerModel::NuclearFuelPinTest`, v4/v5 against the real binary <= 1.8e-13); the ESFR fluid region is face-centred, where no radial power model exists** ~~the ESFR fluid region is face-centred, where no radial power model exists~~ **CORRECTED 2026-11-27 (gh:#1939-#1941, round 73): the faceCentered branch now lives in the cell-centred `onePhase` port, which carries the radial power models, `nuclearFuelPin` and `nuclearFuelPinTest`; the shipped ESFR fluid region runs there and agrees with the real binary to <= 1.1e-13 over 200 steps (tight) and with equal solve counts as shipped over 50**
 | 7 | `lumpedNuclearStructure` | no | no | needs | DONE (round 37) |
 | 8 | GAMG for `p_rgh` | needs | needs | needs | ~~named deviation GAMG -> PCG/DIC (rounds 17, 21, 44)~~ **CORRECTED 2026-11-27 (round 67, gh:#1934):** `GAMG` (`faceAreaPair`, `DIC`) is ported line by line (`genfoam/common/gamg.rs`, `GamgPolicy::Native`) for the cell-centred onePhase region and its agglomeration and every V-cycle are bit-identical to the real binary's on the shipped 2D_FFTF `p_rgh` matrix (README "Round 67 results"); the face-centred onePhase, two-phase and thermo-mechanics regions still run the named substitute (issue filed) **UPDATED 2026-11-27 (round 65): the 2D_FFTF steady state is compared at the tight protocol (`PCG`/`DIC`, the round 62 reference) only; the as-shipped GAMG run is refused by name (`GamgPolicy::Refuse`), GAMG is not ported** |
 | 9 | `momentumMode cellCenteredFaceReconstruction`, `porousInterfaceSharpness 0.5` (gh:#1865) | no | needs | no | MISSING | **CORRECTED 2026-11-27 (gh:#1865, round 62): DONE (`flow::reconstruct_u_1p`, `porousInterfaceSharpness` 0, 0.5, 1); variants `w2_*` on an alpha interface against the real binary, every field <= 8.7e-13 over 20 steps; the shipped FFTF case has not been run**
@@ -6948,6 +6948,10 @@ DONE = ported and differenced; PART = ported in part; MISSING = nothing in the p
 | 23 | liquid-fuel loop (`liquidFuel true`, cyclic neutro mesh) | no | no | needs | DEFERRED by the maintainer (gh:#1905) |
 
 Open (MISSING or PART) rows per tutorial: ~~`2D_fullCoupling` 11 (rows 1, 2, 3, 4, 5, 16, 17, 18, 19, 20, 21)~~ **CORRECTED 2026-11-27 (gh:#1915): `2D_fullCoupling` steady state: none; open: row 16 (point-kinetics transient, gh:#1916) and row 21's stage chain from the root case** ~~open: row 16 (point-kinetics transient, gh:#1916)~~ **UPDATED 2026-11-27 (round 60): the as-shipped transient is done; open: the point-kinetics variant of row 16 (gh:#1922) and the root-case file chain of row 21**; `2D_FFTF` 13 (rows 2, 4, 5, 9, 10, 11, 12, 14, 16, 17, 20, 21, and the hours-long 14 328-cell reference of row 15); `1D_thermalMSR` skipped. **Chosen: `2D_fullCoupling`** (fewest; smallest mesh; the real reference runs in 5 s). Its hard remainder is the TM chain, rows 18-20 (gh:#1846, #1856, #1854), not the fluid rows.
+
+## Round 54 addendum, 2026-11-27 (gh:#1944, round 74): 3D_SmallESFR
+
+~~Not in this table: the 3-D `3D_SmallESFR` tutorials (fluid face-centred, 3-D thermo-mechanics, `removeBaffles` with baffles).~~ **CORRECTED 2026-11-27 (README round 74):** row 14 `removeBaffles` with baffles: DONE for the solved loop as same-cell sources (the merged mesh itself is not built, gh:#1236); row 17 `onePhase` + `diffusionNeutronics` + `legacyThermoMechanics` coupled loop: DONE for the 3-D `legacySolver` steady state, 200 steps, `keff`/`power` 2.8e-15; row 18 deformation of the neutronics mesh with `xsVariables` `axExp`/`radExp`: DONE in 3-D (fields <= 2.0e-13 at the kept steps); row 19 `legacyThermoMechanics` inside the coupled run: DONE in 3-D; row 20 five `meshToMesh` maps among three different meshes: DONE in the loop (3-D, 18 uncovered cells). ~~Open: `extendedThermoMechanics` (`newSolver`), the `3D_SmallESFR_old` transient (`multiPhysicsSolver`), the neutronics `fvSolution` tolerances on the eigenvalue path.~~ **CORRECTED 2026-11-27 (README round 75, gh:#1948/#1950):** the neutronics `fvSolution` tolerances ARE read on the eigenvalue path (default; the fixed tight form is the named ablation `CouplingSwitches::with_tight_neutronics_solvers`), and the `3D_SmallESFR_old` transient (`multiPhysicsSolver`) runs in the port against the real binary (73 steps; misses recorded in Part B). Still open: `extendedThermoMechanics` (`newSolver`, gh:#1783), a decomposed run, the baffle-less mesh writer (gh:#1236), the tight transient step-1 energy residual (filed).
 
 ## Status at this commit
 
@@ -8478,6 +8482,184 @@ X1 held; X2 held (8 of 8); X3 held; X4 held (500 exactly); X5 held (2.5e-15); X6
 
 `ADJ=1 bash scripts/make_fullcoupling_coupled_case.sh <ss>; bash scripts/run_fullcoupling_coupled.sh <ss>`; then `bash scripts/make_fullcoupling_transient_case.sh <ss> <sh>` with `SHIPPED=1` (SH) and without (PK), `sed -i 's/^writeControl .*/writeControl adjustableRunTime;/; s/^writeInterval .*/writeInterval 10;/' <case>/system/controlDict`, `bash scripts/run_fullcoupling_transient.sh <case>`, `python3 -I scripts/pack_start_dir_r66.py <case>/110 out; gzip -9 -n out` (refs `fc_{sh,pk}_written110_r69`). Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_transient_vs_upstream --test genfoam_written_state_vs_upstream -- --nocapture`.
 
+# Round 71 (gh:#1911, 3D_SmallESFR; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", and on #1903 "3D MSFR or ESFR"): what the shipped ESFR fluid region selects, what the port has of it, and the pieces taken in this round
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27, BEFORE any port run of the pieces below. The audit part reads upstream files (`Tutorials/reactorCases/3D_SmallESFR_NewSolverVerification/legacySolver`, `Allrun_parallel`, `Alltest`) and the real binary only; its one port observation is the first refusal of `OnePhaseFcCase::read`, a read, not a run.
+
+## What the shipped tutorial is (read 2026-11-27)
+
+`3D_SmallESFR_NewSolverVerification` runs `legacySolver` then `newSolver` (`Allrun_parallel`: `decomposePar -allRegions`, `mpirun -np 4 GeN-Foam -parallel`; steady state to `endTime 200`, `deltaT 1`, `adjustTimeStep false`; `Alltest` gates `keff` 0.936827 +- 0.1 %). Three regions: `fluidRegion onePhase` (23 322 cells, zones `axialReflector 6540, controlRod 432, radialReflector 5040, innerCore 3300, follower 1728, outerCore 3240, diagrid 3042`), `neutroRegion diffusionNeutronics` (23 322), `thermoMechanicalRegion legacyThermoMechanics` (23 340); `newSolver` selects `extendedThermoMechanics` (not buildable here: gap audit). `3D_SmallESFR_old` is the same with `-legacy`.
+
+**The fluid region is `momentumMode faceCentered`** (`system/fluidRegion/fvSolution` PIMPLE: `nCorrectors 2`, `nOuterCorrectors 6`, `solveEnergy`, `solveFluidMechanics`), NOT cell-centred. The text of gh:#1911 and the round 52 work say `one_phase_cc`; the shipped case is the face-centred solver (`one_phase_fc`, `pEqnf_1p.H`), which lacks the thermo/structure machinery the cc solver gained in rounds 37, 46 and 55. Selections, each against the port:
+
+| # | selection (file) | `one_phase_fc` (the solver this case needs) | `one_phase_cc` |
+|---|---|---|---|
+| 1 | `momentumMode faceCentered`, `laminar` | ported (round 38) | refused: `momentumMode` |
+| 2 | `heRhoThermo` `icoPolynomial` (`rhoCoeffs<8> (860 0...)`, constant rho) + `hPolynomial` Cp(T) + `polynomial` mu, kappa | `read_thermo` reads `PhaseThermo::Polynomial`; the face-centred pEqn is documented for Boussinesq only (`boussinesq_constant_rho`), a variable `fluid::rho()` is not wired | ported (round 55) |
+| 3 | `passiveProperties` (all zones) | **refused by name: the first refusal** (test `probe_shipped_first_refusal`) | ported (round 55) |
+| 4 | `powerModel nuclearFuelPin` (innerCore), `nuclearFuelPinTest` (outerCore) | only `fixedPower` | `nuclearFuelPin` ported (round 37); `nuclearFuelPinTest` refused by name (`radial_power.rs`) |
+| 5 | `heatTransferModels byRegime` over `regimeMapModels lamTurb` (Re), two `NusseltReynoldsPrandtlPower` | `read_nusselt` only | `Nusselt` ported; `byRegime` not checked |
+| 6 | drag `ReynoldsPower` | ported | ported |
+| 7 | `h`: `smoothSolver`/`symGaussSeidel` 1e-7; `p_rgh`/`p_rghFinal`: `GAMG`/`DIC` 1e-7 | `h` smooth solver not read; GAMG: named PCG/DIC substitute | smooth solver ported (round 46); GAMG native (round 67) |
+| 8 | BCs: `U` bottom `fixedValue`, top `zeroGradient`, walls and `baffle0/1` `slip`; `T` bottom `fixedValue`; `p_rgh` bottom `fixedFluxExtrapolatedPressure`, top `fixedValue`; `p` `calculated` on baffles | `noSlip`/`zeroGradient` U only; `fixedFluxExtrapolatedPressure` refused (documented) | per rounds 62/65 |
+| 9 | `pMin`, `pRefCell`/`pRefValue` | ported | ported |
+| 10 | `removeBaffles fluidRegion 1`; `mappedWall` `baffle0/1` (10 626 faces each) | no effect on the solved mesh (round 62 finding 4) | same |
+| 11 | multi-region: `meshDeformation neutroRegion disp`, maps of `powerDensity`, `T thermo:rho T.fuelAvForNeutronics T.cladAvForNeutronics T.passiveStructure`, `meshDisp`; 6 iterations, residual 5e-5 | three-region loop exists for 2D_fullCoupling only | same |
+
+**Real binary facts measured today** (`scripts/make_esfr_fluid_case.sh`, fluid-only): the real `GeN-Foam` runs the fluid region in **1.2 s per step** serial with the shipped `GAMG` (18 iterations for the first `p_rgh`; `smoothSolver` `h` 5-7 iterations); its log prints `T.nuclearFuelPin.*` (innerCore) and `T.nuclearFuelPinTest.*` (outerCore), so both models run; with prescribed `powerDensity` (innerCore 1e8, outerCore 8e7 W/m3: inputs, not fits) the pin fuel average rises 29 K and 23 K in the first iteration. The shipped `0/fluidRegion/powerDensityNeutronics` is `uniform 0` and outranks the dictionary value; the staged case deletes it (fluid-only reduction).
+
+## nuclearFuelPinTest read line by line (upstream `powerModels/nuclearFuelPinTest/nuclearFuelPinTest.{C,H}`, 1 161 + 255 lines, vs `nuclearFuelPin/` 954 + 579)
+
+`diff` of `nuclearFuelPinTest.C` (type name substituted) against `nuclearFuelPin.C`: the code differences are (a) the member `powerDensity_` (`powerDensity.<typeName>`, READ_IF_PRESENT, AUTO_WRITE) is commented out, lines 87-100, (b) `structure_.setRegionField(*this, powerDensity_, "powerDensity")` is commented out, line 214, (c) a trailing derivation comment. `.H`: "Same as nuclearFuelPin ... a dummy class used in the ESFR regression test to verify capability to handle multiple nuclear power models." The radial solve is the same; what differs is the type name (field and log names `T.nuclearFuelPinTest.*`, `Trad.nuclearFuelPinTest`) and the model's own `powerDensity.<type>` field.
+
+## Pieces of this round, criteria and predictions (committed BEFORE any port run; criteria are not changed after seeing results)
+
+**Piece A: `nuclearFuelPinTest` in the cell-centred region, against the real binary.** Variants of `cases/fullcoupling_fluid` (2D_fullCoupling fluid region, 20 steps, round 55 tight protocol, prescribed `powerDensityNeutronics` on disk):
+* `v4_pintest`: the ONE edit `type nuclearFuelPin;` -> `type nuclearFuelPinTest;`.
+* `v5_pintest_dict`: `v4` plus the prescribed power field deleted from `0/` and `powerDensity 5e7;` in the dictionary (two edits, named: they isolate the dictionary power path that the commented-out `setRegionField` touches).
+
+Criteria (gated): every compared field (`U p p_rgh T alphaPhi htc T.passiveStructure T.fuelAvForNeutronics`) <= 1e-12 relative to the field's max |value| at each of the 20 steps; solve count and order per step equal. Reported, not gated: iteration counts at the noise floor, wall time. Also gated: the REAL `v4` output equals the REAL round 55 base output field by field.
+Predictions: P-A1 real `v4` == real base, bit-identical. P-A2 port `v4` <= 1e-12 (expected <= 1e-13). P-A3 real `v5`: the Test pin gets power from the dictionary exactly as `nuclearFuelPin` does (the ESFR log shows the Test model heated with no on-disk field); if the port leaves it unpowered the miss is a defect to fix, not a criterion to move. P-A4 written-state naming (`Trad.nuclearFuelPinTest`) is NOT claimed: the writer refuses it by name.
+
+**Piece B: the 3-D mesh is DRAWN** (hard rule): axial (x-z, y-z) and radial (x-y at four heights) slices of the solver's own `polyMesh` (23 322 cells) coloured by cellZone. Prediction: seven zones; concentric assemblies (innerCore centre, outerCore ring, follower/controlRod/reflector/diagrid outside); axial stack with axialReflector above and below the 3 300 + 3 240 core cells and diagrid at the bottom. A picture that contradicts this is a finding.
+
+**Not ported in this round, refused by name** (issues filed from here): in `one_phase_fc`: `passiveProperties`, radial power models (`nuclearFuelPin`/`nuclearFuelPinTest`), `byRegime`, `slip` U, `fixedFluxExtrapolatedPressure`, variable-rho `pEqnf_1p.H` for `icoPolynomial`/`hPolynomial`, the `h` smooth solver, GAMG for the face-centred region. That is the whole fc ladder of this tutorial (about nine pieces, each needing a one-edit variant on the 3-D mesh). The shipped fluid steady state is therefore NOT compared in this round and no ESFR number is claimed. ~~`neutroRegion`/`thermoMechanicalRegion` stages are not started (3-D `legacyThermoMechanics` needs `regionCoupled` baffles, gh:#1846; `newSolver` needs `extendedThermoMechanics`, gh:#1783).~~ **CORRECTED 2026-11-27 (gh:#1944, README round 74, verified by running `esfr_coupled_steps_against_the_real_binary`):** the shipped `legacySolver` runs all three regions coupled for 200 steps and matches the real binary at round-off; the shipped `thermoMechanicalProperties` needs no `regionCoupled` baffles (the `GFTractionDisplacement` patches of rounds 24-27 are what it uses); `newSolver` still needs `extendedThermoMechanics` (OFFBEAT commit not obtainable).
+
+## Round 71 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; the audit, criteria and predictions above were committed first, `1a7cf0b2d`, before any port run of the variants; real binary: GeN-Foam 652b3da on ESI v2506, serial; references `refs/fc_fluid_r71_*` in the refs submodule (6 files, 185 KB at most each, `3a13c5a`); tests in `tests/genfoam_fullcoupling_fluid_vs_upstream.rs` (now 9 tests, 1.7 s; `--nocapture` prints every step table))
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+### Piece A: `nuclearFuelPinTest` against the real binary (20 steps, tight round 55 protocol)
+
+| variant | edit(s) | worst field difference over 20 steps (relative to the field's max) | first diverging step | solves with iteration difference >= 2 |
+|---|---|---|---|---|
+| `v4_pintest` | `type nuclearFuelPinTest;` (one edit) | `U` 1.84e-13, `p` 3.5e-14, `p_rgh` 3.5e-14, `T` 3.0e-15, `alphaPhi` 2.4e-13, `htc` 2.9e-14, `T.passiveStructure` 2.1e-15, `T.fuelAvForNeutronics` 5.8e-15 | none | 0 |
+| `v5_pintest_dict` | v4 + power file deleted + `powerDensity 5e7;` | same fields: `U` 1.84e-13, `T` 3.0e-15, `T.fuelAvForNeutronics` 1.8e-15 | none | 0 |
+| `v5b_pin_dict` (control) | the same two edits with `nuclearFuelPin` | identical to v5 | none | 0 |
+
+(`Ux` alone reads 0.28-0.56 relative to its own max, because the 2-D case has `Ux` at the noise floor: the gate is on max |U|, per the standing rule: `max|dU_k|/max|U|` x 8.9e-14, z 1.84e-13.) Worst initial-residual absolute difference of the gated solves 9.5e-13. Round 55's own tests (476 steps, v1-v3) still pass unchanged: no earlier number moved. Also run and passing: `genfoam_radial_power_wired_vs_upstream` (its refusal list lost `nuclearFuelPinTest`, a test of the OLD refusal, edited with a strike-through), `genfoam_fftf_pieces_vs_upstream` (14 + 4 ignored), `genfoam_heat_exchanger_cc_vs_upstream` (4), `genfoam_coupled_tutorials_requirements` (2), `--lib radial` (7), and `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`.
+
+**Predictions.** P-A1 HELD, stronger than stated: the REAL `v4` output equals the REAL round 55 base output in all 160 field entries bit-identically (checked from the two reference files), and the real `v5` equals the real `v5b` in all 160 entries: in the real binary the Test model takes the dictionary power exactly as `nuclearFuelPin` does, although its `setRegionField` call is commented out upstream (so the power reaches the structure by a path that line does not control; not traced further, the behaviour is what is pinned). P-A2 HELD (1.8e-13 worst, above the "expected <= 1e-13" aim for `U`, inside the 1e-12 gate). P-A3 HELD (no defect; the port reads the dictionary power for the Test model like the Pin's). P-A4 HELD by a test: the writer refuses the Test's written fields by name (`the_writer_refuses_nuclear_fuel_pin_test_fields_by_name`).
+
+What this does NOT show: the Test model on the 3-D ESFR, in the face-centred solver, or with a time-varying `gapH` table (not in the shipped case).
+
+### Piece B: the mesh drawn (`images/esfr_fluid_radial.png`, `esfr_fluid_axial_xz.png`, `esfr_fluid_axial_yz.png`, and their `.svg`; `scripts/draw_esfr_mesh.py` reads the solver's own `polyMesh`, each cell is the hull of its own vertices cut by the plane; rasterised by headless Chromium because PIL is broken here)
+
+Looked at: the four radial slices (z = 0.092, 0.693, 1.155, 1.964 m) and the y = 0 axial slice. Seen: 23 322 cells, none outside a zone; **every cell is a triangular prism (6 vertices, 5 faces; counted), six prisms per hexagonal assembly, 1 014 cells (169 assemblies) per layer**; extent x +-1.40, y +-1.58, z 0 to 2.31 m. Bottom slice: diagrid only. z = 0.693: axialReflector with 12 follower assemblies and a radialReflector rim. z = 1.155 (core): innerCore centre, outerCore ring, follower assemblies scattered in both, radialReflector rim. z = 1.964: the same 12 positions are controlRod (above the core), axialReflector elsewhere. Axial slice y = 0: diagrid (bottom) / axialReflector / core (outerCore | innerCore | outerCore) / axialReflector above; radialReflector at both sides. This matches the prediction of seven zones, concentric assemblies and the axial stack. **One earlier statement is contradicted by the picture and corrected**: round 52's test header said the mesh is "23322 hexahedra"; it is prisms (corrected in place). What I could not check by looking: that the cell zones match the physical design (zone membership is read from the file; I did not compare it to a design drawing), the two `mappedWall` baffle patches (they are boundary faces, not drawn), and cell quality (non-orthogonality was not drawn).
+
+### What was NOT done, and why (per the criteria above: nothing was claimed that was not run)
+
+* ~~The shipped fluid steady state in the port vs the real binary: **not run**~~ **CORRECTED 2026-11-27 (round 73): it is run and compared (tight 200 steps <= 1.1e-13; as shipped 50 steps, equal solve counts); the text below is the round 71 record.** The shipped fluid steady state in the port vs the real binary: **not run**, because `OnePhaseFcCase::read` refuses the shipped case at its first `structureProperties.<zone>.passiveProperties` (test `probe_shipped_first_refusal`); behind it are at least the eight pieces listed under "Not ported". The real-binary side exists and is cheap (1.2 s/step serial, GAMG shipped; fluid-only variant `scripts/make_esfr_fluid_case.sh`, three steps run: log read, not committed as a reference). No port-vs-binary step table for the ESFR exists, so no "first diverging step" can be quoted.
+* The assumption of #1911/round 52 that the shipped region is cell-centred was wrong for the shipped case (it is `faceCentered`); the pieces it lists (polynomial thermo, byRegime, slip, fixedFluxExtrapolatedPressure, calculated p, `nuclearFuelPinTest`) are needed in the FACE-centred solver. `nuclearFuelPinTest` is the only one done here, in the cc solver (where the 2D tutorials need the pin models); it is not wired into `one_phase_fc`.
+* `Allrun_parallel` (4 cores, `decomposePar`, both cases) was not run: the TM region cannot run without the round 23 library, and the neutro/TM stages are not started. **Allrun findings:** it is not stale in what was read: `Alltest` gates `keff` 0.936827 at `processor0/200/uniform/reactorState`, and `Allrun_parallel` calls `decomposePar -allRegions` then `mpirun -np 4 GeN-Foam -parallel`; the shipped `legacyThermoMechanics` is not in the stock binary (round 54 finding), so a stock-built GeN-Foam aborts at the thermoMechanical region: this is the already-known finding of round 54, nothing new to add to gh:#1910.
+* Issues filed for the remainder: gh:#1939 (fc thermo/BCs), gh:#1940 (fc structure pieces), gh:#1941 (steady-state comparison, GAMG, neutro/TM stages).
+
+### Reproduction
+
+`bash scripts/make_esfr_fluid_case.sh <dir>` (the shipped fluid region as the real binary and the port read it); `bash scripts/make_fullcoupling_fluid_variants.sh cases/fullcoupling_fluid <out>` then the loop of `scripts/run_fullcoupling_fluid_variants.sh` over `v4_pintest v5_pintest_dict v5b_pin_dict` (`END_TIME` 4.9); `python3 -I scripts/draw_esfr_mesh.py cases/esfr_fluid/constant/fluidRegion/polyMesh images`.
+
+**Process note.** The `v5b_pin_dict` control was added after the predictions commit and BEFORE its real run or any port run (it has no criterion beyond "no first diverging step" and the bit-identity of its real output with `v5`); it is the only variant not listed in the pre-run criteria.
+
+
+## Round 72 (gh:#1936): upstream GAMG in every region that ships it; GaussSeidel, DICGaussSeidel, symGaussSeidel, nPreSweeps, the asymmetric path (predictions and criteria written and committed BEFORE any run of the port against a new real-binary number)
+
+AI-written, not human-reviewed. Maintainer 2026-11-27: "Match all upstream" = follow upstream including its solvers and stopping rules.
+
+### What the shipped tutorials select (every uncommented `solver GAMG` in `GeN-Foam-src/Tutorials/**/fvSolution`, comments stripped)
+
+| region | entries | options (everything else = ESI v2506 default) | cases |
+|---|---|---|---|
+| fluidRegion (cell-centred `onePhase`, `twoPhase`, face-centred `onePhase`) | `p_rgh`, `p_rghFinal` | `smoother DIC; tolerance 1e-6..1e-8; relTol 0` (FFTF `p_rgh` `1e-7`/`relTol 0.001`; 2D_cavityBoussinesq adds `maxIter 25`) | 1D_MSR, 1D_thermalMSR, 1D_boiling, 1D_HX (onePhase, twoPhase), 1D_CHF, 1D_PSBT_SC, 2D_KNS37-L22, 2D_voidMotion, 2D_cavityBoussinesq, 2D_fullCoupling, 2D_FFTF, 2D_MSFR, 3D_SmallESFR, 3D_HTR-10, 3D_NTPfuelAssembly, 3D_gFHR, fmu cases |
+| thermoMechanicalRegion | `TStruct` only (the `".*"` GAMG block is commented out; `fuelDisp`/`CRDisp` are `PBiCG`/`DILU`) | `smoother GaussSeidel; tolerance 1e-6; relTol 0.001; cacheAgglomeration true; nCellsInCoarsestLevel 50; agglomerator faceAreaPair; mergeLevels 1; processorAgglomerator masterCoarsest` (serial: no effect) | 2D_fullCoupling, 3D_SmallESFR_old, 3D_SmallESFR_NewSolverVerification/legacySolver |
+| neutroRegion | none uncommented (every `flux.*` GAMG block is inside `/* */`: `smoother DICGaussSeidel; nPreSweeps 1; nPostSweeps 1; nFinestSweeps 1; nCellsInCoarsestLevel 20; relTol 0.01`) | | |
+
+**Consequence.** (i) the face-centred and `twoPhase` fluid blocks need nothing beyond round 67 (DIC), only the wiring; (ii) `TStruct` needs `GaussSeidel` AND the asymmetric path (the row-scaled `TStruct` matrix is asymmetric, README round 23): coarse matrices with `lower`, `PBiCGStab`/`DILU` on the coarsest level, `scaleCorrection` false; (iii) the neutronics block, which no tutorial runs, needs `DICGaussSeidel` and `nPreSweeps`: ported and verified, NOT wired into the neutronics region (nothing selects it).
+
+### What was searched (reuse)
+
+`common/gamg.rs` and `two_phase/gamg_solve.rs` (round 67) extended, not duplicated; `legacy_fvm/pbicg.rs` supplies `DILU` (`dilu_reciprocal_diag`, `dilu_precondition`); `common/pcg.rs` supplies `norm_factor`, `pcg_dic`. `PBiCGStab` with `DILU` did not exist (`two_phase/pbicgstab.rs` is the diagonal-preconditioned one): ported (`pbicgstab_dilu`, `PBiCGStab.C:63-290`). `GaussSeidel`, `symGaussSeidel`, `DICGaussSeidel` did not exist outside basic-lib's own GAMG (untouched).
+
+### Ported (upstream -> Rust, each cited in `common/gamg.rs`)
+
+`GaussSeidelSmoother.C:74-176` -> `gauss_seidel_smooth`; `symGaussSeidelSmoother.C:74-199` -> `sym_gauss_seidel_smooth`; `DICGaussSeidelSmoother.C:79-100` -> `smooth` (DIC `nSweeps`, then GS `nSweeps`); `GAMGSolverSolve.C:186-253` (pre-smoothing, residual correction, `+= preSmoothed`) -> `v_cycle`; `GAMGSolverAgglomerateMatrix.C:151-180` (`hasLower` branch) -> `coarsen_matrix_asymmetric`; `GAMGSolver.C:298-312` + `PBiCGStabSolverDict` -> `pbicgstab_dilu` on the coarsest level; `scaleCorrection` default `matrix.symmetric()`. **Refused by name:** processor agglomeration and every parallel path, coupled interfaces, `interpolateCorrection true`, `directSolveCoarsest true` (needs `LUscalarMatrix`), `mergeLevels != 1` (`combineLevels`), `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, smoothers `DILU`/`FDIC`/`DILUGaussSeidel`/`nonBlockingGaussSeidel`, `DIC`/`DICGaussSeidel` on an asymmetric matrix (upstream has no asymmetric `DIC`).
+
+### Comparison criteria (fixed here; none is changed after a result)
+
+* **S (single solves, real binary through the instrumented COPY `GAMGdump`, `upstream_driver/gamg_dump/build.sh`, upstream's own dumped matrix):** S1 FFTF `p_rgh` solve 0 of step 1 (symmetric, 18 538 cells) with `smoother` = `GaussSeidel`, `symGaussSeidel`, `DICGaussSeidel` (`nPreSweeps 1, nPostSweeps 1, nFinestSweeps 1, nCellsInCoarsestLevel 20`: the commented-out neutronics block), and `DIC` with `nPreSweeps 2` (tolerance 1e-14, relTol 0): the agglomeration, every V-cycle residual of the first 200 cycles and the final solution **bit-identical**. S2 `TStruct` solve 0 of step 1 of the shipped legacy ESFR thermo-mechanics case (`legacy_tm_esfr_shipped`, asymmetric, `GaussSeidel`, `nCellsInCoarsestLevel 50`, shipped `1e-6`/`0.001`): every coarse matrix (`diag`, `upper`, `lower` of every level), every V-cycle residual, the iteration count and the solution bit-identical. 1e-9 only with an explained round-off cause.
+* **Controls (each must differ from the real binary):** wrong smoother (GS for `symGaussSeidel` and the reverse; DIC for GS), `nPreSweeps 0` against a real `nPreSweeps 1`, PBiCG/DILU substitute for `TStruct`, `scaleCorrection true` on the asymmetric solve, the symmetric coarsening (`upper` only) on the asymmetric matrix.
+* **R (regions, one real run each, GAMG KEPT in the protocol, every `tolerance` 1e-14 and `relTol 0`, `maxIter` removed, `writePrecision 17`, every step written):** R-fc `2D_cavityBoussinesq` (face-centred onePhase) 30 steps; R-2p `1D_boiling` twoPhase 30 steps (before the boiling onset, as round 3); R-tm `legacy_tm_esfr_shipped` thermo-mechanics 20 steps (`deltaT 1`, shipped `TStruct` entry, tight protocol elsewhere). Gate: **no first diverging step; every gated field `<= 1e-9` of its maximum (velocity on `max|U|`)**; `dt` sequence `<= 1e-12` relative; iteration counts and initial residuals REPORTED, NOT GATED (noise floor); bit-identity is the goal, reported per field.
+* **Controls for R:** the PCG/DIC (PBiCG/DILU) substitute against the same reference differs from the GAMG run in the solve log of every step (the substitute path keeps its earlier pins: its tests are untouched and name `GamgPolicy::SubstitutePcgDic` / `TStructGamgPolicy::SubstitutePbicgDilu` explicitly).
+* **Defaults.** `GamgPolicy::Native` becomes the default of `GamgPolicy` and of `OnePhaseFcCase::read`; `TStructGamgPolicy` gets `Native` as default where used through `Default`. Every test that relied on the substitute names it explicitly. Numbers that move under a default are recorded old -> new below.
+* **Earlier numbers (rounds 3-71) must not move.** Gate: `genfoam_gamg_vs_upstream`, `genfoam_one_phase_fc_vs_upstream`, `genfoam_legacy_thermo_mechanics_vs_upstream`, the `--lib` filters `gamg`, `one_phase`, `legacy`, and `scripts/check-nostd.sh` pass at their pins.
+
+### Predictions (written before any real run of this round)
+
+* **P1** the four S1 variants are bit-identical (agglomeration, 200 cycles, solution): 85 %.
+* **P2** S2 bit-identical: 60 % (new: asymmetric coarsening, `PBiCGStab` on the coarsest level, a matrix whose `symmetric()` flag upstream decides by pointer and the port by value; a dump with `SYM 0` and `lower == upper` is the miss).
+* **P3** R-fc fields `<= 1e-9` for 30 steps: 75 %; R-2p 55 % (boiling is a sensitive protocol); R-tm 70 %.
+* **P4** every control differs: 95 %.
+* **P5** no earlier pin moves: 90 % (a test that read a shipped GAMG case through a default will move and is renamed to the substitute explicitly).
+* **P6** the as-shipped (loose) protocol is NOT claimed for any region (round 67's sensitivity result applies); not gated.
+
+## Round 72 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (`a205a78c7`), BEFORE the first run of the port against any new real-binary number; real binary 652b3da on ESI v2506 through the instrumented COPY `GAMGdump` of `GAMGSolver` (`upstream_driver/gamg_dump/build.sh`, now with `GAMGDUMP_LIB`; `scripts/run_fftf_gamg_real.sh` with `GAMG_SMOOTHER`; `legacyTmDump` for the thermo-mechanics class; `scripts/fc_protocol.sh` with `NOMAXITER`); references in the refs submodule: `gamg_r72_s1_{gs,sgs,dicgs,dicpre}_{cycles,solution}`, `gamg_r72_s1_dicgs_agglom`, `gamg_r72_s2_tstruct_{matrix,agglom,cycles,solution}`, `gamg_r72_s2t_tstruct_{cycles,solution}`, `legacy_tm_r72_gamg20{,_log}`, `fc_r72_ch_gamg`, `fc_r72_cav_gamg` (each under 5 MB); tests: `genfoam_gamg_smoothers_vs_upstream.rs` (4), `genfoam_legacy_thermo_mechanics_vs_upstream.rs::r72_*` (2), `genfoam_one_phase_fc_vs_upstream.rs::r72_*` (3), `genfoam_two_phase_vs_upstream.rs::r72_*` (1))
+
+AI-written, not human-reviewed. **Upstream's own `GAMGSolver` (`faceAreaPair`; `DIC`, `GaussSeidel`, `DICGaussSeidel`, `symGaussSeidel`; `nPreSweeps`; the asymmetric path) runs, by default, in the cell-centred onePhase, face-centred onePhase, twoPhase and legacy thermo-mechanics regions. Every single solve checked equals the real binary bit for bit (four symmetric selections over 1 000 V-cycles each, and the asymmetric `TStruct` solve with all 8 coarse matrices); the thermo-mechanics region over 20 steps is bit-identical in every field, every one of 240 linear solves and `Max sigmaEq`; the face-centred region agrees to 7.8e-14 (channel, 108 steps) and 1.2e-11 (cavity, 32 steps of a GAMG that stagnates at `maxIter 1000` in both codes); the twoPhase boiling run improves from 7.6e-10 to 1.4e-13 over steps 3-65.**
+
+### What the shipped tutorials select (README above): one more fact found by running
+
+`TStruct`'s matrix is asymmetric (the row scaling `(1 - isPorous) * (...)` allocates `lower`, `fvMatrix::operator*=`), so the shipped `GaussSeidel` entry needs the asymmetric path, not only a new smoother. The port decides symmetry by value (`lower == upper` bit for bit) and carries `GamgControls::has_lower` for a matrix that has the array although it equals `upper` (set by the thermo-mechanics region).
+
+### S1: single solves, FFTF `p_rgh` (symmetric), 4 selections: HELD, bit-identical
+
+Solve 0 of step 1 (18 538 cells, `tolerance 1e-14`, `relTol 0`, upstream stopped at `maxIter 1000` in all four): **`GaussSeidel`, `symGaussSeidel`, `DICGaussSeidel` (`nPreSweeps 1, nPostSweeps 1, nFinestSweeps 1, nCellsInCoarsestLevel 20`: 9 levels) and `DIC` with `nPreSweeps 2`: all 1 000 V-cycle residuals bit-identical and 0 of 18 538 solution entries differ**; 1.6-2.5 s per 1 000 cycles. The dump's matrix equals round 67's byte for byte. Controls (worst relative cycle-residual difference over 30 cycles): GS run as symGS 0.87, symGS as GS 6.8, GS as DIC 0.99, DICGS as DIC 1.06, DICGS as GS 15, `nPreSweeps 2` as 0 0.99, as 1 0.37: all differ.
+
+### S2: the asymmetric `TStruct` solve of the shipped legacy thermo-mechanics case: HELD, bit-identical
+
+Real `legacyThermoMechanics` (the `legacyTmDump` driver) with `TStruct` `solver GAMGdump` and the shipped options (`GaussSeidel`, `nCellsInCoarsestLevel 50`, `1e-6`/`relTol 0.001`): `SYM 0`, 23 340 cells, 56 292 faces, **8 levels (upstream 8); 0 agglomeration entries differ; 0 of the coarse `diag`, `upper` AND `lower` entries of all 8 levels differ bit for bit**; the shipped solve (1 V-cycle) and a 1e-14 solve (40 V-cycles, upstream stopped at `maxIter 40`): **every cycle and every solution entry bit-identical**. Controls: `scaleCorrection true` 1.0, `symGaussSeidel` 1.0, `nPreSweeps 1` 6.4 (cycle residuals), symmetric coarsening of the asymmetric matrix 915 coarse `upper` entries differ, `PBiCG`/`DILU` at the shipped tolerances 1.4e-5 of max away from the real GAMG solution. **Post-run deviation of the control:** at 1e-14 the substitute reaches the real GAMG's solution to 4.3e-16 of max, so it is distinguishable only at the shipped tolerance, where it was used before this round.
+
+### R-tm: 20 steps of the legacy thermo-mechanics region: HELD, bit-identical
+
+`legacyTmDump` 20 steps (tight protocol, `TStruct` the tutorial's own GAMG entry, plain `GAMG`, no dump library), `refs/legacy_tm_r72_gamg20*`. Port `TStructGamgPolicy::Native`: **all 10 field tallies (`disp` at steps 1, 2, 5, 10, 15, 20; `TStruct`, `disp`, `fuelDisp`, `CRDisp`, `meshDisp` at 20) bit-identical (0 of 23 340 / 70 020 values differ); all 240 linear solves bit-identical (initial residual, final residual, iterations); `Max sigmaEq` and `residual_` bit-identical at all 20 steps**. Control: the substitute's `TStruct` solves at steps 1-3 end at 7.9e-8 (2 iterations), 4.6e-7 (1), 4.7e-7 (1) against the real GAMG's 2.2e-4 (1), 3.3e-8 (1), 3.3e-8 (1).
+
+### R-fc: face-centred onePhase: HELD for the fields; the `deltaT` gate MISSED slightly (post-run)
+
+* Channel (the shipped case vendored as `genfoam_1d_onephase`, 40 cells, 108 steps, GAMG converges in 1 V-cycle): worst gated field row **7.8e-14** over the 8 kept steps (criterion 1e-9); 3 188 `p_rgh` solves compared: **0 violations in all three tiers, 0 solve-count mismatches, worst iteration difference 0** (2 straddle steps).
+* Cavity (`2D_cavityBoussinesq`, 1 600 cells, **32 steps (committed 30)**): the real GAMG at 1e-14 does NOT converge here: **all 2 304 `p_rgh` solves stop at `maxIter 1000`** (initial 0.4, final 0.39 after 1 000 cycles on the closed-volume `pRefCell` matrix); the port reproduces that: all 2 304 at 1 000 in both, 0 violations; worst gated field row **1.2e-11** over the 7 kept steps (committed 1e-9). **Miss (post-run, cause):** `deltaT` differs by up to 1.66e-12 relative (first at step 22), over the committed 1e-12: the Courant-set step inherits the flux's round-off (the same cause as round 38, where 1.1e-12 was measured); asserted at 1e-10 as in round 38.
+* Control: `PCG`/`DIC` (textual protocol) against the same real GAMG solve log: all 216 solves of 3 steps violate the tier rules (iteration differences up to 969).
+* The real-binary runs cost 85 s (13 steps) to 3.5 min (32 steps) because every cavity solve runs 1 000 V-cycles.
+
+### R-2p: twoPhase `1D_boiling`, `p_rgh` GAMG: HELD (reference reused, post-run deviation)
+
+The round 3 reference `boiling_tight_steps80` is a real-binary run at 1e-14 whose `p_rgh` solver IS the case's GAMG, so no new real run was made (the committed criterion said one real run each). 30 steps, port with upstream's own GAMG: **worst over steps 1-30: `p` 1.13e-13, `p_rgh` 1.13e-13, `U.liquid` 1.44e-13, `U.vapour` 1.43e-13, `T.interface` 6.3e-15, `T.vapour` 1.0e-15 (criterion 1e-9); `dt` within 1e-12 at every step**. The earlier ILU(0)-BiCGStab (`with_krylov_for_p_rgh`, the named ablation) over the same steps: 2.6e-13, 2.6e-13, 5.5e-12, 5.5e-12, 2.6e-14, 1.2e-14: farther on every field, 38 times on `U.liquid`. Bit-identity of the fields was NOT reached (1e-13): the two-phase matrices are assembled in the port with the round-off of earlier rounds (~1e-13), the solver is identical. The solve counts of the twoPhase solver are not logged by the reference: not compared. Iteration counts REPORTED NOT GATED.
+
+### Earlier numbers: moved ones (old -> new), all explained
+
+The defaults changed: `GamgPolicy` (cell-centred, face-centred onePhase, twoPhase), `TStructGamgPolicy` and the multi-region reader (`region_solvers.rs`) now run upstream's GAMG. Not changed: `CaseReadOptions::default().gamg` (Refuse) and `AllrunEdits::default().gamg` (SubstitutePcgDic), gh:#1947. The substitutes are named ablations and keep their pins.
+
+| pin / number | old | new | cause |
+|---|---|---|---|
+| `genfoam_two_phase_vs_upstream` steps 3-65 vs the real run, worst `p`, `T.liquid`, `U.liquid`, `T.vapour`, `T.interface`, `U.vapour` | 4.7e-12, 2.5e-13, 9.3e-12, 2.3e-10, 7.6e-10, 7.0e-10 | 1.1e-13, 1.4e-15, 1.4e-13, 8.3e-16, 5.2e-15, 1.4e-13 | the real run's `p_rgh` solver is GAMG; the port now runs it (bounds in the test unchanged: they still hold) |
+| `one_d_boiling_default_is_the_corrected_pimple_ending` (1363 steps, empty flags) | pinned on the ILU path | not re-pinned: the test runs the ablation `with_krylov_for_p_rgh` (1363 unchanged); the new default's post-onset flags are non-empty (chaotic excursion) | renamed to its path explicitly |
+| `mules_first_diverging_step_after_the_onset_is_636_by_fields`: first sub-cycle marker | 641 | 643 | chaotic post-onset marker; the flow markers 636/637/636 and every outer-iteration count did not move |
+| `solve_phase_liquid_matches_upstream_until_step_44`: first diverging step of variant d | 45 | none in 60 steps | the divergence at 45 was the ILU(0)-BiCGStab's stopping noise |
+| `the_first_diverging_steps_are_the_noise_floor_of_the_system`, variant d | 45 | none in 80 steps | same |
+| three-region `genfoam_fullcoupling_three_region_vs_upstream`, worst `TStruct` / `disp` / `fuelDisp` over 476 steps | 4.40e-15 (step 147), 1.51e-14 (270), 8.18e-13 (7) | 4.51e-15 (219), 1.56e-14 (166), 8.09e-13 (7) | noise-level (1e-15) moves; TStruct is converged each step |
+
+### Regression gate (targeted, all at their pins after the re-pins above; no full suite was run)
+
+`--lib genfoam` (506 passed), `genfoam_gamg_vs_upstream` (3), `genfoam_one_phase_fc_vs_upstream` (18 passed, 3 ignored, includes the three new `r72_*`), `genfoam_one_phase_vs_upstream`, `genfoam_fftf_pieces_vs_upstream` (14), `genfoam_coupled_tutorials_requirements`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_msfr_{chain,coupled,df}_vs_upstream`, `genfoam_msfr_th{,_options,_nonorth,_pimple}_vs_upstream`, `genfoam_esfr_fluid`, `genfoam_fullcoupling_{fluid,transient,three_region}`, `genfoam_legacy_thermo_mechanics_vs_upstream` (7), `genfoam_two_phase_vs_upstream`, `genfoam_two_phase_mules{,_solve_phase}_vs_upstream`, `genfoam_two_phase_1d_boiling`, `genfoam_chf_{shipped,trace}`, `genfoam_heat_exchanger`, `genfoam_psbt{,2_turbulence}_*`. NOT runnable here: `genfoam_two_phase_radial_power_vs_upstream` does not compile on this branch (a non-exhaustive match on `RadialPowerModel::NuclearFuelPinTest`, another agent's round 71 work, not touched).
+
+### Predictions: held / missed
+
+P1 held (4 of 4 bit-identical). P2 held (bit-identical, shipped and 1e-14). P3 held for R-fc fields (channel 7.8e-14, cavity 1.2e-11), R-2p (1.4e-13, with the reused reference) and R-tm (bit-identical); the `dt` gate of the cavity missed (1.66e-12 against 1e-12) and the cavity ran 32 steps not 30. P4 held (every control differs; the PBiCG control only at the shipped tolerance). **P5 MISSED: five pins moved** (table above; all explained, none is a physics gate). P6 held (no as-shipped claim).
+
+### Not ported, not done
+
+Refused by name (gh:#1946): processor agglomeration, interfaces, `interpolateCorrection true`, `directSolveCoarsest true`, `mergeLevels != 1`, `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, `DILU`/`FDIC`/`DILUGaussSeidel`/`nonBlockingGaussSeidel` smoothers, `DIC` on an asymmetric matrix. Neutronics NOT wired (no tutorial selects GAMG there; gh:#1945). `GamgPolicy::Native` is not the default of `CaseReadOptions` and `AllrunEdits` (gh:#1947). The twoPhase solver does not select `p_rghFinal` separately: a differing Final entry is refused by name. No wasm gate was run; `bash scripts/check-nostd.sh` is clean (it caught an ungated `read_gamg_controls` import in `one_phase_fc.rs`, fixed).
+
+### Reproduction
+
+`GAMGDUMP_LIB=<dir> bash upstream_driver/gamg_dump/build.sh`; S1: `GAMGDUMP_LIB=<dir> GAMGDUMP_MAXSOLVES=1 GAMG_SMOOTHER="smoother GaussSeidel;" bash scripts/run_fftf_gamg_real.sh <work> tight 1 dump` (and `symGaussSeidel`, `DICGaussSeidel; nPreSweeps 1; nPostSweeps 1; nFinestSweeps 1; nCellsInCoarsestLevel 20;`, `DIC; nPreSweeps 2;`); S2/R-tm: `make_legacy_tm_case.sh` then the `TStruct` entry replaced by the shipped GAMG block (`GAMGdump` with `libs` for the dump, plain `GAMG` for R-tm), `LEGACY_TM_DISP_ONLY=1 legacyTmDump -case <case> <out> 20`; R-fc: `END_TIME=1 TIGHT=1 NOMAXITER=1 PRE_RUN=scripts/fc_protocol.sh bash scripts/run_case.sh tests/data/genfoam_1d_onephase <name>` and `END_TIME=0.34 ... genfoam_2d_cavity_boussinesq`, then `scripts/extract_fc_reference.sh` (now also reads `GAMG:` solve lines); tests as listed in the heading.
 
 ## Round 67 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (the commit "round 67: GAMGSolver port ... predictions and criteria BEFORE any run on upstream data"), BEFORE the first run of the port on any upstream number; real binary 652b3da on ESI v2506 through the instrumented COPY `GAMGdump` of `GAMGSolver` (`upstream_driver/gamg_dump/build.sh`, `scripts/run_fftf_gamg_real.sh`); references in the refs submodule `796a643`: `gamg_r67_fftf_step1_{matrix,agglom,solution,cycles}.ref.txt.gz` (2.0 MB), `gamg_r67_tight{,_log}.ref.txt.gz` (8.6 MB), `gamg_r67_loose17_{log,cycles}.ref.txt.gz`; `tests/genfoam_gamg_vs_upstream.rs` 3 tests, 2.3 s; `tests/genfoam_fftf_pieces_vs_upstream.rs` 3 new `#[ignore]` tests)
 
@@ -8543,3 +8725,835 @@ G1 held (0 differences). G2 held. G3 held, better than the 55 % asked: all 1 000
 ### Not ported, not done
 
 Refused by name: processor agglomeration, interfaces, asymmetric matrices, `nPreSweeps != 0`, `interpolateCorrection true`, `directSolveCoarsest true`, `mergeLevels != 1`, `cacheAgglomeration false`, `updateInterval`, agglomerators other than `faceAreaPair`, smoothers other than `DIC`. NOT wired: `one_phase_fc`, the twoPhase solver, thermo-mechanics (GaussSeidel/DICGaussSeidel, `nCellsInCoarsestLevel 20/50`; asymmetric): gh:#1936. The `forward_` static is a per-case value that starts `true` (upstream: process-wide); a case whose process agglomerated another mesh with `GAMG` first would start from the other state. The real as-shipped 900 s state is untouched and its comparison is gh:#1937. No wasm gate was run (`outram-foam-basic-lib` untouched; the crate's `no_std` build is clean). The matrix of the dump is upstream's own (taken inside the real run) for (a), (b); for (c), (d) the port builds its own matrix (equal to upstream's to ~1e-12).
+
+
+
+# Round 73 (gh:#1939, #1940, #1941; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream"): the `faceCentered` branch of `onePhase` inside `OnePhaseCcSolver`, and the shipped 3D_SmallESFR fluid region
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Predictions and criteria below are written and committed BEFORE any real-binary run of the variants and BEFORE any port run of them. Another agent writes Round 72 (gh:#1936, GAMG wiring); README conflicts are merged keeping both.
+
+## Architecture decision (made by the maintainer's session, followed here)
+
+Upstream has ONE `onePhase` class (`solvers/onePhase/onePhase.C`) with `momentumMode` (`cellCentered`, `cellCenteredFaceReconstruction`, `faceCentered`) as branches inside `UEqn_1p.H` (`if (momentumMode_ != faceCentered) UEqn += fvm::ddt(alpha, rho, U)`) and `correctFluidMechanics` (`pEqnf_1p.H` for `faceCentered`, `pEqn_1p.H` otherwise). The port mirrors that: the `faceCentered` branch is added to `OnePhaseCcSolver` (`one_phase_cc/`, the port that carries cellCentered and cellCenteredFaceReconstruction, rounds 55/62/65), translated line by line from `UEqn_1p.H`, `pEqnf_1p.H` and `reconstructU_1p.H`, so every closure, thermo, structure (passiveProperties, the radial power models incl. `nuclearFuelPinTest`), boundary condition and solver (incl. round 67's `GamgPolicy::Native`) of `one_phase_cc` serves the faceCentered mode too. `one_phase_fc` and its tests stay UNTOUCHED (earlier port; its module doc gets a note). No Kovan review stamp exists in the touched folders (checked: no `kind = "review"` block in any `review.md` under `thermal_hydraulics/`).
+
+**Searched before writing:** `one_phase_cc/flow.rs` (UEqn, pEqn, `reconstruct_u_1p`, `UEqnCc` with `D`/`internalCoeffs` apart) and `one_phase_fc.rs::correct_pressure` (the verified `pEqnf_1p.H` translation, rounds 38/45/46). Reuse: `UEqnCc`, `fv::*`, `pcg_dic`, `GamgSolveState`; the pEqnf logic is re-expressed on the cc state (not copied into fc). Read upstream: `fixedFluxExtrapolatedPressureFvPatchScalarField.C` (ESI v2506) is a constructor-only subclass of `fixedFluxPressure` (no override): an alias; `oneParameter.C` and `byRegimeModel.C` for `byRegime`; `onePhase::correctModels` calls `correctRegimeMaps()` BEFORE `FSPair::correct`, so the regime weights use the Reynolds number of the PREVIOUS correct (lagged).
+
+## Pieces and variants (one-edit variants of `cases/fullcoupling_fluid`, cell-centred, tight round 55 protocol, 20 steps, real binary `END_TIME 4.9`; `scripts/make_round73_variants.sh`, `scripts/run_round73_variants.sh`)
+
+| variant | edits | piece |
+|---|---|---|
+| `f1_facecentered` | `momentumMode faceCentered;` (one) | faceCentered branch: UEqn without ddt, `pEqnf_1p.H`, `reconstructU_1p.H` |
+| `f2_extrap` | inlet `p_rgh` `fixedFluxPressure` -> `fixedFluxExtrapolatedPressure` (one) | the alias |
+| `f3_varrho` | `rhoCoeffs<8> (1000 -0.2 0 ...)` (one) | icoPolynomial with `rho(T)` (non-Boussinesq `fluid::rho()`) in cc mode |
+| `f4_fc_varrho` | f1 + f3 (named pair) | variable rho in the faceCentered equations (`alphaRhof0ByDt`, `rho.oldTime()`) |
+| `f5_byregime` | `regimeMapModels.lamTurb` (Re, laminar (0 20000), turbulent (30000 31000)) + `heatTransferModels.zone0 byRegime` (named pair; the case's Re ~ 2.5e4 is in the INTERPOLATION region) | `byRegime` Nusselt on a one-parameter regime map |
+| `f6_fc_nonorth` | f1 + `nNonOrthogonalCorrectors 1` (named pair) | faceCentered with two pressure passes |
+
+**Criteria (fixed here, not changed after seeing results).** Gated, per variant, at each of the 20 steps: `U` (on max|U|; components reported), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics`: `max|port - up| / max|up| <= 1e-12`; solve count and order per step equal; `dt` sequence `<= 1e-12` relative; `T (avg min max)` lines `<= 1e-12`. REPORTED, NOT GATED: iteration counts of solves whose upstream initial residual is below 1e-10 (noise floor), wall time. A first diverging step is reported with the field. 1e-9 is allowed only with an explained round-off cause, recorded post-run. For `f2_extrap` additionally: the REAL `f2` output equals the REAL base output bit for bit, and the port `f2` equals the port base bit for bit.
+
+**Predictions.** P1: real `f2` == real base, bit-identical (alias; 90 %); port `f2` == port base (95 %). P2: port `f1` <= 1e-12 at the first run: 30 % (the most likely miss is matrix-assembly rounding order, the round 46 finding: if so, `UEqnCc::add` per-term assembly is used as `one_phase_fc` does; a miss at <= 1e-9 with iteration counts within 1 is the likely first result). P3: port `f3` <= 1e-12 at the first run: 60 % (cc already reads `rho(T)` from the thermo). P4: port `f4` <= 1e-12 at the first run: 30 %. P5: port `f5` <= 1e-12: 40 % (the lagged Re of `correctRegimeMaps` is the risk; a miss that disappears with the Re of the same iteration would confirm it). P6: port `f6` <= 1e-12: 30 %.
+
+## Shipped ESFR fluid region after these pieces (what is still needed, read 2026-11-27)
+
+`byRegime` (above), `fixedFluxExtrapolatedPressure` (alias), `slip` U on walls and the two `mappedWall` baffles (`VectorBc::Slip` exists in cc), `calculated` `p` on `mappedWall` (round 65), `h` `smoothSolver`/`symGaussSeidel` (`HSolver::SmoothSymGaussSeidel`, `nSweeps 1`, `relTol 0`: the shipped entry), `nuclearFuelPin`/`nuclearFuelPinTest`, `passiveProperties` (cc has all). Refused by name when not ported: `smoothSolver` with `relTol != 0` or `nSweeps != 1` (not needed by the shipped case).
+
+## ESFR comparison (gh:#1941): protocol, written before the real runs
+
+Real fluid-only case `cases/esfr_fluid` (round 71; `powerDensity` innerCore 1e8, outerCore 8e7 W/m3 prescribed before any port run). Tight reference: GAMG kept as shipped (`smoother DIC`), `p_rgh`/`p_rghFinal` `tolerance 1e-14`, `relTol 0`, `writePrecision 17`, as round 67's tight-GAMG protocol (GAMG is wired native in the cc region), `h` `tolerance 1e-14`; >= 50 steps (`deltaT 1`, `adjustTimeStep false`), references < 10 MB. Gate per step: the fields above `<= 1e-9` (aim 1e-12), reported: first diverging step and field, worst per field, solve counts. Then the as-shipped loose run (`tolerance 1e-7`) for the same steps, compared on solve counts and macroscopic quantities (`T (avg min max)`, max|U|) with round 67's caveat (loose protocol is round-off sensitive: iteration counts beyond the first steps are NOT gated). Long runs are `#[ignore]` with measured wall time.
+
+
+## Round 73 addendum A (written and committed BEFORE the real run of `f5b` and before any port run of `f5` or `f5b`)
+
+**Finding from the real `f5` run (already made when this was written; the port had not been run on it):** the case's Reynolds number is `Re = normalized |U| Dh / nu = 1 x 1 x 0.01 / (2e-4/1000) = 5e4`, not the 2.5e4 the variant text assumed (arithmetic slip of mine), so the `f5` regime bounds put the whole run in the `turbulent` regime with weight 1 (`(30000 31000)` is below 5e4): the real `f5` output equals the real base output bit for bit in `htc` (checked at all 20 steps). `f5` therefore does NOT exercise the interpolation; it is kept (it pins the `byRegime` dispatch and the reader), and the interpolation is exercised by a variant added now, `f5b_byregime_interp`: `f5` with bounds laminar `(0 40000)`, turbulent `(60000 61000)` and the case's own empty `regimeMapModels` block replaced (not duplicated). With these, Re = 5e4 is in the interpolation region at the first interpolating iteration.
+
+**Prediction for `f5b` (written before its real run).** P5b-1: the real `htc` differs from the base: in the first outer iteration of step 1 the weights come from `Re = residualFluidStructureRe = 10` (laminar, weight 1: `htc = 4 kappa / Dh`), and from the second outer iteration on from the Re of the previous call (5e4: weights 0.5 laminar + 0.5 turbulent, linear): the field `htc` in the written step is the last outer iteration's, so about `0.5 x 4 kappa/Dh + 0.5 x Nu_turb kappa/Dh`. P5b-2: port `f5` <= 1e-12 (90 %: it is the weight-1 path). P5b-3: port `f5b` <= 1e-12: 55 % (the lag of the weights is read from `correctModels`/`oneParameter::correct`; the sum order `c0 v0 + c1 v1` is `interpolateValue`'s). Criteria unchanged from the table above.
+
+
+## Round 73 addendum B (written and committed BEFORE the real runs of `f7`, `f8` and of the ESFR references, and before any port run of them)
+
+**Found by probing, not by running** (`probe_cc_first_refusal`, a read only): after the faceCentered branch, the alias and `byRegime`, `OnePhaseCcCase::read` refuses the shipped ESFR fluid region at `p_rgh.walls: zeroGradient is not ported`; with `zeroGradient` accepted (it is not touched by `setSnGrad<fixedFluxPressure>`; the boundary matrix coefficients are those of `fv::Eqn::neg_laplacian_boundary_coeffs`, which add nothing for such a patch) the case reads (23 322 cells). Each remaining difference is behaviour, not a refusal, and is differenced against the real binary below.
+
+**New variants** (added to `scripts/make_round73_variants.sh` before their real run): `f7_zerograd_p_rgh` (the ONE edit `fixedFluxPressure` -> `zeroGradient` on `fixedWalls` `p_rgh`, cell-centred) and `f8_fc_zerograd` (`f1` + `f7`). Criteria as above (<= 1e-12). Predictions: P7: port `f7` <= 1e-12: 75 % (the wall carries zero flux: `slip`). P8: port `f8` <= 1e-12: 65 %.
+
+**ESFR (gh:#1941), protocol and predictions.** Scripts: `scripts/run_esfr_fluid_real.sh <tight|loose> <case> <steps> <out prefix>`; the case is a copy of `cases/esfr_fluid` (round 71: fluid only, innerCore 1e8 and outerCore 8e7 W/m3 from the dictionary, `removeBaffles false`, no neutronics). Tight = the shipped solvers with `tolerance 1e-14`, `relTol 0` (GAMG/DIC `p_rgh`/`p_rghFinal`, smoothSolver/symGaussSeidel `h`), `writePrecision 17`, 50 steps of `deltaT 1`; loose = as shipped, 50 steps. Every step's solve log, `T (avg min max)` lines and `deltaT` are kept; fields at steps 1, 2, 10 and 50 only (size limit 10 MB: one step of six fields is about 2 MB compressed). Criteria (fixed here): tight: at the kept steps every gated field (`U` on max|U|, `p_rgh`, `T`, `alphaPhi`, `T.passiveStructure`, `T.fuelAvForNeutronics`) `<= 1e-9`, aim 1e-12; at EVERY step: `T` lines `<= 1e-9`, the `p_rgh` solve count and order equal, `dt` equal; the first step at which a `T` line or an initial residual leaves 1e-9 (resp. 1e-6 relative for residuals above 1e-10 absolute) is the "first diverging step". GAMG at its floor: iteration counts equal `maxIter` by construction (reported, not gated). Loose: solve counts per solve and macroscopic quantities (`T` lines, `deltaT`), no field gate beyond step 10, with round 67's caveat (the loose protocol is round-off sensitive: iteration counts are NOT gated beyond the first steps).
+Predictions: P-E1: the port reads and runs the 50 tight steps without a panic and in under 40 s per step: 85 %. P-E2: tight, kept-step fields `<= 1e-9`: 50 %. P-E3: tight, `<= 1e-12` at the kept steps: 20 % (3-D prism mesh, GAMG agglomeration of this mesh unverified, `mappedWall` patches, the shipped `".*" 1` equation relaxation of `U`). P-E4: the faceCentered branch is the ESFR's whole momentum treatment; if a first-diverging step exists it is at step 1 (an assembly/branch defect) rather than late (round-off growth): 60 %. P-E5: loose: `p_rgh` iteration counts equal for steps 1-3: 50 %; `T` lines to `<= 1e-6` over 50 steps: 60 %.
+
+
+## Round 73 addendum C (written and committed AFTER the 50-step ESFR comparison below was run and BEFORE the 200-step real run and any port run of it)
+
+The 50-step comparison (results below) agreed with the real binary at <= 1.1e-13; the shipped tutorial runs to `endTime 200`, so the same tight protocol is extended to 200 steps (real binary, `writeInterval 10`, so fields at steps 10, 50, 100, 200 only: disk; every step's solve log is kept as before). Criteria are those of the ESFR paragraph above (kept-step fields `<= 1e-9`, aim 1e-12; `T` lines and `dt` at every step). Predictions: P-C1: fields `<= 1e-12` at steps 10, 50, 100, 200: 65 %; P-C2: no `T`-line difference above 1e-9 at any of the 200 steps: 80 %. (A miss would be reported with its first step; nothing in the criteria changes.)
+
+
+## Round 73 results (measured 2026-11-27, release, `CARGO_BUILD_JOBS=2`, the worktree's own `target`; predictions, criteria and addenda A, B, C committed first, each BEFORE the run it concerns; real binary 652b3da on ESI v2506, serial; references in the refs submodule: `fc_fluid_r73_*` (variants, 20 steps), `esfr_r73_tight`, `esfr_r73_loose` (+ `_log`), `esfr_r73_tight200` (+ `_log`; 3.8 MB each of the two field files); tests `tests/genfoam_fullcoupling_fluid_vs_upstream.rs` (round 73 section: 11 variant tests + 3 control tests, 1.6 s; 3 `#[ignore]` ESFR tests) and `tests/genfoam_esfr_fluid_vs_upstream.rs` (`probe_cc_first_refusal`); `--nocapture` prints every table)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+### What was ported (new code only; `one_phase_fc` and its tests untouched, no Kovan-reviewed function exists in the touched folders)
+
+| piece | upstream | port |
+|---|---|---|
+| the `faceCentered` branch | `onePhase.C` `correctFluidMechanics`, `UEqn_1p.H` (`momentumMode_ != faceCentered` guards `fvm::ddt`), `pEqnf_1p.H`, `pEqnRoutines/*` | `one_phase_cc/face_centered.rs`, entered from `correct_fluid_mechanics` after the shared `UEqn_1p.H` part (turbulence, `alpha rho nuEff`); `FlowState` gained `phi_old`, `rho_b_old`; `OnePhaseFlowCase::face_centered` (sets `reconstruct_u`) |
+| `fixedFluxExtrapolatedPressure` | `fixedFluxExtrapolatedPressureFvPatchScalarField.C` (ESI v2506): constructor-only subclass of `fixedFluxPressure` | accepted as the same `Bc::FixedGradient`; the writer refuses it by name (it would write the other type name) |
+| `zeroGradient` `p_rgh` | not touched by `setSnGrad<fixedFluxPressure>` | `Bc::ZeroGradient` |
+| `byRegime` `heatTransferModels` on a `oneParameter` map | `byRegimeModel.C`, `oneParameter.C` (`correct`), `onePhase::correctModels` (`correctRegimeMaps()` BEFORE `FSPair::correct`) | `FsHtcModel::ByRegime`, reuse of `RegimeMap1D` and `ByRegimeModel<M>` (rounds 8-10); the weights come from the `Re` of the previous `correctModels` (`regime_re`) |
+| `rho(T)` (non-Boussinesq `fluid::rho()`) | `fluid::rho()` | nothing new was needed: the cell-centred solver already carried it; the faceCentered branch uses it in `alphaRhof(0)ByDt` |
+
+Refused by name, not ported: `localTortuosity` with `faceCentered`; `regimeMapModels` other than one `oneParameter` map on `Re`; `smoothSolver` with `relTol != 0`, `nSweeps != 1` or `maxIter != 1000` (the shipped ESFR entry needs none of them; the translated smoother is the round 46 one, untouched: no new `smoothSolver` module was written); a compressible (`psi > 0`) faceCentered region (the readers that feed it are `Boussinesq` and `icoPolynomial`, both `psi = 0`); a `p_rgh` patch type other than `fixedFluxPressure`, `fixedFluxExtrapolatedPressure`, `fixedValue`, `zeroGradient`, `wedge`.
+
+### Variants against the real binary (20 steps, criteria: every field `<= 1e-12` of its max, `dt` and `T` lines `<= 1e-12`)
+
+| variant | worst field difference over 20 steps (`U` on max|U|, `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics`) | first diverging | solves compared (iteration difference) |
+|---|---|---|---|
+| `f1_facecentered` | U 6.7e-22, p 0, p_rgh 0, T 2.6e-15, alphaPhi 9.0e-22, T.pas 1.5e-15, T.fuel 1.1e-15 | none | 61 (0) |
+| `f2_extrap` | U 1.8e-13, p 3.5e-14, p_rgh 3.5e-14, T 3.0e-15, alphaPhi 2.4e-13, htc 2.9e-14 | none | 81 (0) |
+| `f3_varrho` | U 2.1e-13, p 2.9e-14, T 5.3e-15, alphaPhi 2.6e-13, htc 3.1e-14, T.fuel 7.9e-15 | none | 180 (0) |
+| `f4_fc_varrho` | U 2.2e-13, p 2.6e-14, T 4.4e-15, alphaPhi 2.2e-13, htc 2.6e-14 | none | 179 (0) |
+| `f5_byregime` (turbulent only) | U 1.8e-13, T 2.8e-15, alphaPhi 2.4e-13, htc 2.9e-14 | none | 81 (<= 1) |
+| `f5b_byregime_interp` (interpolation) | U 1.8e-13, T 3.6e-15, alphaPhi 2.4e-13, htc 1.8e-13 | none | 81 (<= 1) |
+| `f6_fc_nonorth` | U 2.0e-13, p 2.6e-14, T 4.0e-15, alphaPhi 1.9e-13 | none | 61 (0) |
+| `f7_zerograd_p_rgh` | U 1.8e-13, p 3.8e-14, T 2.8e-15, alphaPhi 2.7e-13, htc 3.6e-14 | none | 81 (0) |
+| `f8_fc_zerograd` | U 7.5e-22, p 0, T 2.2e-15, alphaPhi 9.4e-22 | none | 61 (0) |
+
+(`Ux` per component reads 0.2-2 relative to its own maximum, a ratio of noise as in rounds 55 and 71; the gate is `max|dU_k|/max|U|`, worst 2.2e-13. The `T` lines of every variant `<= 4.8e-15`, the `dt` sequence `<= 2.1e-13`. "Worst residual" columns of the printed reports are relative differences of noise-floor initial residuals; the worst ABSOLUTE initial-residual difference of every variant is `<= 1e-12`.) The real `f2` output equals the real round 55 base output in all 160 field entries bit for bit (`r73_real_extrapolated_pressure_equals_the_real_base`); the port's `f2` equals its own base bit for bit after 3 steps (`r73_the_port_alias_is_bit_identical_to_its_base`); `f1` differs from the base in every one of the 160 real entries (the keyword is a real branch).
+
+**A port defect found by the differential, post-run record.** The FIRST port run of `f5` and `f5b` MISSED: `T` 1.2e-3 and 9.8e-4 (first diverging step 1, T 2e-6). Cause, found by comparing the port's per-outer-iteration `T (avg min max)` lines with the real log (the real `f5` first outer iteration differs from the base, the port's did not): `OnePhaseCcSolver::new` evaluates `Re` once for its own use, so the regime weights of the first `correctModels` were computed from the real Reynolds number (5e4: turbulent) where upstream's `Re_` field still holds `residualFluidStructureRe` (10: laminar). Fixed by `regime_re` (the `Re` as `FSPair::correct` last left it); after the fix both pass. No earlier number depends on it (no case selected `byRegime` before).
+
+### The shipped ESFR fluid region (gh:#1941)
+
+`cases/esfr_fluid`: 23 322 prisms, `momentumMode faceCentered`, `laminar`, `icoPolynomial` sodium, `byRegime` Nusselt, `slip` walls and baffles, `fixedFluxExtrapolatedPressure` inlet, `passiveProperties`, `nuclearFuelPin` (innerCore) and `nuclearFuelPinTest` (outerCore), `powerDensity` 1e8 / 8e7 W/m3 (prescribed before any port run), GAMG/DIC `p_rgh` and `smoothSolver`/`symGaussSeidel` `h` AS SHIPPED, `GamgPolicy::Native` (the cell-centred region's wiring of round 67: it needed no new GAMG code; the face-centred matrix is the same symmetric `p_rgh` matrix). The port reads and runs the case with no refusal after the zeroGradient `p_rgh` was accepted (the first refusal on probing was that one, nothing else).
+
+| comparison | steps | wall (port / real binary) | fields at the kept steps | `T` lines, every step | solves |
+|---|---|---|---|---|---|
+| TIGHT (`tolerance 1e-14`, `relTol 0`, GAMG kept) | 50 (fields at 1, 2, 10, 50) | 63 s / 88 s | U 1.1e-13 (max|U|), p_rgh 5.4e-14, T 2.1e-15, alphaPhi 9.4e-14, T.passiveStructure 1.3e-15, T.fuelAvForNeutronics 1.7e-15; first diverging step: none | 2.2e-15 | 900 solves; `p_rgh` initial residuals within 4.6e-10 relative of upstream's (worst absolute 4.3e-11); `dt` identical |
+| TIGHT, extended to the tutorial's `endTime 200` (addendum C; fields at 10, 50, 100, 200) | 200 | 239 s / 240 s | U 1.1e-13, p_rgh 5.4e-14, T 2.1e-15, alphaPhi 9.6e-14, T.pas 1.6e-15, T.fuel 1.9e-15; none | 2.2e-15 | 3 600 solves; no `T`-line difference above 1e-9 at any step, no initial residual off by more than 1e-6 relative above 1e-10 absolute |
+| AS SHIPPED (loose `1e-7`) | 50 | 52 s / 80 s | (no fields kept; macroscopic only) | 2.7e-15 | 900 solves: iteration counts EQUAL in every one (worst difference 0), initial residuals within 4.1e-8 relative (absolute 4.3e-11) |
+
+What the tight run shows about the protocol: GAMG did not sit at its floor for the whole run, as it did on the FFTF matrix (round 67): only the FIRST `p_rgh` solve (initial residual 1) ran `maxIter 1000` (port and real equal); every later solve stops at 0 or 1 iterations because the flow is a nearly uniform axial flow (inlet `4.559 m/s`, uniform initial field): 326 solves of 0 iterations and 273 of 1 in the real 50-step log, 599 floor solves differing by at most 1 iteration (reported, not gated). So the loose protocol is NOT round-off sensitive here (round 67's caveat does not bite: equal iteration counts in all 900 solves), and "tight" differs from "loose" mostly in the `h` solves. **One iteration-count miss, reported, cause measured:** the `h` solve of step 4, outer 4 (initial residual 9.2e-2): the real binary ran `maxIter 1000` (its log: final residual 1.0039e-14, i.e. stagnating at the round-off floor just above the 1e-14 tolerance), the port stopped after 7 sweeps below 1e-14. The same solve at the same state: initial residuals equal; the difference is which side of 1e-14 the floor value falls (the real run's 1000-sweep solves at steps 1-4 also end at 1.0-1.3e-14, the port matched those). Fields agree to 1e-13 at steps 10, 50, 100, 200 afterwards. The `h` smoother is the round 46 translation (`nSweeps 1`).
+
+What this does NOT show: the ESFR coupled to neutronics and thermo-mechanics (`neutroRegion`, `legacyThermoMechanics`; gh:#1846, #1783 remain), `tolerance 1e-7` GAMG on a flow that is NOT near-uniform (the flow here is the uniform inlet field plus heating, so the pressure problem is easy; a case with a developing flow is where round 67's loose-protocol sensitivity could return), turbulence (`laminar` here), and anything past `t = 200`. No keff gate was run (fluid only).
+
+### Predictions: held / missed
+
+P1 held (real `f2` == real base bit for bit; port `f2` == port base). P2 (port `f1` <= 1e-12 at the first run, 30 %) HELD at the first run. P3 held. P4 (30 %) held. P5 / P5b-2: MISSED at the first port run (the `Re` initialisation defect above), held after the fix; P5b-1 held (the real `htc` of `f5b` is 35 409 against the base's 38 098); P5b-3 held after the fix. P6 (30 %) held. P7, P8 held. P-E1 held (63 s for 50 steps, 1.3 s per step, against "under 40 s per step"). P-E2 held. P-E3 (20 %) held (1.1e-13). P-E4 not applicable (no first diverging step). P-E5: loose `p_rgh` iteration counts equal for steps 1-3: held, in fact for all 50 steps; `T` lines `<= 1e-6` over 50 steps held at 2.7e-15. P-C1, P-C2 held. Several of my probabilities were low for results that came out at round-off: the faceCentered branch is a short translation of an already-verified solver (`one_phase_fc` rounds 38-46), and the matrix assembly of that solver was reused order for order.
+
+### Earlier numbers: none moved
+
+See the list of tests run below; all pass at their pins. The one change to an existing code path that every cell-centred case runs is the new `begin_time_step` copies (`phi_old`, `rho_b_old`) and the `regime_re` bookkeeping, neither read outside the faceCentered and `byRegime` branches.
+
+### Not done, and filed
+
+`neutroRegion` / `legacyThermoMechanics` stages of the ESFR (gh:#1846, #1783), tortuosity in the faceCentered branch (gh:#1943), `smoothSolver` with `relTol`/`nSweeps` (gh:#1942), a developing-flow ESFR case for the loose-protocol sensitivity (gh:#1944). Not run: the wasm gate (`scripts/check-wasm.sh`).
+
+### Tests run (2026-11-27, release; targeted, no full suite)
+
+`genfoam_fullcoupling_fluid_vs_upstream` (22 + 4 ignored, incl. the 476-step round 55 run and round 71's variants: unchanged pins), `genfoam_fullcoupling_three_region_vs_upstream` (5), `genfoam_fullcoupling_transient_vs_upstream` (36), `genfoam_fftf_pieces_vs_upstream` (14 + 4 ignored), `genfoam_radial_power_wired_vs_upstream` (8), `genfoam_heat_exchanger_cc_vs_upstream` (4), `genfoam_heat_exchanger_vs_upstream` (8 + 2 ignored; the face-centred `one_phase_fc` solver), `genfoam_one_phase_vs_upstream` (5 + 2 ignored; `one_phase_fc`), `genfoam_msfr_th_vs_upstream` (6), `genfoam_written_state_vs_upstream` (5), `genfoam_coupled_tutorials_requirements` (2), `genfoam_esfr_fluid_vs_upstream` (2), `--lib one_phase` (22), `--lib radial` (7), `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` (clean). The `ignored` ESFR tests were run explicitly with `--ignored`: tight 50 steps 63 s, tight 200 steps 239 s, loose 50 steps 52 s (4-core shared machine, one test at a time). `bash scripts/check-nostd.sh` as a whole and `scripts/check-wasm.sh` were not run.
+
+### Reproduction
+
+`bash scripts/make_round73_variants.sh cases/fullcoupling_fluid <out>` then `bash scripts/run_round73_variants.sh <out> <refs out>` (about 5 s per variant); `bash scripts/make_esfr_fluid_case.sh <dir>` then `bash scripts/run_esfr_fluid_real.sh tight <dir> 50 <prefix>` (88 s) and `loose` (80 s); the 200-step run `WRITE_INTERVAL=10 KEEP="10 50 100 200" bash scripts/run_esfr_fluid_real.sh tight <dir> 200 <prefix>` (240 s); port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_fluid_vs_upstream r73_` and, with `-- --ignored`, `r73_esfr`.
+
+
+
+# Round 74 (gh:#1944 under #1941/#1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream", "U go couple lah", "3D MSFR or ESFR"): 3D_SmallESFR coupled end to end, serial
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **The audit, the criteria and the predictions below are committed BEFORE the first run of the port on the coupled case and BEFORE the real reference run of this round** (the real binary was run for 3 steps first, only to see that it runs and how long a step takes: 31 s for 3 steps, plus a 20 s `-initializeMappedFields` stage; no number of it enters a criterion).
+
+## What the shipped ESFR stages are (read 2026-11-27)
+
+| stage | where | regionSolvers (fluid / neutro / thermo-mechanics) | selections |
+|---|---|---|---|
+| S1 `legacySolver` | `3D_SmallESFR_NewSolverVerification/legacySolver` | `onePhase` / `diffusionNeutronics` / `legacyThermoMechanics` | steady state, `eigenvalueNeutronics true`, `endTime 200`, `deltaT 1`, `adjustTimeStep false`, `writeInterval 100`; `removeBaffles fluidRegion 1` (21 252 duplicate faces = 10 626 baffle pairs, measured: "Writing 21252 duplicate faces"); coupling dictionary maps `powerDensity -> powerDensityNeutronics` TM to neutro; `meshDeformation neutroRegion disp`; `maxMultiRegionIterations 6 / multiRegionTightCoupled 1 / residual 5e-5` are read only by `multiPhysicsSolver` (none selected here) |
+| S2 `newSolver` | same, `newSolver` | `onePhase` / `diffusionNeutronics` / **`extendedThermoMechanics`** | as S1, but TM to neutro maps `powerDensity -> Q` |
+| S3 `3D_SmallESFR_old` `steadyState` | `3D_SmallESFR_old/rootCase` | as S1 (`Allrun_parallel`: `-legacy -initializeMappedFields`, 4 cores) | `multiRegionCouplingDict_loosely` |
+| S4 `3D_SmallESFR_old` `transient` | `setTransient` of its `Allrun` | `energyNeutroMechLoop multiPhysicsSolver` (fluid + neutro + TM inside one `multiPhysicsSolver`), `eigenvalueNeutronics false`, `solveFluidMechanics false`, `multiRegionCouplingDict_tightly`, `endTime 210`, `adjustTimeStep true`, `deltaT 1e-5` | the Picard loop of `multiPhysicsSolver` |
+
+`Allrun_parallel` of the verification case runs `decomposePar -allRegions` and `mpirun -np 4` (4 cores): this round runs the SAME case serial; a decomposed run is out of scope. Neutronics (all stages): `diffusionNeutronics`, 1 energy group, 8 precursor groups, XS states `XSref`, `TFuel1200K`, `TClad1950K`, `rhoCool500kgm3`, `axialExpansion`, `radialExpansion` (variables `TFuel` log, `TClad` lin, `rhoCool` lin, `axExp`, `radExp` lin), one control rod (position 1.85), `CRmove` empty; no SP3/PK in any ESFR stage. Thermo-mechanics: `legacyThermoMechanics` with `materials { }` cards (8 zones, identical), `thermalSolver on`, `mechanicsSolver on`, `planeStress no`.
+
+**`extendedThermoMechanics` (S2, gh:#1783), checked today.** `git ls-tree 652b3da src/classes/offbeat/src` pins OFFBEAT commit `9845e449b8ff3e3074f5ee8c3372065399dfabc6` of `gitlab.com/foam-for-nuclear/offbeat` (branch `ffn/GeN-Foam2`). The host is reachable, but that commit is **not obtainable**: `git fetch origin 9845e44...` is refused (`not our ref`) and, after fetching every branch (82 MB, scratch), it is not an ancestor of any of them (the `ffn/GeN-Foam2` tip is `b589b96`, 2025-10-06; it has the six headers `extendedThermoMechanics.H` includes but is a different version of the API). A build would need that tip's `offbeatLib` plus the SCIANTIX submodule and a hope that GeN-Foam's calls still compile; the library would then not be "the unmodified upstream at the pinned commit". **Not attempted; S2 stays refused by name** (its real binary cannot be run either).
+
+## Checked first (grep and reading before porting)
+
+* `RegionSolvers::read` (`multi_region/region_solvers.rs`) already builds the three regions for `2D_fullCoupling`: `OnePhaseCcSolver::from_case_dir` (carries `momentumMode faceCentered` since round 73), `DiffusionNeutronics` on a `DeformableMesh`, `LegacyFvmThermoMechanics` (`LegacyFvmCase::read_at`, `TStructGamgPolicy::Native` since round 72), the five `meshToMesh` maps (round 28, bit-identical on these very meshes), `deformMesh`. Reused unchanged; nothing is rewritten.
+* Refusals read from the code before any run: `removeBaffles` on a mesh WITH baffles is refused by name (gh:#1236); the neutronics flux boundary conditions are written for a 2-D case (`frontAndBack` the only `empty` patch, every other patch `fixedValue 0`); the ESFR mapped fields (`thermo:rho`, `T.cladAvForNeutronics`, `secondaryPowerDensity`, `powerDensityNeutronicsToLiquid`) are not exercised in 3-D by any earlier test.
+* Prediction of the FIRST refusal, written before the probe was run: **`removeBaffles on a mesh with baffles is not ported (gh:#1236)`** (Y3 below).
+
+## Criteria (fixed here; none will change after seeing results)
+
+1. **Real reference**: `GeN-Foam -case` (652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`) on the output of `scripts/make_esfr_coupled_case.sh` (tight protocol: tolerances 1e-14, relTol 0, GAMG kept; `writePrecision 17`), 200 steps to `t = 200`, exit 0. Extracted by the streaming `scripts/extract_esfr_coupled_stream.py`: per step `keff_prev keff power maxSigmaEq`, every `p_rgh`, `h` and TM solve (initial residual, iterations), `deltaT`, a fingerprint (n, sum, max, sum of squares) of every listed field of the three regions; full internal fields of the key fields at steps 1, 2, 3, 5, 10, 20, 50, 100, 150, 200. Each reference file under 10 MB, in the refs submodule.
+2. **The port reads and runs the same directory** (`RegionSolvers::read`, inflated copy): no refusal, or the first refusal named and the piece ported (or refused by name), each ported piece differenced on a ONE-EDIT variant against the real binary.
+3. **Per step, first N steps** (N is the number the port reaches within the session, stated with the port's wall time per step; a run over 5 minutes is `#[ignore]`): `keff`, `power`, `maxSigmaEq` `<= 1e-9` relative; `dt` equal; the solve sequence per step equal in count and order; initial residuals `<= 1e-6` relative above `1e-10` absolute; **iteration counts at the noise floor REPORTED, not gated**.
+4. **Fields at the kept steps**: every region's key fields `max|port - up| / max|up| <= 1e-9` on the field's own max-norm; `U` on `max|U|` over all components; fingerprints `<= 1e-9` relative. First diverging step and worst field reported. Bit-identity is the goal; `<= 1e-9` needs an explained cause.
+5. **As-shipped loose run** (tolerances as shipped, `writePrecision 17`), the same span: solve counts and macroscopic quantities (`keff`, `power`, `maxSigmaEq`, `dt`); NOT pointwise fields beyond the span where two real runs 1e-16 apart still agree (round 67 caveat).
+6. **Earlier numbers (rounds 3-73) do not move**; any that does is listed with old and new (1e-9 direct, 1e-4 propagated).
+7. **Refused by name, not ported**: `extendedThermoMechanics` and `fuelBehaviour` (OFFBEAT pinned commit not obtainable), the S4 `multiPhysicsSolver` transient of `3D_SmallESFR_old` (unless a piece below lands), a decomposed parallel run.
+8. **Geometry images** of the ESFR neutronics and thermo-mechanics meshes (axial x-z and y-z, radial x-y slices, by `cellZone`, from the solver's own `polyMesh`), committed beside `images/esfr_fluid_*`, with what was checked by looking.
+
+## Predictions (written before any run of this round)
+
+| id | prediction | P |
+|---|---|---|
+| Y1 | the real reference runs 200 steps, exit 0, in 25-60 min serial (about 10 s a step in the 3-step trial) | 80 % |
+| Y2 | real `keff` at step 200 within 0.1 % of the `Alltest` value 0.936827 (a REPORT, not a gate on the port) | 65 % |
+| Y3 | the first port refusal is the `removeBaffles` one | 75 % |
+| Y4 | once the baffle-less copy exists, the 3-D coupled loop matches the real run at `<= 1e-9` for the first 10 steps | 35 % |
+| Y5 | the port does not reach step 200 of the coupled case in this session (several pieces, each differenced on a variant; per-step cost in the port above the real binary's) | 70 % |
+| Y6 | the loose as-shipped real run differs from the tight one in `keff` at 1e-5 relative or below after 200 steps | 55 % |
+
+
+## Round 74 addendum A (written and committed BEFORE the real run of the one-edit variant V1 and before any port run of it)
+
+The tight and as-shipped real runs and the port's first 200-step runs had been made when this was written (results below). What they do not isolate is the **displacement feedback of the cross sections** (`axExp`, `radExp` of `setNeutronicsVariables.H`, ported in `xs_cell_parameters`): inside the base run it is always on. **V1 = ONE edit**: the `neutroRegion <- thermoMechanicalRegion` mapping `meshDisp -> disp` is removed from `constant/multiRegionCouplingDict` (`scripts/make_esfr_coupled_variant_v1.py`), so the neutronics `disp` stays 0, both expansion variables are 0 and the neutronics mesh does not move. Tight protocol, 20 steps, real binary and port on the same directory.
+
+Criteria (fixed): per step `keff`, `power`, `maxSigmaEq` `<= 1e-9` relative; fingerprints of every field `<= 1e-9` (the `meshDisp`/`disp` sum fingerprints cancel to near zero: judged by the full fields at the kept steps, as for the base run); solve count and order equal; the REAL V1 `keff` must differ from the REAL base `keff` at step 20 (else the feedback is not tested by this edit).
+
+| id | prediction | P |
+|---|---|---|
+| V1-1 | the real V1 `keff` differs from the real base at step 20 by more than 1e-6 relative | 70 % |
+| V1-2 | the port's V1 matches the real V1 at `<= 1e-9` for all 20 steps (`keff`, `power`, fingerprints) | 75 % |
+| V1-3 | the port's V1 differs from the port's base by the same amount as the real runs differ (to 1e-6 of that difference) | 70 % |
+
+
+## Round 74 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions, criteria and addendum A committed first (`7956468d6`, `027224f47`), the addendum BEFORE the V1 real run; real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`; case `scripts/make_esfr_coupled_case.sh`, references in the refs submodule (commits `82602b3`, `8f8ad74` and the V1 one): `esfr_r74_tight_log` (0.15 MB), `esfr_r74_tight_V_{fluidRegion,neutroRegion,thermoMechanicalRegion}` (2.6, 2.1, 3.8 MB), `esfr_r74_loose_log`, `esfr_r74_v1_log`; test `tests/genfoam_esfr_coupled_vs_upstream.rs` (`esfr_coupled_steps_against_the_real_binary`, driven by `ESFR_COUPLED_CASE`, `ESFR_STEPS`, `ESFR_REF`; prints every number below))
+
+AI-written, not human-reviewed. Research, education and V&V only. **The shipped `3D_SmallESFR_NewSolverVerification/legacySolver` steady state (23 322-cell `onePhase` `faceCentered` fluid + 23 322-cell `diffusionNeutronics` eigenvalue + 23 340-cell `legacyThermoMechanics`, three different meshes, five `meshToMesh` maps, `meshDeformation` of the neutronics mesh) runs end to end in the port's `RegionSolvers` and agrees with the real binary over all 200 steps of the tight protocol: `keff` and `power` to 1.8e-15 and 2.8e-15 at every step, every compared field of the three regions at its kept steps (1, 10, 50, 200) to 2.0e-13, fluid `p_rgh` solves bit-identical, solve counts and order equal in every step.**
+
+### What was ported / changed (new code only; `region_solvers.rs` edited, no Kovan-reviewed function in the folder: `review.md` holds no `kind = "review"` block)
+
+| piece | upstream | port |
+|---|---|---|
+| `GAMG` for the fluid's `p_rgh` in the coupled loop | round 67's `GAMGSolver` | `RegionSolvers::read` builds the `onePhase` region with `GamgPolicy::Native` (it passed `Refuse`: the FIRST refusal of the probe, below); a case that selects `PCG` is unaffected |
+| `xs_.correct()` of every `solveNeutronics.H`: the feedback variables | `solveNeutronics.H:4`, `setNeutronicsVariables.H` (`TFuel` log, `TClad`/`rhoCool` lin from the mapped region fields; `radExp = fvc::div(disp with the axial part removed)/2`, `axExp = fvc::grad(disp . axialOrientation) . axialOrientation` on the MOVED mesh; `log` clamped `max(x, 0.01)`) | `xs_cell_parameters` (+ `DiffusionNeutronics::refresh_cross_sections`, `expansion_from_displacement`, both existing and differenced earlier), called before each neutronics step; `axial_orientation_of` reads `axialOrientation` (the shipped `(0 0 1)`); 2D_fullCoupling has `xsVariables {}` so nothing is refreshed there |
+| `powerDensity_ /= max(fuelFraction, SMALL) * (1 - fractionToSecondaryPower)`, `secondaryPowerDensity_` | `solveNeutronics.H:119-120` | `fuel_fraction_scaled_power` (per cell, the zone's constants); **a defect found by the differential, post-run record:** the first port run of the shipped case had every other number at round-off but `powerDensity` 0.46 times the real one in the core zones (`fuelFraction 0.46`: the 2-D tutorials have `1`, so the division was a no-op until now); fixed, then `powerDensity` 2e-15 |
+| `removeBaffles fluidRegion 1` with 21 252 duplicate faces | `meshHandler.C:389-506` (`createBaffleLessMeshes` merges faces, leaves every cell as it was) | the refusal "removeBaffles on a mesh with baffles" is lifted for the SOLVED loop: the `.baffleLess` map sources are the region's own cells (the real log's overlap volumes of the `.baffleLess` maps equal the baffled ones to 1e-14 and every cell overlaps exactly one cell, round 28), so the mapped values are exact copies; the merged mesh itself is still not built and is refused by name where it would be WRITTEN |
+| the 3-D `diffusionNeutronics` constructor with `xsVariables` | `XS` constructor | `DiffusionNeutronics::new_with_cell_parameters` at the constructor's zero fields (the energy-group count taken from the solver, not 2) |
+
+`extendedThermoMechanics` (`newSolver`, S2) and the S4 `multiPhysicsSolver` transient of `3D_SmallESFR_old`: **refused by name, not ported** (see "What the shipped ESFR stages are"). Nothing of S3/S4 was run.
+
+### The first refusal of the port (prediction Y3 MISSED, post-run)
+
+The first run of the probe (`probe_esfr_coupled_first_refusal`) refused at `solvers.p_rgh: only PCG with the DIC preconditioner is ported (GAMG: see GamgPolicy)` (the region was read with `GamgPolicy::Refuse`), not at the baffles. After that: a panic in `DiffusionNeutronics::new` (an empty parameter vector for 5 `xsVariables`), the `axialOrientation` refusal of the reader I wrote, then the 3-D read succeeded in 30 s (the baffle refusal was removed as above before it was reached).
+
+### (1) The real reference (Y1 MISSED, Y2 held)
+
+Real tight run, 200 steps, exit 0, **515 s** wall (2.6 s a step; Y1 had guessed 25-60 min); as shipped (loose) 490 s. `keff` at step 200 = 0.93687164 (the `Alltest` value 0.936827 +- 0.1 %: relative difference 4.7e-5, Y2 held); `power` 8.0e8 W (`pTarget`); `Max sigmaEq` 6.1e6 Pa; `dt` 1 in every step (`adjustTimeStep false`). The shipped `Allrun_parallel` is 4-core; this is the serial run of the same case.
+
+### (2) The port against the real tight run (200 steps, port 333-356 s wall, 1.7 s a step, over the 5-minute limit: run by `ESFR_STEPS=200`, not by default)
+
+| quantity | worst over 200 steps | first diverging |
+|---|---|---|
+| `keff`, `power` | 1.8e-15, 2.8e-15 (step 156) | none |
+| `dt` | equal (1) | none |
+| `maxSigmaEq` | 2.1e-13 (step 164) | none |
+| fluid `T`, `p`, `p_rgh`, `T.passiveStructure`, `T.fuelAvForNeutronics`, `T.cladAvForNeutronics`, `powerDensityNeutronics` fingerprints | 5.8e-15 to 2.3e-14 | none |
+| fluid `U` fingerprint (max) | 3.8e-14; full field at kept steps 1.1e-13 on max\|U\| | none |
+| neutronics `flux0`, `powerDensity`, `TCool`, `TFuel`, `TClad`, `TStructMech` | fingerprints 6e-15 or less; full fields 2.6e-15 | none |
+| thermo-mechanics `TStruct`, `TStructFromTH`, `TFuel` | 1.4e-14 | none |
+| thermo-mechanics `disp` | fingerprint 1.1e-12 (step 162); full field 2.0e-13 (step 200) | none |
+| **`meshDisp` (TM) and `disp` (neutronics, mapped from it)** | **fingerprint 3.8e-9 at steps 2 and 3 (MISS of 1e-9)**; full fields at the kept steps 5.9e-15 (step 10) to 7.3e-14 (step 200) | step 2 |
+| **`fuelDisp`, `CRDisp`** | **fingerprints 9.6e-11 and 2.1e-11 at step 2 (within 1e-9, reported)** | none |
+| fluid `p_rgh` solves (2 400) | count and order equal in every step; every solve with an upstream initial residual above 1e-10 **bit-identical**; iteration counts equal except at the noise floor (worst difference 1) | none |
+| fluid `h` solves (1 200) | count and order equal; iteration counts equal; initial residuals within 1e-6 relative except **one near-floor solve: step 151, upstream initial residual 1.06e-10, relative difference 4.8e-6 (absolute 5e-16): MISS of the 1e-6 criterion, measured cause: the solve sits 6 % above the 1e-10 threshold of the criterion, the difference is round-off in a residual of that size** | none |
+| thermo-mechanics solves (1 833) | field order and count equal in every step; **initial residual worst 9.0e-4 relative at step 161 (upstream 1.8e-10, absolute 1.6e-13): MISS of the 1e-6 criterion, a floor-level residual; the worst ABSOLUTE difference of any solve above 1e-10 is 1.2e-12**; iteration differences above 1 in 6 solves (worst 39), all in solves that start near the floor (reported, not gated) | none |
+
+Cause and status of the fingerprint miss: `meshDisp` and the neutronics `disp` are displacements that are small and of both signs, so the sum and sum-of-squares fingerprints cancel; the full fields, which are the criterion's own instrument, agree to 5.9e-15 to 7.3e-14 at steps 10, 50, 200 (the step 2-3 full field was not kept: only 1, 10, 50, 200 were). That reading is an interpretation, not a measurement at step 2. The `fuelDisp` solve of step 2 starts at a normalised residual 0.9999999993 and stops after 2 iterations, `CRDisp` 0.99999999999951 after 6: a solve from an effectively zero guess whose absolute solution error is set by the normalisation, plausibly the 1e-10; **not isolated, no one-edit run was made for it.** Filed.
+
+### (3) The as-shipped (loose) run against the port (200 steps, 269 s)
+
+| quantity | result |
+|---|---|
+| `keff` at step 200 | real 0.93687210, port 0.93687164 (4.9e-7 relative; the real tight value is 0.93687164 too: the PORT's loose run sits on the tight value, the REAL loose run is 4.9e-7 above it: Y6 held, real loose vs real tight 4.9e-7) |
+| `keff` / `power` worst over 200 steps | 1.3e-6 (step 63) / 1.0e-6 (step 75) |
+| `dt` | equal |
+| fluid `p_rgh` solves (2 400) | **count, order and iteration counts equal in every solve (worst difference 0)**, initial residuals within 4.6e-8 |
+| fluid `h` solves (1 200) | counts equal, iteration worst difference 1; the worst relative initial-residual difference is large (6.3) because it is a floor-level residual (reported) |
+| thermo-mechanics solves (1 800) | **10 steps with a different solve count or order; 67 solves with an iteration difference above 1 (worst 42)**; this is where the loose runs part: `relTol 1e-3` solves keep their error, the discontinuity of the stopping rule shows (round 67's caveat) |
+| fingerprints (reported, not gated) | fluid `U`, `p`, `p_rgh` 2.6e-14 or less; `T`, `T.*`, `powerDensity`, `flux0` 1.2e-6 to 4.4e-6; `meshDisp`/`disp` 4.4e-5, TM `disp` 2.6e-4, `fuelDisp` 4.9e-5 |
+
+The neutronics `powerDensity` fingerprint differs by 2.9e-7 already at step 1. **Cause, read from the code (not isolated by a run): `RegionSolvers::read` builds the diffusion region with fixed `DiffusionSettings` (`linear` tolerance 1e-14, `k_tolerance` 1e-13, `flux_tolerance` 1e-12) and, on the eigenvalue path, does NOT read the neutronics region's `fvSolution` (the transient path reads `neutronTransport` only) (`flux.*` `PCG`/`DIC` `tolerance 1e-6`, `relTol 1e-3`; `prec.*` `PBiCG`/`DILU` `1e-6`, `1e-3`; `neutronTransport.neutronIterationResidual 1e-6`, `maxNeutronIterations 50`).** So the port's neutronics is solved TIGHT in the as-shipped run, which is why its loose `keff` sits on the real TIGHT value (2.8e-10) and the real loose run is 4.9e-7 away from both: the stopping rule of upstream's neutronics solves is not matched, against the maintainer's "Match all upstream ... incl. solvers and stopping rules". The tight protocol is unaffected (every tolerance 1e-14, `relTol 0`). Filed. The loose run is judged on macroscopic quantities and the p_rgh solve counts only, as criterion 5 says.
+
+### (4) One-edit variant V1 (addendum A): no `meshDisp -> disp` mapping, tight, 20 steps
+
+Real V1 `keff` at step 20 = 0.93891526 against the real base 0.93730150 (**1.7e-3 relative**: V1-1 held, the displacement feedback is a real effect on this case). Port V1 against real V1: `keff` 4.8e-16, `power` 7.5e-16 over 20 steps, every fingerprint as the base run (the neutronics `disp` fingerprint is exactly 0: the variants differ in nothing else), solve count and order equal in all 600 solves, `p_rgh` bit-identical (V1-2 held; the same `meshDisp`/`fuelDisp`/`CRDisp` step-2 fingerprints as the base because the thermo-mechanics region does not depend on the edit). V1-3 held (port V1 and port base differ by the same 1.7e-3 as the real ones, to the 1e-15 of each).
+
+### Geometry images (hard rule): `images/esfr_neutro_{axial_xz,axial_yz,radial}.png` and `esfr_tm_{axial_xz,axial_yz,radial}.png` (+ `.svg`), `scripts/draw_esfr_mesh.py <polyMesh> images neutro|tm`, from the solver's own `polyMesh`
+
+Checked by looking at `esfr_neutro_axial_xz.png`, `esfr_tm_axial_xz.png` and `esfr_tm_radial.png`, and by the script's own counts: neutronics 10 zones, 23 322 cells, none outside a zone (`radialReflector` 5 160, `upperReflector` 1 944, `controlRod` 432, `upperGasPlenum` 648, `innerCore` 3 240, `follower` 1 728, `outerCore` 3 240, `lowerReflector` 1 944, `lowerGasPlenum` 1 944, `diagrid` 3 042); TM 8 zones, 23 340 cells (`rest` 6 540, `controlRod` 432, `radialReflector` 5 040, `innerCore` 3 300, `follower` 1 728, `outerCore` 3 240, `diagrid` 3 042, `softStructure` 18). What the pictures show: a hexagonal assembly lattice of triangular prisms; axial stack diagrid, lower gas plenum, lower reflector, core (inner core centred, outer core ring on both sides), upper gas plenum, upper reflector; the radial reflector two assemblies thick on the sides; followers in the lower radial slice and control rods at the same positions in the upper slice (by eye) (so a rod sits over each follower: the rod and its follower are one channel); the **TM mesh has no gas-plenum or reflector zones (one `rest` zone in their place), its `innerCore` has 60 more cells than the neutronics' (the plenum rows are `innerCore` in the TM zoning, 3 300 against 3 240), and 18 extra `softStructure` cells below z = 0 (the pillar under the centre, three layers of six cells): these are exactly the 18 cells (23 340 against 23 322) that overlap nothing in the five `meshToMesh` maps (round 28)**. Not checked: the cut at z = 0.092 m of the neutronics radial image shows only the diagrid (as the stack says); the legend of `esfr_tm_radial.png` overlaps the lower right panel (cosmetic); the fluid mesh was drawn in round 71.
+
+### Predictions: held / missed
+
+Y1 **MISSED** (515 s, not 25-60 min). Y2 held (4.7e-5). Y3 **MISSED** (the first refusal was `GamgPolicy::Refuse`, then four more before the loop read). Y4 **held far beyond its 35 %** (200 steps, not 10, at round-off). Y5 **MISSED** (the port ran all 200 steps in 333-356 s; I expected pieces left over: the pieces needed were four small ones). Y6 held (4.9e-7). V1-1, V1-2, V1-3 held. The criterion misses are the three listed with their numbers above (the `meshDisp`/`disp` fingerprints, the near-floor `h` and thermo-mechanics initial residuals).
+
+### Earlier numbers (criterion 6): none moved
+
+`genfoam_fullcoupling_three_region_vs_upstream` (5), `genfoam_fullcoupling_transient_vs_upstream` (36, 218 s), `genfoam_fullcoupling_neutronics_vs_upstream` (3), `genfoam_written_state_vs_upstream` (5), `genfoam_coupled_tutorials_requirements` (2), `genfoam_esfr_fluid_vs_upstream` (2) pass at their pins with the edited `region_solvers.rs`; `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean. Not re-run (the edit touches only `RegionSolvers`): `genfoam_fullcoupling_fluid_vs_upstream`, `genfoam_fftf_pieces_vs_upstream`, `--lib` filters, `scripts/check-wasm.sh`.
+
+### Allrun findings (the shipped scripts, read; none executed as shipped)
+
+* `3D_SmallESFR_old/Allrun_parallel:17` calls **`mpirn`** (typo for `mpirun`) inside `runCloneCase`: the script cannot run as shipped (command not found); it also runs the steady state inside the clone function before the `decomposePar` of the loop. `3D_SmallESFR_old/Allrun` (serial) and `3D_SmallESFR_NewSolverVerification/Allrun_parallel` are fine to read; the latter has no `-initializeMappedFields` (the 2-D tutorial has none either). Commented on the draft upstream report gh:#1910.
+* `Alltest` gates `keff` 0.936827 +- 0.1 % on `processor0/200/uniform/reactorState`; the serial real run gives 0.93687164 (4.7e-5): consistent. `newSolver` was not run (no library for `extendedThermoMechanics`).
+
+### Not done, and filed
+
+`extendedThermoMechanics`/`fuelBehaviour` (OFFBEAT commit `9845e449` not obtainable; gh:#1783, comment), S3/S4 (`3D_SmallESFR_old`, the `multiPhysicsSolver` transient with `energyNeutroMechLoop`), a decomposed run, the step-2 `meshDisp`/`fuelDisp`/`CRDisp` cause, the loose run's step-1 neutronics solve difference, a baffle-less mesh WRITER (gh:#1236), the developing-flow loose-GAMG sensitivity of gh:#1944 (still open: this coupled run is again a near-uniform flow at the fluid solves; `p_rgh` loose iteration counts equal in all 2 400 solves). The new function `xs_cell_parameters` is reached only by `esfr_coupled_steps_against_the_real_binary` (environment-driven, not run by default); `axial_orientation_of` and `fuel_fraction_scaled_power` are reached by the 2-D coupled tests too.
+
+### Reproduction
+
+`INFLATE=1 bash scripts/make_esfr_coupled_case.sh <dir>` (inflated copy for the port; without `INFLATE` for the real binary; `TIGHT=0` for the as-shipped run; `END=<n>`), real: `run` as in `scripts/run_fullcoupling_coupled.sh` without `-initializeMappedFields` and `python3 -I scripts/extract_esfr_coupled_stream.py <dir> <prefix> 200` while it runs (a 3-D write is 28 MB a step; the extractor deletes each step directory after reading it); V1: `python3 -I scripts/make_esfr_coupled_variant_v1.py <dir>`; port: `ESFR_COUPLED_CASE=<inflated dir> ESFR_STEPS=200 ESFR_REF=tight|loose|v1 cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_coupled_vs_upstream esfr_coupled_steps -- --nocapture`.
+
+Issues filed from round 74: gh:#1948 (neutronics fvSolution tolerances on the eigenvalue path), gh:#1949 (step-2 meshDisp/fuelDisp/CRDisp and near-floor residual misses), gh:#1950 (3D_SmallESFR_old transient, decomposed run, baffle-less mesh writer); comments on #1944, #1911, #1941, #1846, #1783, #1910.
+
+
+# Round 75 (gh:#1948, #1950 S4, #1949; under #1944/#1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream" incl. solvers and stopping rules, "U go couple lah")
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **Every prediction and criterion of a part is committed BEFORE the run it concerns.** Another agent writes Round 72 (gh:#1936); README merges keep both.
+
+## Part A (gh:#1948): the neutronics region's `fvSolution` on the diffusion eigenvalue path of `RegionSolvers`
+
+### Read in upstream first (652b3da / ESI v2506)
+
+* `diffusion/include/solveNeutronics.H:9-25` reads `neutronTransport` (`integralPredictor`, `implicitPredictor`, `aitkenAcceleration`, `neutronIterationResidual`, `maxNeutronIterations`) with `subDict` (mandatory upstream). The do-while of `solveNeutronics.H` ends with `&& !eigenvalueNeutronics_`: with `eigenvalueNeutronics true` it runs ONE pass, so **`neutronIterationResidual` and `maxNeutronIterations` are not consulted on the eigenvalue path** (they are read and ignored); `aitkenAcceleration` IS read there (`fluxEq.H:3`), shipped `false` in both ESFR cases.
+* The solver settings are not read by GeN-Foam at all: `neutroEq.solve()` (`fluxEq.H:23`, twice per group) and `precEq.H` call `fvMatrix::solve()`, which takes `mesh.solverDict(<field name>)` of the region's `fvSolution` (`solver`, `preconditioner`, `tolerance`, `relTol`, `maxIter`, `minIter`, `norm` by `lduMatrix::solver::readControls`). The reader exists since round 42 (`io::nuclear_data::read_neutron_fv_solution`) and the solvers since round 40; `RegionSolvers::read` bypassed both with fixed `DiffusionSettings`.
+* Shipped ESFR neutroRegion (`legacySolver`, `3D_SmallESFR_old`): `"flux.*"` `PCG`/`DIC` `1e-6`/`relTol 1e-3`, `"prec.*"` `PBiCG`/`DILU` `1e-6`/`1e-3` (precursors of a stationary fuel are algebraic, never solved; GAMG blocks are commented out).
+
+### What changes
+
+`neutronics_diffusion_settings` (`multi_region/region_solvers.rs`): default = the `fvSolution` entries (`DiffusionSettings::with_fv_solution`); the fixed tight form is the NAMED ablation `CouplingSwitches::with_tight_neutronics_solvers()`. A flux entry selecting `GAMG` is refused by name (the reader's `PCG`/`DIC` substitution is not carried into a region run). The setting reaches the transient (round 60/61) neutronics steps as well, which use the same `DiffusionSettings`; upstream's behaviour is the same there.
+
+### Criteria (fixed; none changes after a result)
+
+1. As-shipped (loose) ESFR, 200 steps, port against `refs/esfr_r74_loose_log` (real, 652b3da): `keff`, `power`, `maxSigmaEq` `<= 1e-9` relative at every step; `dt` equal; solve count and order equal in every step for `p_rgh`, `h` and thermo-mechanics; initial residuals `<= 1e-6` relative above `1e-10` absolute; iteration counts at the noise floor REPORTED, not gated; fingerprints reported (neutronics `flux0`/`powerDensity` at step 1 `<= 1e-9`).
+2. Earlier numbers (rounds 3-74) do not move; a pin that moves is listed with old and new and the cause (1e-9 direct, 1e-4 propagated). The checked-in `cases/*` neutro `fvSolution` files are tight (`1e-14`, `relTol 0`), so the only expected difference is `maxIter` 1000 (upstream) against 100000.
+3. The tight ESFR protocol (200 steps against `esfr_r74_tight*`) reproduces round 74's numbers.
+
+### Predictions (before any run)
+
+| id | prediction | P |
+|---|---|---|
+| A1 | loose: `keff`/`power` `<= 1e-9` at every one of 200 steps | 60 % |
+| A2 | loose: neutronics `powerDensity` fingerprint at step 1 `<= 1e-12` | 85 % |
+| A3 | loose: thermo-mechanics solve count/order equal in all 200 steps (round 74: 10 steps differed) | 50 % |
+| A4 | loose: `p_rgh` iteration counts equal in all 2400 solves | 80 % |
+| A5 | tight 200 steps: round 74's numbers reproduced (no pin moves beyond 1e-9) | 90 % |
+| A6 | the `genfoam_fullcoupling_*` tests (tight case files) pass at their pins unchanged | 90 % |
+
+
+## Part B (gh:#1950 S4): the `3D_SmallESFR_old` transient, `energyNeutroMechLoop multiPhysicsSolver` (written BEFORE the 73-step comparisons and the tight real runs)
+
+**Order of events, stated honestly.** The real loose references (steady `s3_loose`, transient `t4_loose`, 165 s, 73 steps, exit 0) existed and the port was run for 1-3 steps of the loose transient as DEVELOPMENT PROBES before this section was written; those probes found, in this order, the missing `startFrom latestTime` (the fluid reader took `startTime 0`), the `T.fixedTemperature` of a start directory of a case without a `fixedTemperature` power model, the `Trad.nuclearFuelPinTest` restart (refused by name before), and then a 12 % power difference at step 1 whose cause was **`removeBaffles { fluidRegion 1; }` read as false** (`rb()` accepted the words `true/yes/on`, not the number `1`, a `Switch` in OpenFOAM): with the flag false the port used the baffled fluid mesh as the SOURCE geometry of the fluid -> neutronics map, which is identical to the neutronics mesh only while that mesh has not moved (round 74's steady state) and is wrong (overlap 10.6 against the real 14.995) once the restart reads the moved neutronics points. With the real `fluidRegion.baffleLess/polyMesh` of the start directory as the source geometry the port's five `Overlap volume` totals equal the real log's to all printed digits (`esfr_restart_overlap_volumes_against_the_real_log`). No number below was judged before this section was committed; the 73-step runs, the tight real references and the criteria are all after it.
+
+### What the shipped `3D_SmallESFR_old` is (read, then run on the real binary 2026-11-27)
+
+`Allrun`/`Allrun_parallel` cannot run as shipped; five independent defects, each found by running the real binary (`scripts/make_esfr_old_case.sh` documents the minimal repair of each): (1) `constant/regionProperties` is a git MERGE CONFLICT (`<<<<<<<< HEAD ... >>>>>>>> ffn/multiRun`), the binary aborts with `Cannot dereference nullptr at index 0` in `regionSolvers`; (2) `controlDict` `regionSolvers` selects `energyMechNeutroLoop multiPhysicsSolver` but `multiRegionCouplingDict_loosely` has no `multiPhysicsSolvers` (and the transient's dict names the loop `energyNeutroMechLoop`); (3) `fluidRegion/fvSolution` `PIMPLE` has no `solveFluidMechanics` (mandatory `get<bool>`); (4) `nuclearData` includes `XSTFuel1200K`/`XSTClad1950K` but the files are `XSTfuel1200K`/`XSTclad1950K`; (5) `nuclearData` has no `xsVariables` dictionary (mandatory in 652b3da: `Entry 'xsVariables' not found`); and `Allrun_parallel:17` calls `mpirn` (already gh:#1910). After the five repairs the steady state is the `3D_SmallESFR_NewSolverVerification/legacySolver` case (their `nuclearData`/`CRmove`/`neutronicsProperties` differ by `xsVariables` and comments only), so S3 steady = round 74's case with other file names; the serial real steady run, 200 steps, as shipped (loose): 296 s, exit 0, keff 0.9368721, `pTarget` 8e8.
+
+### Upstream read first (652b3da / ESI v2506)
+
+* `multiPhysicsSolver.C:156-186` `correctPhysics()`: `do { mapTheseFields; forAll solvers { deformMesh(); (iterN>0 && correctOnlyEnergy) ? correctTightlyCoupledPhysics() : correctPhysics(); correctBaffleLessFields(); } residual = max(residual, solver.getResidual()) ...; ++iterN } while (residual > minResidual && iterN < maxIterations)`: **`residual` is declared outside the loop and never reset**, so it is the running maximum over all passes. Before it, the main loop's `solvers[i].deformMesh()` on the multiPhysicsSolver deforms every member once more (`:139-145`). `correctOnlyEnergy` is true for every member unless `includeFluidMechanicsInLoop` lists it.
+* `onePhase.C:145-183`: `correctPhysics()` zeroes `residual_` and runs the PIMPLE loop (`nOuterCorrectors 6`: 6 `h` solves with `solveFluidMechanics false`), `correctTightlyCoupledPhysics()` one `correctModels` and one `correctEnergy` and does not zero `residual_` (`EEqn_1p.H:94`: `residual_ = max(residual_, EEqn.solve().max().initialResidual())`). `diffusionNeutronics::correctPhysics` (`pTotOld_ = power(); residual_ = 0; solveNeutronics.H`) and `legacyThermoMechanics::correctPhysics` (`residual_ = 0`) are what their `correctTightlyCoupledPhysics` call; neutronics `residual_` = `max` over every pass and group of the SECOND `neutroEq.solve()` initial residual (`fluxEq.H:29`) and the last pass's `neutroResidual` (`solveNeutronics.H:138`); TM `residual_` = `max(TStruct initial residual, the last corrector's max-component displacement initial residual)` (`solveThermalMechanics.H:74,128`).
+* `oldTime()` of `fluxStar_`, `prec_` and `TStruct_` stays the previous TIME step's value while a pass repeats; the port's solvers took "the state the call starts from" as old time, so a repeated pass would have used the previous pass: new held old-time values (`hold_stationary_old_time`, `hold_old_time`; default unchanged).
+* `solveNeutronics.H`/`createNeutronicsFields`: `eigenvalueNeutronics false` from the written `200`; `startFrom latestTime` in the transient `controlDict` (`startTime` stays 0).
+
+### What changes (nothing existing is removed)
+
+`RegionSolvers::read` accepts ONE `multiPhysicsSolver` entry (`MultiPhysics`, read from `multiRegionCouplingDict`), `startFrom latestTime`, the `removeBaffles` number switch, the `.baffleLess` start-directory mesh as the source geometry of the maps FROM a `removeBaffles` region (`read_baffle_less_geometry`), `Trad.nuclearFuelPinTest` restart, a missing `T.fixedTemperature` in a frozen-flow start directory; `RegionSolvers::step` runs the Picard loop (`correct_multi_physics`, `correct_tightly_coupled_physics`, `residual_of`); the neutronics step reports `solver_residual`. **Refused by name, not ported:** a nested `multiPhysicsSolver`, a `multiPhysicsSolver` beside other `regionSolvers` entries, `includeFluidMechanicsInLoop` (the fluid mechanics inside the loop), ~~BUILDING the baffle-less mesh (gh:#1236: the real binary's own `<start>/<region>.baffleLess/polyMesh` is read; a case without it keeps the baffled geometry)~~ **CORRECTED 2026-11-27 (round 78): the port builds it, byte-identical to the real one**, a decomposed run, `extendedThermoMechanics` (gh:#1783).
+
+### Criteria (fixed here; none changes after a result)
+
+1. Real references (652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`): the TIGHT protocol (every `tolerance 1e-14`, `relTol 0`, GAMG kept) steady state then transient on the written `200`, and the AS SHIPPED (loose) pair; the transient exactly as shipped (`adjustableRunTime`, `writeInterval 10`, `endTime 210`); for per-step FIELDS one more tight transient identical except `writeControl timeStep; writeInterval 1` (the dt sequence is the shipped one until the last steps, where the shipped run aligns to the write time 210; the difference is stated). Extracted by `scripts/extract_esfr_transient.py`.
+2. Per step, every step: `dt` equal (rel 1e-12); `power` (last pass) `<= 1e-9` relative; number of multiphysics passes equal; the `h` solves of the step equal in count and order; per pass the neutron-iteration count and the thermo-mechanics solve count/order equal; initial residuals `<= 1e-6` relative above `1e-10` absolute; iteration counts at the noise floor REPORTED, NOT gated.
+3. Tight, fields at the kept steps (every step of the `timeStep` variant for the fingerprints, full fields at 1, 2, 5, 20, 40, last): `<= 1e-9` on the field's own max-norm, `U` on `max|U|`.
+4. As shipped (loose): criteria 2 for macroscopic quantities and solve counts; fields at `t = 210` reported; a loose stopping-rule flip is a recorded miss with its cause, propagated differences up to `1e-4` are the rounding rule's allowance only when the cause is a flip.
+5. Earlier numbers (rounds 3-74) do not move; any that does is listed with old and new.
+6. Part A criteria 2 and 3 (above) stand; Part A was run before this section and is recorded below.
+
+### Predictions (before the 73-step runs and the tight real references)
+
+| id | prediction | P |
+|---|---|---|
+| B1 | tight: `power` `<= 1e-9` at every one of the 73 steps | 70 % |
+| B2 | tight: `dt` equal at every step | 85 % |
+| B3 | tight: multiphysics pass counts equal at every step | 85 % |
+| B4 | tight: thermo-mechanics solve count/order equal in every pass of every step | 75 % |
+| B5 | tight: fields at the kept steps `<= 1e-9` | 65 % |
+| B6 | loose: `power` `<= 1e-9` for the first 10 steps | 85 % |
+| B7 | loose: `power` `<= 1e-9` at all 73 steps | 45 % |
+| B8 | loose: pass counts equal at every step | 60 % |
+| B9 | the real tight transient also takes 73 steps (the loose one did) | 80 % |
+| B10 | the port runs the 73 steps in under 15 minutes | 75 % |
+
+
+## Part C (gh:#1949): is the step-2 `meshDisp` fingerprint miss of round 74 cancellation? (written BEFORE the real re-run and the port run)
+
+Round 74 recorded `meshDisp`/`disp` sum fingerprints 3.8e-9 off at steps 2-3 (full fields at the kept steps 10, 50, 200 at 5.9e-15 to 7.3e-14; steps 2 and 3 not kept) and `fuelDisp` 9.6e-11, `CRDisp` 2.1e-11 at step 2. **Method:** the real tight run of `scripts/make_esfr_coupled_case.sh` (the round 74 case, tight, `writeInterval 1`) for 3 steps with `extract_esfr_coupled_stream.py <dir> <prefix> 3 1,2,3` keeping the full `disp`, `TStruct`, `meshDisp` (and the neutronics `disp`) at steps 1, 2, 3; the port's first 3 steps of the same inflated case (`ESFR_REF=r75step2`). **Criterion (fixed):** if the full fields of `meshDisp`, `disp` (TM and neutronics) at steps 2 and 3 agree with the real ones to `<= 1e-9` on their own max-norm while their sum fingerprints miss, the miss is cancellation in the fingerprint; if a full field is off by more than 1e-9, the miss is real and its cause is the next item. `fuelDisp`/`CRDisp` are lists of per-cell scalars (not in `KEY`): the criterion is their fingerprints as before plus, for these two, the fields kept through the `KEY` list extended in the extractor (`fuelDisp`, `CRDisp`).
+
+| id | prediction | P |
+|---|---|---|
+| C1 | the full-field `meshDisp` and `disp` agree to `<= 1e-12` at steps 2 and 3 (the fingerprint miss is cancellation) | 80 % |
+| C2 | `fuelDisp` and `CRDisp` full fields agree to `<= 1e-9` at step 2 | 70 % |
+
+
+## Round 75 results, Part B (gh:#1950 S4): measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria committed first (`d45e82432`, BEFORE the 73-step runs and the tight real runs)
+
+Real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`; `scripts/make_esfr_old_case.sh steady|transient` (the five repairs above, nothing else), `scripts/extract_esfr_transient.py`; references in the refs submodule (`57bf8d2`): `esfr_r75_loose_log` (as shipped), `esfr_r75_tight_log` (tight, shipped write control, final fields at 210 as fingerprints), `esfr_r75_tightts_log` + `esfr_r75_tightts_V_<region>` (tight, `writeControl timeStep; writeInterval 1`: fingerprints of 25 fields at EVERY step and the full key fields at steps 1, 2, 5, 20, 40, 60); test `tests/genfoam_esfr_transient_vs_upstream.rs` (`esfr_transient_steps_against_the_real_binary`, driven by `ESFR_T_CASE`, `ESFR_T_REF=loose|tight|tightts`, `ESFR_T_STEPS`; default-run: the reference-parser pin); unit tests in `region_solvers.rs` (`multi_physics_tests`, `neutronics_settings_tests`) and `neutronics/diffusion/tests.rs` (`a_repeated_pass_keeps_the_old_time_values_of_the_time_step`).
+
+**What ran.** The real transients end exactly at `t = 210` after **73 steps** (the dt grows by 1.2 per step from 1e-5 and is then held near 0.86-0.88 by the `adjustableRunTime` alignment): 165 s as shipped (loose) and 221 s tight, exit 0; 37 steps converge in one pass of the loop and 36 run all 6 passes (`residual` never falls under `minResidual 5e-5` once a pass exceeded it). The port reads the written `200` (`RegionSolvers::read`, `startFrom latestTime`, no steady state in the port) and takes 188 s (loose), 267 s (tight), 276 s (tight, timeStep) for the 73 steps (3-4 s a step; B10 held).
+
+| quantity | loose (as shipped) | tight | tight, `timeStep` writes |
+|---|---|---|---|
+| `dt`, every step | equal (0e0) | equal (0e0) | **4.4e-11 at step 17** (a different real run: no write alignment; the dt chain divides by a power variation of 1e-6, so a 5e-13 power difference reaches 1e-11) |
+| multiphysics passes per step | equal at all 73 | equal at all 73 | equal at all 73 |
+| `h` solves of the step: count and order | equal at all 73 | equal at all 73 | equal at all 73 |
+| `power` (last pass) | 3.3e-13 at step 1 (pass 0 of step 1 bit-identical, 0e0), 2.6e-11 at step 10, first above 1e-9 at **step 25**, 2.7e-5 at step 73 | 4.8e-13 at step 1, 4.4e-12 at step 10, 8.6e-12 at step 25, 6.8e-10 at step 44, first above 1e-9 at **step 45** (3.4e-9), 7.65e-7 at step 46, **2.6e-5 at step 73** | 2.6e-5 at step 73 |
+| neutron-iteration counts per pass | one pass of 438 differs (step 71 pass 1: 2 against 3) | all equal | all equal |
+| thermo-mechanics solves per pass, count and order | **6 passes differ** (steps 44-49: 9, 12 or 6 solves against 12, 9) | **2 passes differ (step 46 pass 1, step 47 pass 2: 12 against 9 solves)** | the same two |
+| first fingerprint above 1e-9 | step 73 (`fluidRegion T` 6.7e-5) | step 73 | **step 11** (`fluidRegion T` 1.04e-9; step 1 `T.cladAvForNeutronics` 3.3e-10) |
+
+**Fields (tight `timeStep` run, full fields at the kept steps, `max|port - up| / max|up|`):** step 1: fluid `T` **7.6e-9**, neutronics `powerDensity` 2.7e-10, `flux0` 7.1e-11, `TFuel` 3.5e-16; step 2: `T` 1.7e-8; step 5: `T` 5.4e-8; step 20: `T` 4.6e-7, TM `disp` 2.5e-10, `flux0` 9.6e-11; step 40: `T` 1.4e-6, TM `disp` 1.5e-7; step 60: `T` 1.8e-5, TM `disp` 1.5e-5, `meshDisp` 5.2e-6, neutronics `disp` 5.0e-6; the frozen fluid `U` and `p` are bit-identical at every step (0e0).
+
+### Predictions: held / missed (post-run)
+
+B1 **MISSED** (the power is within 1e-9 for 44 steps of 73). B2 **held** for the shipped-write run (dt 0e0), missed by the `timeStep` variant (4.4e-11, step 17: a different real run). B3 **held** (0 mismatches in 3 x 73 steps). B4 **MISSED** (2 passes). B5 **MISSED** (7.6e-9 at step 1). B6 **held** (2.6e-11 at step 10). B7 **MISSED** (step 25). B8 **held**. B9 **held** (73 steps, 221 s). B10 **held**.
+
+### Causes (what was measured; what was not isolated)
+
+1. **The 12 % power difference of the first probes** was `removeBaffles { fluidRegion 1; }` read as false (above): fixed, and then pass 0 of step 1 is bit-identical, the five `Overlap volume` totals equal the real log's to every printed digit (`esfr_restart_overlap_volumes_against_the_real_log`), expansions `axExp`/`radExp` at step 1 equal to 11 digits.
+2. **The step-46 flip (tight; loose steps 44-49).** At step 46 pass 1 the real corrector 1 ends at `dispz` initial residual 9.9653e-7, below the `convergenceTolerance` 1e-6 of `thermoMechanicalProperties`, and stops after 2 correctors (9 solves); the port's is **1.00066e-6**, above it, and runs a 3rd (12 solves). The same pass's `TStruct` initial residual differs 0.6 % (2.5010e-6 against 2.4869e-6). A normalised residual of 1e-6 is a cancellation, so an input difference of 3e-9 (the power difference at steps 44-45) moves it by 0.4 %: a stopping-rule threshold crossed by amplified round-off, not a different equation. After it the power differs by 7.65e-7 and the error keeps growing to 2.6e-5 at step 73 (the rounding rule's 1e-4 propagated allowance covers the size, not the 1e-9 gate: recorded as a miss).
+3. ~~**The amplification before the flip**:~~ **CORRECTED 2026-11-27 (round 78): this was the footprint of the two defects, not amplified round-off (a real binary perturbed by one ulp stays at 0 to 4.4e-14; see round 78).** Original text: **The amplification before the flip**: 4.8e-13 (step 1) -> 4.4e-12 (10) -> 8.6e-12 (25) -> 6.8e-10 (44); the loose run shows the same growth (3.3e-13 -> 2.6e-11 -> 1.1e-9 at step 30). It starts at the noise of the thermo-mechanics PCG solves (round 74: `disp` 1e-13) entering the neutronics through `disp`; both runs grow smoothly and monotonically, which is what a deterministic amplification of a 1e-13 input difference looks like, and no stopping-rule flip precedes step 46 in the tight run. **Not isolated: whether the growth rate is physical** (a one-edit variant perturbing the REAL input by 1 ulp and comparing two real runs would say; not run).
+4. ~~**NOT explained, open (filed): the tight transient's step-1 energy equation.**~~ **EXPLAINED 2026-11-27 (round 78, gh:#1952): `Re` was not read (`FSPair::Re_` is `READ_IF_PRESENT`) and the frozen-flow `T` boundary conditions were all `zeroGradient` (the `fixedValue` inlet carried no enthalpy inflow); both fixed, the step-1 `h` residual is 4.5e-16 (real 4.2e-16) and the 73-step power difference 4.2e-14; the numbers of this round-75 section below are the records BEFORE the fixes.** Original text: The real `h` initial residual at step 1 is 4.2e-16 (0 iterations: the tight steady state is a fixed point of the frozen-flow energy equation); the port's is **7.6e-6** (1 iteration), and the fluid `T` differs 7.6e-9 after step 1 (cell 7716, 6.8e-6 K; 3.5e-7 K in many non-fuel coolant cells). With the as-shipped (loose) files the port's `h` residual EQUALS the real one (2.91e-11, three steps), so the difference is specific to the tight written state; swapping the tight `fvSolution` for the loose one does not change it (7.58e-6). Candidates, not tested: the fuel-pin radial state read from `Trad.nuclearFuelPin(Test)` (the `nuclearFuelPinTest` restart was enabled this round), and `alphaPhi`/`alphaRhoPhi` of the face-centred frozen flow.
+
+### Earlier numbers (criterion 5): none moved
+
+`genfoam_fullcoupling_three_region_vs_upstream` (5), `genfoam_fullcoupling_neutronics_vs_upstream` (3), `genfoam_written_state_vs_upstream` (5), `genfoam_coupled_tutorials_requirements` (2), `genfoam_esfr_fluid_vs_upstream` (2), `genfoam_neutronics_vs_upstream` (3), `genfoam_coupled_deformation_vs_upstream` (4), `genfoam_fullcoupling_transient_vs_upstream` (36, 71 s), `genfoam_fullcoupling_fluid_vs_upstream` (22 + 4 ignored), `--lib` filters `multi_region neutronics one_phase radial legacy_fvm` (198) all pass at their pins with the changed code. The checked-in `cases/*` neutronics `fvSolution` files are tight (`1e-14`, `relTol 0`), so the default change of Part A does not touch them (`maxIter` 1000 against 100000 is never reached). ~~**Not clean, not caused by this work:** `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` FAILS at `one_phase_fc.rs:120` (`gamg_solve::read_gamg_controls` is `#[cfg(feature = "std")]` and the face-centred region imports it unconditionally: round 72's wiring), and `tests/genfoam_radial_power_models_vs_upstream.rs:433` does not compile (`RadialPowerModel::NuclearFuelPinTest` not covered by a `match`); neither file is touched here.~~ **CORRECTED 2026-11-27 (after merging origin, which carries `36e71aa51` and `639e30410`): both were fixed by the round 72 work; `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` is clean on the merged tree (re-run), and the new unit tests pass (7); issue gh:#1953 filed for them is obsolete.**
+
+### Not done, and filed
+
+The tight step-1 energy residual; the 1-ulp perturbation of the real run; the S3 steady state in the port (the transient starts from the REAL written steady state; the port's own 200-step steady state of the same case is round 74's); a decomposed run; building the baffle-less mesh (gh:#1236: the real one is read from the start directory); `includeFluidMechanicsInLoop`; a nested `multiPhysicsSolver`; the wasm gate.
+
+### Reproduction
+
+`bash scripts/make_esfr_old_case.sh steady <dir>` (`TIGHT=1` for the tight protocol), run the real binary serially (`log.GeN-Foam`), `bash scripts/make_esfr_old_case.sh transient <t dir> <steady dir>`, run, `python3 -I scripts/extract_esfr_transient.py <t dir> <prefix> [kept steps]`; port: copy `constant`, `system`, `0`, `200` of the transient dir with the three `polyMesh` folders gunzipped, then `ESFR_T_CASE=<dir> ESFR_T_STEPS=500 ESFR_T_REF=loose|tight|tightts cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_transient_vs_upstream esfr_transient -- --nocapture`.
+
+
+## Round 75 results, Part C (gh:#1949): the step-2 fingerprint (predictions and criterion committed first, `02b7c1e41`)
+
+Real tight run of the round 74 case, 4 steps (34 s), `extract_esfr_coupled_stream.py <dir> <prefix> 3 1,2,3` (refs `esfr_r75_step2_*`), port 3 steps (`ESFR_REF=r75step2`). **The miss of round 74 is cancellation in the fingerprint**: at step 2 the `meshDisp` fingerprint is 3.757e-9 and its **full field 1.35e-14**; TM `disp` full field 1.05e-13; at step 3 the neutronics `disp` fingerprint is 3.756e-9 and its **full field 1.96e-13**, TM `disp` 1.2e-13, `meshDisp` 1.2e-14 (C1 **held**, 80 %). `fuelDisp` full field **4.2e-10** at step 2 and 6.0e-15 at step 3, `CRDisp` 6.5e-11 at step 2 and 5.3e-11 at step 3 (C2 **held** at `<= 1e-9`, 70 %): these two are the small solves from a normalised residual of about 1 (round 74) and stay the largest differences of the first steps; not bit-identical; explained by the normalisation of a solve from a zero guess, not isolated by a one-edit run. Solve counts and order equal in all 36 + 18 + 36 solves; `p_rgh` solves bit-identical; `keff`/`power` 1.3e-16 to 8.8e-16. The near-floor `h` (4.8e-6 at 1.06e-10, step 151) and TM (9e-4 at 1.8e-10, step 161) initial residuals of round 74 stay what they were (residuals at the floor, absolute differences 5e-16 and 1.6e-13); not re-examined.
+
+
+## Round 75 results, Part A (gh:#1948): measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria committed first (`c87ed031c`, BEFORE any run); `tests/genfoam_esfr_coupled_vs_upstream.rs` (`esfr_coupled_steps_against_the_real_binary`, `ESFR_STEPS=200`, `ESFR_REF=loose` and `tight`; now prints the steps whose solve count or order differs); unit tests `neutronics_settings_tests` (default, ablation, loose entries, GAMG refusal)
+
+The as-shipped (loose) 3D_SmallESFR `legacySolver`, 200 steps, against round 74's real loose reference (`refs/esfr_r74_loose_log`), the port now reading the neutronics region's `fvSolution` (`PCG`/`DIC` 1e-6, `relTol 1e-3`, `maxIter` 1000 for the flux; the `prec.*` entry is never solved: the precursors of a stationary fuel are algebraic, `diagonal` in the real log):
+
+| quantity | round 74 (fixed tight neutronics) | **round 75 (the shipped `fvSolution`)** |
+|---|---|---|
+| `keff`, `power` worst over 200 steps | 1.3e-6, 1.0e-6 | **9.19e-11 (step 117), 9.17e-11 (step 115)**; step 1 3.8e-16 and 3.2e-16; **2e-14 or below up to step 114** |
+| neutronics `powerDensity` fingerprint, step 1 | 2.9e-7 | **1.9e-16** (`flux0` 5.6e-16) |
+| `dt` | equal | equal |
+| `p_rgh` solves (2400) | counts equal in all, residuals 4.6e-8 | **counts, order and iteration counts equal in all 2400**, initial residuals 4.6e-8 relative, absolute 2.8e-16 |
+| `h` solves (1200) | counts equal | counts, order and iteration counts equal; initial residual worst 2.1e-4 relative at an upstream residual of 9.1e-8 (step 124, absolute 2.3e-10): **MISS of the 1e-6 criterion**, a residual that is the difference of two large terms after the loose solves |
+| thermo-mechanics solves | 10 steps with a different count/order, 67 solves with an iteration difference above 1 (worst 42) | **5 steps (117, 118, 120, 134, 146)**, 0 solves with an iteration difference above 1 (worst 1), initial residual worst 0.31 relative at 7.6e-7 (step 144): **MISS** of the count/order and residual criteria |
+| first fingerprint above 1e-9 | step 1 (powerDensity 2.9e-7) | **step 114**, TM `disp` 3.3e-8 (the first thermo-mechanics stopping flip; `keff` jumps from 2e-14 at step 114 to 9.2e-11 at step 115) |
+
+**Reading.** The neutronics stopping rule is now upstream's: the as-shipped run follows the real binary at round-off for 113 of 200 steps (`keff`/`power` at or below 2e-14, every pressure and `h` solve with equal counts) and keeps `keff` and `power` within 9.2e-11 to the end, against 1.3e-6 before. What remains is the `relTol 1e-3` discontinuity of round 67: a thermo-mechanics solve at the threshold takes one iteration more or fewer (5 steps), which moves `disp` by 3e-8 and the `keff` by 9e-11; the rounding rule's 1e-4 propagated allowance covers it, the 1e-9 gate on the thermo-mechanics fingerprints and the count/order criterion do not. The loose run is deterministic (repeated 2026-11-27, identical numbers).
+
+**Tight (A5).** The 200-step tight run reproduces round 74 exactly: `keff` 1.78e-15 and `power` 2.83e-15 worst (step 156), `p_rgh` solves bit-identical (2400, counts equal), `h` worst 4.81e-6 at 1.06e-10 (step 151), thermo-mechanics worst 8.95e-4 at 1.82e-10 (step 161), 6 iteration differences above 1 (worst 39), first fingerprint above 1e-9 `meshDisp` at step 2 (3.757e-9: cancellation, Part C): no pin moved.
+
+### Predictions: held / missed (post-run)
+
+A1 **held** (9.2e-11 <= 1e-9, 60 %). A2 **held** (1.9e-16, 85 %). A3 **MISSED** (5 steps differ, 50 %). A4 **held** (all 2400 equal, 80 %). A5 **held** (identical to round 74, 90 %). A6 **held** (all earlier tests at their pins, 90 %; list in Part B).
+
+### What upstream does that the port did not, and what is left (criterion of the issue)
+
+Read in upstream (above): the solver settings are `mesh.solverDict(field)` of each region's `fvSolution`; `neutronIterationResidual` and `maxNeutronIterations` are read (`solveNeutronics.H:18-25`) but the do-while ends after one pass when `eigenvalueNeutronics` is true, so they are not consulted on the eigenvalue path (ported as such: the region's `solve_twice` stays one pass). `aitkenAcceleration` is read on the eigenvalue path (`fluxEq.H:3`) and is `false` in both shipped ESFR cases (not ported, refused by name where it is true: gh:#1932). **A flux entry selecting `GAMG` is refused by name** in `RegionSolvers::read` (the reader of round 42 would run `PCG`/`DIC` in its place; no shipped case selects it: the blocks are commented out); the other agent's GAMG wiring (round 72) is for `p_rgh`, not the neutronics flux. The transient neutronics steps of `RegionSolvers` take the same settings (they share `DiffusionSettings`), as upstream does.
+
+## Round 76 (gh:#1947 under #1936/#1216; maintainer 2026-11-27: "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS; the correct form is the DEFAULT, deviations are named ablations): `CaseReadOptions::default().gamg` becomes `GamgPolicy::Native`; `AllrunEdits::default().gamg` stays `SubstitutePcgDic` (a PROTOCOL value) and gains a sibling `AllrunEdits::as_shipped_gamg()` (predictions and criteria written and committed BEFORE any run)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 75 (gh:#1948): keep both on merge.
+
+### Decision (maintainer, via the caller of this round)
+
+1. `CaseReadOptions::default().gamg`: ~~`GamgPolicy::Refuse`~~ **CHANGED 2026-11-27 (gh:#1947)** to `GamgPolicy::Native`. `Refuse` and `SubstitutePcgDic` stay as explicit, named ablations (a caller sets the field).
+2. `AllrunEdits` is a PROTOCOL: edits applied to BOTH the real and the port run. The committed MSFR references were produced by a real run whose script replaced `GAMG` by `PCG`/`DIC` textually, so `AllrunEdits::default().gamg = SubstitutePcgDic` DESCRIBES THAT PROTOCOL and is kept; changing it would make the port run a different protocol from the references and the comparison would stop being a comparison. The case as shipped (GAMG kept in both runs) is the new constructor `AllrunEdits::as_shipped_gamg()`.
+
+### What I checked before writing (search-before-building)
+
+`grep -rn "CaseReadOptions\|AllrunEdits\|OnePhaseCcCase::read("` over `src/` and `tests/` of every crate: only `outram-foam-appbuilder-lib` uses them. Callers of `CaseReadOptions::default()` (read from the source): `OnePhaseCcCase::read` (so `OnePhaseCcSolver::from_case_dir`), `genfoam_heat_exchanger_{cc,3d}_vs_upstream`, `genfoam_radial_power_wired_vs_upstream`, `genfoam_msfr_th_pimple_vs_upstream::run_perturbed`, and as the `..CaseReadOptions::default()` base in `workflow/allrun.rs` (which sets `gamg` itself), `multi_region/region_solvers.rs` (sets Native), `genfoam_{fftf_pieces,esfr_fluid,fullcoupling_fluid,msfr_allrun,coupled_tutorials_requirements}` (every one sets `gamg` explicitly).
+
+### Predictions (written before any run)
+
+* **P1. No recorded number moves.** `gamg` is consulted only when a `solvers.p_rgh` entry (or its `Final`) selects `GAMG`. A case that does not select it is read identically under any policy. A case that selects it was REFUSED by name under the old default, so no test could hold a recorded number for it through the default path. Every test that does run a GAMG case sets the policy explicitly and keeps its value. Prediction: every test of the list below passes unchanged, with the same printed numbers (bit-identical, the code path being identical).
+* **P2. The default tests.** (a) `CaseReadOptions::default().gamg == GamgPolicy::Native` and `GamgPolicy::default() == Native`; (b) the shipped 2D_MSFR rootCase read with `CaseReadOptions { check_region_solvers: false, ..default() }` is accepted (not refused) and holds a native `GAMG` agglomeration (`p_rgh_gamg.is_some()`, `!p_rgh_gamg_substituted`); (c) `AllrunEdits::default().gamg == SubstitutePcgDic` (protocol) and `AllrunEdits::as_shipped_gamg().gamg == Native`, with the staged shipped MSFR rootCase accepted by `steady_state_th(&as_shipped_gamg)`. If (b) is refused by name for a selection that is not ported, that is a finding to report, not a reason to edit the case.
+* **P3. If any test fails after the change**, the first hypothesis is that it relied on the old default silently; it then gets the old policy EXPLICITLY (never a loosened gate).
+
+### Tests to re-run (targeted, release, private target dir)
+
+`genfoam_coupled_tutorials_requirements`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_gamg_vs_upstream`, `genfoam_gamg_smoothers_vs_upstream`, `genfoam_one_phase_fc_vs_upstream` (the `GamgPolicy` test), `genfoam_heat_exchanger_{cc,3d}_vs_upstream`, `genfoam_radial_power_wired_vs_upstream`, `genfoam_msfr_th_pimple_vs_upstream`, the new `gamg_is_default` tests, and the lib check without default features for `x86_64-unknown-none`.
+
+### Round 76 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions above committed first)
+
+* **P1 held: no recorded number moved.** Passing, unchanged: `genfoam_coupled_tutorials_requirements` (2), `genfoam_msfr_allrun_vs_upstream` (6 run, 2 hour-scale `#[ignore]` not run: they use `AllrunEdits::default()`, whose value is unchanged), `genfoam_gamg_vs_upstream` (3), `genfoam_gamg_smoothers_vs_upstream` (4), `genfoam_one_phase_fc_vs_upstream` `gamg`-filtered (4, incl. the `r72_*`), `genfoam_heat_exchanger_{cc,3d}_vs_upstream` (4+3), `genfoam_radial_power_wired_vs_upstream` (8), `genfoam_msfr_th_pimple_vs_upstream` (14); `cargo check --lib --no-default-features --target x86_64-unknown-none` clean. No test needed the old default made explicit: every GAMG-reading test already named its policy; the default-reading tests use cases without a `GAMG` `p_rgh` (the policy is consulted only for `GAMG`).
+* **P2 held.** `genfoam_gamg_is_default` (2) and `genfoam_msfr_allrun_vs_upstream::gamg_is_the_default_and_the_allrun_protocol_is_named`: the shipped 2D_MSFR rootCase read with `CaseReadOptions::default()` is accepted with `p_rgh_gamg_substituted == false`; `SubstitutePcgDic` set explicitly substitutes; `AllrunEdits::default().gamg == SubstitutePcgDic`; `AllrunEdits::as_shipped_gamg()` (`Native`) is accepted by `steady_state_th` on the shipped case. ~~Not run: a 15 s as-shipped-GAMG MSFR stage against a real run that kept GAMG (no such reference exists; filed as a possible follow-up on gh:#1947).~~ **CORRECTED 2026-11-27 (gh:#1951, round 77; verified by running the loose test with GAMG_R77_LOOSE_STEPS=all):** the references msfr_gamg_r77_* exist and the 1 965-step as-shipped stage agrees (dt bit-identical, all 36 543 p_rgh counts equal).
+
+
+
+# Round 77 (gh:#1951 under #1947/#1937/#1216; maintainer 2026-11-27: "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS and stopping rules): the 2D_MSFR Allrun chain with GAMG KEPT AS SHIPPED (`AllrunEdits::as_shipped_gamg()`), against the real binary (predictions and criteria written and committed BEFORE any real run and before any port run on a new number)
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. Another agent writes Round 75 (gh:#1948/#1950): keep both on merge.
+
+## What was checked before writing (search-before-building)
+
+* **The protocol script already has the switch.** `scripts/run_msfr_th_tight.sh` with `PSOLVER=gamg` SKIPS the `GAMG -> PCG/DIC` perl edit (round 21 used it for the shipped-tolerance 15 s run, `msfr_th15_shipped_*`); `scripts/run_msfr_chain.sh` (EN, transient) NEVER edited `GAMG` at all. New: `scripts/run_msfr_allrun_gamg.sh` (one entry point, `th|en|transient`, that names the protocol), `WRITE_INTERVAL` in `run_msfr_th_tight.sh` and `TH_END` in `run_msfr_chain.sh` (defaults unchanged: 1 and 15).
+* **Extraction already exists**: `extract_msfr_th_log.sh` (per solve `PRGH/EPS/K/H/TSTAT`), `extract_msfr_th_fields.sh`, `extract_msfr_th15.sh` (`N`, `DT`, fields), `extract_msfr_en_reference.sh` (EN and transient logs). The port side: `RootCase::steady_state_th` / `steady_state_en` / `start_transient` with `AllrunEdits`, `ThRecord.pressure_solves` (outer, corrector, initial residual, iterations), `compare_th_fields`, `compare_en` of `tests/genfoam_msfr_allrun_vs_upstream.rs` (its helpers are copied into the new test file, as every test file here does).
+* **What the shipped MSFR selects of GAMG** (read from `rootCase/system/fluidRegion/fvSolution`): `p_rgh { solver GAMG; smoother DIC; tolerance 1e-7; relTol 0; }`, `p_rghFinal { $p_rgh; relTol 0; }`: every other GAMG entry is the ESI v2506 default, i.e. exactly what round 67 ported (`faceAreaPair`, `DIC`, `nPreSweeps 0`, `nPostSweeps 2`, `nFinestSweeps 2`, `mergeLevels 1`, `nCellsInCoarsestLevel 10`, `cacheAgglomeration true`, `scaleCorrection` on, `directSolveCoarsest false`, `maxIter 1000`). Round 76 already showed the shipped MSFR rootCase is ACCEPTED under `Native`. **Prediction: no GAMG feature is refused for MSFR, so none is ported in this round**; if a refusal appears it is a finding and gets the round 72 method (instrumented COPY `GAMGdump`, line-by-line port with file/line citations, single solves bit-identical). The `neutroRegion` fvSolution selects no GAMG. The EN and transient stages set `solveFluidMechanics false`: `p_rgh` is not solved there.
+* Round 67 measured on FFTF that the as-shipped loose protocol is round-off sensitive after ~9 steps (gh:#1937): the loose comparison below is therefore a solve-count / macroscopic-quantity comparison, never a point-wise one.
+
+## Protocol (both sides identical)
+
+`2D_MSFR` `rootCase` as shipped (`/home/user/upstream-build/gh1812/runs/rootCase`: only `writePrecision 17`, `writeCompression off` differ from the shipped `controlDict`), the Allrun `setSteadyStateTH`/`setSteadyStateEN`/`setTransient` edits, **`p_rgh` keeps `solver GAMG; smoother DIC;`**, and:
+
+* **Tight (T)**: every `tolerance 1e-14`, `relTol 0` in every `fvSolution` of the stage (round 67's tight-GAMG protocol; GAMG then sits at its round-off floor and stops at `maxIter 1000`).
+* **Loose (L)**: solvers as shipped (`1e-7`, `relTol 0`), `writePrecision 17`.
+* Real runs (serial, GeN-Foam 652b3da on ESI v2506, scratch `/home/user/upstream-build/gh1951`, deleted after extraction):
+  * **R-T1** `run_msfr_allrun_gamg.sh th` (`WRITE=step`, `END_TIME=0.5`): every step written; M steps (M is read from the real log; the shipped dt sequence reaches 0.5 s at step 41).
+  * **R-T2** the same with `WRITE=adjustable WRITE_INTERVAL=0.5` (`adjustableRunTime`, last step lands on 0.5): the hand-over state of the chain.
+  * **R-TE** `run_msfr_allrun_gamg.sh en` (`TH_END=0.5 EN_END=150.5 EN_WRITE=50`, 600 steps of 0.25 s) from R-T2's own `0.5`, then **R-TT** `transient` (`END_TIME=160.5`) from R-TE's own `150.5`.
+  * **R-L1** `th` with `PROTOCOL=shipped WRITE=adjustable END_TIME=15` (the real as-shipped 15 s, 1 965 steps in the round 21 run, ~9 min); **R-L2** the same with ONE input changed by one ulp (`0/fluidRegion/T internalField uniform 900 -> 900.0000000000001`), to measure the protocol's own sensitivity (gh:#1937 method).
+* Port: `AllrunEdits::as_shipped_gamg()` with `end_time_th = 0.5`, `write_interval_th = None` (T steps) / `Some(0.5)` (T chain) / `Some(1.0)` and `end_time_th = 15` (L); chain `end_time_en = 150.5`, `end_time_transient = 160.5`; the EN stage starts from the port's OWN TH state (in memory), the transient from the port's own EN state; no upstream number is an input.
+
+## Criteria (fixed here; none will change after seeing results)
+
+* **C1 (T, TH steps)**: the M steps of R-T1. Kept steps 1, 2, 5, 10, 20, M (fields written by every step; `U p p_rgh T k epsilon nut alphat alphaPhi alphaRhoPhi htc T.fixedTemperature`; **if a ref file exceeds 10 MB the kept steps are reduced and the deviation recorded post-run**): fields `<= 1e-9` (`U` on `max|U|`, the rest on the field's own max-norm); `dt` sequence `<= 1e-12` relative; `T (avg min max)` lines `<= 1e-9`; every `p_rgh` solve's initial residual: absolute `<= 1e-11` for solves above `1e-10` (round 67's criterion, kept although it was missed there by 1.2e-11); `p_rgh` GAMG iteration counts equal for every solve that stops below `maxIter`, a solve at `maxIter 1000` REPORTED, NOT GATED; `h`/`k`/`epsilon` iteration counts at the noise floor REPORTED, NOT GATED. Step count equal. First diverging step and cause recorded.
+* **C2 (T, chain)**: from R-T2's state. EN, 600 steps: `keff_`, `power:` `<= 1e-9` per step; `T (avg min max)` of every outer iteration `<= 1e-9`; `Time` equal; first `h` residual REPORTED, NOT GATED (noise floor); at 150.5 s `powerDensity` `<= 1e-8` (own max-norm), `T` `<= 1e-9`, final `keff_` `<= 1e-9`. Transient, the first 50 steps: `deltaT` `<= 1e-9`, `T` `<= 1e-9`, `power:` `<= 1e-9`; `keff_` frozen (bitwise). **C2b**: the real EN and transient logs contain NO `p_rgh` / `GAMG` solver line (so the GAMG policy cannot matter in them), and the port's EN stage built from the SAME TH state under `as_shipped_gamg()` and under `AllrunEdits::default()` gives a bit-identical `keff_` history.
+* **C3 (L, loose, 15 s)**: against R-L1. The loose caveat of round 67 applies: **iteration counts, residual sequences and fields point by point are NOT gated beyond the step where the real binary itself parts from its own 1-ulp perturbation (R-L2)**. Gated: macroscopic quantities `dt` at every step and `T (avg min max)` lines of every outer iteration, with the gate for each quantity `q` = **10 x the largest difference between R-L1 and R-L2 in `q` over the same span, floored at 1e-9** (the rule is fixed now; the number is measured on the two REAL runs before the port is run on the loose case). Reported, not gated: step count (a difference is recorded with its first step), every `p_rgh` iteration count (the first step where counts differ, and the count of differing solves over the first 300 steps), `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat` at 1, 5, 10, 15 s against R-L1 (relative to max-norm). The earlier `SubstitutePcgDic` numbers of round 21 (`p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10, `U` 4.1e-6, `k` 1.0e-5 at worst over 1, 5, 10, 15 s) are quoted for comparison, not as gates.
+* **Control**: the same TH steps with `AllrunEdits::default()` (`SubstitutePcgDic`) against R-T1 must NOT satisfy C1 at 1e-9 (the PCG substitute is a different solver; if it did, C1 would not discriminate); reported.
+* **Earlier numbers (rounds 3-76) must not move**: `genfoam_msfr_allrun_vs_upstream` (non-ignored), `genfoam_gamg_vs_upstream`, `genfoam_gamg_is_default` re-run; anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+* Refs are each under 10 MB; `outram-foam-basic-lib` and `genfoam/common/gamg.rs` are not edited (kovan-reviewed functions are not touched).
+
+## Predictions (written before any run)
+
+| id | quantity | prediction | probability |
+|---|---|---|---|
+| H1 | R-T1: every `p_rgh` solve stops at `maxIter 1000` (the floor, as FFTF round 67) | yes | 70 % |
+| H2 | R-T1 real wall time per step (36 solves of up to 1 000 V-cycles on 8 595 cells) | 8 to 40 s; M = 41 +- 2 steps | 60 % |
+| H3 | C1 fields, `dt`, `T` lines at the gates over M steps; no first diverging step | held | 65 % |
+| H4 | C1 `p_rgh` initial residual absolute difference `<= 1e-11` | held | 50 % (round 67 missed it by 1.2e-11 at the matrix round-off ~1e-12) |
+| H5 | C1 all upstream `p_rgh` solves at `maxIter` and the port's too (counts equal by construction) | yes | 70 % |
+| H6 | C2 EN `keff_`/`power:`/`T` `<= 1e-9` over 600 steps; transient 50 steps `<= 1e-9` | held | 75 % |
+| H7 | C2b no GAMG/`p_rgh` solve line in the real EN and transient logs; port EN bit-identical under both policies | held | 97 % |
+| H8 | C3 real R-L1 vs R-L2 (1 ulp): the iteration counts part before step 50 | yes | 85 % |
+| H9 | C3 R-L1 has 1 965 steps (as `msfr_th15_shipped_log`: determinism of the real binary) | yes | 90 % |
+| H10 | C3 port `as_shipped_gamg` against R-L1: `dt` and `T` lines inside 10 x the real sensitivity | held | 60 % |
+| H11 | C3 15 s fields against R-L1: `p_rgh`, `U` no worse than the `SubstitutePcgDic` numbers of round 21 (5.1e-7, 4.1e-6) | held | 55 % |
+| H12 | C3 port `p_rgh` iteration counts equal to the real ones for the first 9 steps, parted before step 300 | both | 65 % |
+| H13 | control: `SubstitutePcgDic` fails C1 at 1e-9 | yes | 95 % |
+| H14 | no GAMG feature is refused for MSFR; nothing new is ported | yes | 90 % |
+| H15 | nothing earlier moves | yes | 95 % |
+
+
+## Round 77 addendum A (written and committed AFTER the real runs and BEFORE any port run on the tight, chain or long loose numbers; the only port run so far is the 5-step default test `loose_as_shipped_gamg_first_steps_follow_the_real_log`, which matched the loose log: dt bit-identical, 150 `p_rgh` counts equal, T lines 5e-16)
+
+Real runs finished (serial, 652b3da on ESI v2506; refs submodule `1688ba6`): **R-T1** 42 steps (H2: M = 41 +- 2 held), 708 s with two other runs sharing the machine (17 s per step; H2's 8-40 s held); every one of its 1 260 `p_rgh` solves stopped at `maxIter 1000` (**H1 held**, 100 %). **R-T2** 41 steps (the last step is aligned to 0.5 s). **R-TE** 600 steps, 169 s; **R-TT** `END_TIME` was set to 151.2 (not the 160.5 written above: 150.81 gave only 39 steps, 151.2 gives 74; the criterion is the first 50 steps and is unchanged), 17 s. **C2b's real half held (H7)**: `grep -ci 'GAMG\|p_rgh'` over the real EN and transient logs is 0. **R-L1** 1 965 steps, 36 543 `p_rgh` GAMG solves, 518 s (**H9 held**: as `msfr_th15_shipped_log`). **R-L2** (1 ulp in the initial `T`): 1 965 steps, 36 543 solves.
+
+**H8 MISSED, and the C3 gate follows from it:** R-L1 and R-L2 do NOT part. Over 300 steps and over all 1 965: `dt` bit-identical (0), `T` lines 2.1e-15 / 8.1e-15, every one of the 36 543 `p_rgh` iteration counts equal (first differing step: none; the largest count is 32). So the as-shipped MSFR loose run is NOT round-off sensitive to this perturbation, unlike FFTF's (round 67: parted at step ~10 for `rho0 + 1 ulp`); cause not established (one perturbation tried only). By the rule fixed above (10 x the real sensitivity, floored at 1e-9) **the C3 gates are 1e-9 for `dt` and for the `T` lines**; the port's `p_rgh` counts are REPORTED against R-L1 at every step (not gated, as written: the port's matrix differs from upstream's by ~1e-12, which FFTF showed is enough to part a loose run).
+
+
+## Round 77 addendum B (post-run, written after the tight control and chain runs; marks what was learnt, no criterion changed)
+
+The pre-run control "the PCG substitute must NOT meet C1 at 1e-9" (H13) **MISSED**: over 10 tight steps the substitute is within 4.0e-12 of the real tight-GAMG fields, as the native GAMG is (below). Cause: at the tight protocol (`1e-14`, `relTol 0`) both solvers drive `p_rgh` to the round-off floor, so the field gate cannot tell them apart. The discriminating control is the LOOSE one (added post-run, `the_pcg_substitute_parts_from_the_real_loose_gamg_counts`): over 300 steps the substitute's `p_rgh` iteration counts differ from the real as-shipped GAMG's in **8 977 of 9 000 solves** (step 1: upstream 32/19/19/19/17/17, substitute 204/183/181/177/175/172), `T` lines 1.9e-10.
+
+## Round 77 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (`bb6ae8174`, addendum A `1caf29c9e`); real binary 652b3da on ESI v2506, serial; refs in the refs submodule (`1688ba6`): `msfr_gamg_r77_tight_{log,fields}` (6.4 MB fields), `msfr_gamg_r77_chain_{th_log,en,transient}`, `msfr_gamg_r77_loose_{log,fields}` (1.1 MB log), `msfr_gamg_r77_loose_pert_log`; tests `tests/genfoam_msfr_gamg_vs_upstream.rs` (1 default test, 2.6 s; 5 `#[ignore]`); `--nocapture` prints every table)
+
+AI-written, not human-reviewed. **`AllrunEdits::as_shipped_gamg()` (upstream's own `GAMGSolver`, `GamgPolicy::Native`) reproduces the real binary that KEPT `GAMG`, at every stage the MSFR tests cover, to round-off. No GAMG feature is refused for MSFR and nothing new was ported.**
+
+| stage (protocol) | span | quantity | worst difference |
+|---|---|---|---|
+| steady TH, tight, GAMG kept (C1) | 42 steps (step count equal), 1 260 `p_rgh` solves | `dt` sequence; `T` lines; initial residual (absolute, solves above 1e-10) | 1.5e-13; 8.8e-16; 2.6e-14 |
+| | kept steps 1, 2, 5, 10, 20, 42 | `U` (on max abs U), `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi`, `alphaRhoPhi`, `htc`, `T.fixedTemperature` | 1.0e-12, 2.0e-13, 2.0e-13, 1.6e-15, 1.1e-13, 3.4e-13, 1.4e-13, 1.4e-13, 3.7e-12, 3.7e-12 (worst of all 3.7e-12, `alphaPhi` at step 2); `htc`, `T.fixedTemperature` 0 |
+| | iteration counts | every upstream AND port `p_rgh` solve stops at `maxIter 1000` (1 260 of 1 260 both): REPORTED, NOT GATED; `h` first residual 1.7e-7 relative (noise floor, reported) | |
+| chain from the TH state at 0.5 s (C2) | TH 41 steps (`adjustableRunTime`, `writeInterval 0.5`) | `dt` (0), `T` lines, `p_rgh` residual | 0; 7.6e-16; 3.3e-14 |
+| EN, 600 steps | `keff_`, `power:`, `T` lines, `Time`; first `h` residual (reported) | 1.4e-15, 1.7e-15, 8.8e-15, 0; 7.0e-11 |
+| at 150.5 s | final `keff_` 0.96136801439228237; `powerDensity`; `T` | 2.3e-16; 2.6e-15; 8.6e-15 |
+| transient, first 50 steps | `deltaT`, `T`, `power:`; `keff_` frozen bitwise | 4.9e-14, 8.8e-15, 1.7e-14 |
+| C2b | real EN and transient logs: lines matching `GAMG` or `p_rgh`: 0; port EN 40 steps under `as_shipped_gamg()` and `default()` from the same TH state | bit-identical `keff_` and `power:` | 0 |
+| steady TH, LOOSE as shipped (C3), 15 s | all 1 965 steps (step count equal; port 296 s, real 518 s) | `dt` at every step; `T` lines | **0 (bit-identical)**; 2.0e-14 (gates were 1e-9 each) |
+| | **all 36 543 `p_rgh` GAMG solves** | iteration counts EQUAL in every solve (first differing step: none); initial residual absolute | 0 differing; 1.6e-13 |
+| | fields at 1, 5, 10, 15 s (reported) | `U`, `p`, `p_rgh`, `T`, `k`, `epsilon`, `nut`, `alphat`, `alphaPhi`, `alphaRhoPhi` | at 15 s: `U` 3.5e-13, `p_rgh` 8.7e-14, `T` 7.3e-15, `k` 3.5e-12, `epsilon` 2.2e-12, `nut` 9.2e-12 |
+| Controls | PCG substitute vs tight GAMG reference, 10 steps | fields (H13 missed, see addendum B) | 4.0e-12 |
+| | PCG substitute vs real loose, 300 steps | `p_rgh` counts differing | 8 977 of 9 000 |
+
+Against round 21's `SubstitutePcgDic` at the shipped tolerance (`p` 4.5e-7, `p_rgh` 5.1e-7, `T` 1.2e-10, `U` 4.1e-6, `k` 1.0e-5 at worst): the native GAMG moves the 15 s as-shipped agreement from 1e-7..1e-5 to **<= 9.2e-12**, with every iteration count equal. The substitution's cost (round 21 T6) was the GAMG-vs-PCG difference; with the real solver it vanishes.
+
+### Predictions: held / missed
+
+H1 held (1 260 of 1 260 at `maxIter`). H2 held (M = 42, 17 s per step). H3 held (no first diverging step). H4 held (2.6e-14 against 1e-11; round 67's FFTF miss did not recur: the MSFR matrix is closer to upstream's). H5 held. H6 held (EN 1.4e-15..8.8e-15, transient <= 4.9e-14 against 1e-9). H7 held. **H8 MISSED** (the 1-ulp perturbed real loose run did not part: addendum A; the MSFR loose protocol was not sensitive to that perturbation). H9 held. H10 held (dt bit-identical, T 2e-14). H11 held, far better than predicted (9.2e-12 against 5.1e-7 / 4.1e-6). **H12 MISSED, favourably**: the port's `p_rgh` counts are equal to the real ones in ALL 36 543 solves, not only the first 9 steps (predicted: part before step 300, 65 % that both hold). Possible cause (not tested): the loose MSFR solves are well conditioned and their stopping tests are not near-tie, unlike FFTF's. **H13 MISSED** (addendum B). H14 held (the shipped MSFR GAMG entries are the ones round 67 ported; no refusal arose). H15 held (below).
+
+### Not verified / limits
+
+* The tight chain is a **0.5 s** TH state, not the 15 s one: a tight 15 s GAMG stage (1 965 steps x 1 000 V-cycles x 30 solves, ~17 s per step) is ~9 hours per side and was not run; the 15 s state is covered by the LOOSE run (1 965 steps). EN and transient do not touch `GAMG` (C2b), so what the tight chain tests is the hand-over, not the solver.
+* The loose run was compared with ONE real run (R-L1) and one 1-ulp perturbed run (R-L2, which equalled it); a different perturbation (e.g. a changed `deltaT`, a different initial `U`) might part them. The result "every count equal" is therefore a statement about this protocol on this machine; the gates stay at the 1e-9 floor.
+* Not run: the coupled-region (`fluidRegion` + `neutroRegion` full transient with `maxIterations 3`) loose transient with GAMG kept; EN/transient are solver-independent, but a transient that restarts from the loose 15 s state was not run against a real run.
+* The first-5-steps default test pins (dt <= 1e-6, T <= 1e-6, equal counts) are post-run pins (measured 0, 5e-16, 0); they are not README criteria.
+
+### Moved numbers
+
+None: `genfoam_msfr_allrun_vs_upstream` (6 passed, 2 `#[ignore]` not run), `genfoam_gamg_vs_upstream` (3), `genfoam_gamg_is_default` (2) pass at their pins; `cargo check --lib --no-default-features --target x86_64-unknown-none` clean. `outram-foam-basic-lib`, `genfoam/common/gamg.rs` and every `src/` file are unedited (no kovan-reviewed function touched). The scripts gained `WRITE_INTERVAL` / `TH_END` with unchanged defaults.
+
+### Reproduction
+
+Real: `bash scripts/run_msfr_allrun_gamg.sh th <runs>` with `NAME=r_t1 END_TIME=0.5 WRITE=step` (R-T1), `NAME=r_t2 END_TIME=0.5 WRITE=adjustable WRITE_INTERVAL=0.5` (R-T2, copied to `steadyStateTH`), then `TH_END=0.5 EN_END=150.5 EN_WRITE=50 ... en` and `... END_TIME=151.2 ... transient`; loose `PROTOCOL=shipped END_TIME=15 WRITE=adjustable` (R-L1; R-L2 in a `rootCase` copy whose `0/fluidRegion/T` is `uniform 900.0000000000001`); `scripts/extract_msfr_gamg_r77.sh <run> <stem> "1 2 5 10 20 42"`, `extract_msfr_en_reference.sh <runs> 150.5 msfr_gamg_r77_chain_en`, `extract_msfr_fluid_reference.sh <runs> 50 msfr_gamg_r77_chain_transient 150.5`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_gamg_vs_upstream -- --ignored --nocapture` (tight 812 s, chain 952 s, loose `GAMG_R77_LOOSE_STEPS=all` 296 s, controls 183 s).
+
+
+## Round 78 (gh:#1952, #1236 under #1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream" = follow upstream exactly): is round 75's transient difference the protocol's own sensitivity or a port defect? Then: build the baffle-less mesh (predictions and criteria written and committed BEFORE any run)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+### Part 1 (gh:#1952), method
+
+Case: `scripts/make_esfr_old_case.sh` as round 75 (steady, then transient on the written `200`), real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`, both protocols (TIGHT: `TIGHT=1`; LOOSE: as shipped). Scratch `/home/user/upstream-build/gh1952`, deleted after extraction.
+
+**The perturbation (chosen here, before any run).** ONE input, ONE ulp: in the transient's start directory `200/fluidRegion/T`, internal cell **7716**, the value is replaced by `nextafter(value, +inf)` (the 17-digit decimal of the next double). Why this input: the fluid `T` is the input the neutronics sees through `TCool`/`rhoCool` (so it enters the power directly, not through a cancellation), cell 7716 is the cell where round 75's port differs most from the real run at step 1 (6.8e-6 K), and one ulp of `T` (~1e-13 K at ~900 K) is the smallest change a double can carry. Same perturbation for the tight and the loose case. (Not chosen: `rho0` or an XS coefficient, which would change every cell at once.)
+
+**Runs.** U-T / U-L: the unperturbed tight / loose transients re-run now (to check that the real binary reproduces round 75's own references, `esfr_r75_{tight,loose}_log`, exactly: criterion R0). P-T / P-L: the perturbed tight / loose transients. Both compared to the unperturbed run exactly as round 75 compared the port to the real run: `scripts/extract_esfr_transient.py`, per step `power` (last pass), `dt`, passes per step, `h` solve counts, per pass neutron iterations and thermo-mechanics solve counts/order.
+
+### Criteria (fixed here; none changes after a result)
+
+* **R0 (reproducibility)**: U-T and U-L equal the stored round 75 logs: every step's `power` bit-identical, `dt` bit-identical, pass counts, `h` counts and TM counts equal. If not, the stored logs are NOT used as the reference and every comparison below is against the same-day U-run.
+* **R1 (real-vs-real sensitivity, the measurement)**: for each of P-T and P-L, per step, `|power_P - power_U| / |power_U|`, `dt` relative, pass counts, `h` counts, TM corrector counts, and the first step whose TM solve count/order differs ("first flip"). Reported at steps 1, 10, 25, 44, 46, 73 and the maximum over the run.
+* **R2 (the verdict rule, fixed now)**: the gate for the power is **10 x the largest real-vs-real power difference over the steps before the first real flip (or over all 73 if none), floored at 1e-9** (round 77's rule). The port's round 75 differences are **within the protocol's sensitivity** iff the port's power difference stays under that gate at every step AND the port's first TM-count flip is a step at which the real P-run also flips (a flip within 2 steps counts). Otherwise the port has a defect. (If the real P-runs stay at the floor for all 73 steps and never flip, the gate is 1e-9, the port's step 45 value 3.4e-9 and its flip at step 46 exceed it: defect.)
+* **R3 (independent of R2: the fixed point)**: the real binary's tight steady state is a fixed point of the frozen-flow energy equation (round 75: real step-1 `h` initial residual 4.2e-16, 0 iterations). The port, started from the same written `200`, must reach `h` initial residual <= 1e-10 absolute at step 1 with 0 iterations. Round 75's 7.58e-6 (1 iteration) is a defect against this whatever R2 decides.
+* **R4 (after any fix, Part 1(b))**: the criteria of round 75 Part B (criteria 2 and 3 of its section) re-run unchanged: tight `power` <= 1e-9 at every step, `dt` equal, pass counts equal, `h` and TM solve counts/order equal, fields at the kept steps <= 1e-9; loose: criteria 2 for macroscopic quantities, a flip is a recorded miss. First-found causes are recorded with the quantity that first differs in the instrumented upstream COPY (never the shipped tree).
+* **R5**: earlier numbers (rounds 3-77) must not move (targeted tests `genfoam_esfr_*`, `genfoam_fullcoupling_*`, `genfoam_written_state_vs_upstream`, `--lib` filters); anything that moves is listed old/new (1e-9 direct, 1e-4 propagated).
+
+### Predictions (Part 1)
+
+| id | prediction | P |
+|---|---|---|
+| Q1 | R0: U-T and U-L reproduce round 75's logs bit-for-bit in `power` and `dt` | 90 % |
+| Q2 | P-T step-1 power difference <= 1e-14 (a 1e-16 seed; round 75's port seed is 4.8e-13) | 80 % |
+| Q3 | P-T power difference at step 44 is below the port's 6.8e-10 by more than 10x (< 6.8e-11) | 65 % |
+| Q4 | P-T has no TM corrector-count flip in the 73 steps | 65 % |
+| Q5 | P-T pass counts and `h` counts equal in all 73 steps | 80 % |
+| Q6 | P-L power difference at step 30 is below the port's 1.1e-9 by more than 10x | 55 % |
+| Q7 | verdict R2: **defect** (real-vs-real stays below the port's differences) | 75 % |
+| Q8 | R3 fails in the port (7.6e-6) and the cause is in the port's frozen-flow energy equation inputs (`alphaPhi`/`alphaRhoPhi`, the pin radial state or the `T.fixedTemperature` default), not in the real run | 70 % |
+
+### Part 2 (gh:#1236), method and criteria
+
+Port `removeBaffles` as upstream does it (`meshHandler.C`, `mergeOrSplitBaffles.C`, `polyTopoChange`; file/line cited where the code lives), so the port builds the baffle-less mesh from the baffled `fluidRegion` mesh instead of reading the real binary's `<start>/fluidRegion.baffleLess/polyMesh`. **Criteria (fixed):** (M1) the built mesh's `points`, `faces`, `owner`, `neighbour`, `boundary` written by `io::foam_ascii_mesh` are byte-identical to the real `fluidRegion.baffleLess/polyMesh` files (same 17-digit text; if the real files are `.gz` the inflated bytes); (M2) a case needing a renumbering the port does not do is REFUSED by name; (M3) round 74/75's comparisons re-run with the built mesh: every number printed equals the run that read the real mesh (bit-identical, power per step, `Overlap volume` totals, fields at kept steps), else listed old/new. Refused by name and not ported, if met: baffles with non-conforming patches, `mergeBaffles` on a coupled/processor boundary, a decomposed run.
+
+| id | prediction | P |
+|---|---|---|
+| M1p | the built mesh is byte-identical to the real one | 45 % |
+| M2p | the shipped cases need the renumbering the polyTopoChange performs (the port must reproduce its cell/face order) | 60 % |
+| M3p | nothing moves with the built mesh (given M1p) | 90 % |
+
+
+## Round 78 results (measured 2026-11-27, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first (`4ad41bbaa`), BEFORE any run; real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` through `libs`; case `scripts/make_esfr_old_case.sh` (tight: `TIGHT=1`); scratch deleted after; refs in the refs submodule (`24cbffa`): `esfr_r78_{tight,loose}_pert_log` (the two 1-ulp perturbed real transients, 58 KB each), `esfr_r78_baffleless_polymesh` (the real `200/fluidRegion.baffleLess/polyMesh`, eight files, 0.57 MB); tests `tests/genfoam_baffle_less_vs_upstream.rs` (`esfr_baffle_less_mesh_is_byte_identical_to_the_real_one`, driven by `ESFR_T_CASE`), `tests/genfoam_esfr_transient_vs_upstream.rs` (unchanged, `ESFR_T_REF=tight|loose|tightts`); unit tests `genfoam::multi_region::baffle_merge::tests` (4), `region_solvers::tests::building_the_baffle_less_mesh_of_a_mesh_without_baffles_changes_nothing`, `one_phase_cc::flow::tests::a_frozen_flow_fixed_value_inlet_temperature_is_read_from_the_t_file`)
+
+AI-written, not human-reviewed. Research, education and V&V only. **Order of events, stated honestly.** The criteria R0-R5 were committed first. The real runs (steady tight 397 s and loose 352 s; transients U-T 337 s, U-L 247 s, P-T 337 s, P-L 247 s) and R0/R1 were done BEFORE any port run. Then the step-1 probes of the port on the regenerated tight start directory (`ESFR_T_STEPS=1`) were DEVELOPMENT PROBES, made while looking for the cause (they are not criteria numbers): they found, in this order, the missing `Re` read and the frozen-flow `T` boundary condition. The 73-step port runs (tight, loose) and the built-mesh runs are after both fixes and are the numbers judged below.
+
+### Part 1 (gh:#1952): the verdict is a PORT DEFECT (two of them), not the protocol's sensitivity
+
+**The perturbation as run.** `200/fluidRegion/T`, cell 7716, one ulp up: tight `675.3345040336997 -> 675.3345040336998`, loose `675.3343621961659 -> 675.334362196166` (+1.137e-13 K, relative 1.68e-16). (The criteria text above said "~900 K": the cell is a 675 K coolant cell; the perturbation is still one ulp.)
+
+| comparison (all 73 steps) | power (last pass) | dt | passes, `h` counts, neutron iterations, TM solve count/order | first TM flip |
+|---|---|---|---|---|
+| **R0** U-T against round 75's stored tight log | **bit-identical, 73 of 73** | bit-identical | equal | none |
+| **R0** U-L against round 75's stored loose log | **bit-identical, 73 of 73** | bit-identical | equal | none |
+| **R1** P-T (tight, 1 ulp) against U-T | **bit-identical, 73 of 73** (the ulp is absorbed by the `T -> he -> T` round trip of the start state: the real tight run does not feel it at all) | bit-identical | equal | none |
+| **R1** P-L (loose, 1 ulp) against U-L | bit-identical in 48 steps; steps 50-73 differ, **max 4.4e-14** (step 60), 3.1e-14 at step 73 | bit-identical | equal | none |
+
+**R2 verdict.** The real-vs-real sensitivity is 0 (tight) and 4.4e-14 (loose): the gate is `max(10 x 4.4e-14, 1e-9) = 1e-9`. Round 75's port differences were 3.4e-9 at step 45, 7.65e-7 at step 46 and 2.6e-5 at step 73 with a TM flip at step 46 that NO real run shows: **not within the protocol's sensitivity: a defect of the port.** **R3** says the same independently: round 75's step-1 `h` residual 7.58e-6 (1 iteration) against the real 4.2e-16 (0 iterations). The smooth growth round 75 attributed to amplification ("4.8e-13 -> 6.8e-10") is the growth of a defect's footprint, not of round-off: with the defects fixed it vanishes (below). *Limit of R1:* the tight perturbation was absorbed, so it measures nothing about amplification (the loose one shows the real binary is stable to a 1-ulp seed, growth to 4e-14); a larger seed was not run.
+
+**The two defects (found at the port, with the real binary's fixed point as the ground truth).** The real tight steady state is a fixed point of the frozen-flow energy equation (real residual 4.19e-16 at every one of the 11 `h` solves of step 1), so every cell where the port's assembled matrix leaves a residual is a place where the port's matrix differs from the real one. A per-cell dump of the port's residual `A he - b` at step 1 (temporary instrumentation of `correct_energy`, removed; NOT an instrumented upstream copy, which R4 allowed for: the real fixed point made it unnecessary, deviation recorded) showed:
+
+1. **`Re` was not read.** `FSPair::Re_` is `READ_IF_PRESENT` from the start directory (`FSPair.C:99-113`); the port seeded the first `correctRegimeMaps()` with `residualFluidStructureRe` (10), so the first-pass regime weights were the laminar ones and `htc` = 65 753.4 W/m2/K against the written 113 825.9 (the second pass recomputed the right value). Fix: `OnePhaseCcCase::re0` (read when the start directory holds `Re`; a handed-over state keeps the old seed). Step-1 `h` residual 7.58e-6 -> 1.4e-10, power at step 1 4.8e-13 -> 1.5e-16.
+2. **Frozen-flow `T` boundary conditions were all `zeroGradient`.** `t_patch_bcs()` returned `zeroGradient` for every patch whenever the flow was not solved (`flow` is `None`), so the `fixedValue 668` inlet (`bottom`, 1 014 faces) carried no enthalpy inflow: the 1 014 inlet-layer cells had a residual of `phi (he_b - he_c) = 7.08 x 0.98 = 6.9` W each (a dump printed the face `phi = -7.079`, `ic = phi`, `bco = 0`: the zero-gradient coefficients). Fix: `flow::read_frozen_t_bcs` reads `fixedValue` (uniform) from the start `T` (other types keep `zeroGradient`, as before: not differenced against the real binary), `OnePhaseCcCase::t_bc_frozen`, `frozen_t_bcs()`. Step-1 `h` residual 1.4e-10 -> **4.5e-16, 0 iterations, equal to the real 4.2e-16 (R3 MET)**; power at step 1 1.5e-16.
+
+**Neither was one of the candidates named in gh:#1952 (`Trad.nuclearFuelPin(Test)`, `alphaPhi`/`alphaRhoPhi`, `T.fixedTemperature`); prediction Q8's cause MISSED.** The loose start state hid the second defect in round 75 (the issue's statement that the loose residuals were equal is not explained here: not re-checked).
+
+**R4: the 73-step comparisons after the fixes** (port reads the real written `200`; real references are round 75's stored logs, which U-T/U-L reproduce bit for bit):
+
+| quantity | tight (round 75 -> now) | loose as shipped (round 75 -> now) |
+|---|---|---|
+| `dt`, every step | equal -> equal (0e0) | equal -> equal |
+| `power` worst over 73 steps | 2.6e-5 at step 73 -> **4.2e-14** (step 63); step 1 4.8e-13 -> 1.5e-16; step 44 6.8e-10 -> 3.1e-14; step 46 7.65e-7 -> 1.9e-14; step 73 2.6e-5 -> 3.1e-15 | 2.7e-5 at step 73, first above 1e-9 at step 25 -> **2.2e-10 (step 52), never above 1e-9**; step 73 6.9e-14 |
+| passes per step | equal -> equal | equal -> equal |
+| `h` solve count/order | equal -> equal; worst relative initial residual (above 1e-10) 4.9e-7 (step 23) | equal -> equal; 8.5e-7 (step 10) |
+| neutron iterations per pass | equal -> equal; worst relative `neutroResidual` 1.5e-7 | one pass differed -> equal; 1.9e-6 (step 54, reported) |
+| TM solve count/order per pass | **2 passes differed -> 0**; worst relative initial residual 4.3e-9 (step 46); iteration differences above 1 in 22 solves (floor, reported) | **6 passes differed -> 0**; worst relative initial residual **4.2e-3 (step 52): MISS of criterion 2 (1e-6)**, cause not investigated (a near-floor solve) |
+| fingerprints at t = 210 (`ESFR_T_REF=tight/loose` print the last step) | all <= 1.7e-13 except `CRDisp` 1.1e-11; none above 1e-9 | all <= 2.2e-13 except `neutroRegion disp` 1.23e-9, TM `disp` 1.50e-9, `meshDisp` 1.23e-9 (**miss of 1e-9, step 73 only**, reported) |
+
+The step-46 corrector-count flip of round 75 is gone: it was the stopping-rule crossing of a residual 3e-9 off, amplified from the defects, as round 75 said; the cause of THAT input difference was the two defects.
+
+**Fields at the kept steps (criterion 3, tight `timeStep` write control, `ESFR_T_REF=tightts`):** 60 full-field comparisons (fluid `T`, `U`, `p`; neutronics `flux0`, `powerDensity`, `TFuel`, `disp`; TM `disp`, `TStruct`, `meshDisp`) at steps 1, 2, 5, 20, 40, 60: **worst 8.1e-14** (TM `disp`, step 60; per step 1.1e-15, 1.4e-15, 2.4e-15, 1.9e-15, 4.0e-14, 8.1e-14) against round 75's 7.6e-9 (fluid `T`, step 1), 1.7e-8, 5.4e-8, 4.6e-7, 1.4e-6, 1.8e-5; fluid `U` and `p` bit-identical as before. Over the 73 steps of that protocol: power worst 5.8e-14, `dt` 1.6e-14 (round 75: 4.4e-11 at step 17), pass counts, `h` counts and TM count/order all equal (0 mismatches), no fingerprint above 1e-9 at any step (round 75: first at step 11). Criterion 3 MET.
+
+### Part 2 (gh:#1236): the baffle-less mesh is built, byte-identical to the real one
+
+Read first (cited in the code): `meshHandler.C:389-506` (`createBaffleLessMeshes`: copy points, faces, cells and patches as plain `polyPatch`es, `removeBaffles(baffleLessMesh, dummyRunTime)`, THEN `addZones`), `mergeOrSplitBaffles.C:63-135` (`insertDuplicateMerge`) and `:255-` (`removeBaffles`, `mergePatchIDs = identity(patches)`), OpenFOAM `localPointRegion.C:69-105,543-621` (`isDuplicate`, `findDuplicateFaces`), `polyTopoChange.C:745-890` (`getFaceOrder`: internal faces cell by cell to the higher-numbered neighbour sorted by it, boundary faces patch by patch in old order). New: `genfoam::multi_region::baffle_merge::merge_duplicate_faces` (no_std), `region_solvers/baffle_less.rs::build_baffle_less`, `PolyMeshOut::at_start`, `PolyPatchOut::physical_type`, `mappedWall` in `parse_boundary_patches`; `RegionSolvers::read` builds the `.baffleLess` geometry of a `removeBaffles` region from its own mesh and reads the real one only if the build is refused.
+
+**M1 (held).** From the baffled `constant/fluidRegion/polyMesh` ALONE (a private copy of the case with the real `200/fluidRegion.baffleLess` deleted), the port builds 13 272 points, 60 354 faces (56 256 internal: 45 630 + 10 626 merged), 23 322 cells; the eight files written by `write_poly_mesh(mesh.at_start(), "200/fluidRegion.baffleLess/polyMesh", precision 17)` are **byte-identical to the real binary's: `boundary` 1 716, `cellZones` 936, `faceZones` 936, `faces` 1 309 039, `neighbour` 312 956, `owner` 333 200, `pointZones` 937, `points` 678 646 bytes**. Three things the writer needed that round 69 did not have: the `mappedWall` baffle patches (copied as `type patch; inGroups 3(wall mappedPatch baffleFaces)`), `physicalType patch;` on the three wall/inlet/outlet patches, and the START-time form: the real start directory's zone files are `0()` because `removeBaffles` writes the mesh BEFORE `addZones` (`PolyMeshOut::at_start`); the 7 cell zones and 2 face zones appear only in later write directories, whose writer still refuses them by name (face-zone labels would not be renumbered by upstream either). `sets/duplicateFaces` (the real `faceSet`) is not written.
+
+**M2 (held: the renumbering IS needed and is ported).** The merged mesh is not the baffled mesh with two patches emptied: the 10 626 merged faces enter the upper-triangular order of the internal faces (`getFaceOrder`), and the owner/neighbour/faces files are byte-identical only with it. Refused by name, not ported: a duplicate pair on one cell, three faces on the same points, a pair in the same point order (upstream's own `FatalError`s), face-zone bookkeeping of a merged face (`faceZones` flip maps), `split` and `detectOnly`, a decomposed run.
+
+**M3 (held).** With the built mesh (and the real one deleted) the 73-step tight and loose runs print **100 lines each (every `STEP`, the final fingerprints and the summary) identical to the runs that read the real mesh**; round 74's 200-step coupled comparison (`genfoam_esfr_coupled_vs_upstream`, start time 0, so it used the baffled geometry before) reproduces its recorded numbers: `p_rgh` solves bit-identical (2 400), `h` 4.8e-6 at step 151 (upstream 1.06e-10), thermo-mechanics 9.0e-4 at step 161 and 1.2e-12 absolute, `meshDisp` fingerprint 3.8e-9 at step 2: nothing moved.
+
+### Predictions: held / missed (post-run)
+
+Q1 **held** (R0: 73 of 73, both protocols). Q2 **held** (0 against 1e-14). Q3 **held** (0 at step 44). Q4 **held** (no flip in P-T or P-L). Q5 **held**. Q6 **held** (P-L bit-identical until step 49). Q7 **held** (defect). **Q8 MISSED on the cause** (the port's energy equation was wrong, as predicted, but in its `Re` seed and its `T` boundary conditions, not the three candidates). M1p **held** (byte-identical; 45 %), M2p **held**, M3p **held**. Earlier round 75 predictions B1, B4, B5, B7 (missed then): tight B1 and B4 now hold, B7 now holds, B5 see the field line above.
+
+### Moved numbers (criterion R5)
+
+Round 75's Part B numbers MOVED, intended, listed above (tight power 2.6e-5 -> 4.2e-14; loose 2.7e-5 -> 2.2e-10; TM count mismatches 2 -> 0 and 6 -> 0; the step-1 `h` residual 7.58e-6 -> 4.5e-16). Earlier rounds did NOT move: the targeted release tests pass at their pins with the changed code (`genfoam_fullcoupling_fluid_vs_upstream` 22 + 4 ignored, `_neutronics` 3, `_three_region` 5, `_transient` 36 (131 s), `genfoam_esfr_coupled_vs_upstream` 2 (and the 200-step tight run reproduced round 74's recorded numbers, above), `genfoam_esfr_fluid_vs_upstream` 2, `genfoam_esfr_transient_vs_upstream` 3, `genfoam_written_state_vs_upstream` 5, `genfoam_coupled_tutorials_requirements` 2, `genfoam_neutronics_vs_upstream` 3, `genfoam_coupled_deformation_vs_upstream` 4, `genfoam_msfr_allrun_vs_upstream` 6 + 2 ignored, `genfoam_msfr_chain_vs_upstream` 5 (277 s), `genfoam_msfr_transient_vs_upstream` 2 + 7 ignored, `genfoam_msfr_gamg_vs_upstream` 1 + 5 ignored, `genfoam_fftf_pieces_vs_upstream` 14 + 4 ignored, `genfoam_mesh_to_mesh_vs_upstream` 5, `genfoam_gamg_is_default` 2, `genfoam_number_readers_esi_gh1909` 1, `genfoam_refs_submodule_present` 1, `genfoam_baffle_less_vs_upstream` (skipped without `ESFR_T_CASE`; run with it above); `--lib` filters `multi_region` 67, `neutronics` 95, `one_phase` 23, `radial` 7, `legacy_fvm` 16, `baffle` 7, `foam_ascii` 7, `flow` 17: no failure; `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean. No full suite was run. Why the frozen-flow fixes moved nothing earlier: every earlier frozen-flow case either had no `fixedValue` `T` patch in its frozen stage or read the same value from the carried state; `Re` only changes the first regime-map evaluation of a start directory that holds `Re` and a regime map.
+
+### Not done, and filed
+
+A tight perturbation large enough to seed amplification (the 1-ulp one was absorbed); an instrumented upstream copy (not needed); the later-write-time zone layout of the baffle-less mesh (7 cell zones, 2 face zones); `sets/duplicateFaces`; `latticeMap` (gh:#1236's second half: not needed by `removeBaffles`); the loose TM initial-residual miss at step 52 and the 1.2e-9 `disp` fingerprint at step 73.
+
+### Reproduction
+
+`TIGHT=1 bash scripts/make_esfr_old_case.sh steady <ss>` (and without `TIGHT` for loose), real binary serially; `bash scripts/make_esfr_old_case.sh transient <u> <ss>`; the perturbed case: `python3 -I scripts/perturb_esfr_start_ulp.py <p>/200/fluidRegion/T 7716` (replaces the cell by `math.nextafter(v, math.inf)`, printed with `repr`); `python3 -I scripts/extract_esfr_transient.py <dir> <prefix>`, then `python3 -I scripts/compare_esfr_transient_logs.py <perturbed log> <unperturbed log>` (R0/R1); port: `ESFR_T_CASE=<inflated dir> ESFR_T_STEPS=500 ESFR_T_REF=tight|loose|tightts cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_transient_vs_upstream esfr_transient -- --nocapture`; baffle-less: `ESFR_T_CASE=<inflated dir> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_baffle_less_vs_upstream -- --nocapture`.
+
+
+
+# Round 79 (gh:#1945, #1943, #1942 under #1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream" = follow upstream exactly INCLUDING ITS SOLVERS): GAMG in the neutronics region; `localTortuosity` in the faceCentered branch; `smoothSolver` with `relTol`/`nSweeps`/`maxIter`
+
+AI-written, not human-reviewed. Research, education and V&V only (`RESPONSIBLE_USE.md`). Written 2026-11-27. **Each part's predictions and criteria are committed BEFORE any comparison run of that part** (before Part A's predictions the real binary ran only the shipped `steadyStateTH` stage, the INPUT of both codes, unchanged from round 11; none of its numbers enters a criterion).
+
+## Part A (gh:#1945): GAMG for the neutronics flux equation (predictions and criteria written BEFORE any comparison run)
+
+### Read in upstream first (652b3da / ESI v2506)
+
+* `fluxEq.H:23-30`: each group solves `neutroEq.solve()` TWICE for `fluxStar<g>`; `fvMatrix::solve()` -> `lduMatrix::solver::New(... solverDict("fluxStar<g>"))`: a `GAMG` entry constructs a `GAMGSolver` per call, whose agglomeration comes from `GAMGAgglomeration::New` (`GAMGAgglomeration.C:313-338`): the mesh registry object `GAMGAgglomeration`, built ONCE on the first `GAMG` solve with that solver's dictionary, rebuilt only when `requireUpdate_` is set by `movePoints()` (`GAMGAgglomeration.C:531-539`).
+* `pairGAMGAgglomeration::forward_` (`pairGAMGAgglomeration.C:36`) is ONE process-wide static, toggled at every level attempted (`pairGAMGAgglomerate.C:333`).
+* `processorAgglomerator masterCoarsest` (in the shipped block) is read only when `UPstream::nProcs > 1` (`GAMGAgglomeration.C:268-276`): no effect serially.
+* The shipped 2D_MSFR neutroRegion block (commented out in `/* */`): `GAMG`, `tolerance 1e-6`, `relTol 0.01`, `smoother DICGaussSeidel`, `nPostSweeps 1`, `nPreSweeps 1`, `nFinestSweeps 1`, `cacheAgglomeration true`, `nCellsInCoarsestLevel 20`, `agglomerator faceAreaPair`, `mergeLevels 1`. Every piece is the round 72 port (bit-identical through the instrumented copy, S1 `dicpre`/`dicgs`).
+
+### Searched before writing
+
+`genfoam/common/gamg.rs` (`pair_agglomerate`, `gamg_dic_solve`, every smoother of round 72), `two_phase/gamg_solve.rs` (`GamgSolveState`, `read_gamg_controls`: reused for the keys and the refusals), `GamgPolicy` (`one_phase_cc`), `io::nuclear_data::fv_solution` (the round 42 reader that substituted `PCG`/`DIC`), `common/linear_solvers.rs` (`run_entry`, the one place every neutronics solve goes through), the EN-stage harness of `tests/genfoam_msfr_chain_vs_upstream.rs` (`stage`, `compare_en`: reused). Nothing else solves the neutronics flux.
+
+### What changes
+
+`NeutronSolverKind::Gamg` with the entry's `GamgControls` (`NeutronSolverEntry::gamg`); `run_entry` runs `gamg_solve_on_mesh` (agglomeration of the matrix's mesh with `forward_ = true`, then `gamg_dic_solve`); `resolve_neutron_fv_solution` defaults to `GamgPolicy::Native`; `PCG`/`DIC` in its place is the named ablation `resolve_neutron_fv_solution_with(.., GamgPolicy::SubstitutePcgDic)`. Equivalence with upstream's cached agglomeration holds for a static mesh in a process whose first GAMG agglomeration is this mesh's: true for the `steadyStateEN` stage (`solveFluidMechanics false`: no `p_rgh` solve) and for a neutronics-only case. `RegionSolvers` (multi-region, deforming meshes, other GAMG regions) keeps refusing a GAMG flux entry by name (the process-wide `forward_` across regions is not carried): filed.
+
+### Case and protocol
+
+One-edit variant of the shipped `2D_MSFR` `steadyStateEN` stage (`Allrun` replayed by `scripts/run_msfr_chain.sh`): `cases/msfr_neutro/fvSolution.gamg` = the shipped `neutroRegion/fvSolution` with the `PCG` lines commented and the shipped `GAMG` block uncommented (`NEUTRO_FVSOLUTION=`). 20 steps (`EN_END=20`, `deltaT 0.25`) from the real `steadyStateTH` t = 15 s output (re-run here; checked against `cases/msfr_fluid/restart_15` before use). Two real runs: TIGHT (`PROTOCOL=tight`: every `tolerance 1e-14`, `relTol 0`; the port reads `fvSolution.gamg_tight`, the same regex applied) and AS SHIPPED (`tolerance 1e-6`, `relTol 0.01`; the port reads `fvSolution.gamg`). The port: `EnergyNeutroDiffusion` with `NeutronLinear::FvSolution` of the variant file.
+
+### Criteria (fixed here; none will change after seeing results)
+
+1. TIGHT, per step for 20 steps: `keff_`, `power:` `<= 1e-11` relative (the gate of the PCG EN test, measured 2.2e-13); `T (avg min max)` lines `<= 1e-12`; first `h` initial residual `<= 1e-7` relative; at t = 20: every `flux<g>`, `precStar<k>`, `powerDensity` `<= 1e-9`, fluid `T` `<= 1e-12`, `keff` `<= 1e-11`. Aim: 1e-12 throughout.
+2. AS SHIPPED, per step: `keff_`, `power:` `<= 1e-9`; `T` lines `<= 1e-9`. GAMG iteration counts are REPORTED from the real log, not gated (noise floor and `relTol` thresholds).
+3. ABLATION, as shipped: the port with `GamgPolicy::SubstitutePcgDic` (PCG/DIC at the GAMG entry's `1e-6`/`0.01`) differs from the real GAMG run by MORE than the native port does at step 1 (`keff_` or `power:`), i.e. the native form is what matches.
+4. Earlier numbers do not move: every existing neutronics test reads `PCG` entries; `genfoam_msfr_chain_vs_upstream`, `genfoam_msfr_allrun_vs_upstream`, `genfoam_fv_solution_df_vs_upstream` and the `--lib` filters `nuclear_data`, `linear_solvers`, `neutronics_settings` pass at their pins.
+
+### Predictions (before any comparison run)
+
+| id | prediction | P |
+|---|---|---|
+| A0 | the re-run real `steadyStateTH` t = 15 s `T`, `U`, `p` equal `cases/msfr_fluid/restart_15` bit for bit (deterministic binary) | 90 % |
+| A1 | TIGHT: criterion 1 met at every step (keff/power `<= 1e-11`) | 75 % |
+| A2 | TIGHT: keff/power `<= 1e-12` at every step | 55 % |
+| A3 | TIGHT: the real GAMG solves stall at their round-off floor above 1e-14 and run `maxIter 1000` in most solves (as `p_rgh` did on FFTF, round 72) | 50 % |
+| A4 | AS SHIPPED: criterion 2 met (`<= 1e-9` at every step) | 55 % (a `relTol 0.01` threshold crossing amplifies matrix-rounding differences, round 67) |
+| A5 | ABLATION: the PCG/DIC substitute misses the real as-shipped step-1 `keff_` by more than 1e-8 relative (it stops at a different point) | 75 % |
+| A6 | criterion 4: no earlier pin moves | 95 % |
+
+
+## Part B (gh:#1943): `localTortuosity` in the faceCentered branch of onePhase (predictions and criteria written BEFORE any real or port run of the variants)
+
+### Read in upstream first
+
+`UEqn_1p.H:20-52`: ONE expression for both momentum modes; `structure_.tortuosityPtr().valid()` selects `- fvm::laplacian(alpha rho nuEff tortuosity, U) - fvc::div(alpha rho nuEff tortuosity & dev2(T(grad U)))`; only `fvm::ddt` is guarded by `momentumMode_ != faceCentered`. `pEqnf_1p.H` and `reconstructU_1p.H` read no tortuosity. So the faceCentered branch needs exactly the tensor-diffusivity terms the cell-centred branch has had since round 64 (`tensor_laplacian`), assembled as their own matrix and added whole (`UEqnCc::add`, the per-term order of round 73's faceCentered UEqn).
+
+**Searched before writing:** `one_phase_cc/flow.rs` (the cell-centred tortuous branch), `tensor_laplacian.rs` (`tortuosity_fields`, `scale`, `interpolate`, `decompose`, `add_neg_laplacian_vector`), `two_phase/mod.rs::dev2_div_tortuous`: all reused, nothing new written but the branch in `face_centered.rs`; the refusal in `OnePhaseCcCase::read` is removed.
+
+### Variants (`scripts/make_round79_variants.sh`, one-edit variants of `cases/fullcoupling_fluid`, tight round 55 protocol, 20 steps, `END_TIME 4.9`; real binary `ROUND=r79 scripts/run_round73_variants.sh`)
+
+`f9_cc_tort`: `localTortuosity (0.7 1.3 0.01389)` on `zone0` (all 144 cells; the round 64 value), cell-centred: the control. `f10_fc_tort`: `f9` + `momentumMode faceCentered` (named pair): the piece.
+
+**Criteria (round 73's, fixed here):** at each of the 20 steps `U` (on max|U|), `p`, `p_rgh`, `T`, `alphaPhi`, `htc`, `T.passiveStructure`, `T.fuelAvForNeutronics` `<= 1e-12` of the field's max; solve count and order equal; `dt` `<= 1e-12`; `T` lines `<= 1e-12`; noise-floor iteration counts reported, not gated. ABLATION: `without_tortuosity_in_momentum()` on `f10` must miss the real `f10` by more than 1e-6 in `U` (the edit is a real branch), and the real `f10` must differ from the real round 73 `f1`.
+
+**Predictions.** B1: port `f9` `<= 1e-12` (80 %: round 64's code, a new mesh). B2: port `f10` `<= 1e-12` at the first run (65 %; the risk is the per-term assembly order of the tensor Laplacian inside the separate `lap` matrix). B3: the ablation misses by more than 1e-6 (90 %).
+
+## Part C (gh:#1942): `smoothSolver` (`symGaussSeidel`) with `relTol`, `nSweeps`, `maxIter` for the onePhase `h` equation, its own module (predictions and criteria written BEFORE any real or port run of the variants)
+
+### Read in upstream first (ESI v2506)
+
+`smoothSolver.C:73-77` (`nSweeps` default 1), `:93-117` (`nSweeps < 0`: `-nSweeps` sweeps, `nIterations -= nSweeps`, no residual at all: the log prints residual 0), `:119-209` (`Amul`, `normFactor`, initial residual; `if (minIter_ > 0 || !checkConvergence(tolerance, relTol))`; `do { smooth(nSweeps); residual } while (((nIter += nSweeps) < maxIter && !converged) || nIter < minIter)`), `SolverPerformance.C:63-88` (`relTol > small_` and `final < relTol initial`), `symGaussSeidelSmoother.C:74-199` (each of the `nSweeps` sweeps restarts `bPrime = source`).
+
+**Searched before writing:** `one_phase::smooth_solve_sym_gauss_seidel_openfoam` (round 46: `nSweeps 1`, no `relTol`), `gamg::sym_gauss_seidel_smooth` and `gamg::ldu_residual` (round 72: reused, made `pub(crate)`), `pcg::{norm_factor, converged, g_sum_mag}` (reused), `turbulence.rs` (k/epsilon `smoothSolver`, refuses `relTol`/`nSweeps`: not touched, filed), basic-lib `gauss_seidel.rs` (fixed sweeps, no OpenFOAM residual: not reusable). New module `genfoam/common/smooth_solver.rs` (`smooth_solver_sym_gauss_seidel`), `HSolver::SmoothSolver(SmoothSolverSweeps)` is what the cell-centred reader now selects for every `smoothSolver` `h` entry; at `nSweeps 1`, `relTol 0`, `maxIter 1000` it is bit-identical to the round 46 function (unit test), so no earlier case moves.
+
+### Variants (same harness; `scripts/make_round79_variants.sh`)
+
+`s1_h_reltol` (`relTol 0.1`), `s2_h_nsweeps` (`nSweeps 2`), `s3_h_maxiter` (`maxIter 2`), `s4_h_all` (`relTol 0.05`, `nSweeps 3`, `maxIter 7`: named triple), `s5_h_fixed` (`nSweeps -2`).
+
+**Criteria:** as Part B (every field `<= 1e-12`, solve count/order, `dt`, `T` lines), plus: the `h` iteration counts EQUAL the real log's in every solve whose upstream initial residual is above 1e-10 (they are set by `relTol`/`nSweeps`/`maxIter`, not by the noise floor, in `s1`, `s3`, `s4`, `s5`); `s5`'s `h` residuals are 0 in both. ABLATION: the round 46 form (`nSweeps 1`, `relTol 0`) on `s1` must miss the real `s1` `T` by more than 1e-10.
+
+**Predictions.** C1: all five variants `<= 1e-12` (70 %). C2: `h` iteration counts equal in every non-floor solve of `s1`, `s3`, `s4`, `s5` (80 %). C3: `s4` stops at 9 (`3 + 3 + 3`, the first count `>= 7`) wherever `relTol` does not stop it first (90 %). C4: the ablation misses `s1` by more than 1e-10 in `T` (85 %). C5: the earlier fullcoupling-fluid and ESFR pins do not move (95 %).
+
+### Round 79 addendum A (Part C; written after the FIRST real run of `s1`-`s5` and BEFORE any port run of them)
+
+**Finding from the real runs:** every `h` solve of `s1`-`s5` was `diagonalPBiCGStab`, and their outputs are the base's: the case's `"h.*"` entry is shadowed by the catch-all `".*"` declared after it (`dictionary::lookupEntry` with patterns: the LAST matching pattern wins; round 55 knew this: `v3_smooth`). The edits therefore changed nothing, and were discarded. The s-variants are redefined (script updated, `scripts/make_round79_variants.sh`): `s0_h_smooth` = round 55's `v3_smooth` (explicit `h` and `hFinal` `smoothSolver` entries after the catch-all; exact keywords win), and `s1`-`s5` = `s0` with the edit of the table above in BOTH entries. Criteria and predictions C1-C5 unchanged; the ablation of C4 is now: the round 46 form on `s1`.
+
+### Round 79 addendum B (Part B; written after the first port run of `f9`/`f10` and BEFORE the real run of `f11`)
+
+**Finding from the first port run:** `f9` and `f10` meet the criterion (results below), but the ABLATION of criterion B (tortuosity left out of the momentum) misses the real `f10` by only 2.1e-13 in `U`: with the tortuosity uniform over all 144 cells the case's flow is a plug flow whose viscous term is round-off, so `f10` cannot tell the tortuous branch from the scalar one; it does not test the piece. Round 64 had met the same with `w7_tort` (the half zone, an alpha interface: ablation 3.1e-7). **Added variant, before its real run:** `f11_fc_tort_half` = round 64's `w7_tort` (zone0 shrunk to its first 72 cells + `localTortuosity`) + `momentumMode faceCentered` (named pair). Criteria for `f11`: those of Part B (every field `<= 1e-12`, ablation `> 1e-6` in `U`); `f10` is kept as recorded and its ablation is reported, not gated. Prediction B4: port `f11` `<= 1e-12` (65 %); B5: the `f11` ablation misses by more than 1e-6 in `U` (75 %).
+
+**Part C, criterion as written (not changed):** C2 gates the `h` iteration counts for `s1`, `s3`, `s4`, `s5` only; `s0` and `s2` (`relTol 0`, `maxIter 1000`) stop at the round-off floor of the 1e-14 tolerance, where a 1000-iteration stagnation on one side is round 73's known noise-floor case: their counts are reported, not gated. The first port run applied C2 to `s0` by mistake in the test (fixed in the test, criterion unchanged).
+
+
+## Round 79 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria committed first: Part A `de03e0dd1` (before any comparison run), Parts B and C `ac67f5e9b` (before any run of the variants), addendum A `24f9cc886` (before any port run of `s0`-`s5`), addendum B `c528bd0f7` (before the real run of `f11`); real binary 652b3da on ESI v2506, serial; references in the refs submodule (`25459d8`): `msfr_en20_gamg_tight`, `msfr_en20_gamg` (1.2 MB each, + `_flux_solves`: the real `GAMG` solve lines), `fc_fluid_r79_{f9_cc_tort,f10_fc_tort,f11_fc_tort_half,s0_h_smooth,s1_h_reltol,s2_h_nsweeps,s3_h_maxiter,s4_h_all,s5_h_fixed}` (+ `_log`); tests `tests/genfoam_msfr_chain_vs_upstream.rs::r79_*` (2, 17 s), `tests/genfoam_fullcoupling_fluid_vs_upstream.rs::r79_*` (4, 0.8 s); unit tests `io::nuclear_data::fv_solution::tests::refusals_and_gamg`, `genfoam::common::smooth_solver::tests` (2), `region_solvers::neutronics_settings_tests`)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+### What was ported (new code only; no Kovan review stamp exists in any touched folder: no `kind = "review"` block in the crate)
+
+| piece | upstream | port |
+|---|---|---|
+| `GAMG` for the neutronics `flux.*` equations (gh:#1945) | `fvMatrix::solve` -> `GAMGSolver`, `GAMGAgglomeration::New` (registry cache, `requireUpdate_`), `pairGAMGAgglomeration::forward_` | `NeutronSolverKind::Gamg` + `NeutronSolverEntry::gamg`, `linear_solvers::gamg_solve_on_mesh` (round 72's `pair_agglomerate`/`gamg_dic_solve`, unchanged), `resolve_neutron_fv_solution_with` / `read_neutron_fv_solution_with` with `GamgPolicy` (default `Native`; `SubstitutePcgDic` the named ablation; `Refuse`); `RegionSolvers` refuses it by name (process-wide `forward_` across regions and mesh motion not carried) |
+| `localTortuosity` in the faceCentered branch (gh:#1943) | `UEqn_1p.H:20-52` | `one_phase_cc/face_centered.rs`: the tensor terms of round 64 in the separately assembled `lap` matrix; the refusal removed |
+| `smoothSolver` + `symGaussSeidel` with `relTol`, `nSweeps` (incl. `< 0`), `maxIter`, `minIter` (gh:#1942) | `smoothSolver.C:73-209`, `SolverPerformance.C:63-88`, `symGaussSeidelSmoother.C:74-199` | new module `genfoam/common/smooth_solver.rs` (reuses `gamg::sym_gauss_seidel_smooth`, `gamg::ldu_residual`, made `pub(crate)`, and `pcg::{norm_factor, converged, g_sum_mag}`); `HSolver::SmoothSolver(SmoothSolverSweeps)` is what the cell-centred reader selects; the round 46 form stays callable (`HSolver::SmoothSymGaussSeidel`, `OnePhaseCcSolver::with_round46_h_smoother`) and is bit-identical at `nSweeps 1`/`relTol 0`/`maxIter 1000` (unit test, 4 tolerance/minIter cases) |
+
+### Part A (gh:#1945): the 2D_MSFR `steadyStateEN` stage with the shipped GAMG block, 20 steps
+
+A0 (input): the re-run real `steadyStateTH` t = 15 s `T`, `U`, `p`, `alphaPhi`, `htc` are byte-identical to `cases/msfr_fluid/restart_15`. The real EN runs are deterministic (the tight run repeated: identical `keff_` and `GAMG` lines).
+
+| protocol | `keff_` worst (20 steps) | `power:` | `T` lines | first `h` residual | t = 20 s: flux, precStar | powerDensity | fluid `T` | `keff` |
+|---|---|---|---|---|---|---|---|---|
+| TIGHT (`1e-14`, `relTol 0`) | **3.4e-16** | 3.7e-16 | 1.3e-15 | 3.0e-10 (as the PCG EN test, 2.6e-9 pin) | 3.1e-14 | 3.7e-15 | 2.0e-15 | 3.4e-16 |
+| AS SHIPPED (`1e-6`, `relTol 0.01`; fluid `1e-7`) | **8.4e-12** | 1.2e-11 | 1.8e-12 | 3.0e-10 | 3.7e-10 | 1.5e-11 | 1.1e-12 | 4.8e-14 |
+| ABLATION: PCG/DIC substitute, as shipped | **4.5e-5** (step 1) | 7.3e-5 | 1.6e-6 | 1.2e-4 | 3.5e-3 | 2.8e-3 | 1.0e-6 | 1.4e-6 |
+
+Real-binary GAMG iteration counts (reported, not gated; `refs/*_flux_solves`): tight 240 solves, 0-55 V-cycles (median 4), **none at `maxIter`**: GAMG reaches 1e-14 on this matrix; as shipped 240 solves, 1-8 V-cycles.
+
+**A protocol error of mine, post-run, the criterion unchanged:** the first port run of the AS-SHIPPED test staged the fluid region with `cases/msfr_fluid/system/fluidRegion/fvSolution`, which is TIGHT (1e-14), while the real loose run used the shipped `1e-7` fluid tolerances; it gave `keff` 3.7e-10, `T` lines 5.7e-9 (a miss of criterion 2 that was the fluid `h` tolerance, not GAMG: step 1 `T` 1.5e-12 already). The real loose run's own fluid file is committed (`cases/msfr_fluid/fvSolution.en_as_shipped`, differing only in `tolerance`) and the test stages it; the numbers in the table are that run.
+
+### Part B (gh:#1943): `localTortuosity` with `faceCentered` (20 steps each; criterion: every field `<= 1e-12`)
+
+| variant | `U` (max|U|) | `p`, `p_rgh` | `T` | `alphaPhi` | `htc` | `dt` | `T` lines | ablation (tortuosity off in the momentum) |
+|---|---|---|---|---|---|---|---|---|
+| `f9_cc_tort` (control, cell-centred) | 1.7e-13 | 3.9e-14 | 3.7e-15 | 2.2e-13 | 2.8e-14 | 9.4e-14 | 2.6e-15 | not run |
+| `f10_fc_tort` (uniform tortuosity) | 1.8e-13 | 2.6e-14 | 6.7e-15 | 2.2e-13 | 3.1e-14 | 1.1e-13 | 5.3e-15 | 2.1e-13 (cannot discriminate: addendum B; reported) |
+| `f11_fc_tort_half` (half zone, addendum B) | **5.8e-22** | **0** | 3.3e-15 | 1.5e-21 | **0** | **0** | 1.1e-15 | **4.9e-8** |
+
+`f11` is bit-identical in `p`, `p_rgh`, `htc` and `dt` over 20 steps and at round-off of ZERO in `U` (the faceCentered `U` comes from `reconstruct(phi)`); two of its 154 gated solves (`h`, initial residual 1e-2) differ by 2 iterations, reported.
+
+### Part C (gh:#1942): `smoothSolver` controls for `h` (20 steps each)
+
+All six variants meet the field criterion: `U` 1.8e-13, `p` 3.5e-14, `T` `<= 3.2e-15`, `alphaPhi` 2.4e-13, `htc` 2.9e-14, `dt` 1.4e-13, `T` lines `<= 1.9e-15`. `h` iteration counts: **equal in all 60 non-floor solves of `s1` (`relTol 0.1`: 1 sweep each), `s3` (`maxIter 2`), `s4` (`relTol 0.05`, `nSweeps 3`, `maxIter 7`: 3 each, the relTol stops at the first call)**; `s5` (`nSweeps -2`): every `h` residual is 0 in the real log and in the port (2 iterations each); `s0`/`s2` reported: one solve at the 1e-14 round-off floor (step 2, outer 2) runs 6 sweeps in the binary and 1000 in the port, the stagnation case of round 73 (fields at 1e-13 after it). Ablation: the round 46 form on `s1` misses `T` by **4.9e-5**.
+
+### Predictions: held / missed (post-run)
+
+A0 **held**. A1 **held** (3.4e-16 against 1e-11). A2 **held** (55 %). **A3 MISSED** (GAMG reaches 1e-14 on the neutronics matrix in 0-55 V-cycles; no solve at `maxIter`). A4 **held** after the protocol error was fixed (8.4e-12; the first run, with the wrong fluid file, missed on `T` lines). A5 **held** (4.5e-5 against 1e-8). A6: see the tests below. B1 **held**. B2 **held** at the first run (65 %). **B3 MISSED** (the `f10` ablation is 2.1e-13: the uniform-tortuosity variant cannot discriminate, addendum B). B4 **held** (5.8e-22, 65 %). **B5 MISSED** (4.9e-8 against the criterion 1e-6; the test asserts it at a POST-RUN pin `> 1e-9`, not at the criterion: the branch moves `U` eight orders above the agreement, but less than the fixed criterion). C1 **held** (70 %). C2 **held** (80 %). C3 **held** in form (`s4`'s `relTol 0.05` stopped every non-floor solve at the first 3-sweep call, so the `maxIter 7` -> 9 stop was not reached in any solve: the unit test `rel_tol_n_sweeps_max_iter_and_fixed_sweeps` pins the 12-at-`maxIter 10` case instead). C4 **held**. C5: see the tests below.
+
+### Earlier numbers: none moved (A6, C5 held)
+
+Tests run (2026-11-28, release; targeted, no full suite): `genfoam_fullcoupling_fluid_vs_upstream` 26 + 4 ignored (incl. round 55's `v3_smooth`, now through the new module, and every round 71/73 variant at its pin), `genfoam_msfr_chain_vs_upstream` 7 (incl. the 600-step EN chain, 188 s), `genfoam_msfr_allrun_vs_upstream` 6 + 2 ignored, `genfoam_fv_solution_df_vs_upstream` 24 + 1 ignored, `genfoam_external_source_vs_upstream` 11, `genfoam_esfr_fluid_vs_upstream` 2, `genfoam_fftf_pieces_vs_upstream` 14 + 4 ignored, `genfoam_one_phase_vs_upstream` 5 + 2 ignored, `genfoam_one_phase_fc_vs_upstream` 18 + 3 ignored, `genfoam_esfr_coupled_vs_upstream` 2, `genfoam_coupled_tutorials_requirements` 2, `genfoam_fullcoupling_three_region_vs_upstream` 5, `genfoam_gamg_is_default` 2, `genfoam_gamg_smoothers_vs_upstream` 4, `genfoam_msfr_gamg_vs_upstream` 1 + 5 ignored; `--lib` filters `nuclear_data` 11, `linear_solvers` 4, `smooth_solver` 2, `neutronics_settings` 2, `one_phase` 23, `gamg` 8: no failure; `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean. The ignored long ESFR tests, `scripts/check-nostd.sh` as a whole and `scripts/check-wasm.sh` were not run.
+
+### Not done, and filed
+
+GAMG for the neutronics flux in a multi-region `RegionSolvers` run (the process-wide `forward_` and the re-agglomeration after mesh motion: gh:#1956, refused by name until then); `smoothSolver` controls for `k`/`epsilon` and for the `h` of `one_phase_fc` and twoPhase (gh:#1957); a variant in which the faceCentered tortuous term moves `U` by more than 1e-6, and the `SfGammaCorr` path (gh:#1958).
+
+### Reproduction
+
+Part A: `bash scripts/run_msfr_chain.sh steadyStateTH <root>` (528 s), then `NEUTRO_FVSOLUTION=cases/msfr_neutro/fvSolution.gamg [PROTOCOL=tight] EN_END=20 EN_WRITE=5 bash scripts/run_msfr_chain.sh steadyStateEN <root>` (about 1 min each), `bash scripts/extract_msfr_en_reference.sh <root> 20 msfr_en20_gamg[_tight]`; port `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream r79_ -- --nocapture`. Parts B, C: `bash scripts/make_round79_variants.sh cases/fullcoupling_fluid <out>`, `ROUND=r79 bash scripts/run_round73_variants.sh <out> <refs out> <names>` (seconds each); port `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_fluid_vs_upstream r79_ -- --nocapture`.

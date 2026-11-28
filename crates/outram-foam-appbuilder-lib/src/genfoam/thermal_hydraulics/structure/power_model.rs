@@ -48,8 +48,8 @@
 //! [`super::heated_pin`], [`super::nuclear_fuel_pin`], [`super::interpolated_nuclear_fuel_pin`],
 //! [`super::lumped_nuclear_structure`], dispatched by [`super::radial_power_model::RadialPowerModel`] (they own a
 //! per-cell radial state over a whole mesh, so they are not variants of this per-cell enum), and are bit-identical
-//! to the real binary (`tests/genfoam_radial_power_models_vs_upstream.rs`). Still unported: `nuclearFuelPinTest`
-//! (gh:#1787), the FMU variants, and the wiring of any of them into a region solver.
+//! to the real binary (`tests/genfoam_radial_power_models_vs_upstream.rs`). Still unported: ~~`nuclearFuelPinTest`
+//! (gh:#1787)~~ **CORRECTED 2026-11-27 (gh:#1911, round 71): ported, `RadialPowerModel::NuclearFuelPinTest`**, the FMU variants, and the wiring of any of them into a region solver.
 //!
 //! ## Lumped energy balance (the `fixedPower` core)
 //!

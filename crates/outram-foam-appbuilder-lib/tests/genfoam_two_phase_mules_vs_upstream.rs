@@ -469,7 +469,10 @@ fn mules_first_diverging_step_after_the_onset_is_636_by_fields() {
     let first_sub = rows.iter().find(|r| !r.2).map(|r| r.0);
     // ~~643~~ **MOVED 2026-11-27 to 641** (gh:#1909 round 58, two-phase matrices in OpenFOAM order): a post-onset sub-cycle marker in
     // the chaotic excursion; the flow-field markers 636/637/636 above did not move.
-    assert_eq!(first_sub, Some(641));
+    // ~~641~~ **MOVED 2026-11-27 to 643** (gh:#1936 round 72): the default `p_rgh` solver is now upstream's own GAMG (its ulp draws differ
+    // from the ILU(0)-BiCGStab's); the same chaotic post-onset sub-cycle marker; the flow-field markers 636/637/636 and every outer-iteration
+    // count asserted above did not move. Re-pinned with the cause recorded (maintainer, 2026-11-27: pins moving is ok).
+    assert_eq!(first_sub, Some(643));
 }
 
 /// Noise-floor control: the port against ITSELF with the initial liquid temperature scaled by `1 + 1e-9` (a single-phase

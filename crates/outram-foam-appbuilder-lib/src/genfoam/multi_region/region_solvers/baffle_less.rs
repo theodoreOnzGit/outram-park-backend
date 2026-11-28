@@ -15,6 +15,7 @@
 use std::path::Path;
 
 use super::DeformableMesh;
+use crate::genfoam::multi_region::baffle_merge::merge_duplicate_faces;
 use crate::io::foam_ascii_mesh::{parse_boundary_patches, PolyMeshOut};
 use crate::io::poly_mesh::read_cell_zones;
 
@@ -47,4 +48,28 @@ pub fn read_baffle_less(poly_mesh_dir: &Path, dm: &DeformableMesh) -> Result<Pol
         n_face_zones: zone_count(poly_mesh_dir, "faceZones")?,
         n_point_zones: zone_count(poly_mesh_dir, "pointZones")?,
     })
+}
+
+/// `createBaffleLessMeshes` + `removeBaffles` (gh:#1236, README round 78): the region's current points, faces and patches with every pair of
+/// duplicate boundary faces merged into one internal face and the faces renumbered as `polyTopoChange::changeMesh` leaves them
+/// ([`merge_duplicate_faces`], upstream cited there). Zones are copied as `meshHandler.C:491-525` does (cell zones only here: a face or point
+/// zone is refused by the writer, not here).
+///
+/// # Errors
+/// The refusal text of a construct the writer or the merge does not lay out (a patch type, an unreadable file, a duplicate-face pair upstream
+/// aborts on).
+pub fn build_baffle_less(poly_mesh_dir: &Path, dm: &DeformableMesh) -> Result<PolyMeshOut, String> {
+    let mut out = read_baffle_less(poly_mesh_dir, dm)?;
+    let sizes: Vec<usize> = out.patches.iter().map(|p| p.n_faces).collect();
+    let merged = merge_duplicate_faces(&out.faces, &out.owner, &out.neighbour, out.n_cells, &sizes)?;
+    let mut start = merged.neighbour.len();
+    for (p, &n) in out.patches.iter_mut().zip(&merged.patch_sizes) {
+        p.n_faces = n;
+        p.start_face = start;
+        start += n;
+    }
+    out.faces = merged.faces;
+    out.owner = merged.owner;
+    out.neighbour = merged.neighbour;
+    Ok(out)
 }

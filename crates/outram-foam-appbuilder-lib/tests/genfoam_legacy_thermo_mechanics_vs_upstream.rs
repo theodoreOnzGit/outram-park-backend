@@ -196,6 +196,9 @@ enum Variant {
     /// The REAL `GeN-Foam` executable, single region, tight protocol (`refs/..._binary*`): the coupling fields keep
     /// the constructor's defaults (`TStructFromTH = TFuel = 1`, `powerDensityNeutronics = 0`).
     Binary,
+    /// gh:#1936 round 72: 20 steps of the driver, tight protocol except the tutorial's own `GAMG` entry for `TStruct` (shipped options), real
+    /// `GAMG` (`refs/legacy_tm_r72_gamg20*`); the port runs `TStructGamgPolicy::Native`.
+    Gamg20,
 }
 
 fn run_with(tag: &str, n_steps: usize, variant: Variant, tweak: impl Fn(&mut LegacyFvmCase)) -> Run {
@@ -205,8 +208,19 @@ fn run_with(tag: &str, n_steps: usize, variant: Variant, tweak: impl Fn(&mut Leg
         Variant::Tight => ("refs/legacy_tm_esfr.ref.txt.gz", "refs/legacy_tm_esfr_log.ref.txt.gz"),
         Variant::Shipped => ("refs/legacy_tm_esfr_shipped.ref.txt.gz", "refs/legacy_tm_esfr_shipped_log.ref.txt.gz"),
         Variant::Binary => ("refs/legacy_tm_esfr_binary.ref.txt.gz", "refs/legacy_tm_esfr_binary_log.ref.txt.gz"),
+        Variant::Gamg20 => ("refs/legacy_tm_r72_gamg20.ref.txt.gz", "refs/legacy_tm_r72_gamg20_log.ref.txt.gz"),
     };
-    let mut case = LegacyFvmCase::read(&root, "thermoMechanicalRegion", TStructGamgPolicy::SubstitutePbicgDilu).expect("case");
+    let policy = if variant == Variant::Gamg20 { TStructGamgPolicy::Native } else { TStructGamgPolicy::SubstitutePbicgDilu };
+    if variant == Variant::Gamg20 {
+        // the tight `fvSolution` of the driver case with the tutorial's own `TStruct` entry (the edit `run_tm.sh` made for the real run)
+        let f = root.join("system/thermoMechanicalRegion/fvSolution");
+        let text = std::fs::read_to_string(&f).expect("fvSolution");
+        let i = text.find("\"TStruct\"").expect("TStruct entry");
+        let j = i + text[i..].find('}').expect("end of entry");
+        let gamg = "\"TStruct\"\n    {\n        solver          GAMG;\n        tolerance       1e-06;\n        relTol          0.001;\n        smoother        GaussSeidel;\n        cacheAgglomeration true;\n        nCellsInCoarsestLevel 50;\n        agglomerator    faceAreaPair;\n        mergeLevels     1;\n        processorAgglomerator masterCoarsest;\n    ";
+        std::fs::write(&f, format!("{}{}{}", &text[..i], gamg, &text[j..])).expect("write fvSolution");
+    }
+    let mut case = LegacyFvmCase::read(&root, "thermoMechanicalRegion", policy).expect("case");
     tweak(&mut case);
     let mut tm = case.build().expect("solver");
     let refs = read_fields(&vv_dir().join(fields_ref));
@@ -357,4 +371,54 @@ fn real_geni_foam_executable_single_region_is_bit_identical() {
     assert_eq!(r.solves.len(), 36);
     // `Max sigmaEq` is printed with 14 significant digits by the executable
     assert!(r.sigma_eq.iter().all(|(_, a, b)| (a - b).abs() <= 1e-13 * b.abs()), "Max sigmaEq");
+}
+
+/// gh:#1936 round 72, criterion R-tm: 20 steps of the legacy thermo-mechanics region with upstream's own `GAMG` for `TStruct` (`GaussSeidel`,
+/// asymmetric path), against the real class: no first diverging step; `Max sigmaEq` and `residual_` of every step and every field at the kept
+/// steps (`disp` at 1, 2, 5, 10, 15, 20; everything at 20) within 1e-9 of the maximum; iteration counts and initial residuals REPORTED.
+#[test]
+fn r72_twenty_steps_with_the_real_gamg_for_tstruct_match_the_real_class() {
+    let r = run_with("r72_gamg20", 20, Variant::Gamg20, |_| {});
+    report(&r);
+    let worst_field = r.tallies.iter().map(|(_, _, t)| t.worst_rel).fold(0.0_f64, f64::max);
+    let n_exact = r.tallies.iter().filter(|(_, _, t)| t.exact == t.n).count();
+    let worst_sigma = r.sigma_eq.iter().fold(0.0_f64, |m, (_, a, b)| m.max((a - b).abs() / b.abs()));
+    let worst_res = r.residual.iter().fold(0.0_f64, |m, (_, a, b)| m.max((a - b).abs() / b.abs()));
+    let t_struct: Vec<_> = r.solves.iter().filter(|s| s.1 == "TStruct").collect();
+    let t_exact = t_struct.iter().filter(|s| s.2 && s.3 && s.4).count();
+    println!("R-tm: {} field tallies, {n_exact} bit-identical, worst field difference {worst_field:e} of max; worst Max sigmaEq {worst_sigma:e}, worst residual_ {worst_res:e}; TStruct solves bit-identical (initial, final, iterations) {t_exact} of {}", r.tallies.len(), t_struct.len());
+    assert!(worst_field <= 1e-9, "{worst_field:e}");
+    assert!(worst_sigma <= 1e-9 && worst_res <= 1e-9, "{worst_sigma:e} {worst_res:e}");
+    assert_eq!(r.sigma_eq.len(), 20);
+}
+
+/// Control for R-tm: the substitute (`PBiCG`/`DILU` at the same shipped `TStruct` tolerances) is distinguishable from the real `GAMG` run: its
+/// `TStruct` solve log differs (iteration counts or residuals) in at least one step.
+#[test]
+fn r72_control_the_pbicg_substitute_differs_from_the_real_gamg_log() {
+    let root = stage("r72_ctl", false);
+    let f = root.join("system/thermoMechanicalRegion/fvSolution");
+    let text = std::fs::read_to_string(&f).expect("fvSolution");
+    let i = text.find("\"TStruct\"").expect("TStruct entry");
+    let j = i + text[i..].find('}').expect("end of entry");
+    let sub = "\"TStruct\"\n    {\n        solver          GAMG;\n        tolerance       1e-06;\n        relTol          0.001;\n        smoother        GaussSeidel;\n        nCellsInCoarsestLevel 50;\n    ";
+    std::fs::write(&f, format!("{}{}{}", &text[..i], sub, &text[j..])).expect("write");
+    let mut case = LegacyFvmCase::read(&root, "thermoMechanicalRegion", TStructGamgPolicy::SubstitutePbicgDilu).expect("case");
+    case.t_gamg = None;
+    let mut tm = case.build().expect("solver");
+    assert!(tm.t_struct_gamg_substituted());
+    let log_text = String::from_utf8(gunzip(&vv_dir().join("refs/legacy_tm_r72_gamg20_log.ref.txt.gz"))).unwrap();
+    let up: Vec<(f64, usize)> = log_text.lines().filter(|l| l.starts_with("S TStruct")).map(|l| { let w: Vec<&str> = l.split_whitespace().collect(); (w[3].parse().unwrap(), w[4].parse().unwrap()) }).collect();
+    let mut differ = 0;
+    for step in 1..=3 {
+        let (th, fuel, pow) = coupling(&case.mesh, &case.zones, step);
+        tm.set_coupling_fields(&th, &fuel, &pow);
+        let log = tm.correct_physics();
+        let mine = log.solves.iter().find(|s| s.field == "TStruct").expect("TStruct solve");
+        println!("control step {step}: substitute final residual {:e} in {} iterations; real GAMG {:e} in {}", mine.final_residual, mine.n_iterations, up[step - 1].0, up[step - 1].1);
+        if mine.final_residual.to_bits() != up[step - 1].0.to_bits() || mine.n_iterations != up[step - 1].1 {
+            differ += 1;
+        }
+    }
+    assert!(differ >= 1);
 }

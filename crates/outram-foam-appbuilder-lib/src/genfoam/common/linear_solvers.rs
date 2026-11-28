@@ -25,9 +25,26 @@
 //! `faceAreaPair` and `DIC` IS ported ([`super::gamg`], bit-identical to the
 //! real binary's on the shipped 2D_FFTF `p_rgh` matrix) and wired into the
 //! one-phase cell-centred region (`GamgPolicy::Native`); this neutronics
-//! selector still has no `GAMG` branch (none is shipped), and the
+//! selector still has no `GAMG` branch (none is shipped), ~~and the
 //! thermo-mechanics, two-phase and face-centred regions keep their named
-//! `PCG`/`DIC` or `PBiCG`/`DILU` substitutes.
+//! `PCG`/`DIC` or `PBiCG`/`DILU` substitutes.~~ **CORRECTED 2026-11-27
+//! (gh:#1936, README round 72):** the face-centred onePhase, the twoPhase and
+//! the legacy thermo-mechanics (`TStruct`: `GaussSeidel`, the asymmetric path
+//! with a `PBiCGStab`/`DILU` coarsest level) regions run upstream's own
+//! `GAMGSolver` by default (`GamgPolicy::Native`, `TStructGamgPolicy::Native`);
+//! the substitutes (`GamgPolicy::SubstitutePcgDic`,
+//! `TStructGamgPolicy::SubstitutePbicgDilu`, `with_krylov_for_p_rgh`) remain as
+//! named ablations. ~~`CaseReadOptions::default().gamg` was `GamgPolicy::Refuse`~~
+//! **CHANGED 2026-11-27 (gh:#1947, README round 76):** it is `GamgPolicy::Native`
+//! too; `AllrunEdits::default().gamg` stays `SubstitutePcgDic` because it is the
+//! PROTOCOL of the committed MSFR references (`AllrunEdits::as_shipped_gamg()` keeps
+//! `GAMG`). ~~The commented-out neutronics block (`DICGaussSeidel`,
+//! `nPreSweeps 1`) is ported and verified against the real binary, but not
+//! wired: nothing selects it.~~ **CHANGED 2026-11-27 (gh:#1945, README round
+//! 79):** a flux entry that selects `GAMG` runs upstream's own `GAMGSolver`
+//! ([`NeutronSolverKind::Gamg`], any ported smoother incl. `DICGaussSeidel` and
+//! `nPreSweeps`) by default; `PCG`/`DIC` in its place is the named ablation
+//! (`GamgPolicy::SubstitutePcgDic` of `io::nuclear_data::resolve_neutron_fv_solution_with`).
 //!
 //! Each runs OpenFOAM's `normFactor`-normalised residual, `tolerance`,
 //! `relTol`, `maxIter` and `minIter`, and the zero-iteration exit when the
@@ -46,6 +63,7 @@ use outram_foam_basic_lib::prelude::{
     Field, FvMatrix, KrylovOptions, LduMatrix, PatchField, SolverSettings, VolScalarField,
 };
 
+use super::gamg::{face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgControls, GamgPerformance};
 use super::pcg::pcg_dic;
 use crate::genfoam::thermal_hydraulics::solver::two_phase::pbicgstab::{converged, g_sum_mag, g_sum_prod, norm_factor};
 use crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::{dilu_precondition, dilu_reciprocal_diag, pbicg_dilu};
@@ -95,6 +113,8 @@ pub enum NeutronSolverKind {
     PbicgDilu,
     /// `PBiCGStab` with `DILU` ([`pbicgstab_dilu`]); asymmetric matrices.
     PbicgstabDilu,
+    /// `GAMG` (upstream's `GAMGSolver`, [`super::gamg`]) with the controls in [`NeutronSolverEntry::gamg`] (gh:#1945, README round 79).
+    Gamg,
 }
 
 /// One `solvers` entry of `fvSolution` as OpenFOAM's `lduMatrix::solver::readControls` reads it
@@ -112,13 +132,22 @@ pub struct NeutronSolverEntry {
     pub max_iter: usize,
     /// `minIter`.
     pub min_iter: usize,
+    /// The `GAMG` keys of the entry (smoother, sweeps, `nCellsInCoarsestLevel`, ...), read only when `kind` is
+    /// [`NeutronSolverKind::Gamg`]; its `tolerance`/`relTol`/`maxIter`/`minIter` equal the four fields above (gh:#1945).
+    pub gamg: GamgControls,
 }
 
 impl NeutronSolverEntry {
     /// An entry of kind `kind` with every control at OpenFOAM's default.
     #[must_use]
     pub fn with_defaults(kind: NeutronSolverKind) -> Self {
-        Self { kind, tolerance: 1e-6, rel_tol: 0.0, max_iter: 1000, min_iter: 0 }
+        Self { kind, tolerance: 1e-6, rel_tol: 0.0, max_iter: 1000, min_iter: 0, gamg: GamgControls::default() }
+    }
+
+    /// A `GAMG` entry with the controls `ctl` (its `tolerance`, `relTol`, `maxIter` and `minIter` become the entry's).
+    #[must_use]
+    pub fn gamg(ctl: GamgControls) -> Self {
+        Self { kind: NeutronSolverKind::Gamg, tolerance: ctl.tolerance, rel_tol: ctl.rel_tol, max_iter: ctl.max_iter, min_iter: ctl.min_iter, gamg: ctl }
     }
 }
 
@@ -202,6 +231,7 @@ impl LinearSolve {
                     rel_tol,
                     max_iter: self.settings.max_iter,
                     min_iter,
+                    gamg: GamgControls::default(),
                 };
                 run_entry(eqn, name, start, entry)
             }
@@ -226,9 +256,35 @@ fn run_entry(eqn: &FvMatrix, name: &str, start: &VolScalarField, entry: NeutronS
         NeutronSolverKind::PbicgstabDilu => {
             let _ = pbicgstab_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
         }
+        NeutronSolverKind::Gamg => {
+            let ctl = GamgControls { tolerance: tol, rel_tol, max_iter, min_iter, ..entry.gamg };
+            let _ = gamg_solve_on_mesh(eqn, &ctl, &b, &mut x).unwrap_or_else(|e| panic!("{name}: {e}"));
+        }
     }
     let boundary = eqn.mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect();
     VolScalarField::new(name.to_string(), eqn.mesh.clone(), Field::new(x), boundary)
+}
+
+/// One `GAMG` solve of `eqn` (gh:#1945, README round 79): the `faceAreaPair` agglomeration of `eqn`'s mesh with `ctl`, then
+/// [`gamg_dic_solve`]. `x` is the initial guess and receives the solution.
+///
+/// Upstream builds the agglomeration once per mesh (`GAMGAgglomeration::New`, the mesh registry) on the first `GAMG` solve, with
+/// `pairGAMGAgglomeration::forward_` as the process left it, and rebuilds it only after `movePoints` (`requireUpdate_`). Here it is
+/// built at every solve with `forward_ = true`: the same agglomeration, value for value, for a mesh that does not move in a process
+/// whose first `GAMG` agglomeration is this mesh's (every flux solve of one region resolves to the one `flux.*` entry). A run where
+/// another region agglomerates first, or where the neutronics mesh moves, is refused by name by the readers that can tell
+/// (`multi_region::region_solvers`), not run here differently.
+///
+/// # Errors
+/// An unsupported control, an asymmetric matrix with a `DIC`-type smoother, or a matrix too small for a coarse level (upstream:
+/// `FatalError`).
+pub fn gamg_solve_on_mesh(eqn: &FvMatrix, ctl: &GamgControls, source: &[f64], x: &mut [f64]) -> Result<GamgPerformance, String> {
+    let ni = eqn.ldu.owner.len();
+    let sf: Vec<[f64; 3]> = eqn.mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect();
+    let w = face_area_pair_weights(&sf);
+    let mut forward = true;
+    let agg = pair_agglomerate(eqn.ldu.n_cells, &eqn.ldu.owner, &eqn.ldu.neighbour, &w, ctl, &mut forward)?;
+    gamg_dic_solve(&eqn.ldu, &agg, ctl, source, x)
 }
 
 /// Result of a solve, as OpenFOAM's `solverPerformance`.

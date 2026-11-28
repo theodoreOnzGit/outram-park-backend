@@ -20,7 +20,8 @@
 //!
 //! AI-written, not human-reviewed. Research, education and V&V only.
 //!
-//! One time step of `GeN-Foam.C` (no `multiPhysicsSolver` is configured in this case: every region is its own solver):
+//! One time step of `GeN-Foam.C` (every region is its own solver; ONE `multiPhysicsSolver` entry, gh:#1950, README round 75, runs the Picard loop
+//! of its members instead: `multiPhysicsSolver.C:156-186`, see [`RegionSolvers::step`]):
 //!
 //! 1. `runTime++` (`time += deltaT`);
 //! 2. `solvers.mapper().mapAllFields(runTime)`: for target region `i` and source region `j` in `regionSolvers` order, each
@@ -42,8 +43,11 @@
 //!   start directory)~~ **CHANGED 2026-11-27 (gh:#1926, README round 66)**: `read` of such a case is ported (the regions are constructed from the written start
 //!   directory; the in-memory restart stays callable); ~~`regionSolvers.neutroRegion pointKinetics` (the PK variant) is refused by name (gh:#1922)~~ **CHANGED 2026-11-27 (gh:#1922, README
 //!   round 61)**: ported as [`RegionSolver::PointKinetics`], reached only through [`RegionSolvers::restart_transient`];
-//! * `removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236). For a mesh without any, upstream's
-//!   baffle-less mesh is the same mesh (`Writing 0 duplicate faces`) and `correctBaffleLessFields` is a copy of the primitive field: the
+//! * ~~`removeBaffles` on a region whose mesh HAS baffles (two faces on the same points; gh:#1236)~~ **CORRECTED 2026-11-27 (gh:#1236, README
+//!   round 78):** the baffle-less mesh is BUILT ([`baffle_merge`](crate::genfoam::multi_region::baffle_merge): `mergeOrSplitBaffles.C`
+//!   `insertDuplicateMerge` + `polyTopoChange::changeMesh` ordering), byte-identical to the real binary's own `fluidRegion.baffleLess/polyMesh` of
+//!   the 3D_SmallESFR_old start directory (21 252 duplicate faces); what stays refused is a face zone on a merged face, a pair on one cell and the
+//!   zone layout of later write times. `correctBaffleLessFields` is a copy of the primitive field: the
 //!   `.baffleLess` source is then the region's own field as of the end of its last `correctPhysics()`;
 //! * `-initializeMappedFields`: upstream's mapped fields are `NO_READ` (TM) or `READ_IF_PRESENT` with default values (neutronics,
 //!   fluid), so a run from the SHIPPED `0/` starts from the constructors' defaults, which are used here (TM `TStructFromTH = TFuel = 1`,
@@ -73,12 +77,13 @@ use crate::genfoam::neutronics::point_kinetics::case::{read_pk_case, PkCaseDicts
 use crate::genfoam::neutronics::point_kinetics::model::{feedback_cell_field, PkFeedbackFields, PkMeshData, PkStepReport, PointKineticNeutronics};
 use crate::genfoam::neutronics::point_kinetics::LinearSolveForm;
 use crate::genfoam::neutronics::pseudo_time::{PseudoTimeClock, PseudoTimeControls, PseudoTimeEigenvalue};
+use crate::genfoam::neutronics::xs::variables::VariableLaw;
 use crate::genfoam::neutronics::xs::CrossSectionData;
-use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
+use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{CaseReadOptions, ControlOverrides, GamgPolicy, OnePhaseCcCase, OnePhaseCcSolver};
 use crate::genfoam::thermo_mechanics::legacy_fvm::case::{LegacyFvmCase, TStructGamgPolicy};
 use crate::genfoam::thermo_mechanics::legacy_fvm::{LegacyFvmThermoMechanics, PhysicsLog};
 use crate::genfoam::workflow::reactor_state::ReactorState;
-use crate::io::nuclear_data::read_nuclear_data;
+use crate::io::nuclear_data::{read_neutron_fv_solution, read_nuclear_data};
 use crate::io::field_reader::{read_vol_scalar_field, read_vol_vector_field};
 use crate::io::poly_mesh::{parse_points, read_cell_zones, read_face_zones, zone_of_cell};
 
@@ -140,6 +145,9 @@ impl RegionFields {
 pub struct FluidRegion {
     /// The solver.
     pub solver: OnePhaseCcSolver,
+    /// `onePhase::residual_` (`getResidual()`, gh:#1950): zeroed by `correctPhysics()`, `max`ed with the `h` solve's initial residual by every
+    /// `correctEnergy()` (so `correctTightlyCoupledPhysics()` keeps accumulating into it).
+    pub residual: f64,
 }
 
 /// `diffusionNeutronics` with its deformable mesh (`eigenvalueNeutronics true`).
@@ -159,6 +167,12 @@ pub struct NeutronicsRegion {
     pub p_tot_old: f64,
     first_step: bool,
     conditions: Vec<DispPatchCondition>,
+    /// The cross-section data and the cell-to-zone map: `xs_.correct()` of every `solveNeutronics.H` re-evaluates them at the feedback
+    /// fields (gh:#1944; a case with `xsVariables {}` has nothing to refresh).
+    xs: CrossSectionData,
+    zone_map: Vec<usize>,
+    /// `axialOrientation` of `nuclearData` (default `(0 0 1)`, `XS.C:76`).
+    axial_orientation: Vector3,
     /// `Some` once [`RegionSolvers::restart_transient`] switched the region to `eigenvalueNeutronics false` (gh:#1919, README round 60).
     pub transient: Option<NeutronicsTransient>,
 }
@@ -173,6 +187,31 @@ pub struct NeutronicsTransient {
     pub last_step: Option<StationaryStep>,
     /// `neutronTransport.aitkenAcceleration true`: a step that reaches a third neutron iteration is refused by name (gh:#1932).
     pub aitken_acceleration: bool,
+    /// `diffusionNeutronics::residual_` of the last `correctPhysics()` (`getResidual()`, gh:#1950).
+    pub residual: f64,
+}
+
+/// What one pass of a `multiPhysicsSolver` loop did, for the comparison with the real log (gh:#1950).
+#[derive(Debug, Clone, Default)]
+pub struct MultiIterationLog {
+    /// The neutronics region's `StationaryStep` of this pass (`power:`, `neutroResidual` of each neutron iteration).
+    pub neutronics: Option<StationaryStep>,
+    /// The thermo-mechanics solves of this pass in order: `(field, initial residual, iterations)`.
+    pub thermo_mechanics: Vec<(String, f64, usize)>,
+}
+
+/// A `multiPhysicsSolver` of the `regionSolvers` (gh:#1950, README round 75; `multiPhysicsSolver.C`): the Picard loop of its member regions,
+/// read from `multiRegionCouplingDict` `multiPhysicsSolvers.<name>` (`solvers`, `minResidual`, `maxIterations`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct MultiPhysics {
+    /// The solver's name in `regionSolvers`.
+    pub name: String,
+    /// Indices into [`RegionSolvers::regions`] of the member solvers, in `solvers` dictionary order.
+    pub members: Vec<usize>,
+    /// `minResidual`.
+    pub min_residual: f64,
+    /// `maxIterations`.
+    pub max_iterations: usize,
 }
 
 /// `pointKineticNeutronics` on its (moved, no longer deforming) mesh: the neutronics region of the PK variant of `2D_fullCoupling`
@@ -258,6 +297,9 @@ pub struct CouplingSwitches {
     /// (the behaviour of rounds 3-66: Aitken silently not performed). Only for controls whose state differs from upstream's on purpose; it is
     /// not a port of `aitkenAcceleration.H` and no number of a run with it is comparable with upstream.
     pub aitken_not_refused: bool,
+    /// NAMED ABLATION (gh:#1948, README round 75): the neutronics linear solves keep the FIXED tight form of rounds 56-74 (`PCG`/`PBiCG` at
+    /// tolerance 1e-14, `relTol` 0, `maxIter` 100000) instead of the entries of the region's `fvSolution`. The default (false) is upstream's.
+    pub tight_neutronics_solvers: bool,
 }
 
 impl CouplingSwitches {
@@ -296,6 +338,13 @@ impl CouplingSwitches {
         self
     }
 
+    /// Keep the fixed tight neutronics linear solves of rounds 56-74 (named ablation of gh:#1948; see [`Self::tight_neutronics_solvers`]).
+    #[must_use]
+    pub fn with_tight_neutronics_solvers(mut self) -> Self {
+        self.tight_neutronics_solvers = true;
+        self
+    }
+
     /// Run the transient with `integralPredictor false` (control a of round 60).
     #[must_use]
     pub fn without_integral_predictor(mut self) -> Self {
@@ -321,6 +370,14 @@ pub struct StepRecord {
     pub max_sigma_eq: Option<f64>,
     /// The neutronics report of a transient step (`eigenvalueNeutronics false`), else `None`.
     pub neutronics: Option<StationaryStep>,
+    /// Iterations of the `multiPhysicsSolver` loop of this step (0 when the case has none).
+    pub multi_iterations: usize,
+    /// The `residual` the loop ended with (`multiPhysicsSolver::correctPhysics`; it never resets inside a step).
+    pub multi_residual: f64,
+    /// One entry per pass of the `multiPhysicsSolver` loop (empty without one).
+    pub iterations: Vec<MultiIterationLog>,
+    /// Every `h` solve of the fluid region in this step, in order, `(initial residual, iterations)` (all passes of a `multiPhysicsSolver`).
+    pub h_solves: Vec<(f64, usize)>,
 }
 
 /// The main loop of `GeN-Foam.C` over the regions of a case.
@@ -348,8 +405,12 @@ pub struct RegionSolvers {
     start_time_index: usize,
     /// The `OverlapMesh` geometry of each region's mesh as the maps were built (the neutronics one is rebuilt at a restart).
     geometries: Vec<OverlapMesh>,
+    /// The `.baffleLess` geometry of a `removeBaffles` region read from the start directory, the source side of its maps (`None`: the baffled one).
+    source_geometries: Vec<Option<OverlapMesh>>,
     /// `controlDict` `writeControl adjustableRunTime` `writeInterval`, `None` for any other write control.
     write_interval: Option<f64>,
+    /// The `multiPhysicsSolver` of `regionSolvers`, if the case selects one (the only entry then).
+    multi: Option<MultiPhysics>,
 }
 
 /// The `PseudoTimeControls` a `controlDict` gives (`pTarget` is not read by the loop).
@@ -382,16 +443,45 @@ fn write_every_steps(c: &outram_foam_basic_lib::io::dict::FoamDict) -> Option<us
 }
 
 /// `meshHandler`: one `meshToMesh` per (target, source) pair of the mappings dictionary, built on the meshes as they are now.
-fn build_maps(regions: &[Region], mappings: &[MappingEntry], geometries: &[OverlapMesh], root: &Path) -> Result<Vec<(usize, usize, RegionMeshMap)>, AppBuilderError> {
+/// `meshHandler.C:192-201` builds each map with the SOURCE region's `.baffleLess` mesh when `removeBaffles` lists it (`source_geometries[si]`, read from
+/// the start directory by [`read_baffle_less_geometry`]), the baffled mesh otherwise; the target is always the region's own mesh.
+fn build_maps(
+    regions: &[Region],
+    mappings: &[MappingEntry],
+    geometries: &[OverlapMesh],
+    source_geometries: &[Option<OverlapMesh>],
+    root: &Path,
+) -> Result<Vec<(usize, usize, RegionMeshMap)>, AppBuilderError> {
     let mut maps = Vec::new();
     for m in mappings {
         let (Some(ti), Some(si)) = (regions.iter().position(|r| r.name == m.target_region), regions.iter().position(|r| r.name == m.source_region)) else {
             continue;
         };
-        let map = RegionMeshMap::new(&regions[si].fv, &regions[ti].fv, Some((&geometries[si], &geometries[ti]))).map_err(|e| case_err(root, e))?;
+        let source_geometry = source_geometries.get(si).and_then(Option::as_ref).unwrap_or(&geometries[si]);
+        let map = RegionMeshMap::new(&regions[si].fv, &regions[ti].fv, Some((source_geometry, &geometries[ti]))).map_err(|e| case_err(root, e))?;
         maps.push((ti, si, map));
     }
     Ok(maps)
+}
+
+/// The geometry of region `name`'s `.baffleLess` mesh as the start directory holds it (`<start>/<name>.baffleLess/polyMesh`, written by the real
+/// `createBaffleLessMeshes` at every start: `Writing mesh to time <start>`), for the maps whose SOURCE is that region (gh:#1950, README round 75).
+/// `None` when the directory is absent (a case that starts from time 0 with identical meshes uses the baffled geometry, as rounds 54-74 did).
+/// ~~The port does not BUILD the merged mesh (gh:#1236)~~ **CORRECTED 2026-11-27 (README round 78):** the port builds it ([`baffle_less::build_baffle_less`]);
+/// this reader is only the fallback when the build is refused.
+///
+/// # Errors
+/// [`AppBuilderError`] for a mesh that cannot be read or whose cell count is not the region's.
+fn read_baffle_less_geometry(root: &Path, name: &str, time_dir: &str, n_cells: usize) -> Result<Option<OverlapMesh>, AppBuilderError> {
+    let dir = root.join(time_dir).join(format!("{name}.baffleLess")).join("polyMesh");
+    if !dir.join("faces").is_file() {
+        return Ok(None);
+    }
+    let dm = DeformableMesh::read(&dir, PointCellsOrder::CellAscending).map_err(|e| case_err(root, format!("{}: {e}", dir.display())))?;
+    if dm.mesh().n_cells != n_cells {
+        return Err(case_err(root, format!("{}: {} cells, the region has {n_cells}", dir.display(), dm.mesh().n_cells)));
+    }
+    Ok(Some(OverlapMesh::from_deformable(&dm).map_err(|e| case_err(root, format!("{name}.baffleLess: overlap geometry: {e}")))?))
 }
 
 /// The name of the time directory of `root` whose value is `t` (`Time::timeName`: `100` for 100, `99.958333...` as written).
@@ -408,6 +498,153 @@ fn time_dir_name(root: &Path, t: f64) -> Result<String, AppBuilderError> {
 
 fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
     FoamFile::read_esi(root.join(rel)).map_err(|e| case_err(root, format!("{rel}: {e}")))
+}
+
+/// The linear-solver settings of a `diffusionNeutronics` region (gh:#1948, README round 75).
+///
+/// Upstream: every `neutroEq.solve()` of `fluxEq.H` and `precEq.H` picks its solver from `mesh.solverDict(<field name>)` of the region's
+/// `fvSolution` (`fvMatrix::solve()` -> `solverDict(psi.select(finalInnerIter))`, never the `Final` entry: no `pimpleControl` loops the neutronics
+/// mesh), with `lduMatrix::solver::readControls` defaults (`lduMatrixSolver.C:195-208`). The `neutronTransport` keys
+/// (`neutronIterationResidual`, `maxNeutronIterations`) are read by `solveNeutronics.H:18-25` but its do-while stops after ONE pass when
+/// `eigenvalueNeutronics` is true (`!eigenvalueNeutronics_`), so the eigenvalue path consults neither.
+/// `tight` is the named ablation: the fixed tight form of rounds 56-74.
+///
+/// # Errors
+/// An `fvSolution` that cannot be read, an entry the port does not translate (reader's refusals), or a flux entry that selects `GAMG`
+/// (~~the reader would run `PCG`/`DIC` in its place~~ CHANGED 2026-11-27, gh:#1945: GAMG is ported, but the process-wide `forward_` state
+/// of upstream's pair agglomeration across regions and mesh motion is not carried, so a multi-region run refuses it by name).
+fn neutronics_diffusion_settings(root: &Path, name: &str, xs: &CrossSectionData, tight: bool) -> Result<DiffusionSettings, AppBuilderError> {
+    let base = DiffusionSettings {
+        k_tolerance: 1e-13,
+        flux_tolerance: 1e-12,
+        max_outer_iterations: 1,
+        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
+        ..DiffusionSettings::default()
+    };
+    if tight {
+        return Ok(base);
+    }
+    let path = root.join(format!("system/{name}/fvSolution"));
+    let sol = read_neutron_fv_solution(&path, xs.energy_groups(), xs.prec_groups(), 0).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
+    // ~~GAMG for the neutronics flux equation is not ported (the reader would run PCG/DIC instead)~~ CHANGED 2026-11-27 (gh:#1945, README
+    // round 79): it is ported and is what a neutronics-only or EN-stage case runs (`LinearSolve`); in a multi-region run it is still refused,
+    // because upstream's `pairGAMGAgglomeration::forward_` is ONE process-wide static that the other regions' GAMG agglomerations and every
+    // re-agglomeration after `movePoints` (mesh deformation) toggle, and the port does not carry that state across regions
+    if sol.gamg_substituted || sol.entries.flux.kind == crate::genfoam::common::linear_solvers::NeutronSolverKind::Gamg {
+        return Err(case_err(root, format!("system/{name}/fvSolution: the flux entry selects GAMG; in a multi-region run GAMG for the neutronics flux is refused by name: the process-wide pairGAMGAgglomeration::forward_ shared with the other regions' agglomerations and the re-agglomeration after mesh motion are not carried (gh:#1945)")));
+    }
+    Ok(base.with_fv_solution(sol.entries))
+}
+
+/// The latest time directory of the case (`startFrom latestTime`): the largest numeric directory name.
+fn latest_time(root: &Path) -> Result<f64, AppBuilderError> {
+    let mut best: Option<f64> = None;
+    let rd = std::fs::read_dir(root).map_err(|e| case_err(root, format!("read_dir: {e}")))?;
+    for e in rd.flatten() {
+        if !e.path().is_dir() {
+            continue;
+        }
+        if let Some(t) = e.file_name().to_str().and_then(|n| n.parse::<f64>().ok()) {
+            best = Some(best.map_or(t, |b| b.max(t)));
+        }
+    }
+    best.ok_or_else(|| case_err(root, "startFrom latestTime: no time directory"))
+}
+
+/// `multiPhysicsSolver::createSolvers(name)` (`multiPhysicsSolver.C:78-131`): the member `(region, solver kind)` pairs in the dictionary order of
+/// `multiPhysicsSolvers.<name>.solvers`, `minResidual` and `maxIterations` (both mandatory: `get<>`). A nested `multiPhysicsSolver` and a
+/// non-empty `includeFluidMechanicsInLoop` (the fluid mechanics inside the loop) are refused by name.
+///
+/// # Errors
+/// [`AppBuilderError`] for a missing entry or a refused selection.
+fn read_multi_physics(root: &Path, name: &str) -> Result<(MultiPhysics, Vec<(String, String)>), AppBuilderError> {
+    let coupling = read_dict(root, "constant/multiRegionCouplingDict")?;
+    let d = coupling
+        .dict
+        .get_dict("multiPhysicsSolvers")
+        .and_then(|m| m.get_dict(name))
+        .ok_or_else(|| case_err(root, format!("multiRegionCouplingDict: no multiPhysicsSolvers.{name}")))?;
+    let solvers = d.get_dict("solvers").ok_or_else(|| case_err(root, format!("multiPhysicsSolvers.{name}: no solvers")))?;
+    let mut members = Vec::new();
+    for (k, v) in solvers.iter() {
+        match v {
+            FoamEntry::Word(w) if w == "multiPhysicsSolver" => {
+                return Err(case_err(root, format!("multiPhysicsSolvers.{name}.solvers.{k}: a nested multiPhysicsSolver is not ported (gh:#1950)")));
+            }
+            FoamEntry::Word(w) => members.push((k.to_string(), w.clone())),
+            _ => return Err(case_err(root, format!("multiPhysicsSolvers.{name}.solvers.{k} is not a word"))),
+        }
+    }
+    if d.get("includeFluidMechanicsInLoop").is_some() {
+        return Err(case_err(root, format!("multiPhysicsSolvers.{name}.includeFluidMechanicsInLoop: the fluid mechanics inside the loop is not ported (gh:#1950)")));
+    }
+    let min_residual = d.get_scalar("minResidual").ok_or_else(|| case_err(root, format!("multiPhysicsSolvers.{name}: no minResidual")))?;
+    let max_iterations = d.get_scalar("maxIterations").ok_or_else(|| case_err(root, format!("multiPhysicsSolvers.{name}: no maxIterations")))? as usize;
+    Ok((MultiPhysics { name: name.to_string(), members: Vec::new(), min_residual, max_iterations }, members))
+}
+
+/// `axialOrientation` of `nuclearData` (`XS.C:76`, `lookupOrDefault`, default `(0 0 1)`): the entry `axialOrientation (x y z);` when present.
+fn axial_orientation_of(root: &Path, region: &str) -> Result<Vector3, AppBuilderError> {
+    let path = root.join(format!("constant/{region}/nuclearData"));
+    let text = std::fs::read_to_string(&path).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
+    let Some(line) = text.lines().find(|l| l.trim_start().starts_with("axialOrientation")) else { return Ok(Vector3::new(0.0, 0.0, 1.0)) };
+    let inner: String = line.split_once('(').and_then(|(_, r)| r.split_once(')')).map(|(v, _)| v.to_string()).unwrap_or_default();
+    let v: Vec<f64> = inner.split_whitespace().filter_map(|x| x.parse().ok()).collect();
+    if v.len() != 3 {
+        return Err(case_err(root, format!("{region}: nuclearData axialOrientation `{}` is not a vector", line.trim())));
+    }
+    Ok(Vector3::new(v[0], v[1], v[2]))
+}
+
+/// The per-cell raw feedback parameters of `XS::correct()` in `xsVariables` order (`setNeutronicsVariables.H`): the region's own field of that
+/// name, `radExp`/`axExp` from `disp`; a `log` variable clamped `max(x, 0.01)` and a `sqrt` one `max(x, 0)` as upstream does before the law.
+fn xs_cell_parameters(n: &NeutronicsRegion, fields: &RegionFields) -> Result<Vec<f64>, AppBuilderError> {
+    use crate::genfoam::neutronics::diffusion::expansion::expansion_from_displacement;
+    let cells = n.mesh.mesh().n_cells;
+    let vars = n.xs.variables();
+    let needs_expansion = vars.iter().any(|v| v.name == "axExp" || v.name == "radExp");
+    let expansion = if needs_expansion {
+        let disp = fields.vector("disp").ok_or_else(|| case_err(Path::new(""), "XS variable radExp/axExp: the region has no `disp`"))?;
+        Some(expansion_from_displacement(n.mesh.mesh(), disp, n.axial_orientation))
+    } else {
+        None
+    };
+    let mut out = vec![0.0; cells * vars.len()];
+    for (j, v) in vars.iter().enumerate() {
+        let column: Vec<f64> = match (v.name.as_str(), &expansion) {
+            ("axExp", Some(e)) => e.ax_exp.clone(),
+            ("radExp", Some(e)) => e.rad_exp.clone(),
+            (name, _) => fields.scalar(name).ok_or_else(|| case_err(Path::new(""), format!("XS variable {name}: the region has no such field")))?.to_vec(),
+        };
+        for (c, x) in column.iter().enumerate() {
+            out[c * vars.len() + j] = match v.law {
+                VariableLaw::Log => x.max(0.01),
+                VariableLaw::Sqrt => x.max(0.0),
+                VariableLaw::Linear => *x,
+            };
+        }
+    }
+    Ok(out)
+}
+
+/// `solveNeutronics.H:119-120`: `secondaryPowerDensity_ = powerDensity_ / max(secondaryPowerVolumeFraction, SMALL) * fractionToSecondaryPower;`
+/// then `powerDensity_ /= max(fuelFraction, SMALL) * (1.0 - fractionToSecondaryPower);`, each zone's own constants per cell. Returns
+/// `(powerDensity, Some(secondaryPowerDensity))`; the secondary field only when some zone has `fractionToSecondaryPower != 0` (gh:#1944: the
+/// ESFR core zones have `fuelFraction 0.46`, the 2-D tutorials `1`, so the division was a no-op until now).
+fn fuel_fraction_scaled_power(n: &NeutronicsRegion, power_density: Vec<f64>) -> (Vec<f64>, Option<Vec<f64>>) {
+    const SMALL: f64 = 1.0e-15;
+    let any_secondary = (0..n.xs.zone_count()).any(|z| n.xs.zone(z).is_some_and(|d| d.fraction_to_secondary_power() != 0.0));
+    let mut secondary = if any_secondary { Some(vec![0.0; power_density.len()]) } else { None };
+    let mut out = power_density;
+    for (c, x) in out.iter_mut().enumerate() {
+        let Some(z) = n.xs.zone(n.zone_map[c]) else { continue };
+        let frac = z.fraction_to_secondary_power();
+        if let Some(sec) = secondary.as_mut() {
+            sec[c] = *x / z.secondary_power_volume_fraction().max(SMALL) * frac;
+        }
+        *x /= z.fuel_fraction().max(SMALL) * (1.0 - frac);
+    }
+    (out, secondary)
 }
 
 fn has_baffles(mesh: &DeformableMesh) -> bool {
@@ -650,20 +887,43 @@ impl RegionSolvers {
         let adjust_time_step = c.get_word("adjustTimeStep").is_some_and(|w| w == "true" || w == "yes" || w == "on");
         let rs = c.get_dict("regionSolvers").ok_or_else(|| case_err(root, "controlDict: no regionSolvers"))?;
         let mut names: Vec<(String, String)> = Vec::new();
+        let mut multi: Option<MultiPhysics> = None;
         for (k, v) in rs.iter() {
             match v {
-                FoamEntry::Word(w) => names.push((k.to_string(), w.clone())),
+                FoamEntry::Word(w) if w == "multiPhysicsSolver" => {
+                    if multi.is_some() || !names.is_empty() {
+                        return Err(case_err(root, "regionSolvers: only ONE multiPhysicsSolver, and no other entry beside it, is ported (gh:#1950)"));
+                    }
+                    let (m, members) = read_multi_physics(root, k)?;
+                    for (n, kind) in members {
+                        names.push((n, kind));
+                    }
+                    multi = Some(m);
+                }
+                FoamEntry::Word(w) => {
+                    if multi.is_some() {
+                        return Err(case_err(root, "regionSolvers: an entry beside a multiPhysicsSolver is not ported (gh:#1950)"));
+                    }
+                    names.push((k.to_string(), w.clone()))
+                }
                 _ => return Err(case_err(root, format!("regionSolvers.{k} is not a word"))),
             }
         }
-        let rb = |name: &str| -> bool { c.get_dict("removeBaffles").and_then(|d| d.get_word(name)).is_some_and(|w| w == "true" || w == "yes" || w == "on") };
+        // `removeBafflesDict.getOrDefault<bool>(name, false)`: the shipped ESFR writes `fluidRegion 1;` (a number is a `Switch` too, gh:#1950)
+        let rb = |name: &str| -> bool {
+            c.get_dict("removeBaffles")
+                .is_some_and(|d| d.get_word(name).is_some_and(|w| w == "true" || w == "yes" || w == "on") || d.get_scalar(name).is_some_and(|x| x == 1.0))
+        };
         let coupling = read_dict(root, "constant/multiRegionCouplingDict")?;
         let mappings = CouplingDict::mappings_from_dict(&coupling.dict, root)?;
         let deformation = MeshDeformationDict::from_coupling_dict(&coupling.dict).map_err(|e| case_err(root, format!("meshDeformation: {e}")))?;
 
         let mut regions = Vec::new();
         let mut geometries: Vec<OverlapMesh> = Vec::new();
-        let start_time = get("startTime").unwrap_or(0.0);
+        let mut source_geometries: Vec<Option<OverlapMesh>> = Vec::new();
+        // `startFrom latestTime` (`Time::setControls`): the latest time directory of the case (the written steady state of a transient case)
+        let start_from_latest = c.get_word("startFrom").is_some_and(|w| w == "latestTime");
+        let start_time = if start_from_latest { latest_time(root)? } else { get("startTime").unwrap_or(0.0) };
         // GEM faces of a point-kinetics region built from files: they need the fluid region, so they are attached after the loop
         let mut gem_requests: Vec<(usize, crate::genfoam::neutronics::point_kinetics::case::GemRequest)> = Vec::new();
         for (name, kind) in &names {
@@ -682,11 +942,33 @@ impl RegionSolvers {
                 dm = dm.restarted_at(&points).map_err(|e| case_err(root, format!("{name}: restart mesh: {e}")))?;
             }
             let remove_baffles = rb(name);
-            let baffle_less = if remove_baffles { Some(baffle_less::read_baffle_less(&poly, &dm)) } else { None };
-            if remove_baffles && has_baffles(&dm) {
-                return Err(case_err(root, format!("{name}: removeBaffles on a mesh with baffles is not ported (gh:#1236); only a mesh without duplicate faces is")));
-            }
+            let baffle_less = if remove_baffles { Some(baffle_less::build_baffle_less(&poly, &dm)) } else { None };
+            // gh:#1944 (README round 74): `createBaffleLessMeshes` merges duplicate faces (`Writing 21252 duplicate faces`) and leaves every CELL
+            // as it was (same count, same order, same shape: the real log's overlap volumes of the `.baffleLess` maps equal the baffled ones to 1e-14),
+            // so the `meshToMesh` sources `<region>.baffleLess` hold the region's own cell values and their weights are the baffled mesh's (1 for
+            // identical cells). ~~The merged mesh itself is not built~~ **CORRECTED (gh:#1236, README round 78):** it is built, below.
+            let _ = has_baffles(&dm);
             geometries.push(OverlapMesh::from_deformable(&dm).map_err(|e| case_err(root, format!("{name}: overlap geometry: {e}")))?);
+            // the maps FROM a `removeBaffles` region use its baffle-less mesh; a start directory that holds it (a transient started from a written
+            // steady state) gives the geometry the neutronics mesh, moved by the steady state, actually overlaps (gh:#1950)
+            let bl_start = if start_time == 0.0 { "0".to_string() } else { time_dir_name(root, start_time)? };
+            // gh:#1236 (README round 78): the `.baffleLess` geometry is BUILT (`createBaffleLessMeshes`: duplicate faces merged, faces renumbered as
+            // `polyTopoChange::changeMesh` does) from the region's own points and faces; only when the build is refused is the real binary's own
+            // `<start>/<region>.baffleLess/polyMesh` read, as rounds 75-77 did
+            let built = match &baffle_less {
+                Some(Ok(m)) => {
+                    let pts: Vec<Vector3> = m.points.iter().map(|p| Vector3::new(p[0], p[1], p[2])).collect();
+                    Some(OverlapMesh::new(&pts, m.faces.clone(), m.owner.clone(), m.neighbour.clone()).map_err(|e| case_err(root, format!("{name}.baffleLess: overlap geometry: {e}")))?)
+                }
+                _ => None,
+            };
+            source_geometries.push(if !remove_baffles {
+                None
+            } else if built.is_some() {
+                built
+            } else {
+                read_baffle_less_geometry(root, name, &bl_start, dm.mesh().n_cells)?
+            });
             let n = dm.mesh().n_cells;
             let fv = dm.mesh().clone();
             let mut fields = RegionFields::default();
@@ -698,10 +980,16 @@ impl RegionSolvers {
             }
             let solver = match kind.as_str() {
                 "onePhase" => {
-                    let s = OnePhaseCcSolver::from_case_dir(root, &poly)?;
+                    // `GAMG` for `p_rgh` runs upstream's own `GAMGSolver` (round 67, `GamgPolicy::Native`); a case that selects `PCG` is unaffected (gh:#1944)
+                    let mut opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+                    if start_from_latest {
+                        // `startFrom latestTime`: the fluid's own reader takes `startTime` from the dictionary, which still says 0 (gh:#1950)
+                        opts.controls = Some(ControlOverrides { start_time, end_time, delta_t: control_delta_t });
+                    }
+                    let s = OnePhaseCcSolver::new(OnePhaseCcCase::read_with_options(root, &poly, &opts)?);
                     fields.set_scalar("powerDensityNeutronics", vec![0.0; n]);
                     fields.set_scalar("powerDensityNeutronicsToLiquid", vec![0.0; n]);
-                    RegionSolver::OnePhase(FluidRegion { solver: s })
+                    RegionSolver::OnePhase(FluidRegion { solver: s, residual: 0.0 })
                 }
                 "diffusionNeutronics" => {
                     let np = read_dict(root, &format!("constant/{name}/neutronicsProperties"))?;
@@ -722,18 +1010,24 @@ impl RegionSolvers {
                         .iter()
                         .map(|p| if p.name == "frontAndBack" { BoundaryCondition::Empty } else { BoundaryCondition::FixedValue(0.0) })
                         .collect();
-                    let settings = DiffusionSettings {
-                        k_tolerance: 1e-13,
-                        flux_tolerance: 1e-12,
-                        max_outer_iterations: 1,
-                        linear: SolverSettings { tolerance: 1e-14, max_iter: 100_000 },
-                        ..DiffusionSettings::default()
+                    // gh:#1948 (README round 75): the linear solves are the case's `fvSolution` entries (default); the earlier fixed tight form
+                    // is the named ablation `CouplingSwitches::with_tight_neutronics_solvers`
+                    let settings = neutronics_diffusion_settings(root, name, &xs, switches.tight_neutronics_solvers)?;
+                    // a case with `xsVariables` constructs at the feedback fields of the constructor (all zero: `0/neutroRegion` carries no
+                    // value; `log` clamped to 0.01 as `setNeutronicsVariables.H` does); every step refreshes them (`xs_.correct()`, gh:#1944)
+                    let built = if xs.variables().is_empty() {
+                        DiffusionNeutronics::new(dm.mesh().clone(), &xs, &zone_map, &[], &flux_boundary, settings)
+                    } else {
+                        let row: Vec<f64> = xs.variables().iter().map(|v| if v.law == VariableLaw::Log { 0.01 } else { 0.0 }).collect();
+                        let params: Vec<f64> = (0..n).flat_map(|_| row.iter().copied()).collect();
+                        DiffusionNeutronics::new_with_cell_parameters(dm.mesh().clone(), &xs, &zone_map, &params, &flux_boundary, settings)
                     };
-                    let mut solver = DiffusionNeutronics::new(dm.mesh().clone(), &xs, &zone_map, &[], &flux_boundary, settings)
+                    let mut solver = built
                         .map_err(|e| case_err(root, format!("{name}: diffusion solver: {e}")))?
                         .with_eigenvalue_laplacian(NeutronicsLaplacianScheme::Corrected);
                     if eig {
-                        solver.set_initial_guess(&vec![vec![1.0; n]; 2], k0);
+                        let groups = solver.energy_groups();
+                        solver.set_initial_guess(&vec![vec![1.0; n]; groups], k0);
                     }
                     let conditions = vec![DispPatchCondition::ZeroGradient; dm.mesh().patches.len()];
                     for f in ["TFuel", "TClad", "TCool", "TStruct", "TStructMech", "rhoCool"] {
@@ -756,10 +1050,10 @@ impl RegionSolvers {
                         if let Some(d) = nf.disp {
                             fields.set_vector("disp", d);
                         }
-                        transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, name)? });
+                        transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, name)?, residual: 0.0 });
                         first_step = false;
                     }
-                    RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step, conditions, transient })
+                    RegionSolver::Neutronics(NeutronicsRegion { mesh: dm.clone(), solver, p_target, k_eff: k0, power: 0.0, p_tot_old: p_target, first_step, conditions, xs, zone_map, axial_orientation: axial_orientation_of(root, name)?, transient })
                 }
                 "pointKinetics" => {
                     // `pointKineticNeutronics` constructed from the written start directory: `flux<g>`, `prec<k>`, `powerDensity`,
@@ -791,7 +1085,7 @@ impl RegionSolvers {
                 "legacyThermoMechanics" => {
                     // `disp`, `fuelDisp`, `CRDisp` are READ from the start directory (a written one holds them as lists)
                     let tm_dir = if start_time == 0.0 { "0".to_string() } else { time_dir_name(root, start_time)? };
-                    let tm = LegacyFvmCase::read_at(root, name, TStructGamgPolicy::SubstitutePbicgDilu, &tm_dir)?.build()?;
+                    let tm = LegacyFvmCase::read_at(root, name, TStructGamgPolicy::Native, &tm_dir)?.build()?;
                     fields.set_scalar("TStructFromTH", vec![1.0; n]);
                     fields.set_scalar("TFuel", vec![1.0; n]);
                     fields.set_scalar("powerDensityNeutronics", vec![0.0; n]);
@@ -802,7 +1096,7 @@ impl RegionSolvers {
             };
             regions.push(Region { name: name.clone(), fv, fields, solver, remove_baffles, baffle_less });
         }
-        let maps = build_maps(&regions, &mappings, &geometries, root)?;
+        let maps = build_maps(&regions, &mappings, &geometries, &source_geometries, root)?;
         let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time);
         if let Some(n) = write_every_steps(c) {
             clock = clock.with_write_every_steps(n);
@@ -826,8 +1120,15 @@ impl RegionSolvers {
             clock,
             start_time_index: read_start_time_index(root, start_time),
             geometries,
+            source_geometries,
             write_interval,
+            multi: None,
         };
+        // the member indices of a `multiPhysicsSolver` are the regions' own (members were pushed in order)
+        me.multi = multi.map(|mut m| {
+            m.members = (0..me.regions.len()).collect();
+            m
+        });
         for (idx, req) in &gem_requests {
             let g = me.gem_faces(root, req)?;
             if let RegionSolver::PointKinetics(p) = &mut me.regions[*idx].solver {
@@ -911,7 +1212,7 @@ impl RegionSolvers {
         n.solver = n.solver.clone().with_integral_predictor(integral_predictor).with_implicit_predictor(implicit_predictor);
         n.solver.rebind_mesh(fresh.mesh().clone(), None).map_err(|e| case_err(root, e.to_string()))?;
         n.first_step = false;
-        n.transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, &nname)? });
+        n.transient = Some(NeutronicsTransient { controls, last_step: None, aitken_acceleration: aitken_requested(root, &nname)?, residual: 0.0 });
         let geometry = OverlapMesh::from_deformable(&fresh).map_err(|e| case_err(root, format!("{nname}: overlap geometry: {e}")))?;
         self.regions[ni].fv = fresh.mesh().clone();
         self.geometries[ni] = geometry;
@@ -924,7 +1225,7 @@ impl RegionSolvers {
             }
         }
         self.mappings = mappings;
-        self.maps = build_maps(&self.regions, &self.mappings, &self.geometries, root)?;
+        self.maps = build_maps(&self.regions, &self.mappings, &self.geometries, &self.source_geometries, root)?;
         self.deformation = deformation;
         self.control_delta_t = cc.delta_t;
         self.max_delta_t = cc.max_delta_t;
@@ -993,7 +1294,7 @@ impl RegionSolvers {
             }
         }
         self.mappings = mappings;
-        self.maps = build_maps(&self.regions, &self.mappings, &self.geometries, root)?;
+        self.maps = build_maps(&self.regions, &self.mappings, &self.geometries, &self.source_geometries, root)?;
         self.deformation = deformation;
         self.control_delta_t = cc.delta_t;
         self.max_delta_t = cc.max_delta_t;
@@ -1182,27 +1483,44 @@ impl RegionSolvers {
                     f.solver.set_power_density(q);
                 }
                 f.solver.begin_time_step(dt);
-                let _ = f.solver.correct_physics();
+                f.residual = f.solver.correct_physics().0;
             }
             RegionSolver::Neutronics(n) if n.transient.is_some() => {
                 // `diffusionNeutronics::correctPhysics()` with `eigenvalueNeutronics false`: `pTotOld_ = power()`, then `solveNeutronics.H`
                 n.p_tot_old = n.solver.pseudo_time_power();
+                if !n.xs.variables().is_empty() {
+                    let params = xs_cell_parameters(n, &r.fields)?;
+                    n.solver.refresh_cross_sections(&n.xs, &n.zone_map, &params).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                }
                 let Some(tr) = n.transient.as_mut() else { unreachable!("guarded by is_some") };
                 let step = n.solver.upstream_stationary_step(self.time, dt, &tr.controls).map_err(|e| case_err(Path::new(""), e.to_string()))?;
                 n.power = step.power;
+                tr.residual = step.solver_residual;
                 tr.last_step = Some(step);
                 // `powerDensity_ = sum flux sigmaPow`, `/= max(fuelFraction, SMALL)(1 - fractionToSecondaryPower)`: both 1 and 0 here; the flux is not
                 // renormalised in a transient, so no `power/pTarget` scaling (the eigenvalue branch rescales the post-`normFluxes` flux)
-                r.fields.set_scalar("powerDensity", n.solver.upstream_power_density());
+                let (pd, sec) = fuel_fraction_scaled_power(n, n.solver.upstream_power_density());
+                r.fields.set_scalar("powerDensity", pd);
+                if let Some(sec) = sec {
+                    r.fields.set_scalar("secondaryPowerDensity", sec);
+                }
             }
             RegionSolver::Neutronics(n) => {
                 n.p_tot_old = n.solver.pseudo_time_power();
+                if !n.xs.variables().is_empty() {
+                    let params = xs_cell_parameters(n, &r.fields)?;
+                    n.solver.refresh_cross_sections(&n.xs, &n.zone_map, &params).map_err(|e| case_err(Path::new(""), e.to_string()))?;
+                }
                 let step = n.solver.eigenvalue_time_step(n.p_target, n.first_step).map_err(|e| case_err(Path::new(""), e.to_string()))?;
                 n.first_step = false;
                 n.k_eff = step.k_eff;
                 n.power = step.power;
                 let scale = step.power / n.p_target;
-                r.fields.set_scalar("powerDensity", n.solver.upstream_power_density().iter().map(|x| x * scale).collect());
+                let (pd, sec) = fuel_fraction_scaled_power(n, n.solver.upstream_power_density().iter().map(|x| x * scale).collect());
+                r.fields.set_scalar("powerDensity", pd);
+                if let Some(sec) = sec {
+                    r.fields.set_scalar("secondaryPowerDensity", sec);
+                }
             }
             RegionSolver::PointKinetics(p) => {
                 // `pointKineticNeutronics::correctPhysics()`: `pTotOld_ = power_`, then `solvePointKinetics.H` on the fields `mapAllFields` just wrote
@@ -1233,6 +1551,95 @@ impl RegionSolvers {
             }
         }
         Ok(())
+    }
+
+    /// `solvers[i].correctTightlyCoupledPhysics()` of a member of a `multiPhysicsSolver` after its first iteration: the fluid runs ONE
+    /// `correctModels` and `correctEnergy` (`onePhase.C:172-183`, no `PIMPLE` loop, no `begin_time_step`: the old-time values stay those of the
+    /// time step), the neutronics and the thermo-mechanics call `correctPhysics()` (`diffusionNeutronics.C:214`, `legacyThermoMechanics.C:573`).
+    fn correct_tightly_coupled_physics(&mut self, i: usize) -> Result<(), AppBuilderError> {
+        let r = &mut self.regions[i];
+        if let RegionSolver::OnePhase(f) = &mut r.solver {
+            if let Some(q) = r.fields.scalar("powerDensityNeutronics") {
+                f.solver.set_structure_power_density(q);
+            }
+            if let Some(q) = r.fields.scalar("powerDensityNeutronicsToLiquid") {
+                f.solver.set_power_density(q);
+            }
+            // `residual_ = max(residual_, EEqn.solve()...)`: `correctTightlyCoupledPhysics` does not zero it
+            f.residual = f.residual.max(f.solver.correct_tightly_coupled_physics());
+            return Ok(());
+        }
+        self.correct_physics(i)
+    }
+
+    /// `solvers[i].getResidual()`.
+    fn residual_of(&self, i: usize) -> f64 {
+        match &self.regions[i].solver {
+            RegionSolver::OnePhase(f) => f.residual,
+            RegionSolver::Neutronics(n) => n.transient.as_ref().map_or(0.0, |t| t.residual),
+            RegionSolver::PointKinetics(_) => 0.0,
+            RegionSolver::ThermoMechanics(t) => t.solver.residual(),
+        }
+    }
+
+    /// `multiPhysicsSolver::correctPhysics()` (`multiPhysicsSolver.C:156-186`): the members' Picard loop within one time step. Iteration 0 is
+    /// `correctPhysics()` of each member, the later ones `correctTightlyCoupledPhysics()` (no `includeFluidMechanicsInLoop`); every pass maps the
+    /// members' fields first (`mapTheseFields`) and `residual` is the running maximum of the members' `getResidual()` over ALL passes (it is never
+    /// reset inside the step). The old-time values of the neutronics and thermo-mechanics members are held across the passes, as `oldTime()` is.
+    ///
+    /// # Errors
+    /// [`AppBuilderError`] from a mapping, a deformation or a solver.
+    fn correct_multi_physics(&mut self, m: &MultiPhysics) -> Result<(usize, f64, Vec<MultiIterationLog>), AppBuilderError> {
+        for &i in &m.members {
+            match &mut self.regions[i].solver {
+                RegionSolver::Neutronics(n) if n.transient.is_some() => n.solver.hold_stationary_old_time(),
+                RegionSolver::ThermoMechanics(t) => t.solver.hold_old_time(),
+                _ => {}
+            }
+        }
+        // the main loop calls `solvers[i].deformMesh()` on the multiPhysicsSolver first: it deforms every member (`multiPhysicsSolver.C:139-145`)
+        for &i in &m.members {
+            self.deform_mesh(i)?;
+        }
+        let mut residual = 0.0_f64;
+        let mut iter = 0usize;
+        let mut logs: Vec<MultiIterationLog> = Vec::new();
+        let outcome = loop {
+            let mut log = MultiIterationLog::default();
+            self.map_all_fields()?;
+            for &i in &m.members {
+                self.deform_mesh(i)?;
+                if iter > 0 {
+                    self.correct_tightly_coupled_physics(i)?;
+                } else {
+                    self.correct_physics(i)?;
+                }
+                self.correct_baffle_less_fields(i);
+                match &self.regions[i].solver {
+                    RegionSolver::Neutronics(n) => log.neutronics = n.transient.as_ref().and_then(|t| t.last_step.clone()),
+                    RegionSolver::ThermoMechanics(t) => {
+                        log.thermo_mechanics = t.last_log.as_ref().map(|l| l.solves.iter().map(|x| (x.field.to_string(), x.initial_residual, x.n_iterations)).collect()).unwrap_or_default();
+                    }
+                    _ => {}
+                }
+            }
+            for &i in &m.members {
+                residual = residual.max(self.residual_of(i));
+            }
+            logs.push(log);
+            iter += 1;
+            if !(residual > m.min_residual && iter < m.max_iterations) {
+                break (iter, residual);
+            }
+        };
+        for &i in &m.members {
+            match &mut self.regions[i].solver {
+                RegionSolver::Neutronics(n) => n.solver.release_stationary_old_time(),
+                RegionSolver::ThermoMechanics(t) => t.solver.release_old_time(),
+                _ => {}
+            }
+        }
+        Ok((outcome.0, outcome.1, logs))
     }
 
     /// `sum_i phi[face_i]*|Sf_i|` over the GEM zone, in zone order, of the fluid region's `phi` (`fluid_.phi()`).
@@ -1271,10 +1678,15 @@ impl RegionSolvers {
         self.clock.advance();
         self.time = self.clock.value();
         self.map_all_fields()?;
-        for i in 0..self.regions.len() {
-            self.deform_mesh(i)?;
-            self.correct_physics(i)?;
-            self.correct_baffle_less_fields(i);
+        let (mut multi_iterations, mut multi_residual, mut iterations) = (0usize, 0.0_f64, Vec::new());
+        if let Some(m) = self.multi.clone() {
+            (multi_iterations, multi_residual, iterations) = self.correct_multi_physics(&m)?;
+        } else {
+            for i in 0..self.regions.len() {
+                self.deform_mesh(i)?;
+                self.correct_physics(i)?;
+                self.correct_baffle_less_fields(i);
+            }
         }
         // adjustDeltaT
         let maxes: Vec<f64> = (0..self.regions.len()).map(|i| self.max_delta_t_of(i)).collect();
@@ -1283,7 +1695,7 @@ impl RegionSolvers {
             self.clock.set_delta_t(new, true);
             self.dt = self.clock.delta_t();
         }
-        let mut rec = StepRecord { step: self.step, time: self.time, dt: dt_used, k_eff: 0.0, power: 0.0, max_sigma_eq: None, neutronics: None };
+        let mut rec = StepRecord { step: self.step, time: self.time, dt: dt_used, k_eff: 0.0, power: 0.0, max_sigma_eq: None, neutronics: None, multi_iterations, multi_residual, iterations, h_solves: Vec::new() };
         for r in &self.regions {
             match &r.solver {
                 RegionSolver::Neutronics(n) => {
@@ -1301,9 +1713,182 @@ impl RegionSolvers {
                 }
                 RegionSolver::PointKinetics(p) => rec.power = p.pk.power(),
                 RegionSolver::ThermoMechanics(t) => rec.max_sigma_eq = t.last_log.as_ref().and_then(|l| l.max_sigma_eq),
-                RegionSolver::OnePhase(_) => {}
+                RegionSolver::OnePhase(f) => rec.h_solves = f.solver.h_solves().to_vec(),
             }
         }
         Ok(rec)
+    }
+}
+
+#[cfg(test)]
+mod neutronics_settings_tests {
+    use super::*;
+    use crate::genfoam::common::linear_solvers::{LinearSolverForm, NeutronSolverKind};
+
+    fn xs_of_case() -> (std::path::PathBuf, CrossSectionData) {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let input = read_nuclear_data(&root.join("constant/neutroRegion/nuclearData")).expect("nuclearData");
+        let xs = CrossSectionData::from_input(&input).expect("xs");
+        (root, xs)
+    }
+
+    /// The default reads the case's entries; the ablation keeps the fixed tight form (gh:#1948).
+    #[test]
+    fn default_reads_fv_solution_and_ablation_keeps_the_tight_form() {
+        let (root, xs) = xs_of_case();
+        let s = neutronics_diffusion_settings(&root, "neutroRegion", &xs, false).expect("settings");
+        match s.form {
+            LinearSolverForm::UpstreamFvSolution(e) => {
+                assert_eq!(e.flux.kind, NeutronSolverKind::PcgDic);
+                assert_eq!((e.flux.tolerance, e.flux.rel_tol, e.flux.max_iter), (1e-14, 0.0, 1000));
+            }
+            other => panic!("default form is {other:?}"),
+        }
+        let t = neutronics_diffusion_settings(&root, "neutroRegion", &xs, true).expect("tight");
+        assert_eq!(t.linear.max_iter, 100_000);
+        assert!(matches!(t.form, LinearSolverForm::Upstream { .. }));
+        assert!(CouplingSwitches::default().with_tight_neutronics_solvers().tight_neutronics_solvers);
+    }
+
+    /// A loose entry is carried through, and a GAMG flux entry is refused by name.
+    #[test]
+    fn loose_entries_are_read_and_gamg_is_refused() {
+        let (_root, xs) = xs_of_case();
+        let dir = std::env::temp_dir().join(format!("r75_nsettings_{}", std::process::id()));
+        std::fs::create_dir_all(dir.join("system/neutroRegion")).unwrap();
+        let hdr = "FoamFile { version 2.0; format ascii; class dictionary; object fvSolution; }\n";
+        std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"prec.*|precStar.*\" {{ solver PBiCG; preconditioner DILU; tolerance 1e-6; relTol 1e-3; }} \"flux.*\" {{ solver PCG; preconditioner DIC; tolerance 1e-6; relTol 1e-3; }} }}")).unwrap();
+        let s = neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).expect("loose");
+        match s.form {
+            LinearSolverForm::UpstreamFvSolution(e) => {
+                assert_eq!((e.flux.tolerance, e.flux.rel_tol), (1e-6, 1e-3));
+                assert_eq!((e.precursor.tolerance, e.precursor.rel_tol), (1e-6, 1e-3));
+            }
+            other => panic!("form {other:?}"),
+        }
+        std::fs::write(dir.join("system/neutroRegion/fvSolution"), format!("{hdr}solvers {{ \"flux.*\" {{ solver GAMG; tolerance 1e-6; smoother DICGaussSeidel; }} }}")).unwrap();
+        assert!(neutronics_diffusion_settings(&dir, "neutroRegion", &xs, false).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod multi_physics_tests {
+    use super::*;
+
+    fn copy_dir(from: &Path, to: &Path) {
+        std::fs::create_dir_all(to).unwrap();
+        for e in std::fs::read_dir(from).unwrap().flatten() {
+            let (src, dst) = (e.path(), to.join(e.file_name()));
+            if src.is_dir() {
+                copy_dir(&src, &dst);
+            } else {
+                std::fs::copy(&src, &dst).unwrap();
+            }
+        }
+    }
+
+    /// The staged small case (2-D `fullCoupling` steady state) with its three `regionSolvers` replaced by ONE `multiPhysicsSolver`.
+    fn staged(tag: &str, extra: &str) -> std::path::PathBuf {
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let root = std::env::temp_dir().join(format!("r75_multi_{tag}_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        copy_dir(&case, &root);
+        let ctl = std::fs::read_to_string(root.join("system/controlDict")).unwrap();
+        let start = ctl.find("regionSolvers").unwrap();
+        let end = start + ctl[start..].find('}').unwrap() + 1;
+        let ctl = format!("{}regionSolvers {{ loop multiPhysicsSolver; }}{}", &ctl[..start], &ctl[end..]);
+        let ctl = ctl.replace("endTime 100;", "endTime 3;");
+        std::fs::write(root.join("system/controlDict"), ctl).unwrap();
+        let cd = std::fs::read_to_string(root.join("constant/multiRegionCouplingDict")).unwrap();
+        let block = format!(
+            "multiPhysicsSolvers {{ loop {{ solvers {{ fluidRegion onePhase; neutroRegion diffusionNeutronics; thermoMechanicalRegion legacyThermoMechanics; }} minResidual 1e-30; maxIterations 2; {extra} }} }}\n"
+        );
+        let at = cd.find("meshDeformation").unwrap();
+        std::fs::write(root.join("constant/multiRegionCouplingDict"), format!("{}{block}{}", &cd[..at], &cd[at..])).unwrap();
+        root
+    }
+
+    /// `latest_time` is the largest numeric directory; `startFrom latestTime` needs one.
+    #[test]
+    fn the_latest_time_is_the_largest_numeric_directory() {
+        let dir = std::env::temp_dir().join(format!("r75_latest_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for d in ["0", "200", "200.5", "constant", "system"] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        assert_eq!(latest_time(&dir).unwrap(), 200.5);
+        let empty = std::env::temp_dir().join(format!("r75_latest_empty_{}", std::process::id()));
+        std::fs::create_dir_all(&empty).unwrap();
+        assert!(latest_time(&empty).is_err());
+        let _ = std::fs::remove_dir_all(&dir);
+        let _ = std::fs::remove_dir_all(&empty);
+    }
+
+    /// gh:#1236 (README round 78): `build_baffle_less` on a mesh WITHOUT duplicate faces (the shipped fullcoupling fluid mesh: `Writing 0 duplicate
+    /// faces`) returns the region's own faces in `changeMesh` order, which for a canonical mesh is the mesh as read, with the patch table unchanged.
+    #[test]
+    fn building_the_baffle_less_mesh_of_a_mesh_without_baffles_changes_nothing() {
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let poly = case.join("constant/fluidRegion/polyMesh");
+        let dm = DeformableMesh::read(&poly, PointCellsOrder::CellAscending).unwrap();
+        let read = baffle_less::read_baffle_less(&poly, &dm).unwrap();
+        let built = baffle_less::build_baffle_less(&poly, &dm).unwrap();
+        assert_eq!(built, read);
+    }
+
+    /// `read_baffle_less_geometry`: absent directory -> `None` (the baffled geometry is used), a mesh of the region's cell count -> the geometry, another
+    /// cell count -> an error naming it.
+    #[test]
+    fn the_baffle_less_start_mesh_is_read_when_present() {
+        let case = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/fullcoupling_three");
+        let root = std::env::temp_dir().join(format!("r75_bl_{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        copy_dir(&case.join("constant/fluidRegion/polyMesh"), &root.join("200/fluidRegion.baffleLess/polyMesh"));
+        let n = DeformableMesh::read(&case.join("constant/fluidRegion/polyMesh"), PointCellsOrder::CellAscending).unwrap().mesh().n_cells;
+        assert!(read_baffle_less_geometry(&root, "fluidRegion", "200", n).unwrap().is_some());
+        assert!(read_baffle_less_geometry(&root, "fluidRegion", "100", n).unwrap().is_none());
+        assert!(read_baffle_less_geometry(&root, "fluidRegion", "200", n + 1).is_err());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// The `multiPhysicsSolvers` dictionary is read in solver order with `minResidual`/`maxIterations`; a nested solver and
+    /// `includeFluidMechanicsInLoop` are refused by name.
+    #[test]
+    fn the_multi_physics_dictionary_is_read_and_its_unported_forms_are_refused() {
+        let root = staged("dict", "");
+        let (m, members) = read_multi_physics(&root, "loop").unwrap();
+        assert_eq!((m.min_residual, m.max_iterations), (1e-30, 2));
+        assert_eq!(members.iter().map(|x| x.0.as_str()).collect::<Vec<_>>(), ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"]);
+        assert!(read_multi_physics(&root, "other").is_err());
+        let with_fluid = staged("fluidmech", "includeFluidMechanicsInLoop (fluidRegion);");
+        assert!(read_multi_physics(&with_fluid, "loop").unwrap_err().to_string().contains("includeFluidMechanicsInLoop"));
+        let nested = staged("nested", "");
+        let cd = std::fs::read_to_string(nested.join("constant/multiRegionCouplingDict")).unwrap().replace("thermoMechanicalRegion legacyThermoMechanics; }", "thermoMechanicalRegion multiPhysicsSolver; }");
+        std::fs::write(nested.join("constant/multiRegionCouplingDict"), cd).unwrap();
+        assert!(read_multi_physics(&nested, "loop").unwrap_err().to_string().contains("nested"));
+        for r in [root, with_fluid, nested] {
+            let _ = std::fs::remove_dir_all(&r);
+        }
+    }
+
+    /// Two steps of the Picard loop on the small staged case: every step runs `maxIterations` passes (the residual never falls under 1e-30), each pass logs
+    /// its thermo-mechanics solves, the regions are read in `solvers` order, and the residual is the running maximum of the members' (`residual_of`).
+    #[test]
+    fn the_multi_physics_loop_runs_its_passes_on_the_small_case() {
+        let root = staged("loop", "");
+        let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap();
+        assert_eq!(run.regions.iter().map(|r| r.name.as_str()).collect::<Vec<_>>(), ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"]);
+        for _ in 0..2 {
+            let rec = run.step().unwrap();
+            assert_eq!(rec.multi_iterations, 2);
+            assert_eq!(rec.iterations.len(), 2);
+            assert!(rec.iterations.iter().all(|i| !i.thermo_mechanics.is_empty()));
+            assert!(rec.multi_residual.is_finite() && rec.multi_residual >= 0.0);
+            assert!(rec.k_eff > 0.0 && rec.power > 0.0);
+        }
+        let residuals: Vec<f64> = (0..run.regions.len()).map(|i| run.residual_of(i)).collect();
+        assert!(residuals.iter().all(|r| r.is_finite()));
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

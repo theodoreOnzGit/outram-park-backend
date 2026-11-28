@@ -14,7 +14,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use super::fv::Geometry;
-use crate::genfoam::common::gamg::{face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
+use crate::genfoam::common::gamg::{GamgSmoother, face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
 use outram_foam_basic_lib::prelude::LduMatrix;
 
 /// The cached agglomeration of one mesh and the `forward_` toggle.
@@ -64,13 +64,32 @@ impl GamgSolveState {
     }
 }
 
+impl GamgSolveState {
+    /// [`Self::solve`] for a caller that has no [`Geometry`] (the thermo-mechanics region): `internal_face_areas` supplies the `Sf` of the internal
+    /// faces and is called only for the first solve (the agglomeration is then cached, as upstream's mesh registry does).
+    ///
+    /// # Panics
+    /// As [`Self::solve`].
+    pub fn solve_with_face_areas<F: FnOnce() -> Vec<[f64; 3]>>(&mut self, internal_face_areas: F, ldu: &LduMatrix, source: &[f64], x: &mut [f64], ctl: &GamgControls) -> GamgPerformance {
+        if self.agg.is_none() {
+            let w = face_area_pair_weights(&internal_face_areas());
+            let agg = pair_agglomerate(ldu.n_cells, &ldu.owner, &ldu.neighbour, &w, ctl, &mut self.forward).unwrap_or_else(|e| panic!("{e}"));
+            self.agg = Some(agg);
+        }
+        let agg = self.agg.as_ref().expect("built above");
+        let perf = gamg_dic_solve(ldu, agg, ctl, source, x).unwrap_or_else(|e| panic!("{e}"));
+        self.log.push((perf.initial_residual, perf.cycles.clone()));
+        perf
+    }
+}
+
 /// The `GAMG` controls of a `solvers` entry (`p_rgh`, `p_rghFinal`), refusing by name what the port does not run. `tolerance` falls back to
 /// `fallback` when absent, as the readers of the `PCG` entries do.
 ///
 /// # Errors
 /// The first unsupported selection, named.
 #[cfg(feature = "std")]
-pub(super) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::FoamDict, fallback: Option<&GamgControls>) -> Result<GamgControls, String> {
+pub(crate) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::FoamDict, fallback: Option<&GamgControls>) -> Result<GamgControls, String> {
     use super::case::{bool_entry, scalar, word};
     let mut c = GamgControls::default();
     if let Some(f) = fallback {
@@ -91,10 +110,11 @@ pub(super) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::Foam
     c.n_cells_in_coarsest_level = count("nCellsInCoarsestLevel", c.n_cells_in_coarsest_level);
     c.merge_levels = count("mergeLevels", c.merge_levels);
     c.scale_correction = bool_entry(d, "scaleCorrection");
+    c.pre_sweeps_level_multiplier = count("preSweepsLevelMultiplier", c.pre_sweeps_level_multiplier);
+    c.max_pre_sweeps = count("maxPreSweeps", c.max_pre_sweeps);
     if let Some(s) = word(d, "smoother") {
-        if s != "DIC" {
-            return Err(format!("solvers.{name}: GAMG smoother `{s}` is not ported (DIC only)"));
-        }
+        c.smoother = GamgSmoother::from_word(&s)
+            .ok_or_else(|| format!("solvers.{name}: GAMG smoother `{s}` is not ported (DIC, GaussSeidel, DICGaussSeidel, symGaussSeidel only)"))?;
     } else {
         return Err(format!("solvers.{name}: GAMG without a `smoother` entry is not ported"));
     }
@@ -143,11 +163,12 @@ mod tests {
         assert_eq!(c, GamgControls { tolerance: 1e-7, rel_tol: 0.001, ..GamgControls::default() });
         let c = read_gamg_controls("p_rgh", &parse("solver GAMG; smoother DIC; tolerance 1e-06; relTol 0; maxIter 25;"), None).expect("cavity entry");
         assert_eq!(c.max_iter, 25);
+        let c = read_gamg_controls("TStruct", &parse("solver GAMG; smoother GaussSeidel; nCellsInCoarsestLevel 50; nPreSweeps 1;"), None).expect("TStruct entry");
+        assert!(c.smoother == GamgSmoother::GaussSeidel && c.n_pre_sweeps == 1 && c.n_cells_in_coarsest_level == 50);
         for (text, needle) in [
-            ("solver GAMG; smoother GaussSeidel; tolerance 1e-6;", "smoother"),
+            ("solver GAMG; smoother DILU; tolerance 1e-6;", "smoother"),
             ("solver GAMG; tolerance 1e-6;", "smoother"),
             ("solver GAMG; smoother DIC; agglomerator algebraicPair;", "agglomerator"),
-            ("solver GAMG; smoother DIC; nPreSweeps 1;", "nPreSweeps"),
             ("solver GAMG; smoother DIC; interpolateCorrection true;", "interpolateCorrection"),
             ("solver GAMG; smoother DIC; mergeLevels 2;", "mergeLevels"),
             ("solver GAMG; smoother DIC; cacheAgglomeration false;", "cacheAgglomeration"),

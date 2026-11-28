@@ -357,7 +357,10 @@ fn solve_phase_liquid_matches_upstream_until_step_44() {
         _ => 1e-8,
     });
     let (flow, dt, sub) = first_diverging(&rows);
-    assert_eq!((flow, dt, sub), (Some(45), None, None), "first diverging step of variant d");
+    // ~~(Some(45), None, None)~~ **MOVED 2026-11-27 to (None, None, None)** (gh:#1936 round 72): the default `p_rgh` solver is now upstream's
+    // own GAMG; the real run's `p_rgh` solver IS that GAMG, and no flow field leaves 1e-6 within the 60 steps compared (the divergence at 45
+    // was the ILU(0)-BiCGStab's 1e-13 stopping noise). Measured 2026-11-27; re-pinned with the cause recorded.
+    assert_eq!((flow, dt, sub), (None, None, None), "first diverging step of variant d");
 }
 
 /// Diagnostic: the first diverging steps of variant `VARIANT` (`--ignored --nocapture`).
@@ -442,7 +445,9 @@ fn solve_phase_vapour_on_the_shipped_start_matches_upstream_through_the_onset() 
 #[test]
 fn the_first_diverging_steps_are_the_noise_floor_of_the_system() {
     assert_eq!(noise_rows(A.0, 1e-9, 660).1, Some(637));
-    assert_eq!(noise_rows(D.0, 1e-12, 80).1, Some(45));
+    // ~~Some(45)~~ **MOVED 2026-11-27 to None** (gh:#1936 round 72): with upstream's own GAMG for `p_rgh` the 1e-12 disturbance does not take
+    // the flow past 1e-6 within 80 steps either (the noise at step 45 was the ILU(0)-BiCGStab stopping rule's).
+    assert_eq!(noise_rows(D.0, 1e-12, 80).1, None);
 }
 
 /// Controls (each must FAIL the round-off gate of variant c by orders of magnitude, so the comparison can fail): the other branch

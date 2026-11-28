@@ -107,6 +107,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
+pub mod baffle_merge;
 pub mod cell_overlap;
 pub mod coupled_loop;
 pub mod coupling_fields;

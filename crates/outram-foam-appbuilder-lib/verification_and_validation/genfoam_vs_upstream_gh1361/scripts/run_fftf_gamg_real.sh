@@ -36,7 +36,9 @@ if [ "$MODE" = tight ]; then
 fi
 if [ -n "$DUMP" ]; then
   sed -i 's/solver *GAMG;/solver          GAMGdump;/' "$f"
-  sed -i '/^application/i libs ("/home/user/upstream-build/gh1934/lib/libGAMGdump.so");' system/controlDict
+  # gh:#1936 round 72: GAMGDUMP_LIB (default the round 67 build), GAMG_SMOOTHER (replaces `smoother DIC;`, e.g. "smoother GaussSeidel; nPreSweeps 1;")
+  sed -i "/^application/i libs (\"${GAMGDUMP_LIB:-/home/user/upstream-build/gh1934/lib}/libGAMGdump.so\");" system/controlDict
+  [ -n "$GAMG_SMOOTHER" ] && sed -i "s/smoother *DIC;/$GAMG_SMOOTHER/" "$f"
   mkdir -p gamgdump; export GAMGDUMP_DIR=$PWD/gamgdump
 fi
 GeN-Foam -case . > log.GeN-Foam 2>&1 &

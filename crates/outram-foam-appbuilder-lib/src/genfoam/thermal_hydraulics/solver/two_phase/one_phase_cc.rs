@@ -50,12 +50,19 @@
 //! * The wedge patches carry a ~1e-11 residual flux (read from the restart); like upstream it enters `div`
 //!   (diagonal), `contErr` and the Courant number.
 //!
+//! ## `momentumMode faceCentered` (gh:#1939, README round 73)
+//!
+//! Upstream has one `onePhase` class with `momentumMode` branches; the `faceCentered` one (`UEqn_1p.H` without `ddt`, `pEqnf_1p.H`,
+//! `reconstructU_1p.H`) is in `face_centered.rs`, selected by `OnePhaseFlowCase::face_centered`. It serves the shipped `3D_SmallESFR` fluid
+//! region (`byRegime` heat transfer, `fixedFluxExtrapolatedPressure`, `zeroGradient` `p_rgh`, native `GAMG`). `one_phase_fc.rs` is the earlier,
+//! separate port of the same branch.
+//!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
 //! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported, same-region secondary zone only**), pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; ~~power models other than `fixedTemperature`~~ **CORRECTED 2026-11-27 (gh:#1879, README round 37):**
 //! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
-//! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); `nuclearFuelPinTest`, the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
+//! `structure::correct` ([`OnePhaseCcSolver::radial_power_models`]); ~~`nuclearFuelPinTest`~~ (**CORRECTED 2026-11-27, gh:#1911: ported; its written fields are refused by name**), the FMU models and `fixedPower` are refused by name; heat-transfer models other than `constant`; thermo other than `heRhoThermo`
 //! `hConst` `Boussinesq` `const`; ~~`residualControl` in `PIMPLE`~~ **CORRECTED 2026-11-27 (gh:#1855, round 31): `residualControl` (customPimpleControl), the `Final` selection it causes and the `relaxationFactors` `default` entries are ported ([`pimple`])**; `stopIfFirstResRelChangeAboveRelTol` (upstream aborts with SIGFPE). `dragModels` (`ReynoldsPower`) are read but
 //! not evaluated: `Kd` is a momentum coefficient and does not enter the energy equation. **UPDATED 2026-11-27 (gh:#1870, README round 62):** with
 //! the flow solved, `ReynoldsPower`, `Churchill`, `Rehme` and per-axis (`localX/Y/Z`) `dragModels` ARE evaluated ([`flow`]), a pump
@@ -77,6 +84,8 @@ use uom::si::ratio::ratio;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 use uom::si::time::second;
 use crate::genfoam::thermal_hydraulics::closures::heat_transfer::fs_htc::FsForcedConvectionHtc;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::by_regime::ByRegimeModel;
+use crate::genfoam::thermal_hydraulics::closures::interfacial::regime_map::{RegimeBound, RegimeInterpolationMode, RegimeMap1D};
 use crate::genfoam::thermal_hydraulics::units::ReynoldsNumber;
 
 use crate::genfoam::common::TimeProfile;
@@ -84,6 +93,7 @@ use crate::genfoam::thermal_hydraulics::closures::fs_drag::FsWallFriction;
 
 pub(super) mod flow;
 mod pimple;
+mod face_centered;
 #[cfg(feature = "std")]
 use super::radial_power;
 mod turbulence;
@@ -129,8 +139,13 @@ pub enum HSolver {
     PBiCGStabDiagonal,
     /// `smoothSolver` with the `symGaussSeidel` smoother, `nSweeps 1`, `relTol 0`
     /// (`one_phase::smooth_solve_sym_gauss_seidel_openfoam`, differenced against the real binary in README round 46 and, for the
-    /// cell-centred region, in round 55 variant V3).
+    /// cell-centred region, in round 55 variant V3). ~~What a `smoothSolver` entry selects~~ **CHANGED 2026-11-27 (gh:#1942, README
+    /// round 79):** the earlier form, kept callable; the reader selects [`HSolver::SmoothSolver`] (bit-identical to this one at `nSweeps 1`,
+    /// `relTol 0`, `maxIter 1000`).
     SmoothSymGaussSeidel,
+    /// `smoothSolver` with `symGaussSeidel` and every control of the entry: `relTol`, `minIter` (the controls' own fields), `nSweeps` and
+    /// `maxIter` (here) ([`crate::genfoam::common::smooth_solver`], gh:#1942, README round 79). What a `smoothSolver` entry selects.
+    SmoothSolver(crate::genfoam::common::smooth_solver::SmoothSolverSweeps),
     /// `PBiCG` with the `DILU` preconditioner (`legacy_fvm::pbicg::pbicg_dilu`, README rounds 23 and 62): the shipped `2D_FFTF`'s
     /// `"(h|k|epsilon)"` entries (the real log reads `DILUPBiCG: Solving for h`).
     PbicgDilu,
@@ -177,6 +192,9 @@ pub enum FsHtcModel {
     /// `(kappa/Dh) (A + B pow(Re Pr, C))` (`C == D`) or `(kappa/Dh) (A + B pow(Re, C) pow(Pr, D))`, from the closure
     /// [`FsForcedConvectionHtc`]. `expTc != 0` (needs `T.wall`) is refused by name when the case is read.
     Nusselt(FsForcedConvectionHtc),
+    /// `type byRegime` (gh:#1939, README round 73): index into [`OnePhaseCcCase::htc_by_regime`] (one leaf model per regime of the
+    /// case's one-parameter regime map, evaluated as `regimeMapModel::interpolateValue` does).
+    ByRegime(usize),
 }
 
 impl FsHtcModel {
@@ -186,7 +204,7 @@ impl FsHtcModel {
     pub fn value(&self) -> Option<f64> {
         match self {
             Self::Constant(v) => Some(*v),
-            Self::Nusselt(_) => None,
+            Self::Nusselt(_) | Self::ByRegime(_) => None,
         }
     }
 
@@ -205,6 +223,8 @@ impl FsHtcModel {
                     None,
                 )
                 .get::<watt_per_square_meter_kelvin>(),
+            // a `byRegime` model needs the cell's regime weights and its sub-models: `OnePhaseCcSolver::correct_models`
+            Self::ByRegime(_) => f64::NAN,
         }
     }
 }
@@ -278,11 +298,13 @@ impl BoussinesqHConst {
 pub enum GamgPolicy {
     /// Refuse `GAMG` by name (`only PCG with the DIC preconditioner is ported`).
     Refuse,
-    /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21).
-    #[default]
+    /// Solve `p_rgh` with `PCG`/`DIC` at the entry's own `tolerance`/`relTol` (the deviation of README round 21). Before round 72 the
+    /// default; now the named ablation of upstream's own solver (gh:#1936).
     SubstitutePcgDic,
     /// Run upstream's own `GAMGSolver` (`faceAreaPair`, `DIC`, defaults of ESI v2506; [`crate::genfoam::common::gamg`], gh:#1934): the
     /// entry's `tolerance`/`relTol`/`maxIter` and GAMG keys are honoured, selections that are not ported are refused by name.
+    /// **The default since round 72 (gh:#1936)**: upstream's form.
+    #[default]
     Native,
 }
 
@@ -326,7 +348,8 @@ pub struct FluidFields {
 /// How a case is read: the stage edits of `Allrun` as values, and where the start fields come from.
 #[derive(Debug, Clone)]
 pub struct CaseReadOptions {
-    /// `GAMG` for `p_rgh`.
+    /// `GAMG` for `p_rgh`: [`GamgPolicy::Native`] by default (upstream's own solver; ~~`Refuse`~~ **CHANGED 2026-11-27, gh:#1947**).
+    /// [`GamgPolicy::Refuse`] and [`GamgPolicy::SubstitutePcgDic`] are explicit ablations, set by naming the field.
     pub gamg: GamgPolicy,
     /// `solveFluidMechanics` of the stage (`None`: as `fvSolution` says). `Allrun` sets `false` for EN and transient.
     pub solve_fluid_mechanics: Option<bool>,
@@ -344,7 +367,8 @@ pub struct CaseReadOptions {
 impl Default for CaseReadOptions {
     fn default() -> Self {
         Self {
-            gamg: GamgPolicy::Refuse,
+            // ~~`GamgPolicy::Refuse`~~ **CHANGED 2026-11-27 (gh:#1947, README round 76)**: upstream's own `GAMGSolver`, as `GamgPolicy::default()`.
+            gamg: GamgPolicy::Native,
             solve_fluid_mechanics: None,
             controls: None,
             check_region_solvers: true,
@@ -412,8 +436,19 @@ pub struct OnePhaseCcCase {
     pub radial_needs_laplacian: bool,
     /// `heatTransferModels` per cell.
     pub htc_model: Vec<Option<FsHtcModel>>,
+    /// The `byRegime` heat-transfer models ([`FsHtcModel::ByRegime`] indexes this): one leaf model per regime name.
+    pub htc_by_regime: Vec<ByRegimeModel<FsHtcModel>>,
+    /// `regimeMapModels` (exactly one `oneParameter` map on `Re` is ported): evaluated by `correctRegimeMaps()` BEFORE `FSPair::correct`
+    /// of every `correctModels`, so with the Reynolds number of the PREVIOUS call.
+    pub regime_map: Option<RegimeMap1D>,
     /// `htc` read from the start directory (cells outside the model zones keep it).
     pub htc0: Vec<f64>,
+    /// `Re` read from the start directory (`FSPair.C:99-113`, `READ_IF_PRESENT`; gh:#1952): the Reynolds number the FIRST
+    /// `correctRegimeMaps()` of the run sees (`None`: not on disk, or a handed-over state, which carries its own: `residualFluidStructureRe`).
+    pub re0: Option<Vec<f64>>,
+    /// The `T` patch conditions of a frozen-flow start directory (`flow` is `None`; empty when the flow is solved, whose `flow.t_bc` is used;
+    /// gh:#1952): `fixedValue` patches are `Bc::Fixed`.
+    pub t_bc_frozen: Vec<Bc>,
     /// `T`.
     pub t: Vec<f64>,
     /// `p`.
@@ -714,17 +749,13 @@ impl OnePhaseCcCase {
                         (Some("PBiCGStab"), Some("diagonal"), _) => HSolver::PBiCGStabDiagonal,
                         (Some("PBiCG"), Some("DILU"), _) => HSolver::PbicgDilu,
                         (Some("smoothSolver"), _, Some("symGaussSeidel")) => {
-                            // the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55)
-                            if scalar(d, "relTol").unwrap_or(0.0) != 0.0 {
-                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with relTol != 0 is not ported")));
-                            }
-                            if scalar(d, "nSweeps").unwrap_or(1.0) != 1.0 {
-                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with nSweeps != 1 is not ported")));
-                            }
-                            if scalar(d, "maxIter").unwrap_or(1000.0) != 1000.0 {
-                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with maxIter != 1000 is not ported")));
-                            }
-                            HSolver::SmoothSymGaussSeidel
+                            // ~~the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55): relTol != 0, nSweeps != 1,
+                            // maxIter != 1000 refused~~ CHANGED 2026-11-27 (gh:#1942, README round 79): `smoothSolver::solve` with every
+                            // control (`smoothSolver.C:73-209`; `nSweeps` default 1, `maxIter` default 1000)
+                            HSolver::SmoothSolver(crate::genfoam::common::smooth_solver::SmoothSolverSweeps {
+                                n_sweeps: scalar(d, "nSweeps").unwrap_or(1.0) as i64,
+                                max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                            })
                         }
                         _ => {
                             return Err(ctx.e(format!(
@@ -952,18 +983,71 @@ impl OnePhaseCcCase {
         }
         let pm_dict = ctx.sub(&pp, "physicsModels")?;
         let htcd = ctx.sub(pm_dict, "heatTransferModels")?;
+        // `regimeMapModels` (`oneParameter` on `Re` only: `oneParameter.C`, `regime_map::RegimeMap1D`)
+        let mut regime_map: Option<RegimeMap1D> = None;
+        let mut regime_map_name = String::new();
+        let mut regime_names: Vec<String> = Vec::new();
+        if let Some(rm) = pp.get_dict("regimeMapModels") {
+            for (mname, e) in rm.iter() {
+                let FoamEntry::SubDict(md) = e else { continue };
+                if regime_map.is_some() {
+                    return Err(ctx.e("regimeMapModels: exactly one regime map is ported"));
+                }
+                if word(md, "type").as_deref() != Some("oneParameter") {
+                    return Err(ctx.e(format!("regimeMapModels.{mname}: only `oneParameter` is ported for a onePhase region")));
+                }
+                if word(md, "parameter").as_deref() != Some("Re") {
+                    return Err(ctx.e(format!("regimeMapModels.{mname}.parameter: only `Re` (the fluid-structure Reynolds number) is ported")));
+                }
+                let mut bounds = Vec::new();
+                for (rn, be) in ctx.sub(md, "regimeBounds")?.iter() {
+                    if let FoamEntry::List(v) = be {
+                        regime_names.push(rn.to_string());
+                        bounds.push(RegimeBound { name: rn.to_string(), lower: v[0].as_scalar().unwrap_or(0.0), upper: v[1].as_scalar().unwrap_or(0.0) });
+                    }
+                }
+                if bounds.is_empty() {
+                    return Err(ctx.e(format!("regimeMapModels.{mname}: no regimeBounds")));
+                }
+                let mode = match word(md, "interpolationMode").as_deref() {
+                    Some("quadratic") => RegimeInterpolationMode::Quadratic,
+                    Some("linear") | None => RegimeInterpolationMode::Linear,
+                    Some(other) => return Err(ctx.e(format!("regimeMapModels.{mname}.interpolationMode `{other}` is not ported"))),
+                };
+                regime_map_name = mname.to_string();
+                regime_map = Some(RegimeMap1D::new(bounds, mode));
+            }
+        }
+        let mut htc_by_regime: Vec<ByRegimeModel<FsHtcModel>> = Vec::new();
         let mut htc_model: Vec<Option<FsHtcModel>> = vec![None; n];
-        for (zk, e) in htcd.iter() {
-            let FoamEntry::SubDict(md) = e else { continue };
-            let model = match ctx.word(md, "type")?.as_str() {
-                "constant" => FsHtcModel::Constant(ctx.f64(md, "value")?),
+        let leaf = |zk: &str, md: &FoamDict| -> Result<FsHtcModel, AppBuilderError> {
+            match ctx.word(md, "type")?.as_str() {
+                "constant" => Ok(FsHtcModel::Constant(ctx.f64(md, "value")?)),
                 "NusseltReynoldsPrandtlPower" | "Nusselt" => {
                     if scalar(md, "expTc").unwrap_or(0.0) != 0.0 {
                         return Err(ctx.e(format!("heatTransferModels.{zk}: `expTc != 0` needs the structure wall temperature `T.wall` and is not ported")));
                     }
-                    FsHtcModel::Nusselt(super::case::read_nusselt(&ctx, md)?)
+                    Ok(FsHtcModel::Nusselt(super::case::read_nusselt(&ctx, md)?))
                 }
-                other => return Err(ctx.e(format!("heatTransferModels.{zk}: `{other}` is not ported here"))),
+                other => Err(ctx.e(format!("heatTransferModels.{zk}: `{other}` is not ported here"))),
+            }
+        };
+        for (zk, e) in htcd.iter() {
+            let FoamEntry::SubDict(md) = e else { continue };
+            let model = if ctx.word(md, "type")? == "byRegime" {
+                let wanted = ctx.word(md, "regimeMap")?;
+                if regime_map.is_none() || wanted != regime_map_name {
+                    return Err(ctx.e(format!("heatTransferModels.{zk}: regimeMap `{wanted}` is not in regimeMapModels")));
+                }
+                let table = ByRegimeModel::per_regime(&regime_names, |rn| match md.get(rn) {
+                    Some(FoamEntry::SubDict(sd)) => leaf(zk, sd).ok(),
+                    _ => None,
+                })
+                .map_err(|m| ctx.e(format!("heatTransferModels.{zk}: {m} (or a sub-model that is not constant/Nusselt)")))?;
+                htc_by_regime.push(table);
+                FsHtcModel::ByRegime(htc_by_regime.len() - 1)
+            } else {
+                leaf(zk, md)?
             };
             for c in zone_cells(zk)? {
                 htc_model[c] = Some(model);
@@ -1067,7 +1151,10 @@ impl OnePhaseCcCase {
         let exists = |name: &str| fdir.join(name).exists();
         let t_fixed = if let Some(h) = hand {
             h.t_fixed.clone()
-        } else if solve_flow && !exists("T.fixedTemperature") {
+        } else if !exists("T.fixedTemperature") {
+            // gh:#1950 (README round 75): a written start directory of a case WITHOUT a `fixedTemperature` power model holds no such file (the
+            // real `200` of 3D_SmallESFR_old has none): the constructor's default (`T` of the power-model dictionary in its zone, 0 elsewhere)
+            // is what upstream's `READ_IF_PRESENT` field then holds, whether or not the flow is solved
             t_fixed_default
         } else {
             sfield("T.fixedTemperature")?
@@ -1079,6 +1166,9 @@ impl OnePhaseCcCase {
         } else {
             sfield("htc")?
         };
+        // `FSPair::Re_` is `READ_IF_PRESENT` (`FSPair.C:99-113`): a start directory that holds `Re` seeds the first regime-map evaluation
+        let t_bc_frozen = if solve_flow || hand.is_some() { Vec::new() } else { flow::read_frozen_t_bcs(&ctx, &g, &alloc::format!("{tdir}/{region}/T"))? };
+        let re0 = if hand.is_none() && exists("Re") { Some(sfield("Re")?) } else { None };
         let power_density = if let Some(h) = hand {
             h.power_density.clone()
         } else if solve_flow && !exists("powerDensityNeutronicsToLiquid") {
@@ -1109,6 +1199,8 @@ impl OnePhaseCcCase {
         let flow = if solve_flow {
             let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg, laminar)?;
             fc.momentum_profiles = momentum_profiles;
+            // ~~momentumMode faceCentered with structureProperties.localTortuosity is not ported~~ CHANGED 2026-11-27 (gh:#1943, README round 79):
+            // the tortuous `UEqn_1p.H` branch is in `one_phase_cc::face_centered` too
             fc.turbulence = if laminar {
                 None
             } else {
@@ -1200,7 +1292,11 @@ impl OnePhaseCcCase {
             t_fixed,
             t_profiles,
             htc_model,
+            htc_by_regime,
+            regime_map,
             htc0,
+            re0,
+            t_bc_frozen,
             t,
             p,
             u,
@@ -1253,6 +1349,11 @@ pub struct OnePhaseCcSolver {
     ctl_no_tort_energy: bool,
     ctl_no_alphat_patch: bool,
     htc: Vec<f64>,
+    /// `regimeMapModels` weights per cell (`oneParameter::correct`), from the Reynolds number of the previous `correctModels`.
+    regime_weights: Vec<Vec<(String, f64)>>,
+    /// The `Re` field as `FSPair::correct` last left it, for `oneParameter::correct`: `residualFluidStructureRe` until the first
+    /// `correctModels` (the constructor of the port evaluates `re` once for its own use; upstream's `Re_` still holds `minRe_` then).
+    regime_re: Vec<f64>,
     re: Vec<f64>,
     /// `FSPair::lRe_`: the per-axis Reynolds number `max(alpha/nu U_k lDh_k, minRe)` (`FSPair.C:371`; the signed component, `lDh = Dh` as no
     /// `localDhAnisotropy` is ported) a per-axis drag model (`localX`/`localY`/`localZ`, `cmpt() >= 0`) evaluates (gh:#1870 round 62).
@@ -1338,6 +1439,19 @@ pub struct OnePhaseCcReport {
     pub final_iteration_at: Option<usize>,
 }
 
+impl OnePhaseCcCase {
+    /// The `T` patch conditions of a region whose flow is frozen: [`Self::t_bc_frozen`] when the start directory was read, else `zeroGradient`
+    /// everywhere (a handed-over state, and every case before gh:#1952).
+    #[must_use]
+    pub fn frozen_t_bcs(&self) -> Vec<Bc> {
+        if self.t_bc_frozen.is_empty() {
+            vec![Bc::ZeroGradient; self.mesh.patches.len()]
+        } else {
+            self.t_bc_frozen.clone()
+        }
+    }
+}
+
 impl OnePhaseCcSolver {
     /// Build the region at the case's start state (`onePhase::onePhase` constructor: phase fractions,
     /// `contErr`, thermo `he`).
@@ -1384,11 +1498,12 @@ impl OnePhaseCcSolver {
         let heat_exchangers = case.heat_exchangers.clone();
         let t_act_old = t_act.clone();
         let htc = case.htc0.clone();
-        let re = vec![case.min_re; n];
+        let re = case.re0.clone().unwrap_or_else(|| vec![case.min_re; n]);
+        let regime_re_init = re.clone();
         let lre = vec![[case.min_re; 3]; n];
         let (t, power_density, dt, time) = (case.t.clone(), case.power_density.clone(), case.delta_t, case.start_time);
         let t_pas = case.passive.as_ref().map_or_else(Vec::new, |ps| ps.t.clone());
-        let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; case.mesh.patches.len()], |f| f.t_bc.clone());
+        let t_bc0: Vec<Bc> = case.flow.as_ref().map_or_else(|| case.frozen_t_bcs(), |f| f.t_bc.clone());
         let mut ts0 = Scalar { c: case.t.clone(), b: vec![0.0; geom.n_faces() - ni0], bc: t_bc0 };
         ts0.correct_bc(&geom);
         let (rho, rho_b) = match case.thermo.boussinesq_rho0() {
@@ -1428,6 +1543,8 @@ impl OnePhaseCcSolver {
             ctl_no_tort_energy: false,
             ctl_no_alphat_patch: false,
             htc,
+            regime_weights: vec![Vec::new(); n],
+            regime_re: regime_re_init,
             re,
             lre,
             cont_err,
@@ -1558,8 +1675,11 @@ impl OnePhaseCcSolver {
         self.t_pas_old = self.t_pas.clone();
         self.t_act_old = self.t_act.clone();
         let uc = self.u.c.clone();
+        let rho_b_now = self.rho_b.clone();
         if let Some(fs) = self.flow.as_mut() {
             fs.u_old = uc;
+            fs.phi_old = fs.phi.clone();
+            fs.rho_b_old = rho_b_now;
             fs.solves.clear();
         }
         // `p.oldTime()` is stored at the first non-const access of a new time step; in the FIRST step OpenFOAM has no
@@ -1739,7 +1859,7 @@ impl OnePhaseCcSolver {
 
     /// The temperature patch conditions: the case's (`fixedValue`, `zeroGradient`, `empty`) with the flow, `zeroGradient` without.
     fn t_patch_bcs(&self) -> Vec<Bc> {
-        self.case.flow.as_ref().map_or_else(|| vec![Bc::ZeroGradient; self.geom.mesh.patches.len()], |f| f.t_bc.clone())
+        self.case.flow.as_ref().map_or_else(|| self.case.frozen_t_bcs(), |f| f.t_bc.clone())
     }
 
     /// `fixedTemperature::temperatureUpdate` (gh:#1813): for each zone with a `temperatureTimeProfile`,
@@ -1923,6 +2043,19 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// ABLATION, NOT upstream (gh:#1942, README round 79): a `smoothSolver` `h`/`hFinal` entry runs the earlier round 46 translation
+    /// ([`HSolver::SmoothSymGaussSeidel`]: `nSweeps 1`, `maxIter 1000`, no `relTol`) instead of [`HSolver::SmoothSolver`] with the entry's
+    /// controls. Other `h` solvers are unchanged.
+    #[must_use]
+    pub fn with_round46_h_smoother(mut self) -> Self {
+        for k in [&mut self.case.controls.h_solver, &mut self.case.controls.h_solver_final] {
+            if matches!(k, HSolver::SmoothSolver(_)) {
+                *k = HSolver::SmoothSymGaussSeidel;
+            }
+        }
+        self
+    }
+
     /// CONTROL, NOT upstream (gh:#1229): the `UEqn_1p.H` Laplacian and `dev2` divergence use the scalar `alpha rho nuEff` (tortuosity ignored).
     #[must_use]
     pub fn without_tortuosity_in_momentum(mut self) -> Self {
@@ -1946,7 +2079,15 @@ impl OnePhaseCcSolver {
 
     /// `correctModels(true, true)`: `Re`, then `htc_[cell] = value` on the model cells.
     fn correct_models(&mut self) {
+        // `onePhase::correctModels`: `correctRegimeMaps()` FIRST (`oneParameter::correct`, with the `Re` field as `FSPair` left it at
+        // the previous call: `residualFluidStructureRe` at construction), then `FSPair::correct`
+        if let Some(map) = self.case.regime_map.as_ref() {
+            for c in 0..self.geom.n_cells() {
+                self.regime_weights[c] = map.regime_weights(self.regime_re[c]);
+            }
+        }
         self.update_re();
+        self.regime_re = self.re.clone();
         self.correct_kd();
         // `myOps::storePrevIterIfRelax(htc_)`, the model values, `htc_.relax()` (`fields` entry `htc`, `htcFinal` when final)
         let a = self.case.controls.relax.field("htc", self.pimple.final_iteration);
@@ -1960,9 +2101,13 @@ impl OnePhaseCcSolver {
                 break;
             }
             if let Some(m) = self.case.htc_model[c] {
-                self.htc[c] = match m.value() {
-                    Some(v) => v,
-                    None => m.value_with(self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]),
+                self.htc[c] = match (m, m.value()) {
+                    (_, Some(v)) => v,
+                    (FsHtcModel::ByRegime(k), None) => {
+                        let (re, pr, kappa, dh) = (self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]);
+                        self.case.htc_by_regime[k].value(&self.regime_weights[c], |leaf| leaf.value_with(re, pr, kappa, dh))
+                    }
+                    (_, None) => m.value_with(self.re[c], self.pr_f[c], self.kappa_f[c], self.case.dh[c]),
                 };
             }
         }
@@ -2210,6 +2355,11 @@ impl OnePhaseCcSolver {
             }
             HSolver::PbicgDilu => {
                 let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+                (perf.initial_residual, perf.iterations)
+            }
+            HSolver::SmoothSolver(sweeps) => {
+                let ctl = crate::genfoam::common::smooth_solver::SmoothSolverControls { tolerance: tol, rel_tol, min_iter, sweeps };
+                let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&e.ldu, &e.source, &mut x, &ctl);
                 (perf.initial_residual, perf.iterations)
             }
             HSolver::SmoothSymGaussSeidel => {

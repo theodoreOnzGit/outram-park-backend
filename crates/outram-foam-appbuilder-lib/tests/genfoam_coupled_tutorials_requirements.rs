@@ -28,7 +28,8 @@
 //!   the first refusal was `nut.vesselWall: `zeroGradient` is not ported` (the turbulence reader's wall-function-only `nut` patches;
 //!   `porousKEpsilon` with `zeroGradient` wall entries). ~~that refusal~~ **CHANGED 2026-11-27 (gh:#1929, README round 65)**: the
 //!   shipped fluid region is READ with no refusal and RUN by `genfoam_fftf_pieces_vs_upstream::fftf_steady_state_*`; `GamgPolicy::Refuse`
-//!   still refuses `p_rgh` GAMG by name.
+//!   still refuses `p_rgh` GAMG by name. **gh:#1947 (round 76):** every read here names its `GamgPolicy`; the DEFAULT is now `Native`
+//!   (~~`Refuse`~~), so the refusal is an explicit ablation, as the `gamg: GamgPolicy::Refuse` fields say.
 //!
 //! Pass criterion: the pinned substring is in the refusal. Controls: none (the refusal text is the measurement).
 

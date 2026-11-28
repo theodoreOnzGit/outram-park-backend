@@ -487,6 +487,9 @@ fn run(kind: Kind, n_outer: i64, o: Opts) -> Tally {
                         chk(&mut t, "interpolatedPowerDensity", c, p.power_density(c), sv("interpolatedPowerDensity")[c]);
                     }
                 }
+                // Added 2026-11-27 (round 71's variant): no case compared here selects `nuclearFuelPinTest`,
+                // so there are no per-model fields to check for it.
+                RadialPowerModel::NuclearFuelPinTest(_) => {}
             }
         }
     }

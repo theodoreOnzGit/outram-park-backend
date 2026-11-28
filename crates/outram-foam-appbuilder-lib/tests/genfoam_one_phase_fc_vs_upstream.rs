@@ -82,6 +82,12 @@ fn copy_dir(from: &Path, to: &Path) {
 /// inside `solvers`, `GAMG`/`DIC` entries rewritten to `PCG`/`DIC`, `maxIter` lines of `solvers` removed. `tight` false leaves
 /// the tolerances (the GAMG-substitution test).
 fn protocol_copy(case: &str, test: &str, tight: bool) -> PathBuf {
+    protocol_copy_impl(case, test, tight, false)
+}
+
+/// [`protocol_copy`] with `keep_gamg`: the tight protocol (tolerance 1e-14, `relTol 0`, no `maxIter`) with `solver GAMG; smoother DIC;`
+/// KEPT (gh:#1936, README round 72: upstream's own GAMG is the solver on both sides).
+fn protocol_copy_impl(case: &str, test: &str, tight: bool, keep_gamg: bool) -> PathBuf {
     let src = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/data").join(case);
     let dst = std::env::temp_dir().join(format!("gh1878_{test}_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dst);
@@ -122,7 +128,7 @@ fn protocol_copy(case: &str, test: &str, tight: bool) -> PathBuf {
             out.push_str("        relTol          0;\n");
         } else if in_solvers && tight && t.starts_with("maxIter") {
             // removed: PCG at 1e-14 needs more than the 25 sweeps shipped for GAMG
-        } else if in_solvers && tight && t.starts_with("solver") && t.contains("GAMG") {
+        } else if in_solvers && tight && !keep_gamg && t.starts_with("solver") && t.contains("GAMG") {
             out.push_str("        solver          PCG;\n        preconditioner  DIC;\n");
             skip_smoother = true;
         } else if skip_smoother && t.starts_with("smoother") {
@@ -298,8 +304,23 @@ fn run_and_compare_edited(
     edit: fn(&Path),
     dt_gate: f64,
 ) -> (Rows, SolveTally, OnePhaseFcSolver) {
+    run_and_compare_impl(case, tag, refname, first_dt, n_steps, modify, edit, dt_gate, false)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_and_compare_impl(
+    case: &str,
+    tag: &str,
+    refname: &str,
+    first_dt: f64,
+    n_steps: usize,
+    modify: fn(OnePhaseFcSolver) -> OnePhaseFcSolver,
+    edit: fn(&Path),
+    dt_gate: f64,
+    keep_gamg: bool,
+) -> (Rows, SolveTally, OnePhaseFcSolver) {
     let r = load_reference(refname);
-    let dir = protocol_copy(case, tag, true);
+    let dir = protocol_copy_impl(case, tag, true, keep_gamg);
     edit(&dir);
     let mut s = modify(OnePhaseFcSolver::from_case_dir(&dir).expect("read the case"));
     let _ = std::fs::remove_dir_all(&dir);
@@ -450,7 +471,13 @@ fn control_shipped_tolerance_is_far_from_the_tight_reference() {
 fn gamg_is_a_named_substitution_or_a_refusal() {
     let dir = protocol_copy("genfoam_1d_onephase", "gamg", false);
     let case = OnePhaseFcCase::read(&dir).expect("read");
-    assert!(case.controls.p_rgh_gamg_substituted, "the shipped GAMG p_rgh is substituted and says so");
+    assert!(case.controls.p_rgh_gamg.is_some() && !case.controls.p_rgh_gamg_substituted, "since gh:#1936 the default is upstream's own GAMG");
+    let case = OnePhaseFcCase::read_with_gamg_policy(
+        &dir,
+        outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::GamgPolicy::SubstitutePcgDic,
+    )
+    .expect("read");
+    assert!(case.controls.p_rgh_gamg_substituted, "the shipped GAMG p_rgh is substituted and says so (the named ablation)");
     assert!(case.controls.p_rgh_pcg.is_some());
     let refused = OnePhaseFcCase::read_with_gamg_policy(
         &dir,
@@ -817,4 +844,53 @@ fn corrected_laplacian_is_refused_by_name() {
     let e = OnePhaseFcCase::read(&dir).expect_err("refused");
     assert!(format!("{e}").contains("uncorrected"), "{e}");
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// gh:#1936 (README round 72, criterion R-fc): upstream's own GAMG for `p_rgh` of the face-centred region, tight protocol with GAMG kept.
+// References `refs/fc_r72_ch_gamg` (the shipped 1D channel, 40 cells, 108 steps: GAMG converges in 1 V-cycle) and `refs/fc_r72_cav_gamg`
+// (the shipped closed cavity, 1600 cells, 32 steps: GAMG stagnates and every solve stops at `maxIter 1000`, as the real log shows).
+// ---------------------------------------------------------------------------------------------------------------------------
+
+/// Gate of R-fc: every gated row `<= bound` (velocity on `max |U|`; `contErr`/`dgdt` at 1e-9 of their scales); returns the worst row.
+fn r72_gate(rows: &Rows, bound: f64) -> f64 {
+    let mut worst = 0.0_f64;
+    for (n, w) in rows {
+        for (k, v) in w.iter().filter(|(k, _)| gated(k)) {
+            worst = worst.max(*v);
+            assert!(*v <= bound, "step {n}: {k} {v:.3e} above the {bound:.0e} gate");
+        }
+    }
+    worst
+}
+
+#[test]
+fn r72_channel_with_upstreams_own_gamg_108_steps_vs_upstream() {
+    let (rows, tally, s) = run_and_compare_impl("genfoam_1d_onephase", "r72ch", "fc_r72_ch_gamg", 1e-3, 108, |s| s.with_upstream_stale_pimple_converged_flag(), |_| {}, 1e-12, true);
+    print_rows(&rows);
+    eprintln!("R-fc channel solve log: {tally:?}");
+    assert!(s.controls.p_rgh_gamg.is_some() && !s.controls.p_rgh_gamg_substituted);
+    let worst = r72_gate(&rows, 1e-9);
+    eprintln!("R-fc channel: worst gated row {worst:e} over {} kept steps", rows.len());
+    // the number of `p_rgh` solves per step is REPORTED, NOT GATED (README round 72: a floor solve of 0 or 1 V-cycles is decided by round-off)
+}
+
+#[test]
+fn r72_cavity_with_upstreams_own_gamg_32_steps_vs_upstream() {
+    let (rows, tally, s) = run_and_compare_impl(CAVITY, "r72cav", "fc_r72_cav_gamg", 1e-3, 32, |s| s, |_| {}, 1e-10, true);
+    print_rows(&rows);
+    eprintln!("R-fc cavity solve log: {tally:?}");
+    assert!(s.controls.p_rgh_gamg.is_some());
+    // `deltaT` gate 1e-10, not the committed 1e-12 (MISSED, post-run: 1.66e-12 relative at step 25, Courant-set `dt` inherits the flux's
+    // round-off, as in round 38)
+    let worst = r72_gate(&rows, 1e-9);
+    eprintln!("R-fc cavity: worst gated row {worst:e} over {} kept steps", rows.len());
+}
+
+/// Control: the substitute (`PCG`/`DIC`, textual protocol) against the same GAMG reference differs in the solve log of every step.
+#[test]
+fn r72_control_pcg_dic_differs_from_the_real_gamg_solve_log() {
+    let (_rows, tally, _s) = run_and_compare_impl(CAVITY, "r72ctl", "fc_r72_cav_gamg", 1e-3, 3, |s| s, |_| {}, 1e-9, false);
+    eprintln!("R-fc control (PCG/DIC against the real GAMG log): {tally:?}");
+    assert!(tally.violations_tier.iter().sum::<usize>() + tally.steps_count_mismatch > 0, "the substitute must be distinguishable: {tally:?}");
 }

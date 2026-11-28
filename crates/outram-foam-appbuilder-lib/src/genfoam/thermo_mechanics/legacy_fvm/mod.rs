@@ -99,7 +99,9 @@ use crate::io::fv_schemes::GradScheme;
 use crate::solvers::non_orthogonal::LaplacianCorrection;
 
 pub mod pbicg;
-use pbicg::pbicg_dilu;
+use pbicg::{pbicg_dilu, PbicgPerformance};
+use crate::genfoam::common::gamg::GamgControls;
+use crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::GamgSolveState;
 pub mod traction;
 use traction::{base_sn_grad, evaluate_value, GfTractionDisplacement, TractionInputs};
 
@@ -218,6 +220,8 @@ pub enum TStructSolver {
     /// The case selects `GAMG`; the port has no faithful `GAMG` and runs `PBiCG`/`DILU` at the entry's tolerances. A
     /// NAMED deviation, reported by [`LegacyFvmThermoMechanics::t_struct_gamg_substituted`].
     GamgSubstitutedByPbicgDilu,
+    /// The case selects `GAMG` and upstream's own `GAMGSolver` runs (`GaussSeidel`, the asymmetric path; gh:#1936, README round 72).
+    Gamg,
 }
 
 /// `fvSchemes.d2dt2Schemes.default` (gh:#1845, round 27). ESI v2506 has exactly these two (`d2dt2Schemes/`:
@@ -432,6 +436,8 @@ struct LaplacianParts {
 /// ([`Self::mesh_displacement`], [`Self::fuel_displacement`], [`Self::control_rod_displacement`]).
 #[derive(Debug, Clone)]
 pub struct LegacyFvmThermoMechanics {
+    /// `Some` when `TStruct` runs upstream's `GAMGSolver` ([`TStructSolver::Gamg`]), with the cached agglomeration.
+    t_gamg: Option<(GamgControls, GamgSolveState)>,
     mesh: Arc<FvMesh>,
     settings: LegacyFvmSettings,
     geo: FaceGeometry,
@@ -487,6 +493,9 @@ pub struct LegacyFvmThermoMechanics {
     sigma_d_b: Vec<Vec<SymmTensor>>,
     div_sigma_exp: Vec<Vector3>,
     residual: f64,
+    /// `TStruct.oldTime()` and the time-level shift of a time step REPEATED by a `multiPhysicsSolver` (gh:#1950, README round 75): `Some((T_old, shifted))`
+    /// between [`Self::hold_old_time`] and [`Self::release_old_time`]; `None` is a step solved once (the old time is the state the call starts from).
+    old_hold: Option<(Vec<f64>, bool)>,
 }
 
 impl LegacyFvmThermoMechanics {
@@ -623,6 +632,7 @@ impl LegacyFvmThermoMechanics {
             .collect();
         let gamg_substituted = settings.t_solver_kind == TStructSolver::GamgSubstitutedByPbicgDilu;
         let mut s = Self {
+            t_gamg: None,
             geo,
             delta_t,
             delta_t0: delta_t,
@@ -667,6 +677,7 @@ impl LegacyFvmThermoMechanics {
             sigma_d_b: Vec::new(),
             div_sigma_exp: vec![Vector3::ZERO; n],
             residual: 0.0,
+            old_hold: None,
             settings,
             mesh,
         };
@@ -716,6 +727,19 @@ impl LegacyFvmThermoMechanics {
         self
     }
 
+    /// Run `TStruct`'s linear solve with upstream's own `GAMGSolver` (`ctl` from the case's `solvers.TStruct`; gh:#1936, README round 72).
+    #[must_use]
+    pub fn with_t_struct_gamg(mut self, ctl: GamgControls) -> Self {
+        self.t_gamg = Some((GamgControls { has_lower: true, ..ctl }, GamgSolveState::default()));
+        self.gamg_substituted = false;
+        self
+    }
+
+    /// The `GAMG` solves of `TStruct` since the last call (initial residual, residual after each V-cycle), empty without `GAMG`.
+    pub fn take_t_struct_gamg_log(&mut self) -> Vec<(f64, Vec<f64>)> {
+        self.t_gamg.as_mut().map_or_else(Vec::new, |(_, st)| st.take_log())
+    }
+
     /// Whether `TStruct`'s linear solve is the named `GAMG` substitute.
     pub fn t_struct_gamg_substituted(&self) -> bool {
         self.gamg_substituted
@@ -759,6 +783,24 @@ impl LegacyFvmThermoMechanics {
     /// `sigmaD` per cell (the `rho`-normalised stress without the thermal part).
     pub fn sigma_d(&self) -> &[SymmTensor] {
         &self.sigma_d
+    }
+
+    /// Keep the current `TStruct` as its old-time value (and let the time levels shift only on the first [`Self::correct_physics`]) until
+    /// [`Self::release_old_time`]: `multiPhysicsSolver::correctPhysics()` solves the region again inside ONE time step, and `oldTime()` stays the value
+    /// of the previous time step (gh:#1950, README round 75).
+    pub fn hold_old_time(&mut self) {
+        self.old_hold = Some((self.t_struct.clone(), false));
+    }
+
+    /// End of [`Self::hold_old_time`].
+    pub fn release_old_time(&mut self) {
+        self.old_hold = None;
+    }
+
+    /// Whether [`Self::hold_old_time`] is in force.
+    #[must_use]
+    pub fn old_time_is_held(&self) -> bool {
+        self.old_hold.is_some()
     }
 
     /// `residual_` of the last [`Self::correct_physics`].
@@ -1256,7 +1298,10 @@ impl LegacyFvmThermoMechanics {
         let rho_c: Vec<f64> = (0..n).map(|c| self.rho[c] * self.c[c]).collect();
         // A = fvm::ddt(rhoC, T): diag = rDeltaT*rho*V, source = rDeltaT*rhoOld*Told*V (rhoC.oldTime() is rhoC)
         let r_delta_t = 1.0 / self.delta_t;
-        let t_old = self.t_struct.clone();
+        let t_old = match &self.old_hold {
+            Some((t, _)) => t.clone(),
+            None => self.t_struct.clone(),
+        };
         let diag_a: Vec<f64> = (0..n).map(|c| r_delta_t * rho_c[c] * mesh.cell_volumes[c]).collect();
         let src_a: Vec<f64> = (0..n).map(|c| r_delta_t * rho_c[c] * t_old[c] * mesh.cell_volumes[c]).collect();
         // B = fvm::laplacian(rhoK, TStruct)
@@ -1319,7 +1364,14 @@ impl LegacyFvmThermoMechanics {
         a.lower = lower;
         let mut psi = self.t_struct.clone();
         let s = self.settings.t_solver;
-        let perf = pbicg_dilu(&a, &source, &mut psi, s.tolerance, s.rel_tol, s.max_iter, s.min_iter);
+        let perf = if let Some((ctl, state)) = self.t_gamg.as_mut() {
+            // gh:#1936: upstream's GAMGSolver; the row-scaled equation has a `lower` array (`fvMatrix::operator*=`)
+            let mesh = &self.mesh;
+            let p = state.solve_with_face_areas(|| mesh.face_area_vectors[..n_if].iter().map(|v| [v.x, v.y, v.z]).collect(), &a, &source, &mut psi, ctl);
+            PbicgPerformance { iterations: p.iterations, initial_residual: p.initial_residual, final_residual: p.final_residual }
+        } else {
+            pbicg_dilu(&a, &source, &mut psi, s.tolerance, s.rel_tol, s.max_iter, s.min_iter)
+        };
         self.t_struct = psi;
         log.solves.push(SolveRecord {
             field: "TStruct",
@@ -1687,13 +1739,21 @@ impl LegacyFvmThermoMechanics {
     pub fn correct_physics(&mut self) -> PhysicsLog {
         let mut log = PhysicsLog::default();
         let mut residual = 0.0_f64;
-        self.advance_time_levels();
+        let repeated = matches!(&self.old_hold, Some((_, true)));
+        if !repeated {
+            self.advance_time_levels();
+        }
+        if let Some((_, shifted)) = self.old_hold.as_mut() {
+            *shifted = true;
+        }
         if self.settings.solve_thermo {
             let r = self.solve_temperature(&mut log);
             residual = residual.max(r);
         }
         if self.settings.solve_displacement {
-            self.store_old_displacements();
+            if !repeated {
+                self.store_old_displacements();
+            }
             let mut i_corr = 0usize;
             let mut initial;
             loop {
