@@ -40,3 +40,9 @@ sm s2_h_nsweeps '        relTol          0;\n        nSweeps         2;\n'
 sm s3_h_maxiter '        relTol          0;\n        maxIter         2;\n'
 sm s4_h_all '        relTol          0.05;\n        nSweeps         3;\n        maxIter         7;\n'
 sm s5_h_fixed '        relTol          0;\n        nSweeps         -2;\n'
+# ADDENDUM B (round 79, written BEFORE its real run): f11_fc_tort_half = round 64's w7_tort (zone0 shrunk to its first 72 of 144 cells:
+# an alpha interface, + localTortuosity) + momentumMode faceCentered. Built from make_fftf_piece_variants.py's own w7_tort.
+TMPW=$(mktemp -d)
+python3 -I "$(dirname "$0")/make_fftf_piece_variants.py" "$BASE" "$TMPW" >/dev/null
+rm -rf "$OUT/f11_fc_tort_half"; cp -r "$TMPW/w7_tort" "$OUT/f11_fc_tort_half"; rm -rf "$TMPW"
+perl -0pi -e 's/(PIMPLE\s*\{)/$1\n    momentumMode        faceCentered;/' "$OUT/f11_fc_tort_half/$fv"
