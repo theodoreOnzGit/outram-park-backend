@@ -10718,3 +10718,67 @@ No pin moved. The regression targets run below pass with their pins unchanged; t
 ### Reproduction
 
 Real binary: inflate `refs/htr10_r87/case` into a directory, run `GeN-Foam -case <dir>` through `with-of.sh` with `libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH` (for `vlam` replace `turbulenceProperties` with `simulationType laminar;`; for `ut2`/`vlam` set `endTime 0.5`), then `python3 -I scripts/make_htr10_r87_refs.py <rootCase> <ut3> <ut2> <vlam> refs/htr10_r87`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_htr10_vs_upstream -- --nocapture --test-threads=1`.
+
+
+# Round 88 (gh:#1991 under #1876, #1216): the non-orthogonal correction, and `3D_HTR-10` AS SHIPPED
+
+**Branch `claude/genfoam-round88` on `07f297e21` (round 87).** Read before any code was written: ESI v2506
+`correctedSnGrad.C`/`correctedSnGrads.C` (`fullGradCorrection = linear.dotInterpolate(nonOrthCorrectionVectors, grad(vf))`; the
+vector specialisation is the same `fullGradCorrection` of the vector field, i.e. per component the scalar one),
+`gaussLaplacianSchemes.C` (`declareFvmLaplacianScalarGamma`: `fvmLaplacianUncorrected(gamma magSf, nonOrthDeltaCoeffs)`, then, when
+`corrected()`, `faceFluxCorrectionPtr = gammaMagSf correction(vf)` for a `fluxRequired` field, and `source -= V fvc::div(...)` in
+both branches), `basicFvGeometryScheme::nonOrthCorrectionVectors` (`unitArea - delta nonOrthDeltaCoeffs` on internal faces, ZERO on
+every non-coupled patch), `surfaceInterpolationScheme::dotInterpolate` (`Sf & (lambda (P - N) + N)`), `gaussGrad::calcGrad`/`gradf`
+(`/= V`, then `correctBoundaryConditions`), `snGradScheme::sndGrad` (`snGrad(vf, deltaCoeffs) + correction(vf)`), `fvMatrix::flux`
+(the `faceFluxCorrection` added to the face flux), `operator-(volField, tmp<fvMatrix>)` (negation also negates the correction
+flux), and GeN-Foam 652b3da `UEqn_1p.H` (`- fvm::laplacian(alpha rho nuEff, U)`), `EEqn_1p.H`
+(`- fvm::laplacian(interpolate(alpha) interpolate(alphaEff), he)`), `porousKEpsilon.C:611,638` (the `epsilon`, `k` Laplacians),
+`pEqnf_1p.H` (the `nNonOrthogonalCorrectors` loop: `pEqnIncomp = fvc::div(phiHbyA) - fvm::laplacian(rAUf, p_rgh)` rebuilt from the
+CURRENT `p_rgh` at each pass; `phi = phiHbyA + pEqnIncomp.flux()` at the final pass) and `calcPhiSbyA_1p.H`
+(`fvc::snGrad(rho(true))`, which carries the same correction). `pEqnComp` is built once before the loop
+(`calcrAUfSetSnGradCalcComp_1p.H`).
+
+**Searched before writing (the workspace rule).** `outram-foam-basic-lib::fv_operators::fvm::laplacian_corrected` (bit-identical to
+ESI v2506, gh:#1362) and `fvm::non_ortho_geometry` (the correction vector `n - d nonOrthDeltaCoeff`, upstream's `Sf/magSf`) exist on
+`FvMesh` fields; `crate::solvers::non_orthogonal` wraps them for `pimpleFoam`. The GeN-Foam regions use their own `fv::Geometry`,
+`fv::Scalar` and `fv::Eqn`, and the round-64 `tensor_laplacian::grad_component` is ALREADY upstream's `gaussGrad` on them (`/= V`,
+`interp_linear_openfoam`, the boundary `correctBoundaryConditions`). So the correction is wired, not rewritten: the vectors come from
+basic-lib's `non_ortho_geometry`, the gradient from `grad_component`, and only the `dotInterpolate`/`faceFluxCorrection`/`V div` glue is
+new (`two_phase/non_orth.rs`). No function of either crate carries a kovan review stamp (no `kind = "review"` block in any
+`review.md` of `outram-foam-basic-lib` or `outram-foam-appbuilder-lib`, checked 2026-11-28).
+
+**The four places** (gh:#1991) and what each needs: (1) `p_rgh` in `pEqnf_1p.H` (source from the current `p_rgh` at EACH pass, the
+correction flux in `pEqnIncomp.flux()`); (2) `fvc::snGrad(rho)` of `calcPhiSbyA_1p.H`; (3) `he` (`EEqn_1p.H`), `k`, `epsilon`
+(`porousKEpsilon`); (4) `U` (`UEqn_1p.H`, per component). The gradient of each field reads its patch values AS STORED when the
+matrix is built (not re-evaluated): `p_rgh` after the assignment `p_rgh = p - rho gh` (pass 1) or after `correctBoundaryConditions`
+(pass 2); `k`, `epsilon` before their inlet patches' `updateCoeffs` (which change the coefficients, not the stored value).
+
+**Scope of the lift.** `corrected` is read for the `faceCentered` mode with a compressible fluid (`psi > 0`: the port tracks the `p`
+patch values the `p_rgh` assignment writes only there) on a mesh without coupled patches (their correction vectors are not zero);
+anything else with `corrected` stays refused by name. `uncorrected` stays the named variant (`SnGradScheme::Uncorrected`).
+
+## Protocol and criteria
+
+Real binary (GeN-Foam 652b3da on ESI v2506, serial; `scripts/run_htr10_r88_real.sh`, references extracted by
+`scripts/make_htr10_r88_refs.py` into `refs/htr10_r88/`): `ct2` = the round-87 tight case (`refs/htr10_r87/case`: tolerance 1e-14,
+`relTol 0`, `p_rgh` PCG/DIC `maxIter 5000` because the shipped GAMG stalls near 1e-10, `writePrecision 17`) with the SHIPPED
+`Gauss linear corrected` / `corrected` restored, one step; `clam` = `ct2` laminar; `ct3` = the same to `endTime 0.55` (7 steps);
+`sh20` = the UNEDITED shipped `rootCase` (GAMG 1e-6, every shipped solver setting) with only `endTime 0.645` (20 steps),
+`writeControl timeStep`, `purgeWrite 1`, `writePrecision 17`. The shipped run to 10 s is round 87's (`refs/htr10_r87/shipped_log.gz`,
+4320 s). Comparison as round 87: every 7th cell, max-norm relative to the reference's max-norm; pebble log numbers; `deltaT`; first
+`p_rgh` residuals. Gate on the tight variants: 1e-9 relative with the cause explained (bit-identity the goal). On `sh20` the solvers
+stop at 1e-6/1e-5 (`p_rgh` GAMG 1e-6, `h` 1e-5, `k`/`epsilon` `relTol 0.01`), so the gate is NOT 1e-9: the criterion stated before the
+run is <= 1e-5 relative on every field after 20 steps (two codes converging to the same tolerance from the same state), and the
+log's 6-digit numbers compared as printed.
+
+## Predictions (committed BEFORE the first port run with `corrected`; the real `ct2` had already run: its log was read, not compared)
+
+| id | prediction | probability |
+|---|---|---|
+| P1 | `ct2` step 1: every compared field and pebble number <= 1e-9 relative | 45 % |
+| P2 | `clam` step 1: the first `p_rgh` initial residual agrees to <= 1e-12 relative (as round 87's laminar 1.5e-14) | 50 % |
+| P3 | `ct3` (7 steps): worst <= 1e-9 | 35 % |
+| P4 | `sh20` (shipped solvers, 20 steps): every field <= 1e-5 relative, every `deltaT` <= 1e-5 | 40 % |
+| P5 | `sh20` step 1: the six pebble log lines equal at the printed 6 digits | 50 % |
+| P6 | (gh:#1992) the turbulent first `p_rgh` residual difference on `ct2` is larger than the laminar one on `clam` by >= 10x, as in round 87 (2.1e-12 against 1.5e-14) | 60 % |
+| P7 | the port's wall time per step on the shipped settings is larger than the real binary's (2.7 s per step after step 1) | 70 % |
