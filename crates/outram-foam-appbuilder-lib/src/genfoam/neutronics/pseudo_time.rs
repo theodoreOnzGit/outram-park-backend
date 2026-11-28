@@ -169,6 +169,9 @@ pub struct PseudoTimeClock {
     write_time: bool,
     /// `writeControl timeStep`: `writeInterval` as a step count (`writeTime_ = !(timeIndex % writeInterval)`, gh:#1931).
     write_every_steps: Option<usize>,
+    /// `Time::startTimeIndex_`: the `index` of the start directory's `uniform/time` (`Time.C:304-306`: `timeIndex_ = startTimeIndex_`), so the
+    /// `timeStep` write rule counts `timeIndex_ = startTimeIndex_ + steps` (gh:#1938, README round 84). 0 for every clock not given one.
+    start_time_index: usize,
 }
 
 impl PseudoTimeClock {
@@ -188,6 +191,7 @@ impl PseudoTimeClock {
             delta_t_save: controls.delta_t,
             write_time: false,
             write_every_steps: None,
+            start_time_index: 0,
         };
         let dt = clock.delta_t.min(controls.delta_t);
         clock.set_delta_t(dt, true);
@@ -210,6 +214,7 @@ impl PseudoTimeClock {
             delta_t_save: controls.delta_t,
             write_time: false,
             write_every_steps: None,
+            start_time_index: 0,
         };
         let dt = clock.delta_t.min(controls.delta_t);
         clock.set_delta_t(dt, true);
@@ -281,7 +286,8 @@ impl PseudoTimeClock {
         }
         self.write_time = false;
         if let Some(n) = self.write_every_steps {
-            self.write_time = self.time_index % n.max(1) == 0;
+            // `Time.C:1111-1112`: `timeIndex_` is the restart's `startTimeIndex_` plus the steps taken (gh:#1938)
+            self.write_time = (self.start_time_index + self.time_index) % n.max(1) == 0;
         }
         if let Some(write_interval) = self.write_interval {
             let write_index = (((self.value - self.start_time) + 0.5 * self.delta_t) / write_interval) as i64;
@@ -296,6 +302,15 @@ impl PseudoTimeClock {
     #[must_use]
     pub fn with_write_every_steps(mut self, n: usize) -> Self {
         self.write_every_steps = Some(n);
+        self
+    }
+
+    /// `Time::startTimeIndex_` of a restart (the `index` of `<startTime>/uniform/time`, `Time.C:304-306`): the `timeStep` write rule
+    /// `writeTime_ = !(timeIndex_ % writeInterval)` counts from it (`Time.C:1111-1112`; gh:#1938, README round 84). [`Self::time_index`] stays the
+    /// steps taken since the start.
+    #[must_use]
+    pub fn with_start_time_index(mut self, start_time_index: usize) -> Self {
+        self.start_time_index = start_time_index;
         self
     }
 

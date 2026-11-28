@@ -48,6 +48,9 @@ pub struct MergedFaces {
     pub patch_sizes: Vec<usize>,
     /// The number of boundary faces that were in a duplicate pair (`Writing 21252 duplicate faces to faceSet`): twice the faces merged.
     pub n_duplicate_faces: usize,
+    /// The labels (in the INPUT mesh) `findBaffles` inserts into the `duplicateFaces` `faceSet`, in insertion order: per boundary face `b` in
+    /// patch order with a partner `o > b`, `boundaryFaces[b]` then `boundaryFaces[o]` (`mergeOrSplitBaffles.C:215-231`; gh:#1954, README round 84).
+    pub duplicate_set_insertions: Vec<usize>,
 }
 
 const NONE: usize = usize::MAX;
@@ -126,10 +129,13 @@ pub fn merge_duplicate_faces(
     let mut new_owner = owner.to_vec();
     let mut new_neighbour: Vec<usize> = (0..n_faces).map(|f| if f < n_int { neighbour[f] } else { NONE }).collect();
     let mut n_duplicate_faces = 0;
+    let mut duplicate_set_insertions: Vec<usize> = Vec::new();
     for b in 0..boundary.len() {
         let other = dup[b];
         if other != NONE && other > b {
             let (face0, face1) = (n_int + b, n_int + other);
+            duplicate_set_insertions.push(face0);
+            duplicate_set_insertions.push(face1);
             let (own0, own1) = (owner[face0], owner[face1]);
             if own0 == own1 {
                 return Err(format!("duplicate faces {face0} and {face1} are both owned by cell {own0}"));
@@ -197,7 +203,7 @@ pub fn merge_duplicate_faces(
         out_owner.push(new_owner[f]);
     }
     let out_neighbour: Vec<usize> = order[..n_internal_new].iter().map(|&f| new_neighbour[f]).collect();
-    Ok(MergedFaces { faces: out_faces, owner: out_owner, neighbour: out_neighbour, patch_sizes: new_sizes, n_duplicate_faces })
+    Ok(MergedFaces { faces: out_faces, owner: out_owner, neighbour: out_neighbour, patch_sizes: new_sizes, n_duplicate_faces, duplicate_set_insertions })
 }
 
 #[cfg(test)]
@@ -212,6 +218,7 @@ mod tests {
         let owner = vec![0, 1, 0, 1];
         let m = merge_duplicate_faces(&faces, &owner, &[], 2, &[1, 1, 2]).unwrap();
         assert_eq!(m.n_duplicate_faces, 2);
+        assert_eq!(m.duplicate_set_insertions, vec![0, 1]);
         assert_eq!(m.patch_sizes, vec![0, 0, 2]);
         assert_eq!(m.neighbour, vec![1]);
         assert_eq!(m.owner, vec![0, 0, 1]);

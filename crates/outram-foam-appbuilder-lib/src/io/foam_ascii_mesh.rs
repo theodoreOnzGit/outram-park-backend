@@ -25,9 +25,15 @@
 //!
 //! [`write_poly_mesh`] writes those eight files from a [`PolyMeshOut`]. [`PolyMeshOut::check_unchanged_by_removal`] is the
 //! precondition under which `removeBaffles` (`polyTopoChange::changeMesh`) leaves a mesh WITHOUT duplicate faces exactly as it was:
-//! faces in canonical upper-triangular order, every point used. A mesh failing it is refused by name
-//! ([`PolyMeshError`]), as are more than one cell zone (the multi-zone layout of `ZoneMesh::writeData` was never seen in a real file),
-//! non-empty face or point zones and patch types other than `patch`, `wall`, `empty` and (since gh:#1236) `mappedWall`.
+//! faces in canonical upper-triangular order ~~, every point used~~. A mesh failing it is refused by name
+//! ([`PolyMeshError`]), as ~~are more than one cell zone (the multi-zone layout of `ZoneMesh::writeData` was never seen in a real file),
+//! non-empty face or point zones and~~ are non-empty point zones and patch types other than `patch`, `wall`, `empty` and (since gh:#1236)
+//! `mappedWall`. **CORRECTED 2026-11-28 (gh:#1938, gh:#1954, README round 84; checked against the real binary):** a mesh the port BUILDS
+//! (`removeBaffles`, `genfoam::multi_region::baffle_merge`) is renumbered as `polyTopoChange::getFaceOrder` does, so it is canonical by
+//! construction (the real binary renumbers an out-of-order fluid mesh back the same way, variant `swap`); an UNUSED point is not a refusal:
+//! `polyTopoChange::compact` with `orderPoints = false` keeps every point that was not removed (`polyTopoChange.C:983-995`, variant `unused`:
+//! the real copy keeps it); the 7 cell zones and 2 face zones of 3D_SmallESFR_old are written as `addZones` copies them (the face labels and
+//! flip maps of the BAFFLED mesh, unrenumbered: labels up to 70 979 on a 60 354-face mesh). [`face_set_text`] writes `sets/duplicateFaces`.
 //!
 //! `no_std` + `alloc`; no file I/O. V&V: `tests/genfoam_written_rest_vs_upstream.rs` (README "Round 69").
 
@@ -71,10 +77,25 @@ pub struct PolyMeshOut {
     pub patches: Vec<PolyPatchOut>,
     /// The cell zones as `(name, cellLabels)`.
     pub cell_zones: Vec<(String, Vec<usize>)>,
-    /// Number of face zones and of point zones (both must be 0).
-    pub n_face_zones: usize,
-    /// Number of point zones.
+    /// ~~Number of face zones and of point zones (both must be 0).~~ **CHANGED 2026-11-28 (gh:#1954, README round 84):** the face zones as
+    /// `addZones` copies them from the region mesh (`meshHandler.C:507-525`: labels and flip map of the BAFFLED mesh, not renumbered).
+    pub face_zones: Vec<FaceZoneOut>,
+    /// Number of point zones (must be 0).
     pub n_point_zones: usize,
+    /// The `duplicateFaces` `faceSet` of `findBaffles` in its `labelHashSet` iteration order ([`label_hash_set_order`]), when the mesh was BUILT
+    /// by `removeBaffles` (gh:#1954, README round 84); written only into the start directory (`<start>/<region>.baffleLess/polyMesh/sets`).
+    pub duplicate_face_set: Option<Vec<usize>>,
+}
+
+/// One face zone of the copy: `faceZone::writeDict` (`faceZone.C:694-704`: `type`, `faceLabels`, `flipMap`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FaceZoneOut {
+    /// Zone name.
+    pub name: String,
+    /// `faceLabels`, as the region mesh's file holds them.
+    pub labels: Vec<usize>,
+    /// `flipMap`.
+    pub flip_map: Vec<bool>,
 }
 
 /// Why a mesh is not written.
@@ -103,9 +124,18 @@ impl PolyMeshOut {
     pub fn at_start(&self) -> Self {
         let mut m = self.clone();
         m.cell_zones.clear();
-        m.n_face_zones = 0;
+        m.face_zones.clear();
         m.n_point_zones = 0;
         m
+    }
+
+    /// The `sets/duplicateFaces` file of the start directory (`findBaffles`, `mergeOrSplitBaffles.C:215-231`; gh:#1954, README round 84):
+    /// `(path under <time>/<region>.baffleLess/polyMesh, text)`, `None` for a mesh that was not built by `removeBaffles`. `location` is the
+    /// `polyMesh` directory (`200/fluidRegion.baffleLess/polyMesh`).
+    #[must_use]
+    pub fn duplicate_faces_file(&self, location: &str) -> Option<(String, String)> {
+        let order = self.duplicate_face_set.as_ref()?;
+        Some(("sets/duplicateFaces".to_string(), face_set_text(&format!("{location}/sets"), "duplicateFaces", order)))
     }
 
     /// The faces of the copy are exactly the faces of the region mesh when `removeBaffles` (`polyTopoChange::changeMesh`, no inflation, no
@@ -138,24 +168,19 @@ impl PolyMeshOut {
         if next != self.faces.len() {
             return Err(PolyMeshError::NotCanonical("the patches do not cover the boundary faces".to_string()));
         }
-        let mut used = vec![false; self.points.len()];
         for face in &self.faces {
             for &pt in face {
-                if pt >= used.len() {
+                if pt >= self.points.len() {
                     return Err(PolyMeshError::NotCanonical("a face point label beyond the points".to_string()));
                 }
-                used[pt] = true;
             }
         }
-        if used.iter().any(|u| !*u) {
-            return Err(PolyMeshError::NotCanonical("an unused point (polyTopoChange::compact would drop it)".to_string()));
+        // ~~an unused point (polyTopoChange::compact would drop it)~~ CORRECTED 2026-11-28 (gh:#1938, README round 84): `compact` with
+        // `orderPoints = false` keeps it (`polyTopoChange.C:983-995`; the real binary's copy keeps an appended unused point)
+        if self.n_point_zones != 0 {
+            return Err(PolyMeshError::Refused("a non-empty point zone".to_string()));
         }
-        if self.n_face_zones != 0 || self.n_point_zones != 0 {
-            return Err(PolyMeshError::Refused("a non-empty face or point zone".to_string()));
-        }
-        if self.cell_zones.len() > 1 {
-            return Err(PolyMeshError::Refused(format!("{} cell zones (the one-zone layout of `cellZones` is the only one seen)", self.cell_zones.len())));
-        }
+        // ~~more than one cell zone / a face zone: refused~~ CHANGED 2026-11-28 (gh:#1954): written as the real binary writes them
         Ok(())
     }
 }
@@ -246,6 +271,29 @@ fn cell_zones_text(m: &PolyMeshOut, location: &str) -> String {
     s
 }
 
+/// `faceZones` (`ZoneMesh::writeData` with the `meta` names, then `faceZone::writeDict` per zone; gh:#1954, README round 84): the start form
+/// `0()` when there is none.
+fn face_zones_text(m: &PolyMeshOut, location: &str) -> String {
+    if m.face_zones.is_empty() {
+        return empty_zones_text(location, "faceZones");
+    }
+    let names: Vec<String> = m.face_zones.iter().map(|z| z.name.clone()).collect();
+    let mut s = header_with_meta("regIOobject", location, "faceZones", &names);
+    let _ = write!(s, "{}\n(", m.face_zones.len());
+    for z in &m.face_zones {
+        let labels = label_entries(&z.labels);
+        let flips: Vec<String> = z.flip_map.iter().map(|b| if *b { "1".to_string() } else { "0".to_string() }).collect();
+        let _ = write!(s, "{}\n{{\n    type            faceZone;\n    faceLabels      List<label> ", z.name);
+        s.push_str(&write_list_text(&labels, true, all_equal(&labels), 10));
+        s.push_str(";\n    flipMap         List<bool> ");
+        s.push_str(&write_list_text(&flips, true, all_equal(&flips), 10));
+        s.push_str(";\n}\n");
+    }
+    s.push(')');
+    s.push_str(&footer());
+    s
+}
+
 fn empty_zones_text(location: &str, object: &str) -> String {
     let mut s = header_text("regIOobject", location, object);
     s.push_str("0()");
@@ -290,13 +338,257 @@ pub fn write_poly_mesh(m: &PolyMeshOut, location: &str, opts: &WriteOptions) -> 
     Ok(vec![
         ("boundary".to_string(), boundary_text(m, location)),
         ("cellZones".to_string(), cell_zones_text(m, location)),
-        ("faceZones".to_string(), empty_zones_text(location, "faceZones")),
+        ("faceZones".to_string(), face_zones_text(m, location)),
         ("faces".to_string(), faces),
         ("neighbour".to_string(), list_file("labelList", "neighbour", &m.neighbour, true)),
         ("owner".to_string(), list_file("labelList", "owner", &m.owner, true)),
         ("pointZones".to_string(), empty_zones_text(location, "pointZones")),
         ("points".to_string(), write_list_file("vectorField", location, "points", &ListObject::Plain(Data::vector(&pts)), opts)),
     ])
+}
+
+/// The iteration order of an ESI `labelHashSet` built by inserting `inserts` in order into a table constructed with capacity request `initial`
+/// (gh:#1954, README round 84). Upstream (OpenFOAM-ESI v2506): `HashTableCore::canonicalSize` (`HashTableCore.C:45-80`: 0 below 1, else the next
+/// power of two, at least 8), `HashTable::setEntry` (`HashTable.C:380-410`: an empty table takes capacity 128; a new key goes to the HEAD of its
+/// bucket; `0.8 capacity < size` doubles the capacity), `setCapacity` (`HashTable.C:659-720`: old buckets in order, each chain head to tail, every
+/// entry moved to the head of its new bucket), `hashKeyIndex` (`Hash<int32_t>` is the value itself, `& (capacity - 1)`), and the const iterator
+/// (buckets in order, each chain head to tail). A key already present is not inserted again.
+#[must_use]
+pub fn label_hash_set_order(initial: usize, inserts: &[usize]) -> Vec<usize> {
+    let canonical = |req: usize| -> usize {
+        if req < 1 {
+            return 0;
+        }
+        let mut p = 8usize;
+        while p < req {
+            p <<= 1;
+        }
+        p
+    };
+    let mut capacity = canonical(initial);
+    let mut table: Vec<Vec<usize>> = vec![Vec::new(); capacity];
+    let mut size = 0usize;
+    // a chain is stored head first: `chain[0]` is the head
+    let rehash = |table: &Vec<Vec<usize>>, new_capacity: usize| -> Vec<Vec<usize>> {
+        let mut out: Vec<Vec<usize>> = vec![Vec::new(); new_capacity];
+        for chain in table {
+            for &k in chain {
+                out[k & (new_capacity - 1)].insert(0, k);
+            }
+        }
+        out
+    };
+    for &key in inserts {
+        if capacity == 0 {
+            capacity = 128;
+            table = vec![Vec::new(); capacity];
+        }
+        let idx = key & (capacity - 1);
+        if table[idx].contains(&key) {
+            continue;
+        }
+        table[idx].insert(0, key);
+        size += 1;
+        if 0.8 * (capacity as f64) < size as f64 {
+            let new_capacity = canonical(2 * capacity);
+            table = rehash(&table, new_capacity);
+            capacity = new_capacity;
+        }
+    }
+    table.into_iter().flatten().collect()
+}
+
+/// The `faceSet` file `topoSet::writeObject` writes (`sets/<name>`, class `faceSet`): the keys of the set in its iteration order
+/// (`HashTable::writeKeys(os, 10)`, `HashTableIO.C`: `N(a b ...)` on one line for at most 10 keys, else a newline, `N`, `(`, one key per line,
+/// `)`). `order` is [`label_hash_set_order`]'s (gh:#1954, README round 84: `<start>/<region>.baffleLess/polyMesh/sets/duplicateFaces`).
+#[must_use]
+pub fn face_set_text(location: &str, object: &str, order: &[usize]) -> String {
+    let mut s = header_text("faceSet", location, object);
+    if order.len() <= 10 {
+        let _ = write!(s, "{}(", order.len());
+        for (k, v) in order.iter().enumerate() {
+            if k > 0 {
+                s.push(' ');
+            }
+            let _ = write!(s, "{v}");
+        }
+        s.push(')');
+    } else {
+        let _ = write!(s, "\n{}\n(\n", order.len());
+        for v in order {
+            let _ = writeln!(s, "{v}");
+        }
+        s.push_str(")\n");
+    }
+    s.push_str(footer());
+    s
+}
+
+/// The tokens of a zone file after its `FoamFile` header: words and numbers, and `(` `)` `{` `}` `;` each on its own (`//` and `/* */` comments
+/// dropped).
+fn zone_tokens(text: &str) -> Vec<String> {
+    // drop the header block `FoamFile { ... }`
+    let body = match text.find("FoamFile") {
+        Some(at) => match text[at..].find('}') {
+            Some(close) => &text[at + close + 1..],
+            None => "",
+        },
+        None => text,
+    };
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let chars: Vec<char> = body.chars().collect();
+    let mut i = 0;
+    let flush = |cur: &mut String, out: &mut Vec<String>| {
+        if !cur.is_empty() {
+            out.push(core::mem::take(cur));
+        }
+    };
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '/' && i + 1 < chars.len() && chars[i + 1] == '/' {
+            flush(&mut cur, &mut out);
+            while i < chars.len() && chars[i] != '\n' {
+                i += 1;
+            }
+            continue;
+        }
+        if c == '/' && i + 1 < chars.len() && chars[i + 1] == '*' {
+            flush(&mut cur, &mut out);
+            i += 2;
+            while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') {
+                i += 1;
+            }
+            i += 2;
+            continue;
+        }
+        if c.is_whitespace() {
+            flush(&mut cur, &mut out);
+        } else if matches!(c, '(' | ')' | '{' | '}' | ';') {
+            flush(&mut cur, &mut out);
+            out.push(c.to_string());
+        } else {
+            cur.push(c);
+        }
+        i += 1;
+    }
+    flush(&mut cur, &mut out);
+    out
+}
+
+/// One list value at `tokens[*at]`: an optional `List<T>` word, then `N(` entries `)` or `N{v}`; the entries as text.
+fn zone_list(tokens: &[String], at: &mut usize) -> Result<Vec<String>, PolyMeshError> {
+    let bad = |m: &str| PolyMeshError::Refused(format!("faceZones file: {m}"));
+    if tokens.get(*at).is_some_and(|t| t.starts_with("List<")) {
+        *at += 1;
+    }
+    let n = match tokens.get(*at).map(|t| t.parse::<usize>()) {
+        Some(Ok(n)) => n,
+        _ => return Err(bad("a list without a size")),
+    };
+    *at += 1;
+    match tokens.get(*at).map(String::as_str) {
+        Some("(") => {
+            *at += 1;
+            let mut v = Vec::with_capacity(n);
+            while tokens.get(*at).is_some_and(|t| t != ")") {
+                v.push(tokens[*at].clone());
+                *at += 1;
+            }
+            *at += 1;
+            if v.len() != n {
+                return Err(bad("a list whose size is not its count"));
+            }
+            Ok(v)
+        }
+        Some("{") => {
+            let Some(val) = tokens.get(*at + 1).cloned() else { return Err(bad("an unclosed uniform list")) };
+            if tokens.get(*at + 2).map(String::as_str) != Some("}") {
+                return Err(bad("an unclosed uniform list"));
+            }
+            *at += 3;
+            Ok(vec![val; n])
+        }
+        _ => Err(bad("a list without its opening bracket")),
+    }
+}
+
+/// The face zones of a region mesh's `faceZones` file (`N ( name { type faceZone; faceLabels <list>; flipMap <list>; } ... )`, the lists as
+/// `N(...)`, `N{v}` or multi-line, `List<label>`/`List<bool>` optional): what `addZones` copies into the baffle-less mesh (gh:#1954, README
+/// round 84). `flipMap` entries are `0`/`1` (or `false`/`true`).
+///
+/// # Errors
+/// [`PolyMeshError::Refused`] for a file that does not parse, a zone type other than `faceZone`, or a flip map of another length.
+pub fn parse_face_zones_out(text: &str) -> Result<Vec<FaceZoneOut>, PolyMeshError> {
+    let bad = |m: String| PolyMeshError::Refused(format!("faceZones file: {m}"));
+    let tok = zone_tokens(text);
+    let mut at = 0;
+    let n = match tok.first().map(|t| t.parse::<usize>()) {
+        Some(Ok(n)) => n,
+        _ => return Err(bad("no zone count".to_string())),
+    };
+    at += 1;
+    if tok.get(at).map(String::as_str) != Some("(") {
+        return Err(bad("no zone list".to_string()));
+    }
+    at += 1;
+    let mut out = Vec::with_capacity(n);
+    for _ in 0..n {
+        let Some(name) = tok.get(at).cloned() else { return Err(bad("a missing zone".to_string())) };
+        at += 1;
+        if tok.get(at).map(String::as_str) != Some("{") {
+            return Err(bad(format!("zone {name} has no block")));
+        }
+        at += 1;
+        let (mut labels, mut flips, mut ztype): (Vec<usize>, Vec<bool>, String) = (Vec::new(), Vec::new(), String::new());
+        while tok.get(at).is_some_and(|t| t != "}") {
+            let key = tok[at].clone();
+            at += 1;
+            match key.as_str() {
+                "type" => {
+                    ztype = tok.get(at).cloned().unwrap_or_default();
+                    at += 1;
+                }
+                "faceLabels" => {
+                    let mut v = Vec::new();
+                    for e in zone_list(&tok, &mut at)? {
+                        match e.parse::<usize>() {
+                            Ok(x) => v.push(x),
+                            Err(_) => return Err(bad(format!("zone {name}: a face label {e}"))),
+                        }
+                    }
+                    labels = v;
+                }
+                "flipMap" => {
+                    let mut v = Vec::new();
+                    for e in zone_list(&tok, &mut at)? {
+                        match e.as_str() {
+                            "0" | "false" => v.push(false),
+                            "1" | "true" => v.push(true),
+                            other => return Err(bad(format!("zone {name}: a flip {other}"))),
+                        }
+                    }
+                    flips = v;
+                }
+                _ => {
+                    // an entry the copy does not carry (e.g. `inGroups`): refused, the writer would drop it
+                    return Err(bad(format!("zone {name}: the entry {key}")));
+                }
+            }
+            if tok.get(at).map(String::as_str) == Some(";") {
+                at += 1;
+            }
+        }
+        at += 1;
+        if ztype != "faceZone" {
+            return Err(bad(format!("zone {name}: type {ztype}")));
+        }
+        if flips.len() != labels.len() {
+            return Err(bad(format!("zone {name}: {} flips for {} faces", flips.len(), labels.len())));
+        }
+        out.push(FaceZoneOut { name, labels, flip_map: flips });
+    }
+    Ok(out)
 }
 
 /// The patch types of a case's `boundary` file the copy supports, with the `inGroups` the copy keeps: the groups listed in the file
@@ -380,8 +672,9 @@ mod tests {
                 PolyPatchOut { name: "b".to_string(), in_groups: vec![], physical_type: None, n_faces: 4, start_face: 7 },
             ],
             cell_zones: vec![("zone0".to_string(), vec![0, 1])],
-            n_face_zones: 0,
+            face_zones: Vec::new(),
             n_point_zones: 0,
+            duplicate_face_set: None,
         }
     }
 
@@ -408,15 +701,62 @@ mod tests {
         m.owner.swap(0, 1); // owner not canonical for the internal face
         m.neighbour = vec![1, 1];
         assert!(matches!(m.check_unchanged_by_removal(), Err(PolyMeshError::NotCanonical(_))));
+        // ~~an unused point is refused~~ CORRECTED 2026-11-28 (gh:#1938, README round 84): `compact` keeps it, so does the copy
         let mut m = tiny();
-        m.points.push([0.0, 0.0, 0.0]); // an unused point
-        assert!(matches!(m.check_unchanged_by_removal(), Err(PolyMeshError::NotCanonical(_))));
+        m.points.push([0.0, 0.0, 0.0]);
+        assert!(m.check_unchanged_by_removal().is_ok());
+        // ~~two cell zones or a face zone are refused~~ CHANGED 2026-11-28 (gh:#1954): written; a point zone is still refused
         let mut m = tiny();
         m.cell_zones.push(("zone1".to_string(), vec![]));
-        assert!(matches!(m.check_unchanged_by_removal(), Err(PolyMeshError::Refused(_))));
+        m.face_zones.push(FaceZoneOut { name: "f".to_string(), labels: vec![3], flip_map: vec![true] });
+        assert!(m.check_unchanged_by_removal().is_ok());
         let mut m = tiny();
-        m.n_face_zones = 1;
+        m.n_point_zones = 1;
         assert!(matches!(m.check_unchanged_by_removal(), Err(PolyMeshError::Refused(_))));
+    }
+
+    /// gh:#1954 (README round 84): the multi-zone layout the real `3D_SmallESFR_old` `200/fluidRegion.baffleLess/polyMesh` shows (`(` then the
+    /// first name, `}` then the next name, `)` after the last `}`), a face zone's two lists, and a parse of the shipped (OpenFOAM 5.x) layout.
+    #[test]
+    fn zones_are_written_in_the_real_multi_zone_layout_and_parsed_back() {
+        let mut m = tiny();
+        m.cell_zones.push(("zone1".to_string(), vec![]));
+        m.face_zones = vec![
+            FaceZoneOut { name: "walls".to_string(), labels: vec![], flip_map: vec![] },
+            FaceZoneOut { name: "b".to_string(), labels: (20..32).collect(), flip_map: (0..12).map(|k| k >= 8).collect() },
+        ];
+        let files = write_poly_mesh(&m, "200/r.baffleLess/polyMesh", &WriteOptions::precision_17()).expect("zones");
+        let get = |n: &str| files.iter().find(|(k, _)| k == n).map(|(_, t)| t.clone()).expect("file");
+        assert!(get("cellZones").contains("    cellLabels      List<label> 2(0 1);\n}\nzone1\n{\n    type            cellZone;\n    cellLabels      List<label> 0();\n}\n)\n"));
+        let fz = get("faceZones");
+        assert!(fz.contains("        names           2 ( walls b );\n"));
+        assert!(fz.contains("2\n(walls\n{\n    type            faceZone;\n    faceLabels      List<label> 0();\n    flipMap         List<bool> 0();\n}\nb\n{"));
+        assert!(fz.contains("    flipMap         List<bool> \n12\n(\n0\n"));
+        assert!(fz.contains("1\n1\n)\n;\n}\n)\n\n// ***"));
+        let shipped = "FoamFile\n{\n    class regIOobject;\n}\n// * * //\n\n2\n(\nwalls\n{\n    type faceZone;\nfaceLabels      0();\nflipMap         0();\n}\n\nb\n{\n    type faceZone;\nfaceLabels      List<label> \n3\n(\n7\n8\n9\n)\n;\nflipMap         List<bool> 3{1};\n}\n)\n";
+        let z = parse_face_zones_out(shipped).expect("shipped layout");
+        assert_eq!(z.len(), 2);
+        assert_eq!((z[0].labels.len(), z[1].labels.clone(), z[1].flip_map.clone()), (0, vec![7, 8, 9], vec![true, true, true]));
+        assert!(parse_face_zones_out(&shipped.replace("3{1}", "2{1}")).is_err());
+    }
+
+    /// gh:#1954 (README round 84): `labelHashSet` iteration order. Keys of one consecutive range in a table larger than the range come out in
+    /// bucket order (`key & (capacity - 1)`): the real ESFR `duplicateFaces` starts at 65536 and ends at 65535 (keys 49728..70979, capacity 32768).
+    #[test]
+    fn a_label_hash_set_iterates_in_bucket_order_and_is_written_as_a_face_set() {
+        let keys: Vec<usize> = (49_728..70_980).collect();
+        let order = label_hash_set_order(99, &keys);
+        assert_eq!(order.len(), 21_252);
+        assert_eq!((order[0], order[5443], order[5444], order[21_251]), (65_536, 70_979, 49_728, 65_535));
+        // a colliding pair: 3 and 131 share bucket 3 of the first 128 buckets; 131 is inserted at the head, a repeated 3 is not inserted
+        let small = label_hash_set_order(0, &[3, 131, 3]);
+        assert_eq!(small, vec![131, 3]);
+        let txt = face_set_text("0/r.baffleLess/polyMesh/sets", "duplicateFaces", &[]);
+        assert!(txt.contains("    class       faceSet;\n    location    \"0/r.baffleLess/polyMesh/sets\";\n    object      duplicateFaces;\n"));
+        assert!(txt.ends_with("//\n\n0()\n\n// ************************************************************************* //\n"));
+        let long = face_set_text("x", "d", &order);
+        assert!(long.contains("//\n\n\n21252\n(\n65536\n"));
+        assert!(long.ends_with("65535\n)\n\n\n// ************************************************************************* //\n"));
     }
 
     #[test]

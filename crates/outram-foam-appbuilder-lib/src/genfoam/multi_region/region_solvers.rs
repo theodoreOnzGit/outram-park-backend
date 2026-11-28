@@ -430,7 +430,9 @@ pub struct RegionSolvers {
     /// `runTime` (`Time::operator++`, `setDeltaT`, `run`): the clock of every PseudoTime loop, with `adjustableRunTime` write alignment.
     clock: PseudoTimeClock,
     /// `Time::timeIndex` of the start: `index` of `<startTime>/uniform/time` (`Time` reads it at a restart), or the steps an in-memory restart already
-    /// ran; added to the clock's own index only in the written `uniform/time` (gh:#1935; the clock's `timeStep` write rule still counts from 0).
+    /// ran; added to the clock's own index in the written `uniform/time` (gh:#1935) ~~and only there: the clock's `timeStep` write rule still counts
+    /// from 0~~ **CORRECTED 2026-11-28 (gh:#1938, README round 84):** the clock is given it too
+    /// ([`PseudoTimeClock::with_start_time_index`]), so `writeControl timeStep` counts `timeIndex_ = startTimeIndex_ + steps` as `Time` does.
     start_time_index: usize,
     /// The `OverlapMesh` geometry of each region's mesh as the maps were built (the neutronics one is rebuilt at a restart).
     geometries: Vec<OverlapMesh>,
@@ -446,6 +448,21 @@ pub struct RegionSolvers {
     /// Per region: the neutronics `flux.*` `GAMG` agglomeration must be (re)built at the region's next solve (`true` at the start, and
     /// after each `deformMesh()`: `GAMGAgglomeration::movePoints` sets `requireUpdate_`, `GAMGAgglomeration.C:531-539`).
     neutro_gamg_stale: Vec<bool>,
+    /// `Time::precision_` and `Time::timeName()` (`timePrecision`, grown at a write time as `Time::operator++` does; gh:#1938, README round 84).
+    time_name: time_name::TimeName,
+}
+
+/// `controlDict` `timePrecision` (`TimeIO.C`, default 6).
+fn time_precision_of(c: &outram_foam_basic_lib::io::dict::FoamDict) -> usize {
+    match c.get_scalar("timePrecision") {
+        Some(p) if p >= 1.0 => p as usize,
+        _ => 6,
+    }
+}
+
+/// `Time::setControls` (`Time.C:193-255`): the time name of the start, with the precision the start directory's own name needs.
+fn start_time_name(root: &Path, start_time: f64, c: &outram_foam_basic_lib::io::dict::FoamDict) -> time_name::TimeName {
+    time_name::TimeName::for_start_directory(start_time, time_precision_of(c), |d| root.join(d).is_dir())
 }
 
 /// The `PseudoTimeControls` a `controlDict` gives (`pTarget` is not read by the loop).
@@ -997,6 +1014,7 @@ fn build_liquid_fuel_point_kinetics(
 mod baffle_less;
 mod written;
 mod mapped;
+pub mod time_name;
 pub use written::WrittenState;
 
 impl RegionSolvers {
@@ -1266,7 +1284,9 @@ impl RegionSolvers {
             regions.push(Region { name: name.clone(), fv, fields, solver, remove_baffles, baffle_less });
         }
         let maps = build_maps(&regions, &mappings, &geometries, &source_geometries, root)?;
-        let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time);
+        let start_time_index = read_start_time_index(root, start_time);
+        // `Time.C:304-306`: the restart's `timeIndex_` starts at the written `index`, and the `timeStep` write rule counts from it (gh:#1938)
+        let mut clock = PseudoTimeClock::starting_at(&clock_controls(c, root)?, start_time).with_start_time_index(start_time_index);
         if let Some(n) = write_every_steps(c) {
             clock = clock.with_write_every_steps(n);
         }
@@ -1287,13 +1307,14 @@ impl RegionSolvers {
             dt: clock.delta_t(),
             step: 0,
             clock,
-            start_time_index: read_start_time_index(root, start_time),
+            start_time_index,
             geometries,
             source_geometries,
             write_interval,
             multi: None,
             gamg_forward: true,
             neutro_gamg_stale: Vec::new(),
+            time_name: start_time_name(root, start_time, c),
         };
         me.neutro_gamg_stale = vec![true; me.regions.len()];
         // the member indices of a `multiPhysicsSolver` are the regions' own (members were pushed in order)
@@ -1360,6 +1381,8 @@ impl RegionSolvers {
         let Some(ni) = self.regions.iter().position(|r| matches!(r.solver, RegionSolver::Neutronics(_))) else {
             return Err(case_err(root, "the restart needs a diffusionNeutronics region"));
         };
+        // a restart is a new `Time`: `timePrecision` of the transient `controlDict`, checked against the start directory's name (gh:#1938)
+        self.time_name = start_time_name(root, start_time, c);
         let nname = self.regions[ni].name.clone();
         let pk_variant = rs.get(&nname).is_some_and(|e| matches!(e, FoamEntry::Word(w) if w == "pointKinetics"));
         let np = read_dict(root, &format!("constant/{nname}/neutronicsProperties"))?;
@@ -1407,7 +1430,7 @@ impl RegionSolvers {
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
         self.start_time_index += self.clock.time_index();
-        self.clock = PseudoTimeClock::starting_at(&cc, start_time);
+        self.clock = PseudoTimeClock::starting_at(&cc, start_time).with_start_time_index(self.start_time_index);
         if let Some(n) = write_every_steps(c) {
             self.clock = self.clock.with_write_every_steps(n);
         }
@@ -1477,7 +1500,7 @@ impl RegionSolvers {
         self.end_time = cc.end_time;
         self.write_interval = cc.write_interval;
         self.start_time_index += self.clock.time_index();
-        self.clock = PseudoTimeClock::starting_at(cc, start_time);
+        self.clock = PseudoTimeClock::starting_at(cc, start_time).with_start_time_index(self.start_time_index);
         self.time = self.clock.value();
         self.dt = self.clock.delta_t();
         self.step = 0;
@@ -1967,8 +1990,11 @@ impl RegionSolvers {
         // runTime++
         self.step += 1;
         let dt_used = self.dt;
+        let old_time = self.time;
         self.clock.advance();
         self.time = self.clock.value();
+        // `Time::operator++`: the new name, and at a write time the precision growth of `Time.C:1189-1225` (gh:#1938, README round 84)
+        let _grew = self.time_name.advance(old_time, self.time, self.clock.delta_t(), self.clock.write_time());
         self.map_all_fields()?;
         let (mut multi_iterations, mut multi_residual, mut iterations) = (0usize, 0.0_f64, Vec::new());
         if let Some(m) = self.multi.clone() {

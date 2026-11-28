@@ -10151,3 +10151,47 @@ The only default that changes on a shipped case is the twoPhase `k`/`epsilon` sm
 ### Reproduction
 
 `bash scripts/run_round83_variants.sh c0 c1 c2 c3 c4 c5 c6 b0 b1 b2 b3 b4 b5 q0 q1 k0 k1 k2 k3 k4 k5` (17 s per `c`, about 1 min per `b`/`q`, 3 min per `k`; real binary on `PATH` through `with-of.sh`); port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_one_phase_fc_vs_upstream --test genfoam_two_phase_mules_vs_upstream --test genfoam_psbt2_turbulence_vs_upstream r83 -- --nocapture`.
+
+
+# Round 84 (gh:#1938, gh:#1954 under #1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream"): the written-state limits left after round 69, and the baffle-less mesh at later write times
+
+> Research, education and V&V only. AI draft, not human-reviewed. Predictions and criteria below were written and committed BEFORE any port run against a real-binary number of this round. The real binary WAS run first (allowed by the protocol, as in rounds 79 and 81); its output was packed into references; what was read of it is listed under "Read before any port code" and nothing else of it entered a criterion.
+
+## Read before any port code (2026-11-28, OpenFOAM-ESI v2506, GeN-Foam 652b3da, and the real runs of this round)
+
+* **`timeStep` write rule.** `Time::setControls` reads `index` of `<startTime>/uniform/time` into `startTimeIndex_` and sets `timeIndex_ = startTimeIndex_` (`Time.C:304-306`); `Time::operator++` writes when `!(timeIndex_ % label(writeInterval_))` (`:1111-1112`). The port's clock counted `time_index % n` from 0 (round 69 limit). Real run `sh_ts9`/`pk_ts9` (`writeControl timeStep; writeInterval 9` on the round 69 transients, start `100`, `index 476`): written indices 477, 486, 495, ... (steps 1, 10, 19, ...; 476 % 9 = 8). `adjustableRunTime` counts from `startTime_` (`:1117-1128`), as the port already does.
+* **Time-name precision (a finding of the real runs, not named in gh:#1938).** `timePrecision` is READ from `controlDict` (2D_fullCoupling ships `8`; the port wrote names at a fixed 6) and GROWS at a write time: `Time.C:1189-1225` re-reads the new name and adds digits while `|name - oldTime - deltaT| > max(min(10^-precision, 0.1 deltaT), SMALL)`, up to `maxPrecision_ = 3 - log10(SMALL) = 18` (`:83`). The real `sh_ts9` log: "Increased the timePrecision from 8 to 9 ... at time 100.000001", 9 -> 12, 12 -> 15, 15 -> 17; its directories are named `100.000001`, `100.000025959`, `100.00015474`, ... At startup `setControls` (`:193-255`) raises the precision when the start directory is named at a larger one. Ported: `region_solvers::time_name::TimeName` (`no_std`), `RegionSolvers::time_directory_name`, `time_precision`.
+* **`alphaRhoMagU` under reconstruction.** Round 82 ported `correctAlphaRhoMagU()` (`reconstructU_1p.H:21`) in BOTH reconstructing momentum modes (`flow.rs` for `cellCenteredFaceReconstruction`, `face_centered.rs`) and lifted the by-name refusal; its comparison was 1D_MSR, which is `faceCentered`. No shipped coupled case with a writer comparison selects `cellCenteredFaceReconstruction` (only 2D_FFTF does). Not compared in this round (stated, filed below).
+* **`polyTopoChange` renumbering.** Since round 78 the port BUILDS every baffle-less mesh (`build_baffle_less`, `merge_duplicate_faces`: `getFaceOrder` on every internal face, not only merged ones). What was left was the writer's precondition `check_unchanged_by_removal`, which also refused an UNUSED point: but `polyTopoChange::compact` with `orderPoints = false` keeps every point not removed (`polyTopoChange.C:983-995`); upstream does not drop it. Real variants (`scripts/make_fc_mesh_variant_r84.py`, one step of the 2D_fullCoupling steady stage, `scripts/run_fc_mesh_variants_r84.sh`): **`swap`** (internal faces 0 and 1 of the fluid mesh exchanged: out of upper-triangular order): the real baffle-less copy IS renumbered back (its `faces`/`owner`/`neighbour` equal the `base` run's, byte for byte); **`unused`** (one unused point appended): the real copy keeps it (`nPoints:351`).
+* **Zones at later write times (gh:#1954).** `addZones` (`meshHandler.C:483-527`) runs AFTER `removeBaffles` wrote the start directory, and copies the region mesh's zones UNRENUMBERED. Real 3D_SmallESFR_old as shipped (`scripts/run_esfr_baffle_less_r84.sh`: steady 242 s, transient 137 s, both exit 0): `ss/200` and `tr/210` hold the same eight baffle-less files apart from `location` (7 cell zones with the `meta` names; 2 face zones `walls` (empty) and `baffleFaces`, 21 252 labels 49 728 .. 70 979 on a 60 354-face mesh, flip map of 0s and 1s, as the baffled mesh's file); `pointZones` `0()`. `sets/duplicateFaces` is in the START directories only (`ss/0`, `tr/200`; 2D_fullCoupling `100` after `-initializeMappedFields`: `0()`): `findBaffles` writes it as a `labelHashSet` (`mergeOrSplitBaffles.C:215-231`), whose iteration order is ESI's `HashTable` (identity hash of `label`, power-of-two buckets, insertion at the head, doubling at 0.8 load): the real ESFR set starts at 65 536 and ends at 65 535. Ported: `PolyMeshOut::{face_zones, duplicate_face_set, duplicate_faces_file}`, `FaceZoneOut`, `parse_face_zones_out`, `label_hash_set_order`, `face_set_text`, `RegionSolvers::baffle_less_start_files`.
+* **`latticeMap`** (`common/latticeMap`, 315 lines) is not used by `removeBaffles` or by any ported path; it is not ported in this round (filed).
+* **R0 (reproducibility of the real runs, checked before any port run):** this round's real `sh/100` (after `-initializeMappedFields`), `sh/110` and `pk/110` are byte-identical to round 66's `fc_start100_r66` and round 69's `fc_{sh,pk}_written110_r69` (packed and compared with `cmp`).
+
+## Protocol
+
+* References (refs submodule): `fc_{sh,pk}_written120_200_r84.txt.gz` (the real `120 ... 200` of the round 69 SH and PK transients, `writeControl adjustableRunTime; writeInterval 10`, 83 and 72 files per directory); `fc_{sh,pk}_ts9_write_times_r84.txt` (every written directory name and its `uniform/time` `index`, `writeInterval 9`) and `fc_{sh,pk}_ts9_written_r84.txt.gz` (the 2nd, 3rd, 4th and last written directories); `fc_r84_mesh_{base,swap,unused}.txt.gz` (`0/` and `1/fluidRegion.baffleLess`); `esfr_r84_baffleless_later.txt.gz` (`210/fluidRegion.baffleLess/polyMesh`, 8 files, and `200/.../sets/duplicateFaces`).
+* Port: `RegionSolvers::read` on the staged transient with the REAL written `100` (round 69's `stage_from_files`), run to `endTime 200`, `written_files` at every write time, compared by round 69's `compare_directory` (17 digits).
+
+## Criteria (fixed now)
+
+* **L1** (SH and PK, every write time `120 ... 200`): the port reaches each write time at `|t - T| <= 1e-12` with the real step count (the written `index`); file lists equal (83 / 72); 0 skeleton differences; every number `<= 1e-9` of its file's maximum, except `dgdt` (round 69's noise gate: both `max|dgdt| < 1e-12`, pointwise reported) and `neutroRegion/meshPhi` (equal to the real one, round 69 addendum A).
+* **L2** (`writeInterval 9`): the port's written directory names AND indices equal the real list exactly (62 SH, 63 PK, the start included); the four packed directories meet L1's per-file criteria and carry the real names (in their `location` entries and `uniform/time` `name`).
+* **L3** (control): the same run with the start directory's `index` set to 0 writes at steps 9, 18, ... (the old rule): its list differs from the real one.
+* **M1** 2D_fullCoupling `base`, `swap`, `unused`: the port's `0/fluidRegion.baffleLess/polyMesh` (9 files, `baffle_less_start_files`) and `1/fluidRegion.baffleLess/polyMesh` (8 files, `written_files` after one step) byte-identical to the real ones (17 of 17 per variant). **M2** ESFR (driven by `ESFR_T_CASE`, as round 78): `sets/duplicateFaces` byte-identical; the eight files of the built mesh WITH its zones written at `210` byte-identical to the real `210`.
+* **R5**: no earlier pin moves (rounds 66-83 targets listed in the results); anything that moves is listed old/new.
+
+## Predictions
+
+| id | claim | P |
+|---|---|---|
+| Y1 | L1 holds for SH at all 9 later write times | 60 % |
+| Y2 | L1 holds for PK at all 9 later write times | 55 % |
+| Y3 | the worst number over all 18 later directories is `<= 1e-11` of its file maximum | 55 % |
+| Y4 | L2: the written step list (indices) is identical, SH and PK | 80 % |
+| Y5 | L2: the names (with the precision growth 8 -> 9 -> 12 -> 15 -> 17) are identical too | 70 % |
+| Y6 | L2: the four packed directories of each meet L1's per-file criteria | 60 % |
+| Y7 | L3: the control differs | 95 % |
+| Y8 | M1: 17 of 17 byte-identical in each of `base`, `swap`, `unused` | 70 % |
+| Y9 | M2: ESFR `sets/duplicateFaces` byte-identical | 75 % |
+| Y10 | M2: the eight ESFR `210` files byte-identical | 60 % |
+| Y11 | R5 holds | 85 % |

@@ -20,7 +20,7 @@ use crate::error::AppBuilderError;
 use crate::genfoam::multi_region::written_state::{field_file, plain_patches, surface_field, value_patches, vector_data};
 use crate::io::foam_ascii_mesh::write_poly_mesh;
 use crate::io::foam_ascii::{
-    format_g, time_name, write_dictionary_file, write_field_file, write_field_file_with_words, write_list_file, write_time_dict, Data, FoamWriteError,
+    format_g, write_dictionary_file, write_field_file, write_field_file_with_words, write_list_file, write_time_dict, Data, FoamWriteError,
     ListObject, WriteOptions,
 };
 use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::cyclic_constraint_patches;
@@ -34,8 +34,6 @@ pub struct WrittenState {
     pub not_written: Vec<String>,
 }
 
-/// `timePrecision` of `controlDict` (default 6): the digits of a time-directory name.
-const TIME_PRECISION: usize = 6;
 
 impl RegionSolvers {
     /// `runTime.writeTime()`: whether the last [`Self::step`] landed on a write time (`writeControl timeStep`: `timeIndex % writeInterval == 0`;
@@ -45,10 +43,18 @@ impl RegionSolvers {
         self.clock.write_time()
     }
 
-    /// `runTime.timeName()` of the current time (`timeFormat general`, `timePrecision 6`).
+    /// `runTime.timeName()` of the current time (`timeFormat general`) ~~at `timePrecision 6`~~ **CORRECTED 2026-11-28 (gh:#1938, README round
+    /// 84):** at `Time::precision_`: `controlDict`'s `timePrecision` (default 6; 2D_fullCoupling ships 8), grown at a write time whose name would
+    /// not read back as the new time (`Time.C:1189-1225`, [`super::time_name::TimeName`]).
     #[must_use]
     pub fn time_directory_name(&self) -> String {
-        time_name(self.time, TIME_PRECISION)
+        self.time_name.name().to_string()
+    }
+
+    /// `Time::precision_` of the current time name (gh:#1938).
+    #[must_use]
+    pub fn time_precision(&self) -> usize {
+        self.time_name.precision()
     }
 
     /// The files `runTime.write()` writes at the current time, as text.
@@ -210,6 +216,48 @@ impl RegionSolvers {
         add("uniform/time".to_string(), write_time_dict(self.time, &tn, self.start_time_index + self.clock.time_index(), self.clock.delta_t(), self.clock.delta_t0(), opts));
         state.files.sort();
         state.not_written = not_written;
+        Ok(state)
+    }
+
+    /// What `createBaffleLessMeshes` writes into the START directory when the run is constructed (gh:#1954, README round 84):
+    /// `removeBaffles` calls `findBaffles`, which writes `<start>/<region>.baffleLess/polyMesh/sets/duplicateFaces` (`mergeOrSplitBaffles.C:215-231`),
+    /// and `mesh.write()` BEFORE `addZones` (`meshHandler.C:483-527`), so the eight `polyMesh` files carry empty zone files
+    /// ([`crate::io::foam_ascii_mesh::PolyMeshOut::at_start`]). Paths as in [`Self::written_files`] (`<start>/<region>.baffleLess/polyMesh/...`).
+    ///
+    /// # Errors
+    /// [`FoamWriteError::Mesh`] after the first step (the start name is gone), or for a baffle-less mesh that was refused.
+    pub fn baffle_less_start_files(&self, opts: &WriteOptions) -> Result<WrittenState, FoamWriteError> {
+        if self.step != 0 {
+            return Err(FoamWriteError::Mesh("the start directory's baffle-less mesh is written before the first step".to_string()));
+        }
+        let tn = self.time_directory_name();
+        let mut state = WrittenState::default();
+        for r in &self.regions {
+            if !r.remove_baffles {
+                continue;
+            }
+            let name = r.name.as_str();
+            match &r.baffle_less {
+                Some(Ok(m)) => {
+                    let location = format!("{tn}/{name}.baffleLess/polyMesh");
+                    match write_poly_mesh(&m.at_start(), &location, opts) {
+                        Ok(files) => {
+                            for (file, text) in files {
+                                state.files.push((format!("{location}/{file}"), text));
+                            }
+                        }
+                        Err(e) => return Err(FoamWriteError::Mesh(e.to_string())),
+                    }
+                    match m.duplicate_faces_file(&location) {
+                        Some((file, text)) => state.files.push((format!("{location}/{file}"), text)),
+                        None => state.not_written.push(format!("{name}.baffleLess/polyMesh/sets/duplicateFaces: the mesh was not built by removeBaffles")),
+                    }
+                }
+                Some(Err(msg)) => return Err(FoamWriteError::Mesh(format!("{name}.baffleLess: {msg} is refused by name"))),
+                None => state.not_written.push(format!("{name}.baffleLess/polyMesh/*: not read")),
+            }
+        }
+        state.files.sort();
         Ok(state)
     }
 

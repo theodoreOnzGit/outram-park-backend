@@ -330,8 +330,9 @@ fn mesh_from_real_files(real: &[(String, String)]) -> PolyMeshOut {
         n_cells: 144,
         patches: parse_boundary_patches(get("boundary")).expect("patches"),
         cell_zones: vec![("zone0".to_string(), cell_labels)],
-        n_face_zones: 0,
+        face_zones: Vec::new(),
         n_point_zones: 0,
+        duplicate_face_set: None,
     }
 }
 
