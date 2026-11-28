@@ -32,21 +32,30 @@
 //! notation this is `∫ δεᵀ W σ dV` with `W = diag(1, 2)`; `W D` is
 //! symmetric, so the stiffness is too.
 //!
-//! # The creep step
+//! # The step: hypoelastic, as the manual's Eq (6.1), with implicit creep
 //!
-//! Over a step the fluence grows by `ΔΦ`. Backward Euler on
-//! `ε̇_cr = K Φ̇ M σ` gives `ε_cr,n+1 = ε_cr,n + c M σ_n+1` with `c = K ΔΦ`, so
+//! BISON's elasticity is hypoelastic, `σ_n+1 = σ_n + C Δε` (manual
+//! Eqs (6.1)–(6.2)), here with `Δε` the elastic part of the strain increment
+//! and `C` evaluated at the end of the step. That matters once `C` changes
+//! along a history (an `outram-park-fork-offbeat` modulus depends on
+//! temperature and fluence): a change of modulus alone does not change the
+//! stress. Over a step the fluence grows by `ΔΦ`, and backward Euler on
+//! `ε̇_cr = K Φ̇ M σ` gives `Δε_cr = c M σ_n+1`, `c = K ΔΦ`, so
 //!
 //! ```text
-//! σ_n+1 = D (ε_n+1 − ε*_n+1 − c M σ_n+1),   ε* = ε_th + ε_irr + ε_cr,n
-//! σ_n+1 = D_alg (ε_n+1 − ε*_n+1),           D_alg = (I + c D M)⁻¹ D
+//! σ_n+1 = σ_n + D (Δε − Δε_eig − c M σ_n+1)
+//! σ_n+1 = A⁻¹ σ_n + D_alg (Δε − Δε_eig),   A = I + c D M,  D_alg = A⁻¹ D
 //! ```
 //!
-//! Every term is linear in `σ`, so a step is exactly one linear solve of
-//! `K_alg u = f_ext + ∫ Bᵀ W D_alg ε* dV`. `W D_alg` stays symmetric
-//! (both `D⁻¹` and `M` are of the form `[[1, −2ν], [−ν, 1 − ν]]` times a
-//! scalar, and that form times `W⁻¹` is symmetric), so conjugate gradients
-//! applies.
+//! with `ε_eig = ε_th + ε_irr`. Every term is linear in the displacement
+//! increment, so a step is one linear solve of
+//! `K_alg Δu = f_ext − ∫ Bᵀ W σ* dV`, `σ* = A⁻¹σ_n − D_alg Δε_eig`.
+//! With constant `D` this is algebraically the total-strain form
+//! `σ_n+1 = D_alg (ε_n+1 − ε_eig − ε_cr,n)` (substitute
+//! `σ_n = D(ε_n − ε_eig,n − ε_cr,n)` and `A⁻¹D = D_alg`), which is how the
+//! closed-form tests below still apply. `W D_alg` stays symmetric (both
+//! `D⁻¹` and `M` are of the form `[[1, −2ν], [−ν, 1 − ν]]` times a scalar,
+//! and that form times `W⁻¹` is symmetric), so the stiffness is symmetric.
 //!
 //! # Volumetric locking, and mean dilatation (the default)
 //!
@@ -461,18 +470,20 @@ impl ParticleSolver {
         let n = self.mesh.n_nodes();
         let mut k = CsrMatrix::from_pattern(&self.pattern);
         let mut f = vec![0.0; n];
-        let rule = line_rule(GAUSS_POINTS_PER_ELEMENT);
-        let ng = rule.len();
-        // Per-point algorithmic matrix and eigenstrain, kept for the update.
+        let ng = GAUSS_POINTS_PER_ELEMENT;
+        // Per point: D_alg, the stress carried from the history at zero
+        // displacement increment (sigma*), the end-of-step eigenstrain and
+        // temperature, and the creep factor c M.
         let mut d_alg_all = Vec::with_capacity(self.points.len());
-        let mut eps_star_all = Vec::with_capacity(self.points.len());
+        let mut sig_star_all = Vec::with_capacity(self.points.len());
         let mut new_eig_all = Vec::with_capacity(self.points.len());
         let mut temp_all = Vec::with_capacity(self.points.len());
+        let mut creep_all = Vec::with_capacity(self.points.len());
         for e in 0..self.mesh.n_elements() {
             let layer = self.mesh.element_layer(e);
             let mat = self.mesh.layers()[layer].material;
-            let d = mat.reduced_elasticity();
             let bmats = self.element_b(e);
+            let rule = line_rule(ng);
             let mut ke = [[0.0; 2]; 2];
             let mut fe = [0.0; 2];
             for (iq, q) in rule.iter().enumerate() {
@@ -485,20 +496,26 @@ impl ParticleSolver {
                     StepTemperature::Uniform(t) => *t,
                     StepTemperature::Nodal(ts) => n1 * ts[e] + n2 * ts[e + 1],
                 };
+                // Properties at the END of the step (implicit), Eq (6.1)'s C.
+                let d = mat.reduced_elasticity_at(t, phi);
                 let (kc, nu_eff) = mat.creep.coefficient_and_ratio(t);
                 let c = kc * d_phi;
                 let m = reduced_creep_compliance(nu_eff);
                 let dm = mul2(d, m);
                 let a = [[1.0 + c * dm[0][0], c * dm[0][1]], [c * dm[1][0], 1.0 + c * dm[1][1]]];
-                let d_alg = mul2(inverse2(a), d);
-                let eth = mat.thermal_expansion_per_k * (t - self.stress_free_temperature_k);
+                let a_inv = inverse2(a);
+                let d_alg = mul2(a_inv, d);
+                let eth = mat.thermal_strain_at(t, self.stress_free_temperature_k);
                 let eirr = mat.dimensional_change.strain_at(phi);
-                let eig = [eth + eirr[0], eth + eirr[1]];
-                let eps_star = [eig[0] + p.creep_strain[0], eig[1] + p.creep_strain[1]];
+                let eig = [eth[0] + eirr[0], eth[1] + eirr[1]];
+                let deig = [eig[0] - p.eigenstrain[0], eig[1] - p.eigenstrain[1]];
+                let carried = mulv2(a_inv, p.stress_pa);
+                let d_deig = mulv2(d_alg, deig);
+                let sig_star = [carried[0] - d_deig[0], carried[1] - d_deig[1]];
                 let b = bmats[iq];
                 // S = W D_alg, W = diag(1, 2).
                 let s = [[d_alg[0][0], d_alg[0][1]], [2.0 * d_alg[1][0], 2.0 * d_alg[1][1]]];
-                let s_eps = mulv2(s, eps_star);
+                let w_sig = [sig_star[0], 2.0 * sig_star[1]];
                 for aa in 0..2 {
                     for bb in 0..2 {
                         let mut v = 0.0;
@@ -509,12 +526,14 @@ impl ParticleSolver {
                         }
                         ke[aa][bb] += v * p.volume_m3;
                     }
-                    fe[aa] += (b[0][aa] * s_eps[0] + b[1][aa] * s_eps[1]) * p.volume_m3;
+                    // The history stress moved to the right-hand side.
+                    fe[aa] -= (b[0][aa] * w_sig[0] + b[1][aa] * w_sig[1]) * p.volume_m3;
                 }
                 d_alg_all.push(d_alg);
-                eps_star_all.push(eps_star);
+                sig_star_all.push(sig_star);
                 new_eig_all.push(eig);
                 temp_all.push(t);
+                creep_all.push((c, m));
             }
             let dofs = [e, e + 1];
             match k.scatter(&dofs, &[ke[0][0], ke[0][1], ke[1][0], ke[1][1]]) {
@@ -530,8 +549,8 @@ impl ParticleSolver {
         if a > 0.0 {
             f[0] += four_pi * a * a * step.inner_pressure_pa;
         } else {
-            // Symmetry at the centre: u(0) = 0 by row-and-column elimination
-            // (the prescribed value is zero, so no right-hand-side change).
+            // Symmetry at the centre: u(0) = 0, so du(0) = 0, by row-and-column
+            // elimination (zero prescribed increment, no right-hand-side change).
             let diag = k.max_abs_diagonal();
             let _ = k.set(0, 0, diag);
             if n > 1 {
@@ -541,35 +560,33 @@ impl ParticleSolver {
             f[0] = 0.0;
         }
         f[n - 1] -= four_pi * b * b * step.outer_pressure_pa;
-        let u = if f.iter().all(|v| *v == 0.0) {
+        let du = if f.iter().all(|v| *v == 0.0) {
             vec![0.0; n]
         } else {
             match direct_solve(&k, &f) {
-                Ok(u) => u,
+                Ok(du) => du,
                 Err(err) => return Err(err),
             }
         };
         for e in 0..self.mesh.n_elements() {
-            let layer = self.mesh.element_layer(e);
-            let mat = self.mesh.layers()[layer].material;
             let bmats = self.element_b(e);
             for iq in 0..ng {
                 let ip = e * ng + iq;
                 let b = bmats[iq];
-                let eps = [b[0][0] * u[e] + b[0][1] * u[e + 1], b[1][0] * u[e] + b[1][1] * u[e + 1]];
-                let es = eps_star_all[ip];
-                let sigma = mulv2(d_alg_all[ip], [eps[0] - es[0], eps[1] - es[1]]);
-                let (kc, nu_eff) = mat.creep.coefficient_and_ratio(temp_all[ip]);
-                let c = kc * d_phi;
-                let dcr = mulv2(reduced_creep_compliance(nu_eff), sigma);
+                let deps = [b[0][0] * du[e] + b[0][1] * du[e + 1], b[1][0] * du[e] + b[1][1] * du[e + 1]];
+                let dsig = mulv2(d_alg_all[ip], deps);
+                let sigma = [sig_star_all[ip][0] + dsig[0], sig_star_all[ip][1] + dsig[1]];
+                let (c, m) = creep_all[ip];
+                let dcr = mulv2(m, sigma);
                 let pt = &mut self.points[ip];
-                pt.total_strain = eps;
+                pt.total_strain = [pt.total_strain[0] + deps[0], pt.total_strain[1] + deps[1]];
                 pt.eigenstrain = new_eig_all[ip];
                 pt.creep_strain = [pt.creep_strain[0] + c * dcr[0], pt.creep_strain[1] + c * dcr[1]];
                 pt.stress_pa = sigma;
                 pt.temperature_k = temp_all[ip];
             }
         }
+        let u: Vec<f64> = self.displacement_m.iter().zip(&du).map(|(u0, d)| u0 + d).collect();
         self.displacement_m = u;
         self.fluence_m2 = phi;
         Ok(())

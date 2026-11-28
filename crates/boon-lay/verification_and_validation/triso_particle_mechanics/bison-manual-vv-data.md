@@ -55,9 +55,10 @@ verification. None is a measurement.
   - thermal expansion: `PARFUMEBuffer`, `PARFUMEPyC`, `PARFUMESiC`, `SneadSiC`;
   - heat capacity: `SneadSiC`.
 
-  `triso_particle_mechanics` takes these as inputs. Using them directly would
-  need a new dependency, `boon-lay → outram-park-fork-offbeat`, which has not
-  been asked for.
+  ~~Using them directly would need a new dependency, `boon-lay →
+  outram-park-fork-offbeat`, which has not been asked for.~~ **Wired in
+  2026-11-28,** after the maintainer approved the dependency. See the
+  README's offbeat section.
 - The BISON vs FRAPCON radial-power figures are the manual's only
   code-to-code data. They need a TUBRNP-type radial power model, which nothing
   in the workspace has.

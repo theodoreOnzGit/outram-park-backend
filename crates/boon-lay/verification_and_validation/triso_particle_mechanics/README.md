@@ -8,7 +8,7 @@
 > measurement, a benchmark or BISON's output.
 
 Code: `crates/boon-lay/src/triso_particle_mechanics/`. Tests:
-`src/triso_particle_mechanics/tests.rs` (18 tests) and farrer-park's
+`src/triso_particle_mechanics/tests.rs` (22 tests) and farrer-park's
 `quadrature::tests::line_rule_exactness_order_holds`.
 To reproduce the numbers below:
 
@@ -132,6 +132,31 @@ was fixed in the code or the test. No pass criterion was relaxed to get a pass.
   suggests values about one tenth of the text values. The text values are
   the constants; Eq (10.7) is scalar and gives no creep Poisson's ratio.
 
+## outram-park-fork-offbeat correlations (wired in 2026-11-28)
+
+The maintainer approved the `boon-lay -> outram-park-fork-offbeat`
+dependency. Each layer's Young's modulus, thermal strain and conductivity can
+now be an offbeat correlation, evaluated at each Gauss point's temperature and
+fluence every step. To keep a modulus change from altering the stress, the
+step is hypoelastic, as in the manual's Eq (6.1). That form reduces to the
+earlier total-strain form when the properties are constant: all 18 earlier
+tests gave the same numbers to round-off (e.g. incompressible-creep drift
+1.247e-7 against 1.249e-7). Four new tests:
+
+| Test | Reference | Measured (2026-11-28) |
+|---|---|---|
+| `offbeat_sic_modulus_drives_the_lame_solution` | Lamé, with PARFUME SiC `E` at 1213.15 K (375 GPa, a table point) | displacement error below 1e-5 at 64 elements; the modulus read through boon-lay equals offbeat's `value` exactly |
+| `modulus_change_alone_keeps_the_state` | Eq (6.1): heating 300 K to 1600 K at fixed pressure with no thermal strain changes only `E` (428 to 298.7 GPa) | displacement change 2.5e-21 m on 1.8e-8 m; stress change 1.0e-5 Pa on 1e7 Pa (round-off). A secant model would scale `u` by 1.4327 = `E(300)/E(1600)`, checked against the closed form |
+| `parfume_pyc_anisotropic_expansion_matches_the_closed_form` | `C r ln r` closed form with offbeat PARFUME PyC (BAF 1.2) and SiC thermal strains at 1273.15 K | PyC strains 6.99e-3 radial, 4.81e-3 tangential; displacement error 4.7e-8 at 64 elements (order 2) |
+| `picard_conduction_with_parfume_sic_matches_kirchhoff` | Kirchhoff transform for `k = 17885/T + 2` around a heated kernel | SiC interface error 4.3e-5 → 6.7e-7 K (order 2); centre error is the constant-k kernel's, 4.5e-4 of its rise |
+
+Three slips in my first drafts of these tests were corrected before they
+passed. In each case the expected value was written wrongly, not loosened to
+fit:
+- an absolute stress limit of 1e-6 Pa was applied to a 1e7 Pa stress;
+- the kernel error was normalised by the wrong temperature rise;
+- a guessed 252 GPa was used for SiC at 1600 K, where the table gives 298.7.
+
 ## V&V data in the BISON manual itself
 
 `bison-manual-vv-data.md` (this folder) lists every figure and table in the
@@ -172,8 +197,8 @@ dimensions here are synthetic.
 - **Not implemented:** cited PyC/SiC elastic constants, thermal expansion and
   conductivities. The manual has none. ~~and no cited values are in the
   workspace~~ **CORRECTED 2026-11-28:** `outram-park-fork-offbeat` already
-  ports OFFBEAT's PARFUME buffer, PyC and SiC correlations. They are not wired
-  in, because that needs a new `boon-lay -> offbeat` dependency; gap heat transfer and contact or
+  ports OFFBEAT's PARFUME buffer, PyC and SiC correlations, and they are now
+  wired in (see below). A cited TRISO Poisson's ratio is still missing; gap heat transfer and contact or
   debonding (Sections 13.1–13.2); finite strain; transient conduction; kernel
   swelling and CO production for particle fuel; asphericity.
 

@@ -152,6 +152,7 @@ Covers:
 | `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
 | ~~`serde` / `serde-xml-rs`~~ | ~~Deserialise the ENDF-8 XML into `SerdeNuclideData` structs~~ **CHANGED 2026-11-22:** `serde-xml-rs` is no longer a dependency; `openmc-endf-8-depletion-lib-b` 1.1.0 parses the XML itself (no_std, `roxmltree`). `serde` stays for the RustBCA and run-file inputs |
 | `anyhow` | Error propagation in XML parsing |
+| `outram-park-fork-offbeat` (workspace) | PARFUME/Snead TRISO layer correlations (Young's modulus, thermal expansion, conductivity) evaluated by `triso_particle_mechanics` (added 2026-11-28) |
 | `farrer-park` (workspace) | FEM layer under `triso_particle_mechanics`: CSR matrix, sparsity pattern, `quadrature::line_rule`, ILU(0) as the direct tridiagonal solve (added 2026-11-28) |
 
 ---
@@ -315,8 +316,12 @@ equation number. Rules for this module:
 - **No material constant without a source.** The manual gives no PyC or SiC
   elastic constants, thermal expansion, conductivity or Weibull parameters,
   so they are constructor arguments. Never give them defaults. Cited PARFUME
-  correlations for them are in `outram-park-fork-offbeat` (not a dependency of
-  boon-lay; ask before adding the edge).
+  correlations for them are in `outram-park-fork-offbeat`, a dependency since
+  2026-11-28 (maintainer: "Yes boon lay may depend on offbeat"): use
+  `YoungsModulus::Offbeat`, `ThermalStrain::Offbeat`, `Conductivity::Offbeat`
+  rather than copying a correlation here.
+- **The step is hypoelastic** (manual Eq (6.1)): a property change alone
+  never changes the stress. Pinned by `modulus_change_alone_keeps_the_state`.
 - **The manual's printed creep sign (Eq (10.4), `+ν_c`) is kept as
   `CreepLawSign::AsPrinted`;** the volume-conserving `−` is the default. Do
   not silently collapse the two; the choice is flagged for the maintainer.

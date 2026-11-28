@@ -46,7 +46,7 @@
 //! | Static equilibrium `∇·σ + ρf = 0`, no body force | (2.6) | Section 2 | [`mechanics`] |
 //! | Heat conduction `ρCp ∂T/∂t + ∇·q − e_f Ḟ = 0`, `q = −k∇T`, **steady state** | (2.1), (2.2) | Section 2 | [`thermal`] |
 //! | Spherical strains `ε_rr = ∂u/∂r`, `ε_θθ = ε_φφ = u/r` (the linear part) | (5.2)–(5.4) | Section 5 | [`mechanics`] |
-//! | Isotropic elasticity (`λ`, `μ`) | (6.2) | Section 6 | [`material`] |
+//! | Hypoelastic update `σ_n+1 = σ_n + C Δε`, isotropic `C` (`λ`, `μ`) | (6.1), (6.2) | Section 6 | [`mechanics`], [`material`] |
 //! | Buffer (low-density PyC) irradiation strain rate | (10.1) | Section 10.1 | [`material::DimensionalChange::Bison2013Buffer`] |
 //! | Dense PyC irradiation strain rate, radial and tangential | (10.2), (10.3) | Section 10.1 | [`material::DimensionalChange::Bison2013DensePyc`] |
 //! | PyC irradiation creep `ε̇₁ = K[σ₁ ∓ ν_c(σ₂+σ₃)]Φ̇`, `ν_c = 0.5` | (10.4) | Section 10.1 | [`material::IrradiationCreep`] |
@@ -93,10 +93,13 @@
 //! and no default value stands in for a missing one.** Cited values for most
 //! of them already exist in the workspace: `outram-park-fork-offbeat` ports
 //! OFFBEAT's PARFUME correlations for the buffer, PyC and SiC (Young's
-//! modulus, conductivity, thermal expansion; Snead SiC heat capacity). They are
-//! not wired in, because that would need a `boon-lay -> outram-park-fork-offbeat`
-//! dependency that has not been asked for (found 2026-11-28, after this module
-//! was written; see `verification_and_validation/triso_particle_mechanics/bison-manual-vv-data.md`). The fluence in
+//! modulus, conductivity, thermal expansion; Snead SiC). ~~They are not wired
+//! in~~ **Wired in 2026-11-28** (maintainer: "Yes boon lay may depend on
+//! offbeat"): [`material::YoungsModulus::Offbeat`],
+//! [`material::ThermalStrain::Offbeat`] and [`material::Conductivity::Offbeat`]
+//! evaluate an offbeat correlation at each Gauss point's temperature and
+//! fluence every step (conduction then iterates). Poisson's ratio stays an
+//! input: offbeat has no TRISO Poisson's-ratio correlation. The fluence in
 //! Eqs (10.1)–(10.6) is "fast" fluence, and the manual does not state its
 //! energy threshold.
 //!

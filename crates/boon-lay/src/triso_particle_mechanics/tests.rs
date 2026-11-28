@@ -155,7 +155,7 @@ fn lame_single_shell_converges_at_second_order() {
     let mut last = (0.0, 0.0, 0.0);
     for n in [4usize, 8, 16, 32, 64] {
         let m = mesh(vec![layer("SiC", 240.0, 275.0, n, material(400.0, 0.13))]);
-        let exact = match LayeredLameSolution::solve(&m, &[[0.0, 0.0]], pa, pb) {
+        let exact = match LayeredLameSolution::solve(&m, 300.0, 0.0, &[[0.0, 0.0]], pa, pb) {
             Ok(s) => s,
             Err(err) => panic!("{err}"),
         };
@@ -206,9 +206,9 @@ fn three_layers_with_thermal_mismatch_match_the_closed_form() {
         let eig: Vec<[f64; 2]> = m
             .layers()
             .iter()
-            .map(|l| [l.material.thermal_expansion_per_k * 1000.0; 2])
+            .map(|l| l.material.thermal_strain_at(1300.0, 300.0))
             .collect();
-        let exact = match LayeredLameSolution::solve(&m, &eig, 20.0e6, 0.0) {
+        let exact = match LayeredLameSolution::solve(&m, 300.0, 0.0, &eig, 20.0e6, 0.0) {
             Ok(s) => s,
             Err(err) => panic!("{err}"),
         };
@@ -239,7 +239,7 @@ fn anisotropic_pyc_strain_matches_the_r_ln_r_closed_form() {
     for n in [8usize, 16, 32, 64] {
         let m = three_layers(n, pyc, sic);
         let eig: Vec<[f64; 2]> = m.layers().iter().map(|l| l.material.dimensional_change.strain_at(phi)).collect();
-        let exact = match LayeredLameSolution::solve(&m, &eig, 0.0, 0.0) {
+        let exact = match LayeredLameSolution::solve(&m, 300.0, 0.0, &eig, 0.0, 0.0) {
             Ok(s) => s,
             Err(err) => panic!("{err}"),
         };
@@ -700,4 +700,160 @@ fn bison_manual_section_10_hand_values() {
     assert!((k - 1.325168e-35).abs() < 1e-9 * 1.325168e-35 && nu == 0.5);
     let printed = IrradiationCreep::Bison2013Pyc { density_g_per_cm3: 1.9, sign: CreepLawSign::AsPrinted };
     assert_eq!(printed.coefficient_and_ratio(873.15).1, -0.5);
+}
+
+// ---- outram-park-fork-offbeat correlations (dependency added 2026-11-28) ----
+
+use outram_park_fork_offbeat::materials::properties::conductivity::ConductivityModel;
+use outram_park_fork_offbeat::materials::properties::thermal_expansion::ThermalExpansionModel;
+use outram_park_fork_offbeat::materials::properties::young_modulus::YoungModulusModel;
+
+fn offbeat_material(model: YoungModulusModel, nu: f64) -> LayerMaterial {
+    match LayerMaterial::offbeat_elastic(model, nu) {
+        Ok(m) => m,
+        Err(err) => panic!("valid by construction: {err}"),
+    }
+}
+
+/// **An offbeat modulus is evaluated at the Gauss point's state.** A SiC
+/// shell with PARFUME SiC `E(T)` (offbeat `YoungModulusModel::ParfumeSiC`,
+/// 375 GPa at 940 °C) under 10 MPa at 1213.15 K, against the Lamé closed
+/// form built with the same modulus at that temperature. The modulus read
+/// through `LayerMaterial` equals offbeat's own `value`.
+#[test]
+fn offbeat_sic_modulus_drives_the_lame_solution() {
+    let t = 1213.15;
+    let mat = offbeat_material(YoungModulusModel::ParfumeSiC, 0.13);
+    let direct = YoungModulusModel::ParfumeSiC.value(&super::material::offbeat_state(t, 0.0));
+    assert_eq!(mat.youngs_modulus_at(t, 0.0), direct);
+    assert!((direct - 375.0e9).abs() < 1.0, "PARFUME SiC E at 940 C is 375 GPa, got {direct}");
+    let m = mesh(vec![layer("SiC", 240.0, 275.0, 64, mat)]);
+    let exact = match LayeredLameSolution::solve(&m, t, 0.0, &[[0.0, 0.0]], 10.0e6, 0.0) {
+        Ok(s) => s,
+        Err(err) => panic!("{err}"),
+    };
+    let mut s = ParticleSolver::new(m, t_ref());
+    step(&mut s, &static_step(0.0, 10.0e6, 0.0, t));
+    let (eu, _) = errors(&s, &exact, 10.0e6);
+    println!("offbeat PARFUME SiC E at {t} K: u err {eu:.3e}");
+    assert!(eu < 1e-5);
+}
+
+/// **Hypoelastic (manual Eq (6.1)): a change of modulus alone changes
+/// nothing.** Under a fixed 10 MPa, the SiC is heated from 300 K to 1600 K
+/// with no thermal strain, so only the PARFUME modulus changes (428 -> 298.7
+/// GPa, the table interpolated at 1326.85 °C). The stress and displacement
+/// stay those of the first step. A total-strain (secant) model would instead
+/// jump to the displacement of the softer shell, `E(300 K)/E(1600 K) = 1.4327`
+/// times larger. (The first draft's comment guessed 252 GPa and 1.7; the
+/// interpolation was not done by hand. Corrected 2026-11-28.)
+#[test]
+fn modulus_change_alone_keeps_the_state() {
+    let mat = offbeat_material(YoungModulusModel::ParfumeSiC, 0.13);
+    let m = mesh(vec![layer("SiC", 240.0, 275.0, 32, mat)]);
+    let secant = match LayeredLameSolution::solve(&m, 1600.0, 0.0, &[[0.0, 0.0]], 10.0e6, 0.0) {
+        Ok(s) => s,
+        Err(err) => panic!("{err}"),
+    };
+    let mut s = ParticleSolver::new(m, t_ref());
+    step(&mut s, &static_step(0.0, 10.0e6, 0.0, 300.0));
+    let u1 = s.displacement_m().to_vec();
+    let sig1: Vec<[f64; 2]> = s.points().iter().map(|p| p.stress_pa).collect();
+    step(&mut s, &static_step(0.0, 10.0e6, 0.0, 1600.0));
+    let du = s.displacement_m().iter().zip(&u1).map(|(a, b)| (a - b).abs()).fold(0.0, f64::max);
+    let ds = s.points().iter().zip(&sig1).map(|(p, q)| (p.stress_pa[0] - q[0]).abs().max((p.stress_pa[1] - q[1]).abs())).fold(0.0, f64::max);
+    let ratio = secant.displacement_m(240.0 * UM) / u1[0];
+    println!("modulus change only: |du| {du:.3e} m (u = {:.3e} m), |dsigma| {ds:.3e} Pa; secant would scale u by {ratio:.3}", u1[0]);
+    // Round-off bounds, relative to the solution's own scale (the first
+    // draft used an absolute 1e-6 Pa on a 1e7 Pa stress; measured ds was
+    // 1.0e-5 Pa, i.e. 1e-12 of p, which is round-off, 2026-11-28).
+    assert!(du < 1e-9 * u1[0].abs() && ds < 1e-9 * 10.0e6, "du {du}, ds {ds}");
+    let e_ratio = YoungModulusModel::ParfumeSiC.value(&super::material::offbeat_state(300.0, 0.0))
+        / YoungModulusModel::ParfumeSiC.value(&super::material::offbeat_state(1600.0, 0.0));
+    assert!((ratio / e_ratio - 1.0).abs() < 1e-4, "secant ratio {ratio} vs E ratio {e_ratio}");
+}
+
+/// **Transversely isotropic PARFUME PyC thermal expansion** (offbeat
+/// `ThermalExpansionModel::PARFUMEPyC`, BAF = 1.2, stress-free at 300 K),
+/// heated to 1273.15 K in a bonded IPyC/SiC/OPyC stack. The PyC's radial and
+/// tangential thermal strains differ, so the closed form carries the
+/// `C r ln r` term; the eigenstrain is read from offbeat's
+/// `principal_strains`.
+#[test]
+fn parfume_pyc_anisotropic_expansion_matches_the_closed_form() {
+    let pyc = material(30.0, 0.23)
+        .with_offbeat_thermal_expansion(ThermalExpansionModel::PARFUMEPyC { t_ref: 300.0, anisotropy_factor: 1.2 });
+    let sic = material(400.0, 0.13)
+        .with_offbeat_thermal_expansion(ThermalExpansionModel::PARFUMESiC { alpha: 4.9e-6, t_ref: 300.0 });
+    let t = 1273.15;
+    let e_pyc = pyc.thermal_strain_at(t, 300.0);
+    assert!((e_pyc[0] - e_pyc[1]).abs() > 1e-5, "BAF 1.2 must be anisotropic: {e_pyc:?}");
+    let mut last = 0.0;
+    for n in [16usize, 32, 64] {
+        let m = three_layers(n, pyc, sic);
+        let eig: Vec<[f64; 2]> = m.layers().iter().map(|l| l.material.thermal_strain_at(t, 300.0)).collect();
+        let exact = match LayeredLameSolution::solve(&m, t, 0.0, &eig, 0.0, 0.0) {
+            Ok(s) => s,
+            Err(err) => panic!("{err}"),
+        };
+        let mut s = ParticleSolver::new(m, t_ref());
+        step(&mut s, &static_step(0.0, 0.0, 0.0, t));
+        let (eu, _) = errors(&s, &exact, 1.0);
+        println!("PARFUME PyC BAF 1.2 thermal n = {n}: strains {e_pyc:?}, u err {eu:.3e}");
+        if n == 64 {
+            assert!(eu < 1e-5 && order(last, eu) > 1.9, "u err {eu}, order {}", order(last, eu));
+        }
+        last = eu;
+    }
+}
+
+/// **Conduction with PARFUME SiC `k(T) = 17885/T + 2`** (offbeat
+/// `ConductivityModel::ParfumeSiC`) around a heated kernel, solved by Picard
+/// iteration, against the Kirchhoff closed form: across the SiC
+/// `17885 ln(T_a/T_b) + 2(T_a − T_b) = Q/(4π) (1/a − 1/b)` (solved for `T_a`
+/// by Newton), then the kernel's parabola `T(0) = T_a + q a²/(6 k)`.
+/// Prediction: nodal error second order. Measured (2026-11-28): the SiC
+/// interface error falls 4.3e-5, 1.1e-5, 3e-6, 1e-6 K (8 to 64 elements per
+/// layer); the centre error is the kernel's, 4.6e-4 of its 10.4 K rise at 64.
+#[test]
+fn picard_conduction_with_parfume_sic_matches_kirchhoff() {
+    let (a, b, q, kk, tb) = (250.0 * UM, 285.0 * UM, 3.0e9, 3.0, 1273.15);
+    let qtot = q * 4.0 / 3.0 * core::f64::consts::PI * a * a * a;
+    let rhs = qtot / (4.0 * core::f64::consts::PI) * (1.0 / a - 1.0 / b);
+    let mut ta = tb + 10.0;
+    for _ in 0..50 {
+        let g = 17885.0 * (ta / tb).r_ln() + 2.0 * (ta - tb) - rhs;
+        let dg = 17885.0 / ta + 2.0;
+        ta -= g / dg;
+    }
+    let t0 = ta + q * a * a / (6.0 * kk);
+    let k = |x: f64| ThermalConductivity::new::<watt_per_meter_kelvin>(x);
+    let mut last = 0.0;
+    for n in [8usize, 16, 32, 64] {
+        let m = mesh(vec![
+            layer("kernel", 0.0, 250.0, n, material(200.0, 0.3).with_thermal_conductivity(k(kk))),
+            layer("SiC", 250.0, 285.0, n, material(400.0, 0.13).with_offbeat_conductivity(ConductivityModel::ParfumeSiC)),
+        ]);
+        let load = ThermalLoad { layer_power_density_w_per_m3: vec![q, 0.0], outer_surface_temperature_k: tb };
+        let t = match solve_steady_conduction(&m, &load) {
+            Ok(t) => t,
+            Err(err) => panic!("{err}"),
+        };
+        // The k(T) layer is judged at the SiC's inner surface; the centre
+        // error belongs to the constant-k kernel and is measured against the
+        // kernel's own rise q a^2/(6k) (first draft normalised it by the wrong
+        // rise; corrected 2026-11-28).
+        let e_sic = (t[n] - ta).abs();
+        let e_ker = (t[0] - t0).abs() / (t0 - ta);
+        println!("Picard k(T) n = {n}: T(a) {:.7} vs {ta:.7} K (err {e_sic:.3e} K), T(0) {:.5} vs {t0:.5} K (err/kernel rise {e_ker:.3e})", t[n], t[0]);
+        if n == 64 {
+            assert!(order(last, e_sic) > 1.8, "SiC err {e_sic}, order {}", order(last, e_sic));
+            assert!(e_ker < 1e-3, "kernel err {e_ker}");
+        }
+        last = e_sic;
+    }
+    // The closed form refuses a k(T) layer rather than give a wrong answer.
+    let m = mesh(vec![layer("SiC", 250.0, 285.0, 4, material(400.0, 0.13).with_offbeat_conductivity(ConductivityModel::ParfumeSiC))]);
+    let load = ThermalLoad { layer_power_density_w_per_m3: vec![0.0], outer_surface_temperature_k: tb };
+    assert!(matches!(analytic_steady_temperature(&m, &load, 260.0 * UM), Err(ParticleMechanicsError::InvalidMaterial(_))));
 }

@@ -52,8 +52,9 @@ pub struct LayeredLameSolution {
 
 impl LayeredLameSolution {
     /// Solve for the layers of `mesh` (only their radii and elastic
-    /// constants are used), with eigenstrain `eigenstrain[i] = [a_r, a_θ]` in
-    /// layer `i` and pressures in Pa.
+    /// constants are used, the constants evaluated at `temperature_k` (K) and
+    /// fast fluence `fluence_m2` (n/m²)), with eigenstrain
+    /// `eigenstrain[i] = [a_r, a_θ]` in layer `i` and pressures in Pa.
     ///
     /// # Errors
     ///
@@ -62,6 +63,8 @@ impl LayeredLameSolution {
     /// anisotropic eigenstrain (its `r ln r` stress is singular there).
     pub fn solve(
         mesh: &ParticleMesh,
+        temperature_k: f64,
+        fluence_m2: f64,
         eigenstrain: &[[f64; 2]],
         inner_pressure_pa: f64,
         outer_pressure_pa: f64,
@@ -78,7 +81,7 @@ impl LayeredLameSolution {
         for l in layers {
             radii_m.push(l.outer_radius_m);
         }
-        let lame: Vec<(f64, f64)> = layers.iter().map(|l| l.material.lame()).collect();
+        let lame: Vec<(f64, f64)> = layers.iter().map(|l| l.material.lame_at(temperature_k, fluence_m2)).collect();
         let cs: Vec<f64> = (0..nl)
             .map(|i| {
                 let (l, m) = lame[i];

@@ -72,6 +72,13 @@ petir           = { workspace = true }
 # TRISO particle thermomechanics (maintainer direction, 2026-11-28). Direction:
 # boon-lay -> farrer-park, never the reverse. no_std, like boon-lay.
 farrer-park     = { workspace = true }
+# outram-park-fork-offbeat: the cited TRISO layer correlations (PARFUME
+# buffer/PyC/SiC Young's modulus, thermal expansion, conductivity; Snead SiC)
+# that triso_particle_mechanics evaluates at each Gauss point (maintainer,
+# 2026-11-28: "Yes boon lay may depend on offbeat"). Direction: boon-lay ->
+# offbeat, never the reverse; offbeat depends only on petir, uom,
+# thiserror-nostd and outram-foam-basic-lib. no_std, like boon-lay.
+outram-park-fork-offbeat = { workspace = true }
 # `crate::sync::OnceLock` without std (gh:#1634).
 spin            = { workspace = true }
 # Data parallelism across independent Lagrangian histories. Pure-Rust and
@@ -170,6 +177,7 @@ std = [
     "outram-mc-libs/std",
     "kembangan/std",
     "farrer-park/std",
+    "outram-park-fork-offbeat/std",
 ]
 
 # ~~Headless cost probe for RustBCA cascades~~ `rustbca_cascades` moved to

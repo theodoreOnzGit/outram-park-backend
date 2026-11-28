@@ -34,6 +34,11 @@ use uom::si::pressure::pascal;
 use uom::si::temperature_coefficient::per_kelvin;
 use uom::si::thermal_conductivity::watt_per_meter_kelvin;
 
+use outram_park_fork_offbeat::materials::properties::conductivity::ConductivityModel;
+use outram_park_fork_offbeat::materials::properties::thermal_expansion::ThermalExpansionModel;
+use outram_park_fork_offbeat::materials::properties::young_modulus::YoungModulusModel;
+use outram_park_fork_offbeat::materials::MaterialState;
+
 use super::ParticleMechanicsError;
 
 /// The manual's fluence unit, 10²⁵ n/m² (Section 10.1), in n/m².
@@ -240,28 +245,86 @@ pub fn reduced_creep_compliance(nu: f64) -> [[f64; 2]; 2] {
     [[1.0, -2.0 * nu], [-nu, 1.0 - nu]]
 }
 
+/// Young's modulus of a layer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum YoungsModulus {
+    /// A constant, Pa.
+    Constant(f64),
+    /// A correlation from `outram-park-fork-offbeat` (for TRISO layers:
+    /// `ParfumeBuffer`, `ParfumePyC`, `ParfumeSiC`, `SneadSiC`), evaluated at
+    /// the Gauss point's temperature and fast fluence every step.
+    Offbeat(YoungModulusModel),
+}
+
+/// Thermal strain of a layer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ThermalStrain {
+    /// `α (T − T_ref)` in every direction, `α` in 1/K, with `T_ref` the
+    /// solver's stress-free temperature.
+    Linear {
+        /// Linear expansion coefficient, 1/K.
+        alpha_per_k: f64,
+    },
+    /// A correlation from `outram-park-fork-offbeat` (`PARFUMEBuffer`,
+    /// `PARFUMEPyC`, `PARFUMESiC`, `SneadSiC`, ...), which carries its OWN
+    /// stress-free temperature. Its principal strains are used, so the
+    /// transversely isotropic PARFUME PyC law gives `ε_r ≠ ε_θ`.
+    Offbeat(ThermalExpansionModel),
+}
+
+/// Thermal conductivity of a layer.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Conductivity {
+    /// A constant, W/(m·K).
+    Constant(f64),
+    /// A correlation from `outram-park-fork-offbeat` (`ParfumeBuffer`,
+    /// `ParfumeSiC`, ...), evaluated at the local temperature; conduction is
+    /// then nonlinear and [`super::thermal`] iterates.
+    Offbeat(ConductivityModel),
+}
+
+/// The `offbeat` material state at temperature `t_k` (K) and fast fluence
+/// `fluence_m2` (n/m²), everything else fresh (no burnup, no porosity).
+#[must_use]
+pub fn offbeat_state(t_k: f64, fluence_m2: f64) -> MaterialState {
+    let mut s = MaterialState::fresh(t_k);
+    s.fast_fluence = fluence_m2;
+    s
+}
+
 /// One layer's material.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct LayerMaterial {
-    /// Young's modulus, Pa.
-    pub youngs_modulus_pa: f64,
-    /// Poisson's ratio, dimensionless, in (−1, 0.5).
+    /// Young's modulus.
+    pub youngs_modulus: YoungsModulus,
+    /// Poisson's ratio, dimensionless, in (−1, 0.5). Always a constant:
+    /// `outram-park-fork-offbeat` has no TRISO Poisson's-ratio correlation
+    /// (checked 2026-11-28; its variants are UO2, MOX, Zircaloy, Mo, 15-15Ti).
     pub poisson_ratio: f64,
-    /// Linear thermal expansion coefficient, 1/K. Zero unless given.
-    pub thermal_expansion_per_k: f64,
-    /// Thermal conductivity, W/(m·K); `None` until given, and
-    /// [`super::thermal`] refuses a layer without one.
-    pub thermal_conductivity_w_per_m_k: Option<f64>,
+    /// Thermal strain. Zero unless given.
+    pub thermal_strain: ThermalStrain,
+    /// Thermal conductivity; `None` until given, and [`super::thermal`]
+    /// refuses a layer without one.
+    pub conductivity: Option<Conductivity>,
     /// Irradiation creep law.
     pub creep: IrradiationCreep,
     /// Irradiation dimensional change.
     pub dimensional_change: DimensionalChange,
 }
 
+fn check_poisson(poisson_ratio: f64) -> Result<(), ParticleMechanicsError> {
+    if poisson_ratio > -1.0 && poisson_ratio < 0.5 {
+        Ok(())
+    } else {
+        Err(ParticleMechanicsError::InvalidMaterial(format!(
+            "Poisson's ratio must be in (-1, 0.5), got {poisson_ratio}"
+        )))
+    }
+}
+
 impl LayerMaterial {
-    /// An isotropic elastic layer with no thermal expansion, no creep and no
-    /// dimensional change. The manual gives no PyC or SiC elastic constants,
-    /// so they are always the caller's, from a cited source.
+    /// An isotropic elastic layer with a constant Young's modulus and no
+    /// thermal strain, creep or dimensional change.
     ///
     /// # Errors
     ///
@@ -277,32 +340,74 @@ impl LayerMaterial {
                 "Young's modulus must be positive, got {e} Pa"
             )));
         }
-        if !(poisson_ratio > -1.0 && poisson_ratio < 0.5) {
-            return Err(ParticleMechanicsError::InvalidMaterial(format!(
-                "Poisson's ratio must be in (-1, 0.5), got {poisson_ratio}"
-            )));
+        match check_poisson(poisson_ratio) {
+            Ok(()) => {}
+            Err(err) => return Err(err),
         }
         Ok(Self {
-            youngs_modulus_pa: e,
+            youngs_modulus: YoungsModulus::Constant(e),
             poisson_ratio,
-            thermal_expansion_per_k: 0.0,
-            thermal_conductivity_w_per_m_k: None,
+            thermal_strain: ThermalStrain::Linear { alpha_per_k: 0.0 },
+            conductivity: None,
             creep: IrradiationCreep::None,
             dimensional_change: DimensionalChange::None,
         })
     }
 
-    /// With a linear thermal expansion coefficient (1/K).
+    /// A layer whose Young's modulus is an `outram-park-fork-offbeat`
+    /// correlation, evaluated at each Gauss point's temperature and fluence
+    /// every step. `poisson_ratio` is the caller's, from a cited source.
+    ///
+    /// # Errors
+    ///
+    /// [`ParticleMechanicsError::InvalidMaterial`] if `ν` is outside
+    /// (−1, 0.5).
+    pub fn offbeat_elastic(
+        youngs_modulus: YoungModulusModel,
+        poisson_ratio: f64,
+    ) -> Result<Self, ParticleMechanicsError> {
+        match check_poisson(poisson_ratio) {
+            Ok(()) => {}
+            Err(err) => return Err(err),
+        }
+        Ok(Self {
+            youngs_modulus: YoungsModulus::Offbeat(youngs_modulus),
+            poisson_ratio,
+            thermal_strain: ThermalStrain::Linear { alpha_per_k: 0.0 },
+            conductivity: None,
+            creep: IrradiationCreep::None,
+            dimensional_change: DimensionalChange::None,
+        })
+    }
+
+    /// With a constant linear thermal expansion coefficient (1/K).
     #[must_use]
     pub fn with_thermal_expansion(mut self, alpha: TemperatureCoefficient) -> Self {
-        self.thermal_expansion_per_k = alpha.get::<per_kelvin>();
+        self.thermal_strain = ThermalStrain::Linear {
+            alpha_per_k: alpha.get::<per_kelvin>(),
+        };
         self
     }
 
-    /// With a thermal conductivity (W/(m·K)).
+    /// With an `outram-park-fork-offbeat` thermal-expansion correlation
+    /// (which carries its own stress-free temperature).
+    #[must_use]
+    pub fn with_offbeat_thermal_expansion(mut self, model: ThermalExpansionModel) -> Self {
+        self.thermal_strain = ThermalStrain::Offbeat(model);
+        self
+    }
+
+    /// With a constant thermal conductivity (W/(m·K)).
     #[must_use]
     pub fn with_thermal_conductivity(mut self, k: ThermalConductivity) -> Self {
-        self.thermal_conductivity_w_per_m_k = Some(k.get::<watt_per_meter_kelvin>());
+        self.conductivity = Some(Conductivity::Constant(k.get::<watt_per_meter_kelvin>()));
+        self
+    }
+
+    /// With an `outram-park-fork-offbeat` conductivity correlation.
+    #[must_use]
+    pub fn with_offbeat_conductivity(mut self, model: ConductivityModel) -> Self {
+        self.conductivity = Some(Conductivity::Offbeat(model));
         self
     }
 
@@ -320,20 +425,58 @@ impl LayerMaterial {
         self
     }
 
-    /// Lamé parameters `(λ, μ)`, Pa.
+    /// Young's modulus at `t_k` (K) and fast fluence `fluence_m2` (n/m²), Pa.
+    /// An `offbeat` correlation clamps its inputs to its validity range, as
+    /// `offbeat`'s `value` does.
     #[must_use]
-    pub fn lame(&self) -> (f64, f64) {
-        let e = self.youngs_modulus_pa;
+    pub fn youngs_modulus_at(&self, t_k: f64, fluence_m2: f64) -> f64 {
+        match self.youngs_modulus {
+            YoungsModulus::Constant(e) => e,
+            YoungsModulus::Offbeat(m) => m.value(&offbeat_state(t_k, fluence_m2)),
+        }
+    }
+
+    /// Thermal strain `[ε_r, ε_θ]` at `t_k` (K); `t_ref_k` (K) is used by
+    /// [`ThermalStrain::Linear`] only.
+    #[must_use]
+    pub fn thermal_strain_at(&self, t_k: f64, t_ref_k: f64) -> [f64; 2] {
+        match self.thermal_strain {
+            ThermalStrain::Linear { alpha_per_k } => {
+                let e = alpha_per_k * (t_k - t_ref_k);
+                [e, e]
+            }
+            ThermalStrain::Offbeat(m) => {
+                let p = m.principal_strains(&offbeat_state(t_k, 0.0));
+                [p[0], p[1]]
+            }
+        }
+    }
+
+    /// Thermal conductivity at `t_k` (K), W/(m·K), or `None` if not given.
+    #[must_use]
+    pub fn conductivity_at(&self, t_k: f64) -> Option<f64> {
+        match self.conductivity {
+            None => None,
+            Some(Conductivity::Constant(k)) => Some(k),
+            Some(Conductivity::Offbeat(m)) => Some(m.value(&offbeat_state(t_k, 0.0))),
+        }
+    }
+
+    /// Lamé parameters `(λ, μ)` at `t_k` (K) and `fluence_m2` (n/m²), Pa.
+    #[must_use]
+    pub fn lame_at(&self, t_k: f64, fluence_m2: f64) -> (f64, f64) {
+        let e = self.youngs_modulus_at(t_k, fluence_m2);
         let nu = self.poisson_ratio;
         let lambda = e * nu / ((1.0 + nu) * (1.0 - 2.0 * nu));
         let mu = e / (2.0 * (1.0 + nu));
         (lambda, mu)
     }
 
-    /// The reduced elasticity matrix `D` (module docs), Pa: `σ = D ε`.
+    /// The reduced elasticity matrix `D` (module docs) at `t_k` (K) and
+    /// `fluence_m2` (n/m²), Pa: `σ = D ε`.
     #[must_use]
-    pub fn reduced_elasticity(&self) -> [[f64; 2]; 2] {
-        let (l, m) = self.lame();
+    pub fn reduced_elasticity_at(&self, t_k: f64, fluence_m2: f64) -> [[f64; 2]; 2] {
+        let (l, m) = self.lame_at(t_k, fluence_m2);
         [[l + 2.0 * m, 2.0 * l], [l, 2.0 * (l + m)]]
     }
 }
