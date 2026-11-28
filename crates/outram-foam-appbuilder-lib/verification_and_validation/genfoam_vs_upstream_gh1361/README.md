@@ -9598,3 +9598,18 @@ Part A: `bash scripts/run_msfr_chain.sh steadyStateTH <root>` (528 s), then `NEU
 | Q10 | the earlier rounds' numbers (no cyclic patch: every new branch is inert) do not move | 95 % |
 
 Steps 2-4 of gh:#1905 (the mapping onto the neutro mesh, the liquid-fuel point-kinetics case reader and workflow stage, the shipped 400 s `transient`) are predicted separately in this section before their own first run, if reached in this round: probability that the coupled `transient` runs against the binary in this round, 30 %.
+
+## Round 80, steps 2-4: protocol note and predictions for the 400 s run (written 2026-11-28 BEFORE the port's first run of the 400 s stage)
+
+**Protocol miss, recorded:** the first comparison of the coupled transient (the first 60 steps, `tests/genfoam_msr1d_coupled_vs_upstream.rs`) was run BEFORE predictions for it were committed (the wiring was being probed and the comparison test ran with it). Its numbers are therefore post-hoc and are reported as such in the results below; nothing was tuned to them. What follows was written after that run and before any port run of the whole 400 s stage.
+
+Real binary: `scripts/run_msr1d_transient_r80.sh` (Allrun's `setTransient` exactly, from Allrun's own `steadyState`): 13 021 steps from `t = 100` to `t = 400`, 2 min; the loss of flow (pump `momentumSourceTimeProfile` from `t = 100`).
+
+Criteria (fixed now; the stage runs the shipped, loose tolerances, so no 1e-9 gate): **T1** the port runs the whole stage without a refusal; **T2** the number of steps within 1 % of 13 021; **T3** at every written time (every 10 s) `totalPower` within 1e-3 relative and the fluid `T`, `U` within 1e-3 of their max-norm; **T4** the final power within 1e-3.
+
+| id | claim | prediction |
+|---|---|---|
+| P1 | T1 | 60 % (the run has never been attempted; a refusal or a panic in a path the first 60 steps did not reach is the risk) |
+| P2 | T2 | 50 % (the first 60 steps already differ in `deltaT` by 4.6e-4 relative: the time-step sequence follows `maxPowerVariation` and `maxCo`) |
+| P3 | T3 | 45 % |
+| P4 | T4 | 55 % |
