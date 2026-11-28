@@ -10986,3 +10986,10 @@ case AND the LPS case (`phaseProperties_lumpedParam` copied over) without a refu
 | G5b | the same, each within 1e-5 relative of the printed value | 80 % |
 | G6 | the shipped run's written `t = 50` fields (every 7th cell): `T`, `p_rgh`, `U`, `k`, `epsilon`, `TpS`, `Tfmax` within 1e-6 relative to the field max (the solvers stop at 1e-7; the criterion stated now is 1e-5) | 70 % |
 | G7 | the port's wall time per step on the shipped settings is larger than the real binary's | 70 % |
+
+**Added before the first port run of the LPS variant (the real LPS run had not been started):**
+
+| id | prediction | probability |
+|---|---|---|
+| G8 | the shipped LPS case (`phaseProperties_lumpedParam`), the whole run: the same step count as the real binary, and every `deltaT` and `T (avg min max)` min/max equal at the printed 6 digits | 50 % |
+| G8b | the same within 1e-5 relative, and the written `t = 50` fields (`T`, `p_rgh`, `U`, `k`, `epsilon`, `Tmax.lumpedNuclearStructure`, `Tsurface.lumpedNuclearStructure`) within 1e-5 of the field max | 75 % |
