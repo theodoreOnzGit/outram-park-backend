@@ -10356,3 +10356,98 @@ Case: round 65's `cases/fftf_turb_variants/w8_zg` (porousKEpsilon, FFTF numbers,
 | C1 | `f12` fields within round 73's gate | 75 % |
 | C2 | `alphaRhoMagU` `<= 1e-12` at every compared step | 70 % |
 | C3 | the control differs | 80 % |
+
+## Round 85 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria committed first in `719ca6444` (Parts A, B) and `54dfd6c22` (addendum C), each BEFORE any run it concerns; real binary 652b3da on ESI v2506, serial, through the instrumented COPY `GAMGdump` rebuilt into a private dir (`GAMGDUMP_LIB=<dir> upstream_driver/gamg_dump/build.sh`); references in the refs submodule `8d0c416` and `a606754` (`gamg_r85_{a1..a8,b1..b7}_{cycles,solution}`, `gamg_r85_{a5,a6,a7,a8,b6,b7}_agglom`, `gamg_r85_a8_matrix`, `fftf_r85_k{0..4}{,_log}`, `fc_fluid_r85_f12_{cc_recon,base}{,_log}`; 51 files, 9.0 MB in all, 1.1 MB at most); tests `tests/genfoam_gamg_features_vs_upstream.rs` (3 tests, 10 s), `tests/genfoam_fftf_pieces_vs_upstream.rs::r85_*` (2 tests), `tests/genfoam_fullcoupling_fluid_vs_upstream.rs::r85_*` (1 test); unit tests `common::gamg::tests::round85_selections_converge_and_the_smoother_tables_are_enforced`, `gamg_solve::tests::{the_reader_applies_defaults_and_refuses_unported_selections_by_name (changed), cache_agglomeration_false_rebuilds_for_the_next_solve}`, `fv_solution::tests::refusals_and_gamg` (changed), `turbulence::tests::pbicg_dilu_and_pbicgstab_diagonal_solve_the_same_asymmetric_system` (extended); `--nocapture` prints every number below)
+
+AI-written, not human-reviewed. Research, education and V&V only. No kovan-reviewed function was touched (no `kind = "review"` block in `src/genfoam/common/review.md`, `two_phase/review.md`).
+
+### What was ported (upstream -> Rust)
+
+| upstream (ESI v2506) | Rust (`common/gamg.rs` unless named) |
+|---|---|
+| `GAMGSolverInterpolate.C` (both overloads), `Vcycle`'s `interpolateCorrection_` branches and the scaling condition | `interpolate`, `v_cycle`, `GamgControls::interpolate_correction` |
+| `LUscalarMatrix` serial `convert` + `LUDecompose` + `LUBacksubstitute`, `solveCoarsestLevel` | `LuScalarMatrix::{new, solve}`, `GamgControls::direct_solve_coarsest` |
+| `pairGAMGAgglomerate.C` `nPairLevels % mergeLevels_`, `combineLevels` | `pair_agglomerate`, `combine_levels` |
+| `~GAMGSolver` deleting the agglomeration (`cacheAgglomeration false`) | `GamgSolveState::after_solve` (`two_phase/gamg_solve.rs`), `GamgControls::cache_agglomeration` |
+| `GAMGAgglomeration::requiresUpdate` in the `faceAreaPair` ctor (`updateInterval`) | `face_area_pair_weights_at`, `GamgSolveState::set_time_index` (wired in the cell-centred onePhase solver, `OnePhaseCcSolver::begin_time_step`) |
+| `algebraicPairGAMGAgglomeration` | `algebraic_pair_weights`, `GamgAgglomerator`, `matrix_has_lower` |
+| `FDICSmoother`, `DILUSmoother`, `DILUGaussSeidelSmoother`, `nonBlockingGaussSeidelSmoother` (no interfaces) and the symmetric/asymmetric smoother tables | `fdic_smooth`, `dilu_smooth`, `smooth`, `GamgSmoother::{Fdic, Dilu, DiluGaussSeidel, NonBlockingGaussSeidel}` |
+| the `fvSolution` keys | `read_gamg_controls` (the refusals of these keys removed) |
+| `smoothSolver`/`symGaussSeidel` for the onePhase `k`/`epsilon` (gh:#1984) | `DiagonalBicgstab::smooth` -> `common::smooth_solver::smooth_solver_sym_gauss_seidel_if` (round 79, unchanged); `one_phase_cc/turbulence.rs` reader |
+
+**Still refused by name** (filed, see below): processor agglomeration (the real binary is built on the dummy `Pstream`: a decomposed run is out of reach; serially `processorAgglomerator` has no effect); the `MGridGen`, `assemblyFaceAreaPair`, `dummy` agglomerators; `mergeLevels 0`; the smoother-table mismatches (as upstream); `nonBlockingGaussSeidel`, `directSolveCoarsest`, `mergeLevels != 1` on a matrix with coupled (cyclic) interfaces (no shipped case; not verified); `updateInterval != 1` in the twoPhase, face-centred onePhase and thermo-mechanics readers (their solvers do not hand in the time index); `algebraicPair`, `cacheAgglomeration false`, `updateInterval != 1` for the neutronics flux GAMG (`common::linear_solvers` builds its own agglomeration).
+
+### Part A (gh:#1946): single solves against the real binary
+
+Every dumped matrix equals round 67's (`a1`-`a7`) / round 72's (`b1`-`b7`) apart from the `TOL`/`NLEVELS` header line (checked with `diff`); `a8`'s solve-1 matrix is its own reference.
+
+| variant | levels (port / upstream) | V-cycles | solution entries differing | agglomeration entries differing | control: feature off, worst relative cycle difference |
+|---|---|---|---|---|---|
+| `a1` FDIC | 10 / 10 | 1000 bit-identical | 0 of 18 538 | (default) | 0 (predicted: FDIC = DIC) |
+| `a2` nonBlockingGaussSeidel | 10 / 10 | 1000 bit-identical | 0 | (default) | 0.99 (against DIC); the real `a2` cycles equal round 72's `gs` line for line |
+| `a3` interpolateCorrection | 10 / 10 | 1000 bit-identical | 0 | (default) | 0.85 |
+| `a4` directSolveCoarsest | 10 / 10 | 1000 bit-identical | 0 | (default) | 4.3e-8 |
+| `a5` mergeLevels 2 | 5 / 5 | 1000 bit-identical | 0 | 0 | 1.0 |
+| `a6` algebraicPair | 10 / 10 | 1000 bit-identical | 0 | 0 | 0.97 |
+| `a7` updateInterval 10 | 10 / 10 | 1000 bit-identical | 0 | 0 | 9.5 |
+| `a8` cacheAgglomeration false | solve 0: 10; solve 1: 9 / 9 | solve 0 and solve 1: 1000 each bit-identical | 0 | 0 (solve 1, rebuilt from the continued `forward_`) | 32 (solve 1 with solve 0's agglomeration kept) |
+| `b1` DILU | 8 / 8 | 40 bit-identical | 0 of 23 340 | (default) | 1.1e5 (against GaussSeidel) |
+| `b2` DILUGaussSeidel | 8 / 8 | 40 bit-identical | 0 | (default) | 9.4e7 |
+| `b3` nonBlockingGaussSeidel | 8 / 8 | 40 bit-identical | 0 | (default) | 0 (predicted); the real `b3` cycles equal round 72's `s2t` |
+| `b4` interpolateCorrection | 8 / 8 | 40 bit-identical | 0 | (default) | 2.1e-2 |
+| `b5` directSolveCoarsest | 8 / 8 | 40 bit-identical | 0 | (default) | **0** (NOT predicted: the real cycles equal round 72's `s2t` bit for bit) |
+| `b6` algebraicPair (`hasLower`) | 8 / 8 | 40 bit-identical | 0 | 0 | 0.47 |
+| `b7` mergeLevels 2 | 4 / 4 | 40 bit-identical | 0 | 0 | 0.81 |
+
+**Why `b5`'s control cannot discriminate (post-run, cause not proven):** on the `TStruct` hierarchy the coarsest level (50 cells or fewer) is solved by `PBiCGStab`/`DILU` to the outer `tolerance 1e-14`; the LU and the iterative coarse corrections then differ by round-off that the following `GaussSeidel` post-sweeps and the 1e-14 floor absorb, and every printed cycle residual is the same double. On FFTF (`a4`) the same switch moves the cycles by 4.3e-8. The test reports `b5`'s control instead of gating it (named in its doc comment).
+
+### Part B (gh:#1984): `k`/`epsilon` `smoothSolver`, `w8_zg`, 20 steps
+
+| variant | worst gated field (`U` on `max|U|`) | `k`, `epsilon`, `nut`, `alphat` | `dt` | `k`/`epsilon` solves: compared, iteration counts |
+|---|---|---|---|---|
+| `k0` relTol 0 | `U` 2.9e-13, `p` 3.2e-14, `T` 3.5e-15 | 1.2e-13, 1.2e-13, 1.7e-13, 1.1e-13 | 2.2e-13 | 120 of 120 **equal** (reported) |
+| `k1` relTol 0.1 | `U` 1.7e-13 | 1.2e-13, 1.6e-13, 1.4e-13, 1.2e-13 | 1.4e-13 | 120 **equal** |
+| `k2` relTol 0.05, nSweeps 2, maxIter 5 | `U` 1.6e-13 | 1.1e-13, 1.2e-13, 1.7e-13, 1.1e-13 | 1.5e-13 | 120 **equal** (2 sweeps in every solve, both) |
+| `k3` nSweeps -2 | as `k2` (the same sweeps) | as `k2` | 1.5e-13 | 120 residual 0 in both, 2 sweeps in both |
+| `k4` Final entries different | as `k1` | as `k1` | 1.4e-13 | 120 **equal** (the plain entries ran in every outer iteration, as upstream) |
+| `k4` CONTROL, stock Final selection | | | | 40 differ (the last outer iteration: 9 sweeps against upstream's 1) |
+
+### Part C (gh:#1987): `cellCenteredFaceReconstruction` on the fullCoupling fluid region, 20 steps
+
+| quantity | port vs real `f12_cc_recon` | real `f12_cc_recon` vs real default mode |
+|---|---|---|
+| `U` (on `max|U|`) | 1.8e-13 | **6.3e-8** (the mode moves the flow) |
+| `p`, `p_rgh`, `T`, `alphaPhi`, `htc` | 2.3e-14, 2.3e-14, 6.2e-15, 1.8e-13, 2.4e-14 | 6.6e-10, 6.6e-10, 2.5e-11, 3.3e-13, 9.3e-9 |
+| `dt`, `T` lines | 8.3e-14, 6.0e-15 | |
+| `p_rgh` solves | 61 gated, counts equal | |
+| `alphaRhoMagU` (cells) | 2.4e-13 at all 20 steps | the default mode writes `uniform 500` at every step; this mode writes 500 up to a **1.9e-13** spread |
+
+**C3 MISSED, and what it means:** on this plug flow `alpha rho |U|` is 500 to round-off in both modes, so the 2.4e-13 agreement does not distinguish a ported `correctAlphaRhoMagU()` from a constant. The `alphaRhoMagU` part of gh:#1987 stays OPEN: it needs a case where `|U|` varies across the cells (e.g. 2D_FFTF itself with `writeControl timeStep`, or a half-zone variant). The variant does verify the momentum mode on this case (the mode moves `U` by 6.3e-8, the port follows to 1.8e-13), asserted as a post-run pin.
+
+### Predictions: held / missed
+
+| # | verdict |
+|---|---|
+| A1-A14 (60-85 %) | **all held** (bit-identical, every one) |
+| A15 (90 %) | **MISSED for `b5`** (its control does not discriminate; above); held for the other 11 discriminating controls |
+| B1 (75 %), B2 (70 %), B3 (80 %) | **held** (`k0`'s counts, reported only, are also equal) |
+| C1 (75 %), C2 (70 %) | **held** (1.8e-13, 2.4e-13) |
+| C3 (80 %) | **MISSED** (`alphaRhoMagU` does not discriminate on this case; above) |
+| A16 (90 %), B4 (95 %) | **held**: no earlier pin moved (below) |
+
+### Earlier numbers
+
+No numeric pin moved: every default is unchanged (the new selections were refused before). Four unit-test ASSERTIONS changed because a refused selection became ported, each named in place: `gamg::tests::unsupported_selections_are_refused_by_name` (`mergeLevels 2` -> `mergeLevels 0`), `gamg::tests::every_ported_smoother_converges_and_they_differ` (`from_word("DILU")` is now `Some`), `gamg_solve::tests::the_reader_applies_defaults_and_refuses_unported_selections_by_name` (the five round-72 refusals replaced by the reading of the same keys, plus `ILU`, `MGridGen`, `mergeLevels 0`), `fv_solution::tests::refusals_and_gamg` (`smoother DILU` -> `smoother ILU`, plus the three neutronics-path refusals).
+
+### Tests run (2026-11-28, release, `--no-fail-fast`, private target dir)
+
+18 integration targets: `genfoam_{esfr_coupled, esfr_fluid, esfr_transient, fftf_pieces, fullcoupling_fluid, fullcoupling_neutronics, fullcoupling_three_region, fullcoupling_transient, gamg_features, gamg_smoothers, gamg, msfr_gamg, msr1d_coupled, msr1d_fluid, one_phase_fc, one_phase, legacy_thermo_mechanics}_vs_upstream`, `genfoam_gamg_is_default`: **166 passed, 0 failed, 18 ignored** (the fullcoupling-fluid target re-run with the round 85 test: 27 passed, 4 ignored). `--lib genfoam:: io::nuclear_data`: 540 passed. `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` (the `scripts/check-nostd.sh` command for this crate): clean. The workspace suite was not run (instruction).
+
+### Not done (filed)
+
+- gh:#1989: processor agglomeration (needs an MPI build), `MGridGen`/`assemblyFaceAreaPair`/`dummy`, the interface variants, `updateInterval` time-index wiring outside the cell-centred onePhase region and for restarts, the neutronics-path controls, a discriminating `directSolveCoarsest` variant on `TStruct`.
+- gh:#1987 stays open for `alphaRhoMagU` on a case where `|U|` varies.
+
+### Reproduction
+
+Real: `GAMGDUMP_LIB=<dir> bash upstream_driver/gamg_dump/build.sh`, then `bash scripts/run_gamg_features_real_r85.sh <out> a1 ... a8 b1 ... b7` (FFTF 20-40 s each, `TStruct` 10 s each); `python3 -I scripts/make_ke_smooth_variants_r85.py cases/fftf_turb_variants/w8_zg <d>`, `VARIANTS="k0 k1 k2 k3 k4" PREFIX=fftf_r85_ bash scripts/run_fftf_turb_variants.sh <d> <out>`, then `bash scripts/extract_ke_solves_r85.sh <d>/<v>/log.GeN-Foam >> <out>/fftf_r85_<v>_log.ref.txt`; `f12`: `cases/fullcoupling_fluid` with the PIMPLE edit above, `ROUND=r85 FIELDS="U p p_rgh T alphaPhi htc T.passiveStructure T.fuelAvForNeutronics alphaRhoMagU" bash scripts/run_round73_variants.sh <d> <out> f12_cc_recon f12_base`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_gamg_features_vs_upstream --test genfoam_fftf_pieces_vs_upstream --test genfoam_fullcoupling_fluid_vs_upstream r85 -- --nocapture` (and the first target without a filter).

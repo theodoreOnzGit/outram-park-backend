@@ -229,6 +229,9 @@ struct RunReport {
     h_iter_worst: i64,
     /// Number of those `h` solves.
     h_gated: usize,
+    /// Round 85 (gh:#1987): worst `alphaRhoMagU` (cells) difference relative to the reference's max, and the steps compared (only
+    /// references that carry the field).
+    alpha_rho_mag_u: (f64, usize),
 }
 
 fn decade(ini: f64) -> usize {
@@ -285,6 +288,7 @@ fn run_solver(
         unmatched_solves: 0,
         h_iter_worst: 0,
         h_gated: 0,
+        alpha_rho_mag_u: (0.0, 0),
     };
     for step in 1..=n_steps {
         solver.begin_time_step(dt);
@@ -398,6 +402,10 @@ fn run_solver(
                 rep.worst[i] = rep.worst[i].max(r[i]);
             }
             rep.fields.push((step, r));
+            if let Some(ra) = rf.get(&key("alphaRhoMagU")) {
+                rep.alpha_rho_mag_u.0 = rep.alpha_rho_mag_u.0.max(rel_max(&solver.alpha_rho_mag_u().0, ra));
+                rep.alpha_rho_mag_u.1 += 1;
+            }
         }
         dt = match fixed_dt {
             Some(d) => d,
@@ -993,4 +1001,81 @@ fn r79_smooth_solver_controls_match_the_real_binary() {
     let abl = run79("r79s1a", &[variant_s1], "s1_h_reltol", |s| s.with_round46_h_smoother());
     println!("s1 ABLATION round 46 smoother (no relTol): T {:e}", abl.worst[6]);
     assert!(abl.worst[6] > 1e-10, "relTol must matter: {:e}", abl.worst[6]);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 85 addendum C (gh:#1987): `momentumMode cellCenteredFaceReconstruction` on this case, `alphaRhoMagU` included. References
+// `refs/fc_fluid_r85_{f12_cc_recon,f12_base}` (real binary 652b3da on ESI v2506, serial, 20 steps, `ROUND=r85 FIELDS="... alphaRhoMagU"
+// scripts/run_round73_variants.sh`).
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+static R85_STAGE_CALL: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// `momentumMode cellCenteredFaceReconstruction; porousInterfaceSharpness 0.5;` in `PIMPLE` (the shipped 2D_FFTF values).
+fn variant_cc_recon(root: &Path) {
+    edit_file(root, "system/fluidRegion/fvSolution", |t| {
+        let Some(i) = t.find("PIMPLE") else { panic!("PIMPLE") };
+        let Some(open) = t[i..].find('{') else { panic!("brace") };
+        let at = i + open + 1;
+        format!("{}\n    momentumMode                cellCenteredFaceReconstruction;\n    porousInterfaceSharpness    0.5;{}", &t[..at], &t[at..])
+    });
+}
+
+/// # C (gh:#1987): the cell-centred face-reconstruction momentum mode against the real binary, `alphaRhoMagU` included
+///
+/// Criteria (README round 85 addendum C, fixed before any run): round 73's gate, and `alphaRhoMagU` `<= 1e-12` of its max at every
+/// compared step. Control: the real `alphaRhoMagU` of this mode against the real default-mode one at the same written time differs by
+/// more than 1e-9 (the mode reaches the written field).
+///
+/// Results (2026-11-28, 20 steps): `U` 1.8e-13 of `max|U|`, `p` 2.3e-14, `T` 6.2e-15, `alphaPhi` 1.8e-13, `dt` 8.3e-14, `T` lines 6.0e-15:
+/// round 73's gate met; `alphaRhoMagU` 2.4e-13. **Control C3 MISSED:** the default mode writes `alphaRhoMagU` `uniform 500`, this mode a
+/// field equal to 500 up to a 1.9e-13 spread, so on this plug flow the `alphaRhoMagU` comparison does not discriminate (reported). The
+/// mode itself moves the real `U` by 6.3e-8 (post-run pin, asserted). README "Round 85 results".
+#[test]
+fn r85_cell_centered_face_reconstruction_alpha_rho_mag_u_matches_the_real_binary() {
+    let call = R85_STAGE_CALL.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let (root, poly) = stage(&format!("r85f12_{}_{call}", std::process::id()));
+    variant_cc_recon(&root);
+    let r = run_case(&root, &poly, "fc_fluid_r85_f12_cc_recon.ref.txt.gz", "fc_fluid_r85_f12_cc_recon_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s);
+    let _ = std::fs::remove_dir_all(&root);
+    println!("f12: alphaRhoMagU worst {:e} over {} compared steps", r.alpha_rho_mag_u.0, r.alpha_rho_mag_u.1);
+    let recon = read_fields(&vv_dir().join("refs/fc_fluid_r85_f12_cc_recon.ref.txt.gz"));
+    let base = read_fields(&vv_dir().join("refs/fc_fluid_r85_f12_base.ref.txt.gz"));
+    let control_of = |name: &str| -> (f64, usize) {
+        let mut worst = 0.0_f64;
+        let mut common = 0usize;
+        for (k, v) in &recon {
+            if k.starts_with(&format!("{name} ")) {
+                if let Some(b) = base.get(k) {
+                    if b.len() == v.len() {
+                        worst = worst.max(rel_max(v, b));
+                        common += 1;
+                    }
+                }
+            }
+        }
+        (worst, common)
+    };
+    let (c_u, n_u) = control_of("U");
+    // the default mode writes `alphaRhoMagU` `uniform` (never corrected: the extraction holds no values), this mode a nonuniform field
+    let base_uniform = base.iter().filter(|(k, v)| k.starts_with("alphaRhoMagU ") && v.is_empty()).count();
+    let spread = recon
+        .iter()
+        .filter(|(k, _)| k.starts_with("alphaRhoMagU "))
+        .map(|(_, v)| {
+            let mx = v.iter().fold(f64::MIN, |m, x| m.max(*x));
+            let mn = v.iter().fold(f64::MAX, |m, x| m.min(*x));
+            (mx - mn) / mx.abs()
+        })
+        .fold(0.0_f64, f64::max);
+    println!("f12 CONTROL: real default mode writes alphaRhoMagU uniform at {base_uniform} times; this mode's real field spreads by {spread:e} of max; the mode moves the real U by {c_u:e} ({n_u} times)");
+    round73_gate("f12", &r);
+    assert_eq!(r.alpha_rho_mag_u.1, VARIANT_STEPS, "alphaRhoMagU compared at every step");
+    assert!(r.alpha_rho_mag_u.0 <= 1e-12, "alphaRhoMagU {:e}", r.alpha_rho_mag_u.0);
+    // C3 MISSED (POST-RUN, README round 85 results): this mode's real `alphaRhoMagU` is the uniform 500 up to a 1.9e-13 round-off
+    // spread, so the 2.4e-13 agreement above cannot tell a ported `correctAlphaRhoMagU()` from a constant: reported, not a verification.
+    // What the variant does verify is the momentum mode itself: it moves the real U by 6.3e-8, the port follows it to 1.8e-13.
+    assert_eq!(base_uniform, VARIANT_STEPS, "the default mode writes alphaRhoMagU uniform");
+    println!("f12: alphaRhoMagU spread {spread:e} (non-discriminating, reported)");
+    assert!(n_u > 0 && c_u > 1e-9, "the momentum mode must move U: {c_u:e} ({n_u} times)");
 }

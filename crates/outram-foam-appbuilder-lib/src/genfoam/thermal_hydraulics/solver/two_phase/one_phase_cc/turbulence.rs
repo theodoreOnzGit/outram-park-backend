@@ -80,7 +80,9 @@
 //! `RASModel` other than `porousKEpsilon`; `k`/`epsilon` patch types other than the wall functions and `zeroGradient`; `nut` patch types
 //! other than `nutkWallFunction`, `zeroGradient`, `calculated`; `alphat` other than `zeroGradient`, `calculated`; `alphat` `calculated`
 //! beside a `nutkWallFunction`; any other entry on a wall-function patch (including every entry of `kqRWallFunction`, which upstream
-//! ignores); a `k`/`epsilon` solver other than `PBiCGStab`/`diagonal` or `PBiCG`/`DILU`; `fvOptions`.
+//! ignores); a `k`/`epsilon` solver other than `PBiCGStab`/`diagonal` or `PBiCG`/`DILU` (**CHANGED
+//! 2026-11-28, gh:#1984, README round 85:** `smoothSolver`/`symGaussSeidel` with every control is ported, `DiagonalBicgstab::smooth`;
+//! other `smoothSolver` smoothers are refused by name); `fvOptions`.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
