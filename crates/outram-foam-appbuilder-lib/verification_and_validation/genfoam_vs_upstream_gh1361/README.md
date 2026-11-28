@@ -10672,10 +10672,10 @@ The coupled-chain translation is checked by unit tests against the round-2df1 ph
 
 | quantity | `vlam` step 1 | `ut2` step 1 | `ut3` step 7 |
 |---|---|---|---|
-| `T` | 5.0e-15 | 6.5e-16 | 1.2e-11 |
+| `T` | 5.0e-15 | ~~6.5e-16~~ 4.9e-16 (CORRECTED 2026-11-28, re-run in round 88 on the round-87 code `07f297e21`) | 1.2e-11 |
 | `p`, `p_rgh` | 9.6e-15 | 2.5e-14 | 5.1e-14 |
-| `U` | 1.5e-10 | 3.2e-11 | 4.4e-11 |
-| `k`, `epsilon`, `nut`, `alphat` | - | 7.4e-16, 3.1e-16, 1.7e-15, - | 4.9e-11, 4.8e-11, 1.4e-11, 6.8e-12 |
+| `U` | 1.5e-10 | ~~3.2e-11~~ 2.95e-11 (CORRECTED, as above) | 4.4e-11 |
+| `k`, `epsilon`, `nut`, `alphat` | - | 7.4e-16, ~~3.1e-16, 1.7e-15~~ 2.1e-16, 1.6e-15 (CORRECTED, as above), - | 4.9e-11, 4.8e-11, 1.4e-11, 6.8e-12 |
 | `htc` | 0 | 0 | 8.7e-11 |
 | `TpS`, `Tfmax` (pebble) | 0, 0 | 0, 0 | 3.3e-11, 3.1e-11 |
 | pebble log numbers (6 lines x avg/min/max) | 18 of 18 bit-identical | 18 of 18 bit-identical | 24 of 126 bit-identical, worst 6.3e-11 |
@@ -10698,7 +10698,7 @@ The port refuses it by name for the `corrected` Laplacian/snGrad and for nothing
 | H3 | the real shipped run takes 1-4 h serial | 55 % | **held** (1 h 12 min) |
 | H4 | the real shipped run reproduces `Alltest`'s `Tfmax` to 0.1 % | 70 % | **held**: last step `Tfmax (avg min max) = 774.452 523.15 1441.38 K` against `774.446 523.15 1441.35` (7.7e-6, 0, 2.1e-5) |
 | H5 | step-1 pebble log lines equal at 6 digits | 60 % | **MISSED at the first run** (port `Tfmax max` 967.64 against 949.57: the `alpha.structure` defect, item 8); **held after the fix**: 18 of 18 numbers bit-identical at 17 digits on `ut2` and on `vlam` |
-| H6 | step-1 fields <= 1e-9 | 35 % | **held** (<= 3.2e-11, `U`); also over 7 steps (8.7e-11) |
+| H6 | step-1 fields <= 1e-9 | 35 % | **held** (<= ~~3.2e-11~~ 2.95e-11, `U`; CORRECTED 2026-11-28, round 88 re-run); also over 7 steps (8.7e-11) |
 
 ### Earlier numbers (moved: none)
 
@@ -10858,3 +10858,10 @@ The reader (`OnePhaseCcCase::read_with_options`) reads both schemes always (`non
 |---|---|---|
 | P9 | with `adjustableRunTime` applied, the 500 shipped steps: every `deltaT` and every pebble number equal at the printed 6 digits | 55 % |
 | P9b | the same within 1e-5 relative of the printed value | 85 % |
+
+**The first P9 run did not test P9 (recorded, not hidden):** it gave the P8 numbers bit for bit (2457 s, 4.91 s per step), because the
+harness's "shipped" `controlDict` was `sh20`'s with only `endTime` put back: still `writeControl timeStep`, so the new alignment never
+ran. The harness now restores every `sh20` edit (`writeControl adjustableRunTime`, `writeInterval 10`, `purgeWrite 0`,
+`writePrecision 6`; checked by `diff` against the shipped file). A 3-step check of the harness then gave every `deltaT` and all 54
+pebble numbers equal at the printed 6 digits (worst 4.0e-6 and 3.7e-7 relative to the printed text). P9 is decided by the 500-step
+run below.

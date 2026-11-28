@@ -151,9 +151,13 @@ fn stage_dir(src: &Path, dst: &Path) {
     }
 }
 
-/// A scratch copy of `refs/htr10_r87/case` at a path unique to the call (the tag and the process id).
+/// Calls of [`stage`] so far in this process (round 88: two tests stage the same tag, `clam`, and may run in parallel).
+static STAGED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// A scratch copy of `refs/htr10_r87/case` at a path unique to the call (the tag, the process id and a per-call counter).
 fn stage(tag: &str) -> PathBuf {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1876_r87_{tag}_{}", std::process::id()));
+    let call = STAGED.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1876_r87_{tag}_{}_{call}", std::process::id()));
     let _ = std::fs::remove_dir_all(&root);
     stage_dir(&refs_dir().join("case"), &root);
     root
@@ -327,8 +331,18 @@ fn run_variant(tag: &str, var: Variant, max_steps: usize) -> (Outcome, f64) {
                 Ok(t) => t,
                 Err(e) => panic!("{e}"),
             };
-            assert!(text.contains("endTime         0.645;"), "the sh20 controlDict");
-            if let Err(e) = std::fs::write(&cd, text.replace("endTime         0.645;", "endTime         10;")) {
+            // undo every `sh20` edit of `run_htr10_r88_real.sh`: the shipped `controlDict` (round 88: the first two long runs kept
+            // `writeControl timeStep`, so the harness never saw `adjustableRunTime`)
+            let shipped = text
+                .replace("endTime         0.645;", "endTime         10;")
+                .replace("writeControl    timeStep;", "writeControl    adjustableRunTime;")
+                .replace("writeInterval   1;", "writeInterval   10;")
+                .replace("purgeWrite      1;", "purgeWrite      0;")
+                .replace("writePrecision  17;", "writePrecision  6;");
+            for line in ["endTime         10;", "writeControl    adjustableRunTime;", "writeInterval   10;", "purgeWrite      0;", "writePrecision  6;"] {
+                assert!(shipped.contains(line), "the shipped controlDict: {line}");
+            }
+            if let Err(e) = std::fs::write(&cd, shipped) {
                 panic!("{e}");
             }
         }
