@@ -98,6 +98,7 @@ mod face_centered;
 use super::radial_power;
 mod turbulence;
 mod written;
+pub use written::{cyclic_constraint_patches, FieldFileWithWords};
 pub use flow::{CellDrag, DragLaw, OnePhaseFlowCase, PressureSolve, ReynoldsPowerDrag};
 use flow::FlowState;
 pub use pimple::{LoopStep, PimpleControls, PimpleState, RelaxationDict, RelaxationFactors, ResidualSpec};

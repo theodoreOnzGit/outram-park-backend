@@ -964,6 +964,7 @@ fn build_liquid_fuel_point_kinetics(
 
 mod baffle_less;
 mod written;
+mod mapped;
 pub use written::WrittenState;
 
 impl RegionSolvers {
@@ -1102,8 +1103,13 @@ impl RegionSolvers {
                         opts.controls = Some(ControlOverrides { start_time, end_time, delta_t: control_delta_t });
                     }
                     let s = OnePhaseCcSolver::new(OnePhaseCcCase::read_with_options(root, &poly, &opts)?);
-                    fields.set_scalar("powerDensityNeutronics", vec![0.0; n]);
-                    fields.set_scalar("powerDensityNeutronicsToLiquid", vec![0.0; n]);
+                    // ~~both coupling fields start at 0~~ **CORRECTED 2026-11-28 (gh:#1961, README round 81):** they ARE the fluid's own objects,
+                    // `READ_IF_PRESENT` (the structure's `powerDensityNeutronics`: else `setRegionField`; the fluid's `powerDensityNeutronicsToLiquid`:
+                    // else `fluidProperties.initialPowerDensity`, `fluid.C:386-420`), so they start from what the case read; a 0 overrode the
+                    // `initialPowerDensity` of a fluid-only stage (1D_MSR `steadyState` through `RegionSolvers`: `T` 21 % off at `t = 100`)
+                    fields.set_scalar("powerDensityNeutronics", s.case().power_density_neutronics.clone());
+                    fields.set_scalar("powerDensityNeutronicsToLiquid", s.case().power_density.clone());
+                    let _ = n;
                     RegionSolver::OnePhase(FluidRegion { solver: s, residual: 0.0 })
                 }
                 "diffusionNeutronics" => {

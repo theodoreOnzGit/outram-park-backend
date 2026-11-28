@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::genfoam::multi_region::region_solvers::{CouplingSwitches, RegionSolver, RegionSolvers};
+use outram_foam_appbuilder_lib::io::foam_ascii::WriteOptions;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::structure::radial_power_model::RadialPowerModel;
 
@@ -709,4 +710,230 @@ fn gh1960_step_three_fluid_difference_diagnostic() {
             }
         }
     }
+}
+
+/// gh:#1961 (README round 81): Allrun's `steadyState` of 1D_MSR in the port through [`RegionSolvers`] (fluid only), from `cases/msr1d_root`
+/// with Allrun's edits (`endTime 100`, `writeInterval 100`, `multiRegionCouplingDict_TH`; `adjustTimeStep true` and
+/// `writeControl adjustableRunTime` are the rootCase's), writing every write time as GeN-Foam does (`writePrecision 6`, the rootCase's).
+fn chain_steady_state(tag: &str) -> (PathBuf, usize, f64) {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1961_{tag}"));
+    let _ = std::fs::remove_dir_all(&root);
+    copy_dir(&vv_dir().join("cases/msr1d_root"), &root);
+    std::fs::copy(root.join("constant/multiRegionCouplingDict_TH"), root.join("constant/multiRegionCouplingDict")).expect("coupling dict");
+    let cd = root.join("system/controlDict");
+    let t = std::fs::read_to_string(&cd).expect("controlDict");
+    assert!(t.contains("endTime         1000;") && t.contains("writeInterval   1000;") && t.contains("writePrecision  6;"));
+    let t = t.replacen("endTime         1000;", "endTime         100;", 1).replacen("writeInterval   1000;", "writeInterval   100;", 1);
+    std::fs::write(&cd, t).expect("write controlDict");
+    let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap_or_else(|e| panic!("steadyState: {e}"));
+    let mut steps = 0;
+    while run.running() {
+        run.step().unwrap_or_else(|e| panic!("steadyState step {}: {e}", steps + 1));
+        steps += 1;
+        if run.is_write_time() {
+            let st = run.write_time_directory(&root, &WriteOptions { precision: 6 }).unwrap_or_else(|e| panic!("write at {}: {e}", run.time()));
+            println!("gh1961 steadyState: wrote {} files at t = {}; not written {:?}", st.files.len(), run.time(), st.not_written);
+        }
+    }
+    (root, steps, run.time())
+}
+
+/// `FILE\t<rel>\t<bytes>` records of a packed directory, as `(rel, text)`.
+fn unpack_texts(packed: &[u8]) -> Vec<(String, String)> {
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < packed.len() {
+        let nl = at + packed[at..].iter().position(|&b| b == b'\n').expect("header");
+        let parts: Vec<String> = std::str::from_utf8(&packed[at..nl]).expect("utf8").split('\t').map(str::to_string).collect();
+        let len: usize = parts[2].parse().expect("len");
+        out.push((parts[1].clone(), String::from_utf8(packed[nl + 1..nl + 1 + len].to_vec()).expect("utf8")));
+        at = nl + 1 + len + 1;
+    }
+    out
+}
+
+/// The number tokens of a file body after its `FoamFile` header, and the text with every number replaced by `#`.
+fn numbers_and_skeleton(text: &str) -> (Vec<f64>, String) {
+    let body = match text.find("// * * *") {
+        Some(i) => &text[i..],
+        None => text,
+    };
+    let (mut nums, mut skel, mut tok) = (Vec::new(), String::new(), String::new());
+    let flush = |tok: &mut String, nums: &mut Vec<f64>, skel: &mut String| {
+        if !tok.is_empty() {
+            match tok.parse::<f64>() {
+                Ok(v) => {
+                    nums.push(v);
+                    skel.push('#');
+                }
+                Err(_) => skel.push_str(tok),
+            }
+            tok.clear();
+        }
+    };
+    for ch in body.chars() {
+        if ch.is_whitespace() || "(){};[]".contains(ch) {
+            flush(&mut tok, &mut nums, &mut skel);
+            if !ch.is_whitespace() {
+                skel.push(ch);
+            } else if !skel.ends_with(' ') {
+                skel.push(' ');
+            }
+        } else {
+            tok.push(ch);
+        }
+    }
+    flush(&mut tok, &mut nums, &mut skel);
+    (nums, skel)
+}
+
+#[derive(Debug, Default)]
+struct ChainReport {
+    ss_steps: usize,
+    ss_time: f64,
+    /// files of the real raw `100` the port did not write
+    missing: Vec<String>,
+    /// files the port wrote that the real raw `100` does not hold
+    extra: Vec<String>,
+    byte_identical: usize,
+    skeleton_differs: Vec<String>,
+    /// `(file, numbers differing, worst |port - up| / max|up|)`
+    w2: Vec<(String, usize, f64)>,
+    /// `(mapped file, worst relative-to-max-norm difference)` against the real `-initializeMappedFields` (round 80's `tr_start100`)
+    w4: Vec<(String, f64)>,
+    mapped_written: Vec<String>,
+}
+
+/// gh:#1961: the whole Allrun chain of 1D_MSR in the port, up to the transient's start (steadyState, its written `100`, `setTransient`'s
+/// edits, `-initializeMappedFields`), with W1, W2, W4 measured on the way. Returns the case root, ready for `GeN-Foam` of the transient.
+fn chain_to_transient(tag: &str) -> (PathBuf, ChainReport) {
+    let (root, ss_steps, ss_time) = chain_steady_state(tag);
+    let mut rep = ChainReport { ss_steps, ss_time, ..ChainReport::default() };
+    // W1/W2: the port-written `100` against the real Allrun `100` (raw, BEFORE the transient's `-initializeMappedFields`)
+    let real = unpack_texts(&gunzip(&vv_dir().join("refs/msr1d_r81_ss_written100.txt.gz")));
+    for (rel, up) in &real {
+        let path = root.join("100").join(rel);
+        let Ok(mine) = std::fs::read_to_string(&path) else {
+            rep.missing.push(rel.clone());
+            continue;
+        };
+        if &mine == up {
+            rep.byte_identical += 1;
+        }
+        let ((a, sa), (b, sb)) = (numbers_and_skeleton(&mine), numbers_and_skeleton(up));
+        if sa != sb || a.len() != b.len() {
+            rep.skeleton_differs.push(rel.clone());
+            continue;
+        }
+        let scale = b.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+        let nd = a.iter().zip(&b).filter(|(x, y)| x != y).count();
+        let worst = a.iter().zip(&b).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / if scale > 0.0 { scale } else { 1.0 };
+        rep.w2.push((rel.clone(), nd, worst));
+    }
+    let mut stack = vec![root.join("100")];
+    while let Some(d) = stack.pop() {
+        for e in std::fs::read_dir(&d).expect("read_dir") {
+            let p = e.expect("entry").path();
+            if p.is_dir() {
+                stack.push(p);
+            } else {
+                let rel = p.strip_prefix(root.join("100")).expect("prefix").to_string_lossy().to_string();
+                if !real.iter().any(|(r, _)| *r == rel) {
+                    rep.extra.push(rel);
+                }
+            }
+        }
+    }
+    // setTransient (Allrun): `cp -r 0/neutroRegion 100/`, `cp -r 0/uniform 100/`, the controlDict edits, the coupled dictionary; plus the
+    // reference protocol's `writePrecision 17` (`run_msr1d_transient_r80.sh`, set before its `-initializeMappedFields`)
+    copy_dir(&root.join("0/neutroRegion"), &root.join("100/neutroRegion"));
+    copy_dir(&root.join("0/uniform"), &root.join("100/uniform"));
+    std::fs::copy(root.join("constant/multiRegionCouplingDict_Coupled"), root.join("constant/multiRegionCouplingDict")).expect("coupling dict");
+    let cd = root.join("system/controlDict");
+    let t = std::fs::read_to_string(&cd).expect("controlDict");
+    let t = t
+        .replacen("endTime         100;", "endTime         400;", 1)
+        .replacen("writeInterval   100;", "writeInterval   10;", 1)
+        .replacen("writePrecision  6;", "writePrecision  17;", 1)
+        .replacen("    fluidRegion     onePhase;\n", "    fluidRegion     onePhase;\n    neutroRegion    pointKinetics;\n", 1)
+        .replacen("    fluidRegion     false;\n", "    fluidRegion     false;\n    neutroRegion    false;\n", 1);
+    assert!(t.contains("endTime         400;") && t.contains("writeInterval   10;") && t.contains("writePrecision  17;") && t.contains("neutroRegion    pointKinetics;"));
+    std::fs::write(&cd, t).expect("controlDict");
+    // `GeN-Foam -initializeMappedFields`
+    let mut init = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap_or_else(|e| panic!("-initializeMappedFields: {e}"));
+    rep.mapped_written = init.initialize_mapped_fields(&root, &WriteOptions::precision_17()).expect("mapped fields");
+    // W4: each mapped file against the real one (round 80's start directory, after the real -initializeMappedFields)
+    let start = unpack_texts(&gunzip(&vv_dir().join("refs/msr1d_r80_tr_start100.txt.gz")));
+    for rel in &rep.mapped_written {
+        let key = rel.trim_start_matches("100/");
+        let Some((_, up)) = start.iter().find(|(r, _)| r == key) else {
+            rep.w4.push((rel.clone(), f64::NAN));
+            continue;
+        };
+        let mine = std::fs::read_to_string(root.join(rel)).expect("mapped file");
+        let ((a, _), (b, _)) = (numbers_and_skeleton(&mine), numbers_and_skeleton(up));
+        let d = if a.len() == b.len() {
+            let scale = b.iter().fold(0.0_f64, |m, v| m.max(v.abs()));
+            a.iter().zip(&b).fold(0.0_f64, |m, (x, y)| m.max((x - y).abs())) / if scale > 0.0 { scale } else { 1.0 }
+        } else {
+            f64::INFINITY
+        };
+        rep.w4.push((rel.clone(), d));
+    }
+    (root, rep)
+}
+
+/// gh:#1961 (README round 81), predictions W1-W4: the Allrun chain of `1D_MSR_pointKinetics` in the port, and the chained transient
+/// against the real binary (`refs/msr1d_r80_tr_full*`, criteria T1-T4).
+#[test]
+fn gh1961_allrun_chain_against_the_real_binary() {
+    let (root, rep) = chain_to_transient("chain");
+    println!("gh1961 chain: steadyState {} steps to t = {}", rep.ss_steps, rep.ss_time);
+    println!("gh1961 W1: missing {:?}; extra {:?}", rep.missing, rep.extra);
+    println!("gh1961 W2: {} byte-identical files; skeleton differs {:?}", rep.byte_identical, rep.skeleton_differs);
+    for w in &rep.w2 {
+        println!("gh1961 W2: {} {} numbers differ, worst {:.3e}", w.0, w.1, w.2);
+    }
+    for w in &rep.w4 {
+        println!("gh1961 W4: {} {:.3e}", w.0, w.1);
+    }
+    let r = run_full_case(&MSR, Some(root));
+    println!("gh1961 W3: {} steps (upstream {}), final time {}, final power {:e} up {:e} (rel {:.3e})", r.steps, r.up_steps, r.final_time, r.final_power, r.up_final_power, rel(r.final_power, r.up_final_power));
+    for w in &r.writes {
+        println!("gh1961 W3: t = {} power {:.3e} worst {} {:.3e} T {:.3e} U {:.3e}", w.0, w.1, w.2, w.3, w.4, w.5);
+    }
+    // the same transient started from the REAL `100` (round 80's `coupled_transient_full_400_s_against_the_real_binary`)
+    let r80 = run_full();
+    let same = r.writes.iter().zip(&r80.writes).filter(|(a, b)| a.1 == b.1 && a.3 == b.3).count();
+    println!("gh1961 W3: written times whose power and worst field difference equal round 80's run from the real 100: {same} of {}", r.writes.len());
+    // Results (2026-11-28, ~70 s; the gates below are the committed criteria and the measured state):
+    // * steadyState: 8340 steps to t = 100 (the binary's count);
+    // * W1 MISSED: the port's `100` holds 23 of the real 24 fluid files and both `uniform` files; `alphaRhoMagU` is refused by name
+    //   (faceCentered updates it every corrector, not tracked); the transient reads it `READ_IF_PRESENT` and computes it instead;
+    // * W2 MISSED: 20 of 26 files byte-identical; `dgdt` (1866 numbers at 1e-16 absolute, 5.6e-18 of max) and `p_rgh` (6 wall-patch
+    //   `gradient` numbers at 1e-22 absolute) differ in round-off of near-zero values; `alpha.passiveStructure` (the port writes the structure
+    //   fraction where the real file is `uniform 0`) and `heatFlux.structure` (the port writes 0 in the `hx` cells of the fixedTemperature
+    //   structure, the real file -4.5e6) are WRONG content, and so is `Re` in the 320 cells without a structure (`HotLeg`, `ColdLeg`: the
+    //   port writes the fluid's `|U| Dh / nu` = 3.4e5, the real file `minRe` 10, `FSPair.C:344-345` with `Dh = 0` there); none of the three
+    //   changes the transient (filed);
+    // * the chained transient equals, at all 30 written times, round 80's run from the REAL `100` (power and worst field difference);
+    // * W3 HELD: 13 021 steps, power within 4.0e-5 (t = 360), final power 3.0e-5, fluid `T` 1.6e-6, `U` 5.0e-7;
+    // * W4 HELD: the 11 mapped files (`TFuel`, `TCool`, `TClad`, `TStructMech`, `rhoCool`, `U`, `alpha`, `mu`, `alphat` of the neutronics,
+    //   `powerDensityNeutronics`, `powerDensityNeutronicsToLiquid` of the fluid) number for number equal to the real ones.
+    // Found by this chain (fixed, default now): `RegionSolvers::read` set both fluid coupling fields to 0, overriding the case's
+    // `initialPowerDensity` in a fluid-only stage (`T` 21 % off at t = 100 before the fix).
+    assert_eq!(rep.ss_steps, 8340);
+    assert_eq!(rep.missing, vec!["fluidRegion/alphaRhoMagU".to_string()], "W1");
+    assert!(rep.extra.is_empty());
+    assert!(rep.byte_identical >= 20, "{}", rep.byte_identical);
+    // `Re`: the documented W2 miss (wrong in 320 cells, below)
+    assert!(rep.w2.iter().all(|w| w.2 <= 5e-6 || w.0 == "fluidRegion/Re"), "W2 on the files with the real skeleton: {:?}", rep.w2);
+    assert_eq!(rep.skeleton_differs.len(), 2, "{:?}", rep.skeleton_differs);
+    assert_eq!(same, 30, "the chain reproduces round 80's run from the real 100 at every written time");
+    assert!(rep.w4.len() == 11 && rep.w4.iter().all(|w| w.1 == 0.0), "W4: {:?}", rep.w4);
+    assert!((r.final_time - 400.0).abs() < 1e-9 && r.steps == r.up_steps && r.writes.len() == 30, "T1 T2");
+    for w in &r.writes {
+        assert!(w.1 <= 1e-3 && w.4 <= 1e-3 && w.5 <= 1e-3, "T3 t = {}", w.0);
+    }
+    assert!(rel(r.final_power, r.up_final_power) <= 1e-3, "T4");
 }

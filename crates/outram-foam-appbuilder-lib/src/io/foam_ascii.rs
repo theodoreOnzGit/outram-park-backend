@@ -56,8 +56,23 @@ pub const ARCH: &str = "LSB;label=32;scalar=64";
 
 /// The patch types the writer knows how to lay out: those the `2D_fullCoupling` and `2D_FFTF` cases write.
 /// Any other type is refused by name ([`FoamWriteError::PatchType`]).
-pub const SUPPORTED_PATCH_TYPES: [&str; 8] =
-    ["empty", "zeroGradient", "slip", "calculated", "fixedValue", "fixedFluxPressure", "GFTractionDisplacement", "mapped"];
+/// ~~8 types~~ **CHANGED 2026-11-28 (gh:#1961, README round 81):** also `cyclic` (a `cyclicFvPatchField` writes `type` only; a
+/// `cyclicFvsPatchField` of a surface field also its `value`) and the three wall functions of the `onePhase` `k`-`epsilon` restart
+/// (`kqRWallFunction`, `epsilonWallFunction`, `nutkWallFunction`: `value`, the last two also `blending`, through [`write_field_file_with_words`]).
+pub const SUPPORTED_PATCH_TYPES: [&str; 12] = [
+    "empty",
+    "zeroGradient",
+    "slip",
+    "calculated",
+    "fixedValue",
+    "fixedFluxPressure",
+    "GFTractionDisplacement",
+    "mapped",
+    "cyclic",
+    "kqRWallFunction",
+    "epsilonWallFunction",
+    "nutkWallFunction",
+];
 
 /// `Time::maxPrecision_` = `3 - log10(SMALL)` with `SMALL = 1e-15`: the digits of `uniform/time`'s `value`.
 pub const MAX_TIME_PRECISION: usize = 18;
@@ -446,6 +461,23 @@ pub fn write_field_file(f: &FieldFile, opts: &WriteOptions) -> Result<String, Fo
     }
     s.push_str("}\n");
     s.push_str(FOOTER);
+    Ok(s)
+}
+
+/// [`write_field_file`] with WORD entries (`(patch, keyword, word)`) written right after the `type` line of their patch, in the order given
+/// (gh:#1961, README round 81: `blending stepwise;` of `epsilonWallFunction`/`nutkWallFunction`, which `wallFunctionBlender::writeEntries`
+/// writes before `value`).
+///
+/// # Errors
+/// As [`write_field_file`], and [`FoamWriteError::PatchType`] for a word entry of a patch the file does not have.
+pub fn write_field_file_with_words(f: &FieldFile, opts: &WriteOptions, words: &[(String, String, String)]) -> Result<String, FoamWriteError> {
+    let mut s = write_field_file(f, opts)?;
+    for (patch, key, word) in words {
+        let p = f.patches.iter().find(|q| &q.name == patch).ok_or_else(|| FoamWriteError::PatchType(format!("{patch}: no such patch")))?;
+        let head = format!("    {}\n    {{\n{}", p.name, statement(2, "type", &p.ptype));
+        let at = s.find(&head).ok_or_else(|| FoamWriteError::PatchType(format!("{patch}: not laid out")))? + head.len();
+        s.insert_str(at, &statement(2, key, word));
+    }
     Ok(s)
 }
 

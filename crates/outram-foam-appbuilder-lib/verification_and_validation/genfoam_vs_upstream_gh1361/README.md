@@ -9716,7 +9716,7 @@ Mapping (step 2 of the issue): at step 1 the seven fields `mapAllFields` writes 
 | first 60 steps, every step written | 60 | **every compared quantity through step 2** (power, reactivity, `liquidFuelBeta`, `precEquilibriumReactivity`, `deltaT`, `precPKStar0..7`, `powerDensity`, `TFuel`, `TCool`, fluid `U`, `p`, `T`, `k`) | step 3, the FLUID: `p` 2.6e-13 in all 640 cells, `U` 2.1e-15, `T` 2.0e-16 in 6 cells; the neutronics is still bit-identical at step 3 | power 4.2e-13, reactivity 2.9e-13, `liquidFuelBeta` 2.4e-13, `precEq` 0, `deltaT` 3.5e-14, fields <= 2.7e-12 (fluid `p`); nothing over 1e-9 | every `neutroResidual` count, `precPKStar` and `p_rgh` iteration count equal |
 | THE SHIPPED `transient` (400 s, `adjustableRunTime`, written every 10 s) | **13 021, the binary's count** | - | - | at the 30 written times: power <= 4.0e-5 (t = 360), fluid `T` <= 1.6e-6, `U` <= 5.0e-7, any field <= 4.5e-5 (`precPKStar2`, t = 360); <= 1.6e-9 to t = 230, ~1e-5 from t = 240; final power 6.13788e8 W against 6.13807e8 W (3.0e-5) | not compared per step (the log's `Time =` has 6 digits) |
 
-**The step-3 fluid difference is NOT located.** `p` differs in every cell (worst 2.8e-8 Pa on 1.0e5 Pa); it is new against the standalone fluid stage (step 1 of this round: bit-identical through step 5); candidates are the transient-only pieces (the pump `momentumSourceTimeProfile` table at `t - 100`, the variable `deltaT` from step 2). Filed: gh:#1960. Everything after it is that difference propagated: inside the 1e-9 rule to t = 230 and inside the 1e-4 propagated allowance afterwards, where the loss of flow and solves stopped at the shipped 1e-6 tolerances carry it forward.
+~~**The step-3 fluid difference is NOT located.** `p` differs in every cell (worst 2.8e-8 Pa on 1.0e5 Pa); it is new against the standalone fluid stage (step 1 of this round: bit-identical through step 5); candidates are the transient-only pieces (the pump `momentumSourceTimeProfile` table at `t - 100`, the variable `deltaT` from step 2). Filed: gh:#1960.~~ **CORRECTED 2026-11-28 (round 81, gh:#1960):** located: the run's first difference is at STEP 1, in `epsilon`, `nut`, `alphat` (not compared in this table), 2 cells by 1 ulp, PETIR's `pow` in the wall function (gh:#1963); it reaches `p` at step 3 (worst 2.8e-8 Pa on 1.0e5 Pa). See "Round 81 results". Everything after it is that difference propagated: inside the 1e-9 rule to t = 230 and inside the 1e-4 propagated allowance afterwards, where the loss of flow and solves stopped at the shipped 1e-6 tolerances carry it forward.
 
 ### Predictions P1-P4: held / missed
 
@@ -9731,9 +9731,9 @@ Gates: `coupled_transient_full_400_s_against_the_real_binary` asserts T1-T4 as c
 
 ### Not done (filed)
 
-- gh:#1961: the `workflow` stage of `1D_MSR_pointKinetics` (Allrun's `steadyState` -> `setTransient` -> `transient` as one call): the port runs each stage from its directory; the transient starts from the REAL written `100` (the port does not yet write a `onePhase` cyclic time directory for the next stage to read).
+- gh:#1961: the `workflow` stage of `1D_MSR_pointKinetics` (Allrun's `steadyState` -> `setTransient` -> `transient` as one call): the port runs each stage from its directory; the transient starts from the REAL written `100` (the port does not yet write a `onePhase` cyclic time directory for the next stage to read). **DONE 2026-11-28 (round 81)**: the chain runs in the port.
 - gh:#1962: `1D_thermalMSR_pointKinetics`: `lumpedNuclearStructure` with `kappaMatrix` on a cyclic mesh is refused by name. ~~(implied: the shipped case is refused)~~ **CORRECTED 2026-11-28 (round 81):** the shipped case has no `kappaMatrix` key (0 by default) and was never refused; only a `kappaMatrix != 0` variant was.
-- gh:#1960: the step-3 fluid difference above; gh:#1902 (comment): the cell-centred `dev2` (weighted form); gh:#1963: PETIR `pow` against the platform `pow`.
+- gh:#1960: the step-3 fluid difference above (**located 2026-11-28, round 81**); gh:#1902 (comment): the cell-centred `dev2` (weighted form); gh:#1963: PETIR `pow` against the platform `pow`.
 
 # Round 81 (gh:#1905 remainder, child of #1216): `1D_thermalMSR_pointKinetics` (gh:#1962), the `1D_MSR_pointKinetics` Allrun chain (gh:#1961), the step-3 fluid difference (gh:#1960)
 
@@ -9782,3 +9782,68 @@ Round 80's, unchanged: **K1** every field (`U` on `max|U|`; here also the struct
 | W3 | the chain meets T1-T4; its worst power difference at the 30 written times within a factor 3 of round 80's run from the real `100` (4.0e-5) | 50 %; 45 % |
 | W4 | W4 | 50 % |
 | N1 (gh:#1960) | the step-3 fluid `p` difference is located to ONE operation (a named upstream line the port does not reproduce) this round | 30 % |
+
+## Round 81 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first in `6fc859674`, BEFORE any port comparison run; real binary 652b3da on ESI v2506, serial; references in the refs submodule `fd89820` (thermal case, 21 files, 22 MB) and the Allrun `100` of 1D_MSR (`refs/msr1d_r81_ss_written100.txt.gz`); tests `tests/genfoam_msr1d_fluid_vs_upstream.rs` (+8 tests, 25 s), `tests/genfoam_msr1d_coupled_vs_upstream.rs` (+4 tests, 90 s); `--nocapture` prints every table)
+
+### What was ported (upstream -> Rust)
+
+| upstream (ESI v2506 / GeN-Foam 652b3da) | Rust |
+|---|---|
+| `gaussLaplacianScheme::fvcLaplacian` with `uncorrectedSnGrad` on a mesh with coupled patches: `coupledFvPatchField::snGrad(deltaCoeffs)` = `nonOrthDeltaCoeffs (patchNeighbourField - patchInternalField)`, `surfaceIntegrate` boundary faces after the internal ones | `radial_power::fvc_laplacian_uncorrected_coupled` (the internal-face `fvc_laplacian_uncorrected` unchanged); `OnePhaseCcSolver` calls it on a cyclic mesh; the round-80 refusal lifted; control `without_coupled_lumped_laplacian` |
+| `lumpedNuclearStructure` constructor, `READ_IF_PRESENT` branch: `T.lumpedNuclearStructure` (`IOFieldField`, `foundT`), `Tmax`/`Tmatrix`/`Tsurface.lumpedNuclearStructure`; `TFuelAv`/`TCladAv`/`Tmatrix` from the nodes; `Tsurface` -> `Tact_` through `correctT` (`structure.C:828-840`) | `LumpedNuclearStructure::with_read_state`, read by `radial_power::read_radial_power_models` (the refusal of a start directory holding them lifted for this model) |
+| `GeN-Foam -initializeMappedFields`: `meshHandler::initializeMappedFields` -> `mapAndWrite` of every mapped target field that exists, no time loop | `RegionSolvers::initialize_mapped_fields` (`region_solvers/mapped.rs`) |
+| `runTime.write()` of the `onePhase` `RAS` restart: `k` (`kqRWallFunction`), `epsilon`/`nut` (`epsilonWallFunction`/`nutkWallFunction`, `blending stepwise`, `value`), `alphat`, `T.fixedTemperature`; the constraint type `cyclic` of every field on a cyclic patch (`value` kept on a surface field) | `OnePhaseCcSolver::written_turbulence_fields`, `cyclic_constraint_patches`, `foam_ascii::write_field_file_with_words`; `SUPPORTED_PATCH_TYPES` + `cyclic` and the three wall functions |
+| the fluid's coupling fields are its own `READ_IF_PRESENT` objects (`powerDensityNeutronicsToLiquid`: else `initialPowerDensity`, `fluid.C:386-420`; the structure's `powerDensityNeutronics`: else `setRegionField`) | `RegionSolvers::read`: ~~both start at 0~~ **CORRECTED 2026-11-28:** both start from what the case read (found by the chain: in a fluid-only stage the 0 overrode `initialPowerDensity`, `T` 21 % off at `t = 100`; coupled stages map onto them before the first solve, so every earlier coupled comparison is unchanged, see "Earlier rounds" below) |
+
+### Results against the real binary
+
+| run | steps (port / binary) | bit-identical | first difference | worst over the run (relative to the field's max-norm) | solves |
+|---|---|---|---|---|---|
+| thermal, tight `pcg`, first 60 | 60 / 60 | `U`, `p`, `p_rgh`, `T`, `Tmax`, `T.fuelAvForNeutronics`, `T.cladAvForNeutronics` at ALL 60 steps | step 17, `htc` 2.5e-17 (`NusseltReynoldsPrandtlPower`: PETIR's `pow`) | `htc` 9.8e-17, `Tsurface` 2.5e-16 | `deltaT`, 120 `p_rgh`/`h` residuals and iteration counts, `T` lines: equal |
+| thermal, loose `gamg` (as shipped), first 60 | 60 / 60 | **every field at every step** | none | 0 | every count equal |
+| thermal, tight `pcg`, every 100th step to `t = 100` | 7637 / 7637 | 2 of 76 written steps | step 300 | `p` 3.3e-12, `T` 5.4e-13, `Tsurface` 3.8e-13, `U` 1.2e-13; `deltaT` 1.2e-13 | 8447 gated: residual 3.9e-4 relative, iterations within 3 |
+| thermal, loose `gamg`, every 100th step to `t = 100` (THE SHIPPED STAGE) | 7637 / 7637 | `p`, `p_rgh` at all 76; others at 23 | step 2400, `U` 1.7e-15 | `T.fuelAvForNeutronics` 3.5e-13, `T` 2.8e-14, `U` 1.9e-14 | 15 274 gated: residual 1.6e-7, every count equal |
+| `kcore` (`kappaMatrix 30`, no seam term), tight `pcg`, first 60 | 60 / 60 | as the shipped case (+ `Tmatrix` at all 60) | step 17, `htc` | `Tsurface` 2.4e-16 | equal |
+| `kseam` (`kappaMatrix 30` on both seam cells), tight `pcg`, first 60 | 60 / 60 | **every field at every step** | none | 0 | equal |
+| `kcore`, `kseam` to `t = 100` | 7637 / 7637, 7653 / 7653 | - | steps 200, 400 | `kcore` `p` 3.3e-12, `T` 4.0e-13; `kseam` `p` 3.7e-12, `T` 4.4e-13, `Tmatrix` 1.3e-14 | iterations within 3 |
+| thermal coupled transient, first 60 (every step written) | 60 / 60 | every compared quantity of both regions through step 38 (power, reactivity, `liquidFuelBeta`, `precEq`, `deltaT`, `precPKStar0..7`, `powerDensity`, `TFuel`, `TCool`, fluid `U`, `p`, `T`, `Tmax`, `T.fuelAvForNeutronics`) | step 39, `Tsurface` 3.4e-16 (the only quantity ever non-identical in 60 steps) | 3.4e-16 | every `neutroResidual`, `precPKStar`, `p_rgh` count equal |
+| THE SHIPPED thermal `transient` (400 s, written every 10 s) | **7712 / 7712** | - | - | power <= 4.0e-10 at the 30 written times, fluid `T` <= 9.5e-12, `U` <= 2.3e-10, any field <= 1.5e-9 (`precPKStar0`, t = 180); final power 4.15250720e8 W, 1.7e-10 | - |
+| 1D_MSR Allrun CHAIN in the port (gh:#1961): `steadyState` -> its own written `100` -> `setTransient` -> `-initializeMappedFields` -> `transient` | 8340 / 8340, 13 021 / 13 021 | the chained transient equals round 80's run from the REAL `100` at all 30 written times | - | power 4.0e-5 (t = 360), final 3.0e-5 (as round 80) | - |
+
+Controls (each can fail): the `kseam` control without the seam faces differs from step 17 (`Tmax` 1.2e-16), reaches only 7.8e-13 in 60 steps but leaves 1e-9 at step 300 and reaches 5.3e-7 (`T.fuelAvForNeutronics`, `Tmatrix`) over the stage, against 1.3e-14 with the seam faces; `kcore` without the seam faces is unchanged (its seam term is 0); `kcore` without any Laplacian is off by 1.7e-2 in `Tmax` from step 1, and the shipped case against the `kcore` reference likewise (the variant is not inert); `coupled_laplacian_on_the_cyclic_column`: a field that is 1 in cell 0 gives `nonOrthDeltaCoeffs |Sf| / V` in cell 639 through the seam, 0 in the internal-face form.
+
+The chain, W1-W4 (`gh1961_allrun_chain_against_the_real_binary`): the port's `100` holds 23 of the real 24 fluid files and both `uniform` files, 20 of 26 byte-identical; `alphaRhoMagU` is not written (refused by name: under `faceCentered` the port does not track `correctAlphaRhoMagU`; the transient computes it, `READ_IF_PRESENT`); `dgdt` and six `p_rgh` gradient numbers differ in round-off of near-zero values (5.6e-18 of max, 1e-22 absolute); THREE files hold wrong content that the transient does not read: `alpha.passiveStructure` (the structure fraction where upstream has `uniform 0`), `heatFlux.structure` (0 in the `hx` cells of the `fixedTemperature` structure, upstream -4.5e6 W/m3), `Re` in the 320 cells without a structure (the fluid's 3.4e5, upstream `minRe` 10: `FSPair.C:344-345` with `Dh = 0` there): filed. The 11 mapped files of the port's `-initializeMappedFields` are number for number those of the real one.
+
+### gh:#1960: the step-3 fluid difference is LOCATED
+
+`gh1960_step_three_fluid_difference_diagnostic`: the first non-identical number of the 1D_MSR transient is at STEP 1, not 3: `epsilon` in 2 of 640 cells (368, 536) by 1 ulp, with `nut` and `alphat` in the same two cells; both are the wall function `Cmu^0.75 k^1.5/(kappa y)` from the start `k`: upstream's value is the platform `pow`'s, the port's PETIR's `r_powf` (2 of 2 cells, bit for bit), the same cause round 80 found in the standalone stage (gh:#1963). Step 2: all eight fluid fields bit-identical again; step 3: the `p_rgh` solve's initial residual already differs (0.03520831767608689 against 0.035208317676087335), then `p` in all 640 cells. ~~Round 80: "steps 1 and 2 BIT-IDENTICAL in every compared quantity", "the step-3 fluid difference is NOT located", "candidates are the transient-only pieces"~~ **CORRECTED 2026-11-28 (round 81):** round 80 did not compare `epsilon`, `nut`, `alphat`; the difference starts at step 1 in them; the transient-only candidates (the pump table, the variable `deltaT`) are also excluded by the laminar 1D_thermalMSR transient, which has both and stays bit-identical in `p` for 60 steps. N1 HELD (30 %).
+
+### Predictions: held / missed
+
+| # | verdict |
+|---|---|
+| R1 (75 %; 45 %) | **held**; bit-identical through step 3: **held** (every field through step 16, the four flow fields through 60) |
+| R2 (65 %; 75 %) | **held** (3.3e-12); the step count equal: **held**, but the count written in the prediction (7557) was read from the log while the real run was still running: the binary's count is 7637 (recorded, not corrected in the prediction) |
+| R3 (60 %; 65 %) | **held** (7637; 3.5e-13) |
+| R4 (70 %) | **held** (1.2e-13 over the full tight run; 0 over 60 steps) |
+| R5 (75 %; 50 %) | residuals: **MISSED** over the full tight run (3.9e-4 relative on tight `h` solves whose initial residual is ~1e-3 after 200 steps; 0 over the first 60); iterations within 1: **MISSED** (3) |
+| R6 (75 %) | **held** (`Tsurface` 2.5e-16, the others bit-identical) |
+| V1 (70 %), V2 (60 %) | **held** (V2: every field bit-identical) |
+| V3 (70 %) | **MISSED**: the control differs (step 17) but by 7.8e-13 within 60 steps, not > 1e-9; over the stage it leaves 1e-9 at step 300 |
+| V4 (55 %) | **held** |
+| P1t-P4t (65, 60, 50, 60 %) | **held** (power 4.0e-10, five orders inside T3) |
+| P5t (60 %; 35 %) | **held**; **held** (bit-identical through step 38) |
+| W1 (55 %) | **MISSED** (`alphaRhoMagU`) |
+| W2 (50 %) | **MISSED** (`Re`, `alpha.passiveStructure`, `heatFlux.structure`) |
+| W3 (50 %; 45 %) | **held**; **held** (4.0e-5, round 80's own number: the chain reproduces that run at every written time) |
+| W4 (50 %) | **held** (11 files equal) |
+| N1 (30 %) | **held** |
+
+### Earlier rounds (moved numbers)
+
+The shared-code changes: the coupled Laplacian (only on a cyclic mesh), the lumped restart read (a start directory that was refused before), the writer's `cyclic` constraint and `RAS` files (only on a cyclic or `RAS` fluid; the 84-file `2D_fullCoupling` gates pass unchanged), the coupling-field start values of `RegionSolvers::read` (every `RegionSolvers` case). Re-run 2026-11-28 with `--no-fail-fast` (release, private target dir): `genfoam_baffle_less` (1), `genfoam_esfr_coupled` (2), `genfoam_esfr_transient` (3), `genfoam_fullcoupling_fluid` (26, 4 ignored), `genfoam_fullcoupling_three_region` (5), `genfoam_fullcoupling_transient` (36, incl. the 84-file writer gates), `genfoam_heat_exchanger_cc` (4), `genfoam_msr1d_coupled` (8), `genfoam_msr1d_fluid` (17), `genfoam_radial_power_models` (8), `genfoam_radial_power_wired` (8), `genfoam_two_phase_radial_power` (10, 1 ignored), `genfoam_written_state` (5): **133 passed, 0 failed**; every recorded number and pin of those targets held unchanged (no pin moved). `--lib` `genfoam::` + `io::foam_ascii`: 532 passed. `no_std` (`x86_64-unknown-none`, `--no-default-features`): builds.
+
+### Not done (filed)
+
+- gh:#1964: the three wrong written files of a `onePhase` `100` (`Re` outside the structures, `alpha.passiveStructure`, `heatFlux.structure` of a `fixedTemperature` structure) and `alphaRhoMagU` under `faceCentered`;
+- gh:#1963 (PETIR `pow` against the platform `pow`) is now the located cause of BOTH 1D_MSR first differences (standalone and transient).
