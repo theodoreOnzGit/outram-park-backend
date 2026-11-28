@@ -3,18 +3,6 @@ kind = "code_folder"
 crate = "outram-park-fork-offbeat"
 dir = "crates/outram-park-fork-offbeat/src/rheology"
 test_ids = [
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::clamped_bar_relaxes_to_closed_form_exponential",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::constitutive_state_advances_once_per_step_not_once_per_corrector",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_step_rejects_a_missing_law_and_a_negative_timestep",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::creep_time_step_control_bounds_the_next_step",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::free_thermal_expansion_with_creep_produces_no_creep_strain",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/rheology_tests.rs::spatially_varying_creep_keeps_the_axial_stress_uniform",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::displacement_profile_is_linear",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::eigenstrain_sources_superpose_and_cancel",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::fully_constrained_eigenstrain_gives_hydrostatic_compression",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_strain_solution_is_grid_independent",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::imposed_uniform_strain_gives_oedometric_stress",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::stress_is_linear_in_eigenstrain",
     "crates/outram-park-fork-offbeat/src/rheology/tests.rs::advancing_the_state_accumulates_the_increment_exactly_once",
     "crates/outram-park-fork-offbeat/src/rheology/tests.rs::catastrophic_softening_is_reported_rather_than_returned",
     "crates/outram-park-fork-offbeat/src/rheology/tests.rs::creep_is_volume_preserving",
@@ -882,8 +870,8 @@ hash = "sha256:ceee680537f5cd89db915dcfd9d8b87a2411c71eb0df6d50fac7abc6b7a499cc"
 doc_hash = "sha256:1efdf28682880bef3f4cad0a9e3d61466744ff9e2a9311001e06e6337673e8f0"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -914,18 +902,6 @@ passed = [
     "#25",
     "#26",
     "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
 ]
 failed = []
 

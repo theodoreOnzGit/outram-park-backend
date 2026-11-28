@@ -282,7 +282,6 @@ test_ids = [
     "crates/kovan/src/app/theme.rs::every_other_kind_gets_a_visually_distinct_accent_in_each_theme",
     "crates/kovan/src/app/theme.rs::note_and_annotation_share_the_same_accent",
     "crates/kovan/src/app/theme.rs::unavailable_accent_is_gruvbox_red_and_differs_per_theme",
-    "crates/kovan/src/code_review_artifacts.rs::the_mindmap_collects_a_mounted_repositorys_reviews_in_the_background",
 ]
 
 [module."advanced_git_view.rs"]
@@ -8562,8 +8561,8 @@ hash = "sha256:fefd7c302aef79774421d8dcbaf83847cac9eb90aee2646974b1f4152ec292de"
 doc_hash = "sha256:0bb99c311fc67bc15fd7b822c3d2129a994efefb9b6a0dedc93befd7bf4240d2"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -8845,7 +8844,6 @@ passed = [
     "#276",
     "#277",
     "#278",
-    "#279",
 ]
 failed = []
 

@@ -2,15 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/postprocessing"
-test_ids = [
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
-]
 
 [module."mod.rs"]
 path = "crate::pre_built_components::non_insul_porous_media_fluid::postprocessing"
@@ -40,18 +31,10 @@ doc_hash = "sha256:ca6997dbc7c3ab0fd936e7f65c756a0f3afe576a5e3307d4cc37656ec38ac
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-]
+passed = []
 failed = []
 
 [targeted_run]

@@ -328,3 +328,10 @@ name = "wos_paths"
 qual = "wos_paths"
 hash = "sha256:3184df9cc99ebdf725a09d84a731b7a88e376277fef0d49931e05d83bd8b6ded"
 doc_hash = "sha256:869dadaeffba05ab2b927ccd3779437e4c5d23cd43f957eedffd03d93f972210"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

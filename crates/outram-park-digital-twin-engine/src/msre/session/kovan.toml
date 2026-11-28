@@ -2,6 +2,26 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/msre/session"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::a_frozen_plant_does_not_move",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::a_measured_split_reaches_the_plant_and_the_arithmetic_is_the_records",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::a_snapshot_round_trips_through_numbers",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::a_trip_with_the_doors_open_freezes_the_coolant",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::an_untouched_plant_stays_in_steady_state",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::bad_inputs_are_refused_and_spans_are_capped",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::coefficients_switch_online_and_keep_the_state",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::freeze_locations_round_trip",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::pump_commands_reach_the_model",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_configuration_reaches_the_model",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_guard_holds_the_plant_at_the_last_liquid_state",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_guard_is_transparent_while_the_salt_is_liquid",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_headless_demo_is_deterministic_and_bounded",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_liquidus_constants_are_the_cited_ones",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_pacer_turns_wall_time_into_plant_time",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_period_table_is_complete",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_servo_holds_power_against_a_cooling_change",
+    "crates/outram-park-digital-twin-engine/src/msre/session/tests.rs::the_thaw_is_consumed_once_and_the_clock_runs_on",
+]
 
 [module."tests.rs"]
 path = "crate::msre::session::tests"
@@ -165,3 +185,29 @@ qual = "the_thaw_is_consumed_once_and_the_clock_runs_on"
 hash = "sha256:756fcc3168026599b6875a6ac6f56906ee99f2f76407de982891a5ce8980fdb4"
 doc_hash = "sha256:71b6379055a51a95557b6daf5d104530f918d53c2912a41db5c72ec7989ab27e"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+]
+failed = []

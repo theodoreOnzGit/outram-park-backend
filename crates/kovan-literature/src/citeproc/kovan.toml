@@ -142,26 +142,6 @@ test_ids = [
     "crates/kovan-literature/src/citeproc/xmljson.rs::node_copy_drops_non_string_attributes",
     "crates/kovan-literature/src/citeproc/xmljson.rs::parses_a_style_and_finds_nodes",
     "crates/kovan-literature/src/citeproc/xmljson.rs::preprocessing_passes",
-    "crates/kovan-literature/src/csl.rs::a_numbered_style_keeps_its_division_entries",
-    "crates/kovan-literature/src/csl.rs::a_page_gets_its_citations_and_a_reference_list_and_is_idempotent",
-    "crates/kovan-literature/src/csl.rs::a_page_is_one_document_so_same_year_works_get_letters",
-    "crates/kovan-literature/src/csl.rs::an_html_page_gets_citations_and_a_list_and_is_idempotent",
-    "crates/kovan-literature/src/csl.rs::an_unknown_key_is_an_error_not_a_panic",
-    "crates/kovan-literature/src/csl.rs::apa_citations_in_all_three_forms",
-    "crates/kovan-literature/src/csl.rs::the_bib_goes_through_the_zotero_import_to_csl_json",
-    "crates/kovan-literature/src/csl.rs::the_five_site_styles_are_bundled_and_render",
-    "crates/kovan-literature/src/csl.rs::unknown_keys_fail_and_an_uncited_page_loses_its_list",
-    "crates/kovan-literature/tests/citeproc_intermediate.rs::the_intermediate_dump_matches_citeproc_js_except_the_recorded_differences",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::abbreviation_keys_are_normalised_as_the_runner_does",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::report_per_area",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::the_committed_reference_matches_the_vendored_fixtures",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::the_driver_reaches_the_engine_and_reports_errors_instead_of_panicking",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::the_parser_follows_the_runner_on_synthetic_text",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::the_parser_reads_real_fixtures",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::the_ported_fixtures_match_citeproc_js_except_the_recorded_differences",
-    "crates/kovan-literature/tests/citeproc_test_suite.rs::update_doc_keeps_the_document_the_way_the_runner_does",
-    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::apa_matches_citeproc_js_except_the_recorded_differences",
-    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::other_styles_match_citeproc_js_except_the_recorded_differences",
 ]
 
 [module."api_bibliography.rs"]
@@ -14818,8 +14798,8 @@ hash = "sha256:3a25215f157fe18ec30cfc8b1d9929da97a1470fe1ef67d79e49f10a1c6a2a51"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -14961,26 +14941,6 @@ passed = [
     "#136",
     "#137",
     "#138",
-    "#139",
-    "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
-    "#145",
-    "#146",
-    "#147",
-    "#148",
-    "#149",
-    "#150",
-    "#151",
-    "#152",
-    "#153",
-    "#154",
-    "#155",
-    "#156",
-    "#157",
-    "#158",
 ]
 failed = []
 

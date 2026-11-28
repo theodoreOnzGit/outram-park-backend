@@ -370,3 +370,10 @@ name = "probe"
 qual = "probe"
 hash = "sha256:e0311aa8b809ceb21f99d76489dd77af67ae3bfcc93054f169d7e9e25ca54e14"
 doc_hash = "sha256:b52488e2890b6ac556baf71a543a5e041951202bdeee910b8bdcab8f3db838fc"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

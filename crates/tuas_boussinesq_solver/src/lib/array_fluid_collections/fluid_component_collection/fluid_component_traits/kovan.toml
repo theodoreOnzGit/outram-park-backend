@@ -7,19 +7,6 @@ test_ids = [
     "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/fluid_component_traits/unit_test_fluid_component_traits.rs::test_custom_fluid_component_mass_flowrate_from_pressure_change",
     "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/fluid_component_traits/unit_test_fluid_component_traits.rs::test_custom_fluid_component_pressure_change",
     "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/fluid_component_traits/unit_test_fluid_component_traits.rs::test_custom_fluid_component_pressure_loss",
-    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/air_pipe_example.rs::simple_fluid_pipe_example_1",
-    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/collection_fluid_components_in_parallel.rs::simple_fluid_collection_example_6",
-    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/collection_fluid_components_in_series.rs::simple_fluid_collection_example_5",
-    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/concurrency_and_multithreading_example.rs::coriolis_flowmeter_empirical_custom_component_example_3",
-    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/coriolis_flowmeter_example.rs::coriolis_flowmeter_empirical_custom_component_example_3",
-    "crates/tuas_boussinesq_solver/src/lib/array_fluid_collections/fluid_component_collection/tests_and_examples/water_pipe_example.rs::water_pipe_with_internal_pump_example_2",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_isothermal_test_components/isothermal_ctah_heater_branch_test/debugging_tests.rs::ctah_pump_should_give_zero_resistance",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::assert_if_hydraulic_diameter_of_heater_v1_is_correct",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v1_porous_and_non_porous_conductance_pipe_to_insulation_arr",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::test_to_assert_if_conductance_from_insulation_to_ambient_is_correct",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insulated_parallel_fluid_components/tests.rs::parallel_fluid_component_test",
 ]
 
 [module."mod.rs"]
@@ -507,27 +494,14 @@ doc_hash = "sha256:8be0f29c0bffd096f2dd6ad2a7d5c8a5d5733bd7d14282d6dfc084c95a568
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
     "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
 ]
 failed = []
 

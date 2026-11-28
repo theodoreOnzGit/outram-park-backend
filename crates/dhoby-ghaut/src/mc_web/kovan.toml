@@ -2,6 +2,29 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_web"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_web/keff.rs::five_route_summary_is_outram_mc_libs_record",
+    "crates/dhoby-ghaut/src/mc_web/keff.rs::settings_are_held_to_the_caps",
+    "crates/dhoby-ghaut/src/mc_web/keff.rs::the_time_left_is_measured_not_assumed",
+    "crates/dhoby-ghaut/src/mc_web/keffplot.rs::named_colours_take_the_theme",
+    "crates/dhoby-ghaut/src/mc_web/keffplot.rs::the_body_has_room_for_plots_text_and_the_references_button",
+    "crates/dhoby-ghaut/src/mc_web/keffplot.rs::the_entropy_range_reaches_the_ceiling",
+    "crates/dhoby-ghaut/src/mc_web/keffplot.rs::the_k_range_skips_the_guessed_source_and_holds_the_references",
+    "crates/dhoby-ghaut/src/mc_web/keffplot.rs::the_pair_stacks_on_a_phone",
+    "crates/dhoby-ghaut/src/mc_web/processed_cache.rs::a_cached_law_is_the_processed_law_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_web/processed_cache.rs::a_cached_nuclide_is_the_processed_nuclide_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_web/processed_cache.rs::a_nuclide_made_from_cached_stages_is_the_processed_nuclide_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_web/processed_cache.rs::the_code_version_pins_the_processing_output",
+    "crates/dhoby-ghaut/src/mc_web/processed_cache.rs::the_code_version_pins_the_thermal_law",
+    "crates/dhoby-ghaut/src/mc_web/processed_cache.rs::the_store_is_route_4_and_process_bit_for_bit",
+    "crates/dhoby-ghaut/src/mc_web/raster.rs::a_raster_request_crosses_the_worker_boundary",
+    "crates/dhoby-ghaut/src/mc_web/rod_bank.rs::depth_axis_and_count_words",
+    "crates/dhoby-ghaut/src/mc_web/rod_bank.rs::rods_from_the_url",
+    "crates/dhoby-ghaut/src/mc_web/rod_bank.rs::sliders_sync_unsync_and_withdraw",
+    "crates/dhoby-ghaut/src/mc_web/run_settings.rs::the_bounds_share_the_generation_cap",
+    "crates/dhoby-ghaut/src/mc_web/sweep.rs::a_replaced_run_or_a_refused_setting_ends_the_sweep",
+    "crates/dhoby-ghaut/src/mc_web/sweep.rs::a_sweep_rebuilds_then_runs_and_stops_with_its_run",
+]
 
 [module."keff.rs"]
 path = "crate::mc_web::keff"
@@ -2126,3 +2149,32 @@ name = "wire_name"
 qual = "wire_name"
 hash = "sha256:a3cf078c666c28b56aaf0ce4ea2245af5640998195d5cc853d1749988b96c01a"
 doc_hash = "sha256:cda928a37bb9b53fc460ebcdd4a6769cc51e5ec4b95fcac59b017eb807ad9475"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+]
+failed = []

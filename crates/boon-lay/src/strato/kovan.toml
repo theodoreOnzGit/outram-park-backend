@@ -2,6 +2,21 @@ schema_version = 1
 kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/strato"
+test_ids = [
+    "crates/boon-lay/src/strato/tests.rs::exact_release_masks_early_times",
+    "crates/boon-lay/src/strato/tests.rs::interface_state_conserves_flux_and_reduces_to_identity",
+    "crates/boon-lay/src/strato/tests.rs::modal_release_matches_closed_form_for_equal_diffusivity",
+    "crates/boon-lay/src/strato/tests.rs::release_is_monotone_and_bounded",
+    "crates/boon-lay/src/strato/tests.rs::robin_roots_satisfy_residual",
+    "crates/boon-lay/src/strato/tests.rs::single_sphere_eigenvalues_are_booth_eigenvalues",
+    "crates/boon-lay/src/strato/tests.rs::single_sphere_matches_booth_uniform_sphere",
+    "crates/boon-lay/src/strato/tests.rs::single_sphere_validation_and_new_still_needs_two_layers",
+    "crates/boon-lay/src/strato/tests.rs::strato_error_display_matches_upstream_messages",
+    "crates/boon-lay/src/strato/tests.rs::sturm_count_matches_root_count_and_is_monotone",
+    "crates/boon-lay/src/strato/tests.rs::transfer_preserves_state_across_equal_material_subdivision",
+    "crates/boon-lay/src/strato/tests.rs::transfer_zero_length_is_identity",
+    "crates/boon-lay/src/strato/tests.rs::uom_facade_round_trip",
+]
 
 [module."mod.rs"]
 path = "crate::strato"
@@ -355,3 +370,24 @@ qual = "uom_facade_round_trip"
 hash = "sha256:fedcf8dca4514e4a7f88bd2140265904aab7b3d1ae15a89e9148f21cfcc300f9"
 doc_hash = "sha256:07c45a504f9059ddf3995a13c5b4537003ceede8379e197c2f28a2eea913a307"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "sembawang"
 dir = "crates/sembawang/src/bwr_mark1/containment_network"
+test_ids = ["crates/sembawang/src/bwr_mark1/containment_network/drawing.rs::the_drawing_shows_what_the_network_holds"]
 
 [module."drawing.rs"]
 path = "crate::bwr_mark1::containment_network::drawing"
@@ -122,3 +123,10 @@ qual = "the_drawing_shows_what_the_network_holds"
 hash = "sha256:31cc8fe7546dcb7b34c3a1b7ad4e1335e5abfd041a70ee051da1ee7e62afc0fd"
 doc_hash = "sha256:e76b7e8337622b2be9aaaa9d3f4239bf7fc30a34f18bc0133d77b35dcf85ccd3"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = ["#0"]
+failed = []

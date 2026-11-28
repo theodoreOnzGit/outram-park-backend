@@ -2,11 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/color_maps/crameri"
-test_ids = [
-    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_physics_path_draws_no_plume_and_no_approach",
-    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_physics_path_draws_its_arrangement_but_paints_no_temperature",
-    "crates/outram-park-digital-twin-engine/src/components/pump.rs::wrapping_a_tampines_pump_invents_no_state",
-]
 
 [module."mod.rs"]
 path = "crate::color_maps::crameri"
@@ -157,14 +152,10 @@ hash = "sha256:d133d868ccfe9285cb6752951390fc4da90f6920386235e5b39756e0d50884fa"
 doc_hash = "sha256:d3dc11244f6227437bdecd8063dddbe7ba4c164c92c22e4ede64d2073f633520"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-]
+passed = []
 failed = []
 
 [targeted_run]

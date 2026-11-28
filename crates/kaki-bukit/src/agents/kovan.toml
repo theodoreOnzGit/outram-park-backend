@@ -19,12 +19,6 @@ test_ids = [
     "crates/kaki-bukit/src/agents/source.rs::rejects_an_empty_commodity_and_negative_limits",
     "crates/kaki-bukit/src/agents/source.rs::throughput_caps_the_bid",
     "crates/kaki-bukit/src/agents/source.rs::with_no_recipe_it_supplies_the_requested_composition",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::a_malformed_hierarchy_is_rejected",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::a_simulation_with_no_requests_is_a_no_op",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::an_exhausted_source_stops_trading_and_retires",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::mine_to_repository",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::summaries_dispatch_through_the_enum",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::the_tighter_constraint_is_the_one_that_binds",
 ]
 
 [module."mod.rs"]
@@ -721,8 +715,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -741,12 +735,6 @@ passed = [
     "#13",
     "#14",
     "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
 ]
 failed = []
 

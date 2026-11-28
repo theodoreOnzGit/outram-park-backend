@@ -3,28 +3,8 @@ kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/src/solvers"
 test_ids = [
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
-    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::attached_model_contributes_to_both_equations_after_stepping",
-    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::hot_wall_drives_melting_with_bounded_liquid_fraction",
-    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::runs_without_any_fv_model",
-    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
-    "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
-    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
     "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::backward_ddt_matches_the_bdf2_formula",
     "crates/outram-foam-appbuilder-lib/src/solvers/schemes.rs::unimplemented_schemes_error_rather_than_falling_back",
-    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
-    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
-    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
-    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
-    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
-    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
-    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
 ]
 
 [module."bc_util.rs"]
@@ -112,32 +92,12 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
 ]
 failed = []
 

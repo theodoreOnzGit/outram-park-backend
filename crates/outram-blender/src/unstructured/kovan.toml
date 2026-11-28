@@ -16,6 +16,7 @@ test_ids = [
     "crates/outram-blender/src/unstructured/overlap.rs::a_tet_overlaps_itself_fully",
     "crates/outram-blender/src/unstructured/overlap.rs::disjoint_tets_do_not_overlap",
     "crates/outram-blender/src/unstructured/overlap.rs::two_different_meshes_of_one_box_conserve_volume_and_integrals",
+    "crates/outram-blender/src/unstructured/plot.rs::a_cut_through_vertices_fills_every_cell",
     "crates/outram-blender/src/unstructured/plot.rs::column_slice_is_filled_inside_and_white_outside",
 ]
 
@@ -1049,8 +1050,8 @@ hash = "sha256:f919632acb844db61fe6e832708d13876d4d3b1eff0cdb4180e5a27e7629ccb7"
 doc_hash = "sha256:56d42217156c032b498d3cb0a58b947fe0e2567390b75ec79e943a590c0d9829"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1067,6 +1068,7 @@ passed = [
     "#11",
     "#12",
     "#13",
+    "#14",
 ]
 failed = []
 

@@ -2,24 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid"
-test_ids = [
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_fluid_arr_to_pipe",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/insulated_porous_media_fluid_components/tests/mod.rs::regression_heater_v2_insulated_and_non_insulated_conductance_twisted_tape_to_pipe_fluid_array",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::example_heated_section_test",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_10kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_3kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_4kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_6kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_only.rs::heated_section_test_v2_8kw",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::example_heated_section_regression_new_and_old",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_ambient",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_steel_shell_to_pipe_fluid_array",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_regression.rs::regression_new_and_old_nodal_conductance_twisted_tape_to_pipe_fluid_array",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
-]
 
 [module."calculation.rs"]
 path = "crate::pre_built_components::non_insul_porous_media_fluid::calculation"
@@ -266,27 +248,10 @@ hash = "sha256:96aba3b1789761dfd9783709257013c944384310395729fdcd2d1e2b4a1ff606"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-]
+passed = []
 failed = []
 
 [targeted_run]

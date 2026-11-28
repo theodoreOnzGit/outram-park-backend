@@ -5,20 +5,6 @@ dir = "crates/buangkok/src/pydoseia/plume_shine"
 test_ids = [
     "crates/buangkok/src/pydoseia/plume_shine/tables.rs::interp_edges_follow_numpy",
     "crates/buangkok/src/pydoseia/plume_shine/tables.rs::missing_nuclide_gets_the_placeholder_line",
-    "crates/buangkok/tests/plume_shine_petir_vs_quadpack.rs::petir_qags_matches_the_quadpack_reference_within_the_requested_tolerance",
-    "crates/buangkok/tests/plume_shine_petir_vs_quadpack.rs::plain_qag_measurement_on_the_fixture_cases",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::every_fixture_value_is_reproduced_within_its_group_tolerance",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_age_bracket_shift_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_calm_correction_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_ingestion_driver_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_daughter_lookup_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_gamma_line_lookup_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_sector_width_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_intended_zeroing_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_petir_qag_instead_of_dqagse_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_single_counted_summary_ingestion_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_true_ln2_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::petir_plume_shine_also_reproduces_the_fixture",
 ]
 
 [module."integral.rs"]
@@ -390,26 +376,12 @@ hash = "sha256:c03558060be3134aa8391d7369bc8488fa8d652e7cf39ac80630bc8ddd57a377"
 doc_hash = "sha256:ea29447ccdce028b138f0870b87cc7e7ed3ca6d0bd3646cbe718171b7c75556a"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
 ]
 failed = []
 

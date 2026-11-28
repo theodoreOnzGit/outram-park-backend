@@ -90,9 +90,6 @@ test_ids = [
     "crates/outram-blender/src/convex_hull.rs::hull_of_cube_corners_is_the_cube",
     "crates/outram-blender/src/convex_hull.rs::hull_of_octahedron_points",
     "crates/outram-blender/src/convex_hull.rs::hull_of_random_cloud_is_convex_and_contains_all",
-    "crates/outram-blender/src/csg/plot/annotate.rs::annotation_preserves_the_raster",
-    "crates/outram-blender/src/csg/plot/slice.rs::pixel_centres_and_orientation",
-    "crates/outram-blender/src/csg/plot/slice.rs::slice_classifies_material_void_and_outside",
     "crates/outram-blender/src/cursor_pivot.rs::cursor_placement_helpers",
     "crates/outram-blender/src/cursor_pivot.rs::individual_origins_scales_each_component_locally",
     "crates/outram-blender/src/cursor_pivot.rs::orientation_from_a_face_uses_its_normal",
@@ -522,8 +519,6 @@ test_ids = [
     "crates/outram-blender/src/weld.rs::non_transitive_chain_forms_one_cluster",
     "crates/outram-blender/src/weld.rs::zero_tolerance_is_noop_on_pristine_mesh",
     "crates/outram-blender/src/weld.rs::zero_tolerance_merges_exact_duplicates",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::gpu_trace_matches_the_cpu_plotter",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::grid_index_matches_the_cpu_plotter",
 ]
 
 [module."arap.rs"]
@@ -13684,8 +13679,8 @@ doc_hash = "sha256:2addb55c190c6e716d7180fe957ad830f1890544b1d1f3becae42f7bcd826
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -14203,11 +14198,6 @@ passed = [
     "#512",
     "#513",
     "#514",
-    "#515",
-    "#516",
-    "#517",
-    "#518",
-    "#519",
 ]
 failed = []
 

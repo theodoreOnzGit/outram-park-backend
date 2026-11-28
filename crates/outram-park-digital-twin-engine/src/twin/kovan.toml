@@ -2,6 +2,21 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/twin"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/twin/genfoam.rs::the_coarse_run_reports_against_the_records",
+    "crates/outram-park-digital-twin-engine/src/twin/genfoam.rs::the_peaking_is_volume_weighted",
+    "crates/outram-park-digital-twin-engine/src/twin/shell.rs::a_view_is_greyed_by_its_page_or_its_sub_tab",
+    "crates/outram-park-digital-twin-engine/src/twin/shell.rs::the_layout_tiles_a_phone",
+    "crates/outram-park-digital-twin-engine/src/twin/shell.rs::the_shell_starts_on_the_plant_in_gruvbox",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::a_live_run_reaches_the_plant_only_when_sent",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::missing_pages_say_not_built_with_their_issue",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_coefficient_is_msres_arithmetic_in_si",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_cv_dump_is_the_plant_now",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_headless_flags_reach_each_output",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_local_host_runs_the_twin_off_the_ui_thread",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_page_and_role_words_are_fixed",
+    "crates/outram-park-digital-twin-engine/src/twin/tests.rs::the_plant_csv_is_deterministic_and_follows_the_script",
+]
 
 [module."app.rs"]
 path = "crate::twin::app"
@@ -1189,3 +1204,24 @@ qual = "the_plant_csv_is_deterministic_and_follows_the_script"
 hash = "sha256:bdad99ee9a1e7442e4c8f791ad93eaa4d5caf4f4832f24161ecc20d006145d7a"
 doc_hash = "sha256:2a519411a75568538f51521be44eb360b93509362a0d6fb4213bb45e95a53dce"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

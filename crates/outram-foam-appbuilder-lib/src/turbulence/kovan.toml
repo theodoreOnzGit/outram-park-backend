@@ -3,22 +3,10 @@ kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/src/turbulence"
 test_ids = [
-    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::missing_case_directory_is_an_io_error",
-    "crates/outram-foam-appbuilder-lib/src/case_runner.rs::unwired_solvers_refuse_before_reading_the_case",
-    "crates/outram-foam-appbuilder-lib/src/solvers/rho_pimple_foam/mod.rs::compressible_lid_cavity_stays_stable",
     "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::compressible_conversion_uses_mu_t_equals_rho_nu_t",
     "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::every_closure_variant_syncs_and_corrects",
     "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::laminar_default_is_the_plain_molecular_laplacian",
     "crates/outram-foam-appbuilder-lib/src/turbulence/mod.rs::momentum_operator_picks_up_turbulent_viscosity",
-    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::backward_ddt_selection_is_live_and_not_worse_against_ghia",
-    "crates/outram-foam-appbuilder-lib/tests/fv_scheme_selection.rs::gauss_linear_convection_beats_upwind_against_ghia_1982",
-    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::attaching_a_closure_changes_the_momentum_solution",
-    "crates/outram-foam-appbuilder-lib/tests/turbulence_coupling.rs::homogeneous_decay_matches_analytic_k_omega_solution",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_benchmark_re100_fine_mesh",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_ghia_grid_convergence_re100",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_pressure_solver_comparison_fine_mesh",
-    "crates/outram-foam-appbuilder-lib/tutorials/pimple_foam_cavity.rs::cavity_velocity_matches_icofoam",
 ]
 
 [module."mod.rs"]
@@ -222,26 +210,14 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
     "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
 ]
 failed = []
 

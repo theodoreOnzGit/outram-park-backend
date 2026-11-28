@@ -3,11 +3,6 @@ kind = "code_folder"
 crate = "raffles"
 dir = "crates/raffles/src/bayesian"
 test_ids = [
-    "crates/raffles/src/abc.rs::a_smaller_tolerance_tightens_the_posterior",
-    "crates/raffles/src/abc.rs::abc_matching_the_observed_sample_size_recovers_the_right_width",
-    "crates/raffles/src/abc.rs::an_oversampled_simulator_makes_the_posterior_over_confident",
-    "crates/raffles/src/abc.rs::rejection_abc_agrees_with_the_sampler_based_route",
-    "crates/raffles/src/abc.rs::rejection_abc_is_reproducible",
     "crates/raffles/src/bayesian/case_studies.rs::the_eigenvalue_problem_finds_both_of_its_exact_modes",
     "crates/raffles/src/bayesian/case_studies.rs::the_models_match_their_upstream_formulas",
     "crates/raffles/src/bayesian/case_studies.rs::the_spring_mass_posterior_matches_its_closed_form",
@@ -42,7 +37,6 @@ test_ids = [
     "crates/raffles/src/bayesian/transitional.rs::the_two_tempering_criteria_reach_the_same_posterior",
     "crates/raffles/src/bayesian/transitional.rs::tmcmc_ensemble_matches_the_matlab_ensemble",
     "crates/raffles/src/bayesian/transitional.rs::tmcmc_matches_the_conjugate_normal_posterior",
-    "crates/raffles/src/model_selection.rs::model_selection_picks_the_model_the_data_came_from",
 ]
 
 [module."case_studies.rs"]
@@ -786,8 +780,8 @@ hash = "sha256:925f2aa40babee81e243651392da9b88e4dd18bf7584ec3a886c0a862479814a"
 doc_hash = "sha256:05654e37bc33aedff557da53ce3135fe48619ae9f6d0b95241b3c8e0ce061481"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -824,12 +818,6 @@ passed = [
     "#31",
     "#32",
     "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
 ]
 failed = []
 

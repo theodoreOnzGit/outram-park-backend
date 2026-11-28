@@ -10,9 +10,6 @@ test_ids = [
     "crates/outram-blender/src/csg/gpu/index.rs::folded_lists_find_the_same_cell",
     "crates/outram-blender/src/csg/gpu/index.rs::surfaces_are_classified_exactly",
     "crates/outram-blender/src/csg/gpu/index.rs::unbounded_openmc_boxes_are_tightened",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::gpu_trace_matches_the_cpu_plotter",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::grid_index_matches_the_cpu_plotter",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::shader_validates_without_a_gpu",
 ]
 
 [module."flat.rs"]
@@ -984,8 +981,8 @@ hash = "sha256:3a8de5484115ac05c0df96076176e7782400e710912c5084f2299b29403a1a62"
 doc_hash = "sha256:1b13adcdd3857e9b2bc007f35bbda279db20fb78a205eb5326cc046a9cc1b0af"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -995,9 +992,6 @@ passed = [
     "#4",
     "#5",
     "#6",
-    "#7",
-    "#8",
-    "#9",
 ]
 failed = []
 

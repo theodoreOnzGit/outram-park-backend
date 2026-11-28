@@ -2,16 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-coolprop"
 dir = "crates/outram-park-fork-coolprop/src/mixtures/binary_pairs"
-test_ids = [
-    "crates/outram-park-fork-coolprop/tests/all_binary_pairs_smoke.rs::every_binary_pair_evaluates_at_a_representative_state",
-    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::departure_function_is_actually_exercised",
-    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::pure_r32_limit_is_exact",
-    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::r32_r125_blend_state_is_physical",
-    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::air_like_mixture_matches_known_air_properties",
-    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::pure_nitrogen_limit_is_exact",
-    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::air_speed_of_sound_and_compressibility_match_reference",
-    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::r410a_predefined_constructs_and_evaluates",
-]
 
 [module."data_0.rs"]
 path = "crate::mixtures::binary_pairs::data_0"
@@ -109,19 +99,10 @@ hash = "sha256:2968b2430a2986a9e1a05add014177d4fe83cd0221ee946eec1e085380ea0bf1"
 doc_hash = "sha256:c02a7d778734fd0b85abd93ce201b64c5ab302e3d69600c675a11f7e2b7fbcd0"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-]
+passed = []
 failed = []
 
 [targeted_run]

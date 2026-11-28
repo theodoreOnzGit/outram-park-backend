@@ -2,11 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "njoy-outram-park-fork"
 dir = "crates/njoy-outram-park-fork/src/wimsr"
-test_ids = [
-    "crates/njoy-outram-park-fork/src/wimsr/wimout.rs::e15_8_matches_fortran",
-    "crates/njoy-outram-park-fork/tests/wimsr_u238_njoy_golden.rs::library_matches_njoy_wimsd_tape",
-    "crates/njoy-outram-park-fork/tests/wimsr_u238_njoy_golden.rs::listing_stage_values",
-]
+test_ids = ["crates/njoy-outram-park-fork/src/wimsr/wimout.rs::e15_8_matches_fortran"]
 
 [module."gendf.rs"]
 path = "crate::wimsr::gendf"
@@ -288,14 +284,10 @@ hash = "sha256:52cfa6ed72808da7201561771457237102ce90f0884f8a5ddbed8922f0b81b02"
 doc_hash = "sha256:5ab3abc7f84dcbd9fb3e3324e1aa077d9df5e18559df002652aad6abd7e466c6"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-]
+passed = ["#0"]
 failed = []
 
 [targeted_run]

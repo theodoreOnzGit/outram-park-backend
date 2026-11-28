@@ -53,20 +53,6 @@ test_ids = [
     "crates/kovan/src/tui/ingest/review.rs::save_reports_an_unwritable_path_instead_of_panicking",
     "crates/kovan/src/tui/ingest/review.rs::save_reports_validation_failure_without_writing_anything",
     "crates/kovan/src/tui/ingest/review.rs::save_writes_all_three_artifacts_with_corrected_metadata",
-    "crates/kovan/src/tui/mod.rs::back_tab_cycles_backward_and_wraps_from_overview",
-    "crates/kovan/src/tui/mod.rs::digit_keys_switch_tabs",
-    "crates/kovan/src/tui/mod.rs::digit_seven_reaches_the_digitiser_tab",
-    "crates/kovan/src/tui/mod.rs::digit_six_reaches_the_ingest_tab",
-    "crates/kovan/src/tui/mod.rs::editing_suppresses_global_quit_and_tab_switch_keys",
-    "crates/kovan/src/tui/mod.rs::esc_also_quits_when_not_editing",
-    "crates/kovan/src/tui/mod.rs::every_tab_draws_without_panicking",
-    "crates/kovan/src/tui/mod.rs::literature_i_hands_the_selected_pdf_to_the_ingest_tab",
-    "crates/kovan/src/tui/mod.rs::overview_tab_ignores_navigation_keys_without_panicking",
-    "crates/kovan/src/tui/mod.rs::poll_interval_is_short_only_while_work_is_in_flight",
-    "crates/kovan/src/tui/mod.rs::q_quits_from_the_default_overview_tab",
-    "crates/kovan/src/tui/mod.rs::quitting_is_blocked_while_an_import_is_in_flight",
-    "crates/kovan/src/tui/mod.rs::tab_bar_highlights_the_active_tab",
-    "crates/kovan/src/tui/mod.rs::tab_key_cycles_forward_and_wraps",
 ]
 
 [module."draw.rs"]
@@ -1038,8 +1024,8 @@ hash = "sha256:a7ae2fcf922c3d1c3290e7af1e00d464f52baca3e78d4652735e75a15e61e5c3"
 doc_hash = "sha256:8a9a5c61ac2d77c6603848d2da35b9c07f3f86fd24d05b35d2055237aaeb110b"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1092,20 +1078,6 @@ passed = [
     "#47",
     "#48",
     "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
 ]
 failed = []
 

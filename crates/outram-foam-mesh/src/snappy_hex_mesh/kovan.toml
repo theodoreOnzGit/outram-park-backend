@@ -3,15 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-mesh"
 dir = "crates/outram-foam-mesh/src/snappy_hex_mesh"
 test_ids = [
-    "crates/outram-foam-mesh/src/driver.rs::bad_keep_region_is_reported",
-    "crates/outram-foam-mesh/src/driver.rs::castellate_only_sphere_octree_interface_quality",
-    "crates/outram-foam-mesh/src/driver.rs::layer_outcome_is_detected_on_both_branches",
-    "crates/outram-foam-mesh/src/driver.rs::snapping_stays_valid_and_improves_volume",
-    "crates/outram-foam-mesh/src/mesh_quality.rs::cartesian_block_is_perfect",
-    "crates/outram-foam-mesh/src/mesh_quality.rs::elongated_cell_aspect_ratio_matches_closed_form",
-    "crates/outram-foam-mesh/src/mesh_quality.rs::inverted_cell_is_flagged_unusable",
-    "crates/outram-foam-mesh/src/mesh_quality.rs::offset_face_skewness_equals_offset",
-    "crates/outram-foam-mesh/src/mesh_quality.rs::sheared_block_non_orthogonality_is_atan_k",
     "crates/outram-foam-mesh/src/snappy_hex_mesh/layers.rs::grading_arithmetic",
     "crates/outram-foam-mesh/src/snappy_hex_mesh/layers.rs::insert_flat_wall_interior_shrink_grading_and_quality",
     "crates/outram-foam-mesh/src/snappy_hex_mesh/layers.rs::no_wall_patch_errors",
@@ -29,24 +20,6 @@ test_ids = [
     "crates/outram-foam-mesh/src/snappy_hex_mesh/snapping.rs::segment_projection",
     "crates/outram-foam-mesh/src/snappy_hex_mesh/snapping.rs::snap_requires_wall_patch",
     "crates/outram-foam-mesh/src/snappy_hex_mesh/snapping.rs::snap_sphere_projects_onto_surface",
-    "crates/outram-foam-mesh/tests/block_mesh.rs::cavity_poly_mesh_round_trips_and_is_cartesian",
-    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::castellation_emits_conformal_cyclic_pair",
-    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::conformity_check_catches_a_broken_seam",
-    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::snapping_preserves_cyclic_conformity_and_moves_the_seam",
-    "crates/outram-foam-mesh/tests/cyclic_snapping.rs::without_cyclic_declaration_the_seam_is_frozen_as_before",
-    "crates/outram-foam-mesh/tests/poly_dual_mesh.rs::dual_quality_is_exactly_orthogonal_on_a_uniform_block",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::ascii_stl_parses_all_facets",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::binary_stl_roundtrips_one_triangle",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::castellate_box_around_sphere",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::castellate_keep_inside_carves_external",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::closest_point_on_triangle_regions",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::full_pipeline_castellate_snap_layers",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::inside_outside_of_sphere",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::layer_addition_extrudes_valid_prisms",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::layer_grading_arithmetic",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::nearest_surface_point_lands_on_sphere",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::snapping_morphs_boundary_onto_sphere",
-    "crates/outram-foam-mesh/tests/snappy_hex_mesh.rs::topology_rebuild_reproduces_castellation_geometry",
 ]
 
 [module."background.rs"]
@@ -1234,8 +1207,8 @@ hash = "sha256:de79488c328f74fed51248bb0d957e353f5f3778784c8d0aaeb6ffed3fc6d148"
 doc_hash = "sha256:54a55d9faf0944f5344de16854bac61ec26559464815055104f65c5b7c73b286"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1255,33 +1228,6 @@ passed = [
     "#14",
     "#15",
     "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
 ]
 failed = []
 

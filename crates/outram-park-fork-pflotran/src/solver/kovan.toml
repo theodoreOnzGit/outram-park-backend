@@ -3,21 +3,6 @@ kind = "code_folder"
 crate = "outram-park-fork-pflotran"
 dir = "crates/outram-park-fork-pflotran/src/solver"
 test_ids = [
-    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_reports_its_name",
-    "crates/outram-park-fork-pflotran/src/flow/mod.rs::flow_mode_step_advances_time",
-    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_box_uniform_field_is_stationary",
-    "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_domain_conserves_total_mass",
-    "crates/outram-park-fork-pflotran/src/flow/richards.rs::haverkamp_sand_column_runs_and_wets_up",
-    "crates/outram-park-fork-pflotran/src/flow/richards.rs::saturated_1d_steady_state_is_linear",
-    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::closed_domain_conserves_water_gas_and_energy",
-    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::closed_uniform_column_is_stationary",
-    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::constructors_reject_bad_inputs",
-    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::isothermal_limit_reduces_to_two_phase_imbibition",
-    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::step_converges_and_stays_bounded",
-    "crates/outram-park-fork-pflotran/src/general_mode/mod.rs::thermal_coupling_hot_boundary_warms_and_changes_flow",
-    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_domain_conserves_phase_masses",
-    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::closed_uniform_column_is_stationary",
-    "crates/outram-park-fork-pflotran/src/multiphase/mod.rs::imbibition_column_wets_up_and_stays_bounded",
     "crates/outram-park-fork-pflotran/src/solver/block.rs::block_bicgstab_matches_dense_lu",
     "crates/outram-park-fork-pflotran/src/solver/block.rs::block_bicgstab_zero_rhs_short_circuits",
     "crates/outram-park-fork-pflotran/src/solver/block.rs::block_spmv_matches_dense",
@@ -28,22 +13,6 @@ test_ids = [
     "crates/outram-park-fork-pflotran/src/solver/mod.rs::linear_system_converges_in_one_step",
     "crates/outram-park-fork-pflotran/src/solver/mod.rs::wrong_length_guess_is_rejected",
     "crates/outram-park-fork-pflotran/src/solver/mod.rs::zero_iteration_budget_reports_nonconvergence",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::buoyancy_onset_across_critical_rayleigh",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::constructors_reject_bad_inputs",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::heated_from_above_stays_stable",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::no_buoyancy_gives_pure_conduction_no_flow",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_covers_interval_and_advances_time",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_adaptive_validates_inputs",
-    "crates/outram-park-fork-pflotran/src/thermal_convection/mod.rs::step_converges_and_energy_responds_to_heating",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::flow_mode_run_matches_direct_simulation",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::infiltration_column_runs_and_is_physically_sensible",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::output_writers_produce_wellformed_csv_and_vtk",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::richards_transport_coupling_advects_a_tracer",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
-    "crates/outram-park-fork-pflotran/tests/regression.rs::transient_column_matches_frozen_baseline",
-    "crates/outram-park-fork-pflotran/tests/verification.rs::hydrostatic_column_matches_analytical_gravity",
-    "crates/outram-park-fork-pflotran/tests/verification.rs::mms_saturated_operator_is_second_order",
-    "crates/outram-park-fork-pflotran/tests/verification.rs::saturated_linear_profile_is_exact",
 ]
 
 [module."block.rs"]
@@ -659,8 +628,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -673,37 +642,6 @@ passed = [
     "#7",
     "#8",
     "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
 ]
 failed = []
 

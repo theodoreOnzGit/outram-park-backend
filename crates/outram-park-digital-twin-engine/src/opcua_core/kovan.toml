@@ -3,11 +3,6 @@ kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/opcua_core"
 test_ids = [
-    "crates/outram-park-digital-twin-engine/src/ciet_opcua/pki_paths.rs::description_names_the_directory_and_the_missing_security",
-    "crates/outram-park-digital-twin-engine/src/ciet_opcua/pki_paths.rs::pki_path_ends_in_the_platform_components",
-    "crates/outram-park-digital-twin-engine/src/ciet_opcua/server.rs::default_config_binds_all_interfaces_on_the_standard_port",
-    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::ciet_nodes_reproduce_the_node_map",
-    "crates/outram-park-digital-twin-engine/src/ciet_opcua/simulator.rs::writes_are_recorded_as_requests_and_clamped_on_apply",
     "crates/outram-park-digital-twin-engine/src/opcua_core/discovery.rs::instance_name_is_stripped_from_the_dns_sd_fullname",
     "crates/outram-park-digital-twin-engine/src/opcua_core/discovery.rs::instance_names_are_sanitised_to_dns_safe_labels",
     "crates/outram-park-digital-twin-engine/src/opcua_core/discovery.rs::mdns_service_type_is_a_valid_dns_sd_type",
@@ -16,7 +11,6 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/opcua_core/server.rs::for_simulator_binds_all_interfaces_on_the_profile_port",
     "crates/outram-park-digital-twin-engine/src/opcua_core/server.rs::is_loopback_only_recognises_every_loopback_form",
     "crates/outram-park-digital-twin-engine/src/opcua_core/server.rs::primary_url_prefers_a_reachable_address",
-    "crates/outram-park-digital-twin-engine/tests/ciet_v2_opcua_roundtrip.rs::opcua_interface_round_trips_controls_and_outputs",
 ]
 
 [module."discovery.rs"]
@@ -613,8 +607,8 @@ hash = "sha256:579fbc910fbbc6e8ee47b12e08d83dd2fbc4384076ef659f6f2330019bbd129e"
 doc_hash = "sha256:26d6a643e161b462b070c29945df4203d393532f2302ee60c5999f3ba28e69c5"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -625,12 +619,6 @@ passed = [
     "#5",
     "#6",
     "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
 ]
 failed = []
 

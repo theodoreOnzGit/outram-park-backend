@@ -87,3 +87,10 @@ qual = "upstream_dir"
 hash = "sha256:73907f6c1bb8907edc1bc30250c6ccaf89da9769efabd2546e4faa89982755b2"
 doc_hash = "sha256:ebc06eba4ccd3185010afd96f0318077932fd4dd4e4a30fdd3a6f67c78afe920"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

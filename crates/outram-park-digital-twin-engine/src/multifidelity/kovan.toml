@@ -5,3 +5,10 @@ dir = "crates/outram-park-digital-twin-engine/src/multifidelity"
 
 [module."mod.rs"]
 path = "crate::multifidelity"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

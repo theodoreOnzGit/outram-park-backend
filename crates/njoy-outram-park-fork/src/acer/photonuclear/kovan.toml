@@ -2,28 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "njoy-outram-park-fork"
 dir = "crates/njoy-outram-park-fork/src/acer/photonuclear"
-test_ids = [
-    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::iopt7_resuffix_and_recomment_matches_njoy2016",
-    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::type1_files_read_back_and_rewrite_byte_exactly",
-    "crates/njoy-outram-park-fork/tests/ace_read_type1_vs_type2.rs::type1_write_round_trips_through_values",
-    "crates/njoy-outram-park-fork/tests/acer.rs::angular_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/acer.rs::full_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/acer.rs::one_writer_and_both_containers_for_a_built_table",
-    "crates/njoy-outram-park-fork/tests/acer.rs::type1_file_roundtrips",
-    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::h1_dosimetry_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::h1_dosimetry_mcnpx_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_dosimetry_vs_njoy2016.rs::mn55_dosimetry_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::mcnpx_type1_output_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::type1_output_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::a_corrupt_count_is_refused_rather_than_walked_past",
-    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::built_table_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::photonuclear_layout_matches_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::photonuclear_read_then_write_is_byte_exact",
-    "crates/njoy-outram-park-fork/tests/acer_photonuclear_vs_njoy2016.rs::unported_representations_refuse_by_name",
-    "crates/njoy-outram-park-fork/tests/thermal_ace.rs::thermal_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/thermal_ace_zrh.rs::thermal_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
-]
 
 [module."build.rs"]
 path = "crate::acer::photonuclear::build"
@@ -529,31 +507,10 @@ doc_hash = "sha256:5a6c8887e947ee9a2bda4aa9f6b25ed5def35d4481f7fc74ab6caa2a7955e
 path = "crate::acer::photonuclear"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-]
+passed = []
 failed = []
 
 [targeted_run]

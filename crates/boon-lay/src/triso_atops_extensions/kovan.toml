@@ -3,6 +3,11 @@ kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/triso_atops_extensions"
 test_ids = [
+    "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::atoms_are_conserved",
+    "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::bad_inputs_are_refused",
+    "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::mean_exit_time_against_the_layered_formula",
+    "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::one_sphere_against_crank",
+    "crates/boon-lay/src/triso_atops_extensions/multilayer_diffusion.rs::steady_release_to_birth_against_booth",
     "crates/boon-lay/src/triso_atops_extensions/normal_operation.rs::one_group_or_element_changes_only_itself",
     "crates/boon-lay/src/triso_atops_extensions/normal_operation.rs::upstream_rates_reproduce_the_port_bit_for_bit",
     "crates/boon-lay/src/triso_atops_extensions/removal_rates.rs::element_overrides_its_group",
@@ -366,10 +371,10 @@ shape = "struct"
 hash = "sha256:d6d770394902b2f63bb63bddaa43255a0b3186070ab82ad33b2add80be0f28c4"
 doc_hash = "sha256:dd24517fce09bdf9e7567b9cc7e1a2975d3d9d55ccb8019b2b8d9bf1aa1f35ed"
 reached_by = [
-    "#0",
-    "#1",
-    "#2",
-    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#9",
 ]
 
 [[module."removal_rates.rs".function]]
@@ -526,8 +531,8 @@ doc_hash = "sha256:f6bee59e64af0e8fee7cafc527a75e2c2be7627aaaf6fcd4b6000f7ba70bf
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -535,6 +540,11 @@ passed = [
     "#2",
     "#3",
     "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
 ]
 failed = []
 
@@ -543,26 +553,26 @@ commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "targeted"
 passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#4",
-]
-failed = []
-targets = [
-    "#0",
-    "#1",
-    "#2",
-    "#4",
     "#5",
     "#6",
     "#7",
-    "#8",
+    "#9",
+]
+failed = []
+targets = [
+    "#5",
+    "#6",
+    "#7",
     "#9",
     "#10",
     "#11",
     "#12",
     "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
 ]
 
 [[review]]

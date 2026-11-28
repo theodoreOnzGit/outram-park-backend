@@ -12,7 +12,6 @@ test_ids = [
     "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_with_zeroes_recurrence_matches_analytic_superposition",
     "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::pid_step_cost_does_not_grow_with_step_index",
     "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::second_order_recurrence_matches_analytic_superposition",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/transfer_fn_wrapper_and_enums/generic_second_order.rs::test_dead_time",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
@@ -880,8 +879,8 @@ doc_hash = "sha256:3a8bead5a69737e6b7aa91f4a3a79532a827daf17bd8301f73db1dd873248
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -893,7 +892,6 @@ passed = [
     "#6",
     "#7",
     "#8",
-    "#9",
 ]
 failed = []
 
@@ -904,6 +902,7 @@ suite = "targeted"
 passed = []
 failed = []
 targets = [
+    "#9",
     "#10",
     "#11",
     "#12",
@@ -939,5 +938,4 @@ targets = [
     "#42",
     "#43",
     "#44",
-    "#45",
 ]

@@ -5,6 +5,41 @@ dir = "crates/dhoby-ghaut/tests"
 test_ids = [
     "crates/dhoby-ghaut/tests/gpu_csg_parity.rs::dem_bed_views_gpu_match_cpu",
     "crates/dhoby-ghaut/tests/gpu_csg_parity.rs::htr10_views_gpu_match_cpu",
+    "crates/dhoby-ghaut/tests/lesson_barriers.rs::accident_history_and_release",
+    "crates/dhoby-ghaut/tests/lesson_barriers.rs::every_filled_coefficient_can_be_called_and_the_gaps_are_refused",
+    "crates/dhoby-ghaut/tests/lesson_barriers.rs::exact_mean_exit_time",
+    "crates/dhoby-ghaut/tests/lesson_barriers.rs::pressure_stress_and_weibull",
+    "crates/dhoby-ghaut/tests/lesson_barriers.rs::the_walker_probe_stays_inside",
+    "crates/dhoby-ghaut/tests/lesson_barriers.rs::thinning_and_decomposition",
+    "crates/dhoby-ghaut/tests/lesson_breathing.rs::release_present_from_the_start_vents_exactly_one_minus_t0_over_t",
+    "crates/dhoby-ghaut/tests/lesson_breathing.rs::well_mixed_matches_the_formula_and_stays_below_the_product",
+    "crates/dhoby-ghaut/tests/lesson_chemistry_handoff.rs::air_law_flags_and_crossover",
+    "crates/dhoby-ghaut/tests/lesson_chemistry_handoff.rs::hydrolysis_flags_and_clamp_pressure",
+    "crates/dhoby-ghaut/tests/lesson_chemistry_handoff.rs::steam_law_and_box",
+    "crates/dhoby-ghaut/tests/lesson_chemistry_handoff.rs::the_source_term_is_the_record",
+    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::a_gaussian_step_jumps_layers_and_wos_does_not",
+    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::decay_library_and_branches",
+    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::release_against_crank",
+    "crates/dhoby-ghaut/tests/lesson_decay_walk.rs::sampled_futures_follow_the_simulator_and_cram",
+    "crates/dhoby-ghaut/tests/lesson_diffusion_arc.rs::exact_profile_limits_and_fv_profile",
+    "crates/dhoby-ghaut/tests/lesson_diffusion_arc.rs::one_sphere_three_ways_agree",
+    "crates/dhoby-ghaut/tests/lesson_diffusion_arc.rs::particle_setups_and_atops_formulas",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::decay_chains_from_boon_lay",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::diffusion_series_from_boon_lay",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::endf_text_readers",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::kinematics_hand_cases",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::nudat_masses_read",
+    "crates/dhoby-ghaut/tests/lesson_fission_cascades.rs::rounding_and_q_intervals",
+    "crates/dhoby-ghaut/tests/lesson_triso_atops.rs::constants_groups_and_clamps",
+    "crates/dhoby-ghaut/tests/lesson_triso_atops.rs::normal_operation_is_linear_in_the_fractions",
+    "crates/dhoby-ghaut/tests/lesson_triso_atops.rs::release_models",
+    "crates/dhoby-ghaut/tests/lesson_triso_atops.rs::small_helpers",
+    "crates/dhoby-ghaut/tests/lesson_triso_atops.rs::venting_only_while_heating",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::booth_limits",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::half_lives",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::kernel_conduction",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::monte_carlo_against_booth",
+    "crates/dhoby-ghaut/tests/lesson_triso_kernel.rs::the_codes_lumping",
 ]
 
 [module."gpu_csg_parity.rs"]
@@ -395,12 +430,47 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+    "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
+    "#31",
+    "#32",
+    "#33",
+    "#34",
+    "#35",
+    "#36",
 ]
 failed = []
 

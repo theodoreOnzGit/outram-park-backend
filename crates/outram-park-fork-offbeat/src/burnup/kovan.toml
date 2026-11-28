@@ -15,7 +15,6 @@ test_ids = [
     "crates/outram-park-fork-offbeat/src/burnup/mod.rs::next_time_step_scales_inversely_with_the_burnup_increment",
     "crates/outram-park-fork-offbeat/src/burnup/mod.rs::restart_and_apply_to_material_state",
     "crates/outram-park-fork-offbeat/src/burnup/mod.rs::unphysical_inputs_are_rejected",
-    "crates/outram-park-fork-offbeat/src/fgr/mod.rs::gas_production_is_the_yield_times_the_fission_rate",
 ]
 
 [module."mod.rs"]
@@ -463,8 +462,8 @@ doc_hash = "sha256:bdd7e8a168699a20e132aa201491038d2799d8d3366a59afde1f4a67a3c08
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -479,7 +478,6 @@ passed = [
     "#9",
     "#10",
     "#11",
-    "#12",
 ]
 failed = []
 

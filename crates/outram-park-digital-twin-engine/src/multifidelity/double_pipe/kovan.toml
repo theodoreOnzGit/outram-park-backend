@@ -2,6 +2,30 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/cfd.rs::closure_conversion_and_meshes",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/closure.rs::closures_from_cfd_reproduce_the_pressure_drop_through_tuas_law",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/closure.rs::the_table_is_exact_on_a_log_multilinear_closure_and_refuses_held_out_points",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/cokriging.rs::full_factorial_orders_re_hot_slowest_and_length_fastest",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/cokriging.rs::mfk_on_the_double_pipe_held_out_report",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/cokriging.rs::sweep_is_predict_at_every_point_in_order",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/dataset.rs::output_round_trips_and_bad_csv_is_refused",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/design.rs::the_design_is_44_points_with_8_held_out_inside_the_training_hull",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/fidelity.rs::corrected_model_at_nominal_theta_is_one_d_bit_for_bit",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/fidelity.rs::polynomial_surrogate_of_the_cfd_held_out_report",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/fidelity.rs::the_committed_dataset_keeps_its_split_and_provenance",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/fidelity.rs::the_parameter_space_holds_nominal_theta",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/filtering.rs::construction_pieces",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/filtering.rs::pilot_four_experiments_three_filters",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/koh.rs::koh_calibration_of_the_double_pipe",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/koh.rs::the_ua_pair_and_spec_are_consistent",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/lf_grid.rs::the_committed_low_fidelity_grid_regenerates",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/mod.rs::inputs_and_fixed_geometry",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/one_d.rs::march_free_ua_is_the_marched_ua",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/one_d.rs::nominal_theta_is_tuas_own_correlation_path",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/openda.rs::pilot_a_openda_enkf_beside_filterpy_enkf",
+    "crates/outram-park-digital-twin-engine/src/multifidelity/double_pipe/openda.rs::pilot_b_dud_against_the_koh_posterior",
+]
 
 [module."cfd.rs"]
 path = "crate::multifidelity::double_pipe::cfd"
@@ -1942,3 +1966,33 @@ name = "run_cfd_design"
 qual = "run_cfd_design"
 hash = "sha256:8bd5f4f91d17c02ab5a23f44348b9ab9010784058a28f9fff5729e92a11fc9e9"
 doc_hash = "sha256:c7641f1527222b99a3e059d0564ccca13fefe9498bf80e3de478a8c58b07fcc8"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+]
+failed = []

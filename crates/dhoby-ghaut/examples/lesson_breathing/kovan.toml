@@ -98,3 +98,10 @@ name = "run"
 qual = "run"
 hash = "sha256:90cb8b24ab8fb22c1798dbef0dccb3e944f0878d6b6950b13a8daba6217d428a"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

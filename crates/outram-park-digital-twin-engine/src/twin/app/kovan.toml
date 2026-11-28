@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/twin/app"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/twin/app/tests.rs::the_app_applies_gruvbox",
+    "crates/outram-park-digital-twin-engine/src/twin/app/tests.rs::the_page_text_is_what_the_model_has",
+    "crates/outram-park-digital-twin-engine/src/twin/app/tests.rs::the_trend_range_does_not_magnify_round_off",
+    "crates/outram-park-digital-twin-engine/src/twin/app/tests.rs::the_trend_window_zooms_and_slices",
+]
 
 [module."tests.rs"]
 path = "crate::twin::app::tests"
@@ -37,3 +43,15 @@ qual = "the_trend_window_zooms_and_slices"
 hash = "sha256:00b3ee7c4b5d12083416e008a55d212debca628d40b4a30a1e7d0656a39bf4f6"
 doc_hash = "sha256:8c4ab71a39eaa38bc0a1ceec2293cc72ee1625a0af7ccc8ca5a9c1ce3c849113"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

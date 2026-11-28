@@ -318,3 +318,10 @@ name = "headless_csv"
 qual = "headless_csv"
 hash = "sha256:2d73f464513505430e3135e1515e94b862413b445ca5b06633a1c8fd6b1ac619"
 doc_hash = "sha256:c85eba13364ca86d27490298166d78d157d78531e63b8ef23fcfc0827a3cbe20"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

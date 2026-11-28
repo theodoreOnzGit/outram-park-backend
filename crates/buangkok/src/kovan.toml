@@ -10,7 +10,6 @@ test_ids = [
     "crates/buangkok/src/lib.rs::the_scope_is_recorded",
     "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::accident_external_band_against_table_9_whole_body",
     "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::normal_operation_external_band_against_table_7",
-    "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_ba137m_branching_agrees_with_the_decay_library",
     "crates/buangkok/tests/liu_cao_external_dose_cross_check.rs::the_external_dose_is_linear_in_the_release",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::a_below_floor_dose_rate_field_is_announced",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::at_10_mwth_the_graph_is_unchanged_and_the_nrc_line_is_never_scaled",
@@ -210,18 +209,14 @@ doc_hash = "sha256:e8058ded9fe42407f55fd21af32fe2c93057a1afefc5bf9545c12ebdb70d1
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
     "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
 ]
 failed = []
 
@@ -232,15 +227,16 @@ suite = "targeted"
 passed = [
     "#4",
     "#5",
-    "#7",
+    "#6",
+    "#56",
     "#57",
     "#58",
-    "#59",
 ]
 failed = []
 targets = [
     "#4",
     "#5",
+    "#6",
     "#7",
     "#8",
     "#9",
@@ -293,5 +289,4 @@ targets = [
     "#56",
     "#57",
     "#58",
-    "#59",
 ]

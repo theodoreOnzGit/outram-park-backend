@@ -3,16 +3,6 @@ kind = "code_folder"
 crate = "chem-eng-real-time-process-control-simulator"
 dir = "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/errors"
 test_ids = [
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::block_state_size_does_not_grow_with_step_index",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::decaying_exponential_recurrence_matches_analytic_superposition",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::decaying_sinusoid_recurrence_matches_analytic_superposition",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_handles_dead_time_with_a_bounded_queue",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_is_exact_on_an_irregular_time_grid",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_recurrence_matches_analytic_superposition",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::first_order_with_zeroes_recurrence_matches_analytic_superposition",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::pid_step_cost_does_not_grow_with_step_index",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/stable_transfer_functions/recurrence_tests.rs::second_order_recurrence_matches_analytic_superposition",
-    "crates/chem-eng-real-time-process-control-simulator/src/lib/alpha_nightly/transfer_fn_wrapper_and_enums/generic_second_order.rs::test_dead_time",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
@@ -85,10 +75,19 @@ hash = "sha256:930ada24f8c77d421ac76286c9f4447df710074b63a5f7b3b1d26849d24907a3"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
+passed = []
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = []
+failed = []
+targets = [
     "#0",
     "#1",
     "#2",
@@ -99,16 +98,6 @@ passed = [
     "#7",
     "#8",
     "#9",
-]
-failed = []
-
-[targeted_run]
-commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
-suite = "targeted"
-passed = []
-failed = []
-targets = [
     "#10",
     "#11",
     "#12",
@@ -135,14 +124,4 @@ targets = [
     "#33",
     "#34",
     "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
 ]

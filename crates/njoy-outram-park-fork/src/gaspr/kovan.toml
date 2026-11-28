@@ -17,11 +17,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/gaspr/mod.rs::skip_list_matches_upstream",
     "crates/njoy-outram-park-fork/src/gaspr/mod.rs::species_mt_numbers_are_203_to_207",
     "crates/njoy-outram-park-fork/src/gaspr/mod.rs::two_species_channel_credits_both",
-    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::b10_gas_production_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::be9_gas_production_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::c12_gas_production_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::h2_gas_production_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/gaspr_vs_njoy2016.rs::li6_gas_production_matches_njoy",
 ]
 
 [module."mod.rs"]
@@ -285,8 +280,8 @@ doc_hash = "sha256:592ba7571c50cdc5d0976d34586f7c523577bd1ff9bf2eb0f8786d83a93b0
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -303,11 +298,6 @@ passed = [
     "#11",
     "#12",
     "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
 ]
 failed = []
 

@@ -187,7 +187,6 @@ test_ids = [
     "crates/outram-park-fork-offbeat/src/materials/properties/young_modulus.rs::value_clamps_where_value_checked_reports_out_of_range",
     "crates/outram-park-fork-offbeat/src/materials/properties/young_modulus.rs::watrous_hastelloy_n_clamps_instead_of_returning_zero_above_the_limit",
     "crates/outram-park-fork-offbeat/src/materials/properties/young_modulus.rs::watrous_hastelloy_n_matches_the_hand_evaluated_expression_at_20_celsius",
-    "crates/outram-park-fork-offbeat/src/mechanics/solver/tests.rs::the_matpro_zircaloy_poisson_crossover_refuses_the_case_rather_than_clamping",
 ]
 
 [module."conductivity.rs"]
@@ -2801,8 +2800,8 @@ doc_hash = "sha256:a24ac52718008c7eeed0b0f074595f8e292217162f769af93c882b1d02eb4
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#36",
@@ -2953,7 +2952,6 @@ passed = [
     "#181",
     "#182",
     "#183",
-    "#184",
 ]
 failed = []
 

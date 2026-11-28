@@ -2,15 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-blender"
 dir = "crates/outram-blender/src/csg/plot/model_plot"
-test_ids = [
-    "crates/outram-blender/src/csg/gpu/flat.rs::a_self_fill_is_refused",
-    "crates/outram-blender/src/csg/gpu/flat.rs::a_sphere_cell_round_trips",
-    "crates/outram-blender/src/csg/gpu/flat.rs::a_torus_is_refused",
-    "crates/outram-blender/src/csg/gpu/index.rs::folded_lists_find_the_same_cell",
-    "crates/outram-blender/src/csg/gpu/index.rs::unbounded_openmc_boxes_are_tightened",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::gpu_trace_matches_the_cpu_plotter",
-    "crates/outram-blender/tests/gpu_csg_parity.rs::grid_index_matches_the_cpu_plotter",
-]
 
 [module."bounds.rs"]
 path = "crate::csg::plot::model_plot::bounds"
@@ -447,18 +438,10 @@ hash = "sha256:58938a455d68963787b0bd459c18b06fbc897c23a91a8036e70ee996f1eaf41f"
 doc_hash = "sha256:c814a441d14b30d3dc3d8ce3af08ae221d387e5823cdab1a1706d4d0a259f014"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-]
+passed = []
 failed = []
 
 [targeted_run]

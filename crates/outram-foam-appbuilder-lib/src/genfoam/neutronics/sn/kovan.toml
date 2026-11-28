@@ -3,8 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn"
 test_ids = [
-    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::dispatch_kind_and_keff_across_variants",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/mod.rs::scaffolds_report_not_implemented",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/quadrature.rs::level_symmetric_sets_reproduce_sphere_moments",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::scaffold_reports_not_implemented",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/sn/tests.rs::sn_approaches_diffusion_limit",
@@ -405,8 +403,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -415,8 +413,6 @@ passed = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
 ]
 failed = []
 

@@ -3,11 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/polynomial"
 test_ids = [
-    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::cubic_batch_matches_analytic_construction",
-    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::empty_batch_is_vacuously_converged",
-    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::linear_batch_matches_scalar_including_degenerate",
-    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::poly_batch_bitwise_identical_across_backends",
-    "crates/outram-foam-basic-lib/src/math/parallel/tests.rs::quadratic_batch_residuals_are_analytic",
     "crates/outram-foam-basic-lib/src/polynomial/cubic_eqn.rs::degenerate_nan_tag",
     "crates/outram-foam-basic-lib/src/polynomial/cubic_eqn.rs::degenerate_to_quadratic",
     "crates/outram-foam-basic-lib/src/polynomial/cubic_eqn.rs::one_real_two_complex",
@@ -33,38 +28,6 @@ test_ids = [
     "crates/outram-foam-basic-lib/src/polynomial/roots.rs::concat_3",
     "crates/outram-foam-basic-lib/src/polynomial/roots.rs::encoding_round_trip",
     "crates/outram-foam-basic-lib/src/polynomial/roots.rs::uniform_3",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::a_near_degenerate_spectrum_still_gives_an_orthonormal_basis",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::complex_spectrum_is_reported",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::diagonal_eigenvalues_are_the_diagonal_sorted",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::eigenvectors_satisfy_the_eigenvalue_equation",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::general_tensor_with_real_spectrum",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::repeated_eigenvalues_still_give_an_orthonormal_basis",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::spectrum_reproduces_trace_and_determinant",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::symmetric_eigenvectors_are_orthonormal",
-    "crates/outram-foam-basic-lib/src/primitives/eigen.rs::triple_eigenvalue_is_handled",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/ico_polynomial.rs::constant_poly_density",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/ico_polynomial.rs::density_decreases_with_temperature",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/ico_polynomial.rs::psi_is_zero",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::co2_ideal_gas_limit",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::co2_nist_density_400k_5mpa",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::co2_z_above_one_at_moderate_pressure",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::cp_m_cv_approaches_r_at_low_pressure",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::h_eos_zero_at_low_pressure",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::methane_density_at_moderate_conditions",
-    "crates/outram-foam-basic-lib/src/thermophysics/eos/peng_robinson.rs::psi_times_p_approx_rho",
-    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::const_poly_cp",
-    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::entropy_increases_with_temperature",
-    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::ha_roundtrip",
-    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::hs_plus_hc_equals_ha",
-    "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_polynomial.rs::linear_poly_cp",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::alpha_h_is_kappa_over_cp",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::kappa_at_300k",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::mu_at_300k",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::mu_increases_with_temperature",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_parity_serial_vs_cpu_multi",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_parity_serial_vs_gpu",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_thread_count_invariance",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::machine_load_report",
 ]
 
 [module."cubic_eqn.rs"]
@@ -622,8 +585,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -651,43 +614,6 @@ passed = [
     "#22",
     "#23",
     "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
 ]
 failed = []
 

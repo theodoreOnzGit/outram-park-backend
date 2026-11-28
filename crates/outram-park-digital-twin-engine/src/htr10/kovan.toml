@@ -68,12 +68,6 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::trip_reset_is_consumed_not_latched",
-    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::a_healthy_reactor_is_not_annotated",
-    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::no_release_is_drawn_where_retention_is_demonstrated",
-    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_htr10_trigger_uses_the_htr10_limit_not_the_generic_figure",
-    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_overlay_reports_the_numbers_behind_it",
-    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_phase_comes_from_the_application_clock_and_does_not_reverse",
-    "crates/outram-park-digital-twin-engine/src/components/excursion.rs::the_species_are_named_in_the_order_the_heating_tests_report",
     "crates/outram-park-digital-twin-engine/src/htr10/design.rs::core_volume_closes_against_cited_diameter_and_height",
     "crates/outram-park-digital-twin-engine/src/htr10/design.rs::fuel_temperature_limits_are_distinct_and_margin_is_positive",
     "crates/outram-park-digital-twin-engine/src/htr10/design.rs::operating_point_energy_balance_closes_against_coolprop_helium_cp",
@@ -887,8 +881,8 @@ doc_hash = "sha256:78c86a0fc0526c7e2fb98a69fd0002694e0df43dd2e9c6dc258cbef9df33f
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#65",
@@ -914,12 +908,6 @@ passed = [
     "#85",
     "#86",
     "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
 ]
 failed = []
 

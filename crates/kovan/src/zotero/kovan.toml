@@ -8,9 +8,6 @@ test_ids = [
     "crates/kovan/src/zotero/mod.rs::a_reactor_literature_folder_is_protected_and_a_temp_folder_is_not",
     "crates/kovan/src/zotero/mod.rs::document_path_is_named_after_the_citekey",
     "crates/kovan/src/zotero/mod.rs::this_crates_own_folder_is_protected",
-    "crates/kovan/tests/zotero_cli.rs::a_file_imported_twice_gets_new_ids_and_shows_as_duplicates",
-    "crates/kovan/tests/zotero_cli.rs::a_folder_written_before_this_change_is_unchanged_by_an_import",
-    "crates/kovan/tests/zotero_cli.rs::data_folder_import_export_reimport_round_trip",
 ]
 
 [module."import.rs"]
@@ -342,8 +339,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -351,9 +348,6 @@ passed = [
     "#2",
     "#3",
     "#4",
-    "#5",
-    "#6",
-    "#7",
 ]
 failed = []
 

@@ -7,12 +7,6 @@ test_ids = [
     "crates/nee_soon/src/blender_bridge.rs::mc_geometry_export_box_and_sphere",
     "crates/nee_soon/src/blender_bridge.rs::mc_geometry_maps_a_convex_faceted_plane",
     "crates/nee_soon/src/det_six_factor.rs::deterministic_six_factors_telescope_to_production_over_absorption",
-    "crates/nee_soon/src/htr10_mgxs/groups.rs::every_collapse_nests_in_the_tally_structure",
-    "crates/nee_soon/src/htr10_mgxs/groups.rs::tally_structure_is_wims69_plus_one",
-    "crates/nee_soon/src/htr10_mgxs/record.rs::a_record_round_trips_through_its_folder",
-    "crates/nee_soon/src/htr10_mgxs/record.rs::the_index_lists_finished_and_unfinished_cases",
-    "crates/nee_soon/src/htr10_mgxs/run.rs::balance_residual_is_the_worst_group",
-    "crates/nee_soon/src/htr10_mgxs/run.rs::checks_fail_on_the_defect_they_name",
     "crates/nee_soon/src/lib.rs::prompt_excursion_model_matches_direct_teh_o_prke_construction",
     "crates/nee_soon/src/mgxs.rs::a_small_balance_residual_is_a_large_absorption_error",
     "crates/nee_soon/src/mgxs.rs::bin_count_mismatch_is_rejected",
@@ -34,12 +28,6 @@ test_ids = [
     "crates/nee_soon/src/sim.rs::cell_flux_tally_accumulates",
     "crates/nee_soon/src/sim.rs::godiva_bare_sphere_is_near_critical",
     "crates/nee_soon/src/sim.rs::no_materials_is_an_error",
-    "crates/nee_soon/tests/coupling_api.rs::defaults_are_usable_and_failures_are_actionable",
-    "crates/nee_soon/tests/coupling_api.rs::the_documented_three_call_path_works",
-    "crates/nee_soon/tests/direct_coupling_steady_state.rs::a_non_converging_solve_reports_its_residuals",
-    "crates/nee_soon/tests/direct_coupling_steady_state.rs::monte_carlo_and_genfoam_reach_a_coupled_steady_state",
-    "crates/nee_soon/tests/mc_to_genfoam_kinf.rs::genfoam_reproduces_the_monte_carlo_kinf_from_its_own_mgxs",
-    "crates/nee_soon/tests/mgxs_from_monte_carlo.rs::mgxs_from_a_monte_carlo_run_satisfies_neutron_balance",
 ]
 
 [module."blender_bridge.rs"]
@@ -1045,8 +1033,8 @@ hash = "sha256:12549d88cb2b3bc117fb7a5f93163e81d2279ff9ae02f7ebbf396c670aecc7dc"
 doc_hash = "sha256:e2fdb2768a59b86d484da80e9ecd27de565ef074c4c6da55eef275c44785acfa"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1073,18 +1061,6 @@ passed = [
     "#21",
     "#22",
     "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
 ]
 failed = []
 

@@ -310,3 +310,10 @@ qual = "the_stepper_is_deterministic_and_inline_equals_threaded"
 hash = "sha256:474029080f040781be093a5c7a9cb45e0dc1b49731aae1f2c89cbf41162e2575"
 doc_hash = "sha256:29ae9a52ba45c0f2004e4562c87480c4dab7eef6c6575a9bad9237a21d6f70d7"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

@@ -3,14 +3,6 @@ kind = "code_folder"
 crate = "changi"
 dir = "crates/changi/src/puff"
 test_ids = [
-    "crates/changi/src/activity/chi_over_q.rs::a_fixed_stability_class_overrides_the_wind_derived_one",
-    "crates/changi/src/activity/chi_over_q.rs::a_stable_nuclide_is_the_undecayed_sum",
-    "crates/changi/src/activity/chi_over_q.rs::bins_carry_exact_travel_time",
-    "crates/changi/src/activity/chi_over_q.rs::decay_weights_each_bin_by_its_own_exact_travel_time",
-    "crates/changi/src/activity/chi_over_q.rs::every_receptor_beyond_reach_panics_rather_than_returning_zeros",
-    "crates/changi/src/activity/chi_over_q.rs::splitting_a_window_into_equal_segments_conserves_the_total",
-    "crates/changi/src/activity/chi_over_q.rs::the_unit_response_scales_exactly_with_mass",
-    "crates/changi/src/activity/chi_over_q.rs::unit_response_agrees_with_the_ported_sum",
     "crates/changi/src/puff/climatology.rs::components_preserve_the_scalar_speed",
     "crates/changi/src/puff/climatology.rs::night_time_singapore_conditions_are_ambiguous_except_in_a_surge",
     "crates/changi/src/puff/climatology.rs::the_mean_wind_sits_on_a_pasquill_band_edge",
@@ -57,33 +49,6 @@ test_ids = [
     "crates/changi/src/puff/wind.rs::an_easterly_pushes_air_west",
     "crates/changi/src/puff/wind.rs::interpolation_hits_the_observations_it_passes_through",
     "crates/changi/src/puff/wind.rs::speed_is_recovered_from_components",
-    "crates/changi/tests/activity_properties.rs::a_noble_gas_deposits_exactly_zero_through_the_whole_chain",
-    "crates/changi/tests/activity_properties.rs::a_stable_nuclide_through_the_whole_chain_matches_simulate_sensor_mode",
-    "crates/changi/tests/activity_properties.rs::decay_in_transit_is_monotone_in_the_half_life",
-    "crates/changi/tests/activity_properties.rs::deposition_scales_exactly_with_the_deposition_velocity",
-    "crates/changi/tests/activity_properties.rs::everything_downstream_is_exactly_linear_in_the_released_activity",
-    "crates/changi/tests/activity_properties.rs::ground_level_and_breathing_height_differ_by_a_sign_that_depends_on_distance",
-    "crates/changi/tests/activity_properties.rs::splitting_the_release_across_windows_conserves_the_total",
-    "crates/changi/tests/puff_code_to_code.rs::gpuff_ambiguous_class_uses_only_the_first",
-    "crates/changi/tests/puff_code_to_code.rs::gpuff_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::gpuff_wind_speed_argument_is_inert",
-    "crates/changi/tests/puff_code_to_code.rs::interpolated_wind_u_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::interpolated_wind_v_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::is_day_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::sigma_y_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::sigma_z_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::simulate_grid_mode_last_row_is_never_written",
-    "crates/changi/tests/puff_code_to_code.rs::simulate_grid_mode_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::simulate_sensor_mode_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::simulate_sensor_mode_row_count_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::simulate_sensor_mode_two_sources_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::stability_class_count_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::stability_primary_class_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::stability_secondary_class_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::wind_u_component_matches_upstream",
-    "crates/changi/tests/puff_code_to_code.rs::wind_v_component_matches_upstream",
-    "crates/changi/tests/puff_mass_conservation.rs::one_puff_holds_its_mass_in_the_half_space",
-    "crates/changi/tests/puff_mass_conservation.rs::the_image_is_present_whole_line_holds_twice_the_mass",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::a_below_floor_dose_rate_field_is_announced",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_chi_over_q_table_is_the_maps_dilution_factor",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/map_tab.rs::the_dose_rate_table_is_deterministic",
@@ -1207,8 +1172,8 @@ doc_hash = "sha256:67bc0f89f04bf60155acae698f04254976d3d26560c523309e25ab6f65856
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1257,6 +1222,19 @@ passed = [
     "#43",
     "#44",
     "#45",
+]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = [
+    "#99",
+    "#100",
+]
+failed = []
+targets = [
     "#46",
     "#47",
     "#48",
@@ -1292,19 +1270,6 @@ passed = [
     "#78",
     "#79",
     "#80",
-]
-failed = []
-
-[targeted_run]
-commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
-suite = "targeted"
-passed = [
-    "#134",
-    "#135",
-]
-failed = []
-targets = [
     "#81",
     "#82",
     "#83",
@@ -1325,39 +1290,4 @@ targets = [
     "#98",
     "#99",
     "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
-    "#111",
-    "#112",
-    "#113",
-    "#114",
-    "#115",
-    "#116",
-    "#117",
-    "#118",
-    "#119",
-    "#120",
-    "#121",
-    "#122",
-    "#123",
-    "#124",
-    "#125",
-    "#126",
-    "#127",
-    "#128",
-    "#129",
-    "#130",
-    "#131",
-    "#132",
-    "#133",
-    "#134",
-    "#135",
 ]

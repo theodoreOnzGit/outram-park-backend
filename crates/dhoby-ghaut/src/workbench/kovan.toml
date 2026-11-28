@@ -5,15 +5,19 @@ dir = "crates/dhoby-ghaut/src/workbench"
 test_ids = [
     "crates/dhoby-ghaut/src/workbench/catalogue.rs::every_reactor_key_round_trips_and_every_generation_has_a_type",
     "crates/dhoby-ghaut/src/workbench/catalogue.rs::only_the_htgr_pebble_bed_is_offered_as_buildable",
+    "crates/dhoby-ghaut/src/workbench/catalogue.rs::the_historical_presets_state_every_step",
     "crates/dhoby-ghaut/src/workbench/exports.rs::the_report_is_read_back_by_kovan",
     "crates/dhoby-ghaut/src/workbench/exports.rs::write_all_writes_files_that_load_back",
     "crates/dhoby-ghaut/src/workbench/meshes.rs::mapping_follows_upstream_semantics",
     "crates/dhoby-ghaut/src/workbench/meshes.rs::splitting_the_bed_keeps_every_region_consistent",
     "crates/dhoby-ghaut/src/workbench/meshes.rs::the_parts_tile_the_model",
+    "crates/dhoby-ghaut/src/workbench/meshes.rs::three_class_cht_classifies_every_part",
     "crates/dhoby-ghaut/src/workbench/mgxs.rs::ln_t_interpolation_hits_the_mean_at_the_geometric_mean",
     "crates/dhoby-ghaut/src/workbench/multiphysics.rs::an_older_recipe_has_no_step_9",
     "crates/dhoby-ghaut/src/workbench/multiphysics.rs::neutronics_inputs_say_what_is_missing",
     "crates/dhoby-ghaut/src/workbench/multiphysics.rs::step_9_round_trips_through_kovan_markdown",
+    "crates/dhoby-ghaut/src/workbench/presets.rs::the_ebr2_slices_are_drawn_from_the_model",
+    "crates/dhoby-ghaut/src/workbench/presets.rs::the_msre_slices_are_drawn_from_the_model",
     "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::a_map_round_trips_through_plain_toml",
     "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::a_two_axis_map_recovers_a_bilinear_law",
     "crates/dhoby-ghaut/src/workbench/reactivity_map.rs::an_exact_sqrt_t_law_is_recovered",
@@ -2073,8 +2077,8 @@ doc_hash = "sha256:ac8a15f8300172971c1c3dea3a9d51d906faf1f29726334fd3aef15351e15
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2104,6 +2108,10 @@ passed = [
     "#24",
     "#25",
     "#26",
+    "#27",
+    "#28",
+    "#29",
+    "#30",
 ]
 failed = []
 

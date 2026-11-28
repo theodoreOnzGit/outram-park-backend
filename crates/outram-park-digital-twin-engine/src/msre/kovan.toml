@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/msre"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/msre/design.rs::the_design_point_is_the_cited_one",
+    "crates/outram-park-digital-twin-engine/src/msre/design.rs::the_tuas_fuel_salt_and_tm1070_lumps_agree_on_the_heat_capacity_rate",
+    "crates/outram-park-digital-twin-engine/src/msre/pumps.rs::the_inertial_schedule_is_tampines_coastdown",
+    "crates/outram-park-digital-twin-engine/src/msre/pumps.rs::the_schedules_reproduce_their_tables",
+]
 
 [module."circulation.rs"]
 path = "crate::msre::circulation"
@@ -1865,3 +1871,15 @@ name = "quick_split"
 qual = "quick_split"
 hash = "sha256:5327c5ebe565e7e74ef0f531c42ea2e5a7bd2617ae86c72491aaa31b2bc7329c"
 doc_hash = "sha256:35e51a86be1f2235ce82302e8dedd59903511ecb609a2299529d79fa09b2ed51"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

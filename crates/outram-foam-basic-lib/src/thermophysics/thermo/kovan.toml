@@ -3,13 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/thermophysics/thermo"
 test_ids = [
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::correct_recovers_temperature_from_he",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::correct_rho_clamps",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::initial_state_consistent",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::mu_and_kappa_fields_populated",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::correct_updates_temperature",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::initial_state_consistent",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::psi_vs_rho_thermo_match",
     "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_const.rs::cp_is_constant",
     "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_const.rs::ha_roundtrip",
     "crates/outram-foam-basic-lib/src/thermophysics/thermo/h_const.rs::hs_plus_hc_equals_ha",
@@ -30,21 +23,6 @@ test_ids = [
     "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_crosses_tcommon_discontinuity",
     "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_t_max_clamp_returns_err",
     "crates/outram-foam-basic-lib/src/thermophysics/thermo/janaf.rs::newton_t_min_clamp_returns_err",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::alpha_h_equals_kappa_over_cp",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::kappa_from_pr",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::mu_is_constant",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::alpha_h_is_kappa_over_cp",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::kappa_at_300k",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::mu_at_300k",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/polynomial.rs::mu_increases_with_temperature",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/sutherland.rs::mu_at_293k",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/sutherland.rs::mu_increases_with_temperature",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/sutherland.rs::two_point_reconstruction",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::alpha_h_is_kappa_over_cp",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::kappa_at_knot",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_at_knot",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_increases_with_temperature",
-    "crates/outram-foam-basic-lib/src/thermophysics/transport/tabulated.rs::mu_interpolated",
 ]
 
 [module."h_const.rs"]
@@ -918,8 +896,8 @@ doc_hash = "sha256:1164e7cc3c00f70ced212953f68b0a0bff364b1d1bc0ecde4ea0818f6369b
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -942,28 +920,6 @@ passed = [
     "#17",
     "#18",
     "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
 ]
 failed = []
 

@@ -77,7 +77,6 @@ test_ids = [
     "crates/sembawang/src/accident/venting.rs::the_times_accessor_gathers_rather_than_truncating",
     "crates/sembawang/src/htr10.rs::only_silver_carries_floored_negative_windows",
     "crates/sembawang/src/htr10.rs::plant_parameters_read_the_named_pools_and_lift_off",
-    "crates/sembawang/src/htr10.rs::the_dlofc_shape_matches_the_published_rise",
     "crates/sembawang/src/htr10.rs::the_estimated_cooldown_parameters_cannot_move_the_release",
     "crates/sembawang/src/htr10.rs::the_panama_seam_changes_the_release_and_the_ablation_proves_it",
     "crates/sembawang/src/htr10.rs::the_seam_sets_exactly_one_field",
@@ -444,8 +443,8 @@ test = true
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#66",
@@ -454,6 +453,14 @@ passed = [
     "#69",
     "#70",
     "#71",
+]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = [
     "#72",
     "#73",
     "#74",
@@ -483,44 +490,6 @@ passed = [
     "#98",
     "#99",
     "#100",
-    "#101",
-]
-failed = []
-
-[targeted_run]
-commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
-suite = "targeted"
-passed = [
-    "#72",
-    "#73",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
 ]
 failed = []
 targets = [
@@ -592,6 +561,7 @@ targets = [
     "#65",
     "#72",
     "#73",
+    "#74",
     "#75",
     "#76",
     "#77",
@@ -618,5 +588,4 @@ targets = [
     "#98",
     "#99",
     "#100",
-    "#101",
 ]

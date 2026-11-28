@@ -3,33 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/matrix"
 test_ids = [
-    "crates/outram-foam-basic-lib/src/fv_operators/fvc/grad_least_squares.rs::linear_field_recovered_exactly_in_1d",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvc/grad_least_squares.rs::periodic_ring_uniform_field_has_zero_gradient",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvc/grad_least_squares.rs::uniform_field_has_zero_gradient",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::correction_is_a_no_op_on_an_orthogonal_mesh",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::orthogonal_scheme_reproduces_the_uncorrected_matrix",
-    "crates/outram-foam-basic-lib/src/krylov/hybrid_tests.rs::every_combination_matches_the_dense_lu_solution",
-    "crates/outram-foam-basic-lib/src/krylov/mod.rs::nonsymmetric_vs_dense_lu",
-    "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/gamg.rs::gamg_cycle_count_is_mesh_independent",
-    "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/gamg.rs::gamg_handles_tiny_matrix",
-    "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/gamg.rs::gamg_solves_1d_poisson",
-    "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/gamg.rs::gamg_warm_start_returns_immediately",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_failing_column_names_the_variable_that_failed",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_jacobian_that_cannot_be_differenced_is_counted_and_reaches_the_solver_as_nan",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::a_non_square_function_is_rejected_rather_than_padded",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::column_parallel_jacobian_is_bitwise_identical_to_the_serial_one",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::empty_and_malformed_batches_are_empty_not_panics",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::evaluation_counts_match_the_documented_cost",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::jacobian_batch_is_bitwise_identical_across_backends",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::ode_jacobian_captures_explicit_dependence_on_the_independent_variable",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::ode_jacobian_reproduces_van_der_pols_hand_coded_one",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::ode_jacobian_resizes_wrongly_sized_output_buffers",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::quadratic_system_jacobian_matches_the_analytic_one",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::rosenbrock23_integrates_a_stiff_system_that_has_no_hand_coded_jacobian",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::rosenbrock23_integrates_the_stiff_pair_with_a_numerical_jacobian",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::stiff_pair_jacobian_matches_the_analytic_one_across_a_1000_to_1_entry_spread",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::the_single_jacobian_form_agrees_with_a_one_lane_batch_bit_for_bit",
-    "crates/outram-foam-basic-lib/src/math/differentiate/tests.rs::trigonometric_system_jacobian_matches_the_analytic_one",
     "crates/outram-foam-basic-lib/src/matrix/square_matrix.rs::fully_zero_matrix_returns_err",
     "crates/outram-foam-basic-lib/src/matrix/square_matrix.rs::hilbert_5x5_residual_acceptable",
     "crates/outram-foam-basic-lib/src/matrix/square_matrix.rs::lu_identity",
@@ -39,45 +12,6 @@ test_ids = [
     "crates/outram-foam-basic-lib/src/matrix/square_matrix.rs::lu_solve_needs_pivoting",
     "crates/outram-foam-basic-lib/src/matrix/square_matrix.rs::scaled_pivoting_large_row_contrast",
     "crates/outram-foam-basic-lib/src/matrix/square_matrix.rs::singular_matrix_returns_err",
-    "crates/outram-foam-basic-lib/src/ode/euler.rs::euler_exponential_decay",
-    "crates/outram-foam-basic-lib/src/ode/euler.rs::euler_rotation",
-    "crates/outram-foam-basic-lib/src/ode/integrator.rs::accessors_report_the_variant_truthfully",
-    "crates/outram-foam-basic-lib/src/ode/integrator.rs::dyn_variant_matches_typed_bit_for_bit",
-    "crates/outram-foam-basic-lib/src/ode/integrator.rs::integrator_is_storable_without_a_lifetime",
-    "crates/outram-foam-basic-lib/src/ode/integrator.rs::placeholder_system_integrates_as_a_no_op",
-    "crates/outram-foam-basic-lib/src/ode/integrator.rs::typed_variant_reaches_every_stepper",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::a_diverging_model_is_reported",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::empty_batches_are_vacuously_ok",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::ensemble_bitwise_identical_across_backends",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::ensemble_matches_analytic_decay",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::ensemble_matches_harmonic_oscillator",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::invalid_lanes_are_reported",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::lane_order_is_preserved",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::lumped_body_accuracy_is_set_by_the_relative_tolerance",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::max_steps_exceeded_is_reported",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::mixed_stepper_selection_reaches_each_lane",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::partial_failure_in_a_large_ensemble_is_reported",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::public_entry_points_agree_across_requested_backends",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::stiff_pair_completes_stiff_and_fails_visibly_explicit",
-    "crates/outram-foam-basic-lib/src/ode/parallel/tests.rs::zero_length_interval_completes_as_a_no_op",
-    "crates/outram-foam-basic-lib/src/ode/rkf45.rs::rkf45_convergence_order_is_fifth",
-    "crates/outram-foam-basic-lib/src/ode/rkf45.rs::rkf45_decay_to_5",
-    "crates/outram-foam-basic-lib/src/ode/rkf45.rs::rkf45_exceeds_steps_on_stiff_vdp",
-    "crates/outram-foam-basic-lib/src/ode/rkf45.rs::rkf45_exponential_decay",
-    "crates/outram-foam-basic-lib/src/ode/rkf45.rs::rkf45_nonstiff_vdp",
-    "crates/outram-foam-basic-lib/src/ode/rosenbrock23.rs::rosenbrock23_nonstiff_decay",
-    "crates/outram-foam-basic-lib/src/ode/rosenbrock23.rs::rosenbrock23_rotation",
-    "crates/outram-foam-basic-lib/src/ode/rosenbrock23.rs::rosenbrock23_stiff_decay",
-    "crates/outram-foam-basic-lib/src/ode/rosenbrock23.rs::rosenbrock23_stiff_vdp_mu1000",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_parity_serial_vs_cpu_multi",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_parity_serial_vs_gpu",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::gate_thread_count_invariance",
-    "crates/outram-foam-basic-lib/tests/hybrid_parity.rs::machine_load_report",
-    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_matches_dense_lu_on_convection_diffusion",
-    "crates/outram-foam-basic-lib/tests/nnc261_solve.rs::nnc261_lu_roundtrip",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::corrected_laplacian_recovers_a_linear_field_on_a_wavy_mesh",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::least_squares_gradient_is_exact_for_a_linear_field_on_a_wavy_mesh",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::limited_scheme_is_monotone_between_orthogonal_and_corrected",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::restarting_starts_a_fresh_run_and_abandons_the_old_one",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/app/mod.rs::the_map_reset_button_restarts_the_plant_and_keeps_the_map_view",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/headless.rs::default_commands_hold_the_plant_bounded",
@@ -297,8 +231,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -310,6 +244,16 @@ passed = [
     "#6",
     "#7",
     "#8",
+]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = []
+failed = []
+targets = [
     "#9",
     "#10",
     "#11",
@@ -346,80 +290,4 @@ passed = [
     "#42",
     "#43",
     "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-]
-failed = []
-
-[targeted_run]
-commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
-suite = "targeted"
-passed = []
-failed = []
-targets = [
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
-    "#97",
-    "#98",
-    "#99",
-    "#100",
-    "#101",
-    "#102",
-    "#103",
-    "#104",
-    "#105",
-    "#106",
-    "#107",
-    "#108",
-    "#109",
-    "#110",
 ]

@@ -3,15 +3,6 @@ kind = "code_folder"
 crate = "outram-park-fork-dwsim-libs"
 dir = "crates/outram-park-fork-dwsim-libs/src/petroleum"
 test_ids = [
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::binary_fenske_underwood_gilliland_matches_hand_arithmetic",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::distributed_key_underwood_branch_is_exercised_and_mass_consistent",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::gilliland_stage_count_decreases_with_reflux_toward_the_fenske_minimum",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::malformed_configurations_are_rejected",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::partial_condenser_gives_dew_point_distillate_and_smaller_duty",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::reflux_below_the_underwood_minimum_is_rejected",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::shortcut_design_reproduces_requested_separation_in_rigorous_solver",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::sizing_estimates_are_dimensionally_sane",
-    "crates/outram-park-fork-dwsim-libs/src/columns/shortcut.rs::subcooled_feed_raises_thermal_quality_above_one",
     "crates/outram-park-fork-dwsim-libs/src/petroleum/assay.rs::accessors_return_si_scalars_in_row_order",
     "crates/outram-park-fork-dwsim-libs/src/petroleum/assay.rs::curve_flags_are_derived_and_require_every_row",
     "crates/outram-park-fork-dwsim-libs/src/petroleum/aux_props.rs::critical_volume_matches_n_heptane_literature_value",
@@ -78,9 +69,6 @@ test_ids = [
     "crates/outram-park-fork-dwsim-libs/src/petroleum/special.rs::gamma_matches_closed_forms",
     "crates/outram-park-fork-dwsim-libs/src/petroleum/special.rs::incomplete_gamma_q_matches_erlang_closed_form",
     "crates/outram-park-fork-dwsim-libs/src/petroleum/special.rs::p_and_q_sum_to_one",
-    "crates/outram-park-fork-dwsim-libs/src/thermo/saturation.rs::a_cubic_package_finds_the_crude_slate_bubble_point",
-    "crates/outram-park-fork-dwsim-libs/tests/cut_to_stream.rs::a_crude_cut_reaches_a_stream_but_stops_at_entropy",
-    "crates/outram-park-fork-dwsim-libs/tests/prelude_workflow.rs::crude_workflow_needs_only_the_prelude",
 ]
 
 [module."assay.rs"]
@@ -2451,8 +2439,8 @@ doc_hash = "sha256:5021bae13dc0ddce65b7d5a50367508f489a50704dd4c3a194fca677951ce
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2521,18 +2509,6 @@ passed = [
     "#63",
     "#64",
     "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
 ]
 failed = []
 

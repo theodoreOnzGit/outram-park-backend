@@ -3,34 +3,8 @@ kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions"
 test_ids = [
-    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_run_is_reproducible",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop_releases_at_outer_surface",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::multilayer_walk_transmits_across_interfaces",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/interaction_with_decaying_nuclide_simulator/tests_for_auto_timestepping.rs::diffusion_fourier_number_calc",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_buffer",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_kernel",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_pyc",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/cesium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_cs_in_sic",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_buffer",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_kernel",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_pyc",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/silver_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_ag110m_in_sic",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_buffer",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_kernel",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_pyc",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/diffusion_coeffs/strontium_tests.rs::test_diffusion_coeff_jiang_matches_tabulated_sr_in_sic",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/temperature_dependent_collisions/mod.rs::boltzmann_test",
     "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
-    "crates/boon-lay/tests/wasm_fallback.rs::ensemble_is_reproducible_across_repeated_runs",
-    "crates/boon-lay/tests/wasm_fallback.rs::parallel_ensemble_runs_and_is_physical",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
@@ -118,11 +92,19 @@ doc_hash = "sha256:066470f01bbdd27a02b67f967f4f744d808f982162e878227309284bff556
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
+passed = ["#0"]
+failed = []
+
+[targeted_run]
+commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
+cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+suite = "targeted"
+passed = ["#1"]
+failed = []
+targets = [
     "#1",
     "#2",
     "#3",
@@ -133,41 +115,4 @@ passed = [
     "#8",
     "#9",
     "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-]
-failed = []
-
-[targeted_run]
-commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
-suite = "targeted"
-passed = ["#25"]
-failed = []
-targets = [
-    "#25",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
 ]

@@ -19,33 +19,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/broadr/mod.rs::erfc_at_zero_is_one",
     "crates/njoy-outram-park-fork/src/broadr/mod.rs::f_funcs_at_zero_match_fzero",
     "crates/njoy-outram-park-fork/src/broadr/mod.rs::one_over_v_is_preserved_at_low_y",
-    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::be9_broadened_pendf_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::c12_broadened_pendf_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::f19_broadened_pendf_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::h2_broadened_pendf_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::li6_broadened_pendf_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/broadr_light_nuclide_pendf_golden.rs::si30_broadened_pendf_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/broadr_u238_urr_seam.rs::u238_urr_seam_survives_reconr_and_bounded_broadr",
-    "crates/njoy-outram-park-fork/tests/errorr_mf32_ar37_golden.rs::tier2_crate_pendf_reported",
-    "crates/njoy-outram-park-fork/tests/errorr_mf32_cl35_rml_golden.rs::tier2_crate_pendf_reported",
-    "crates/njoy-outram-park-fork/tests/errorr_mf32_j33u238_lrf3_golden.rs::tier2_crate_pendf_and_listing",
-    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_be9_crate_reconr_broadr",
-    "crates/njoy-outram-park-fork/tests/errorr_mf33_golden.rs::tier2_h2_crate_reconr_broadr",
-    "crates/njoy-outram-park-fork/tests/groupr_u238_gendf_golden.rs::crate_reconr_broadr_vs_njoy_gendf",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_ar37_mlbw_urr",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_cl35_rml",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_light_nuclides_lrp0",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::broadr_si30_rm",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_ar37_mlbw_urr_and_mf10",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_si30_rm",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_sr88_rml_background_rmatrix",
-    "crates/njoy-outram-park-fork/tests/pendf_stages_vs_njoy2016.rs::reconr_u234_rm_urr",
-    "crates/njoy-outram-park-fork/tests/reconr_ar37.rs::library_broaden_records_temperature",
-    "crates/njoy-outram-park-fork/tests/u238_doppler_verification/main.rs::capture_doppler_matches_openmc",
-    "crates/njoy-outram-park-fork/tests/u238_doppler_verification/main.rs::capture_pipeline_is_physical",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
-    "crates/njoy-outram-park-fork/tests/wasm_fallback.rs::broadening_is_reproducible_run_to_run",
-    "crates/njoy-outram-park-fork/tests/wasm_fallback.rs::doppler_broaden_runs_under_wasm",
 ]
 
 [module."broadn.rs"]
@@ -858,8 +831,8 @@ hash = "sha256:fe67f4d2ffd30b82cbda04e76d938acd9c44b69c6eef638327711fae23aa5d13"
 doc_hash = "sha256:ec1aa27ece2120d19d5fe1a58ab29abe1669bea7f7abb0b1bd925570b28b19c7"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -878,33 +851,6 @@ passed = [
     "#13",
     "#14",
     "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
 ]
 failed = []
 

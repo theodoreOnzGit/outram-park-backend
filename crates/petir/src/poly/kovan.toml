@@ -3,9 +3,6 @@ kind = "code_folder"
 crate = "petir"
 dir = "crates/petir/src/poly"
 test_ids = [
-    "crates/petir/src/integration/gauss_legendre.rs::degenerate_inputs_are_handled",
-    "crates/petir/src/integration/gauss_legendre.rs::newton_cotes_diverges_on_runge_and_gauss_legendre_does_not",
-    "crates/petir/src/integration/gauss_legendre.rs::newton_cotes_reproduces_trapezoid_and_simpson",
     "crates/petir/src/poly/companion.rs::a_real_double_root_is_reported_not_lost",
     "crates/petir/src/poly/companion.rs::all_roots_are_found_well_past_the_quartic",
     "crates/petir/src/poly/companion.rs::complex_roots_come_back_as_conjugate_pairs",
@@ -62,13 +59,6 @@ test_ids = [
     "crates/petir/src/poly/roots.rs::concat_3",
     "crates/petir/src/poly/roots.rs::encoding_round_trip",
     "crates/petir/src/poly/roots.rs::uniform_3",
-    "crates/petir/src/specfunc/gegenbauer.rs::lambda_one_half_gives_the_legendre_polynomials",
-    "crates/petir/src/specfunc/legendre.rs::m_zero_gives_the_ordinary_legendre_polynomials",
-    "crates/petir/src/wgsl/mirror.rs::compensated_horner_is_not_worse_than_plain",
-    "crates/petir/src/wgsl/mirror.rs::the_f32_horner_mirror_tracks_the_f64_original",
-    "crates/petir/src/wgsl/mirror.rs::the_f32_legendre_mirror_satisfies_its_identities",
-    "crates/petir/tests/roots_companion_code_to_code.rs::every_returned_root_satisfies_its_polynomial",
-    "crates/petir/tests/roots_companion_code_to_code.rs::petir_agrees_with_upstream_roots_0_0_8",
 ]
 
 [module."companion.rs"]
@@ -1379,8 +1369,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1439,16 +1429,6 @@ passed = [
     "#53",
     "#54",
     "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
 ]
 failed = []
 

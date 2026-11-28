@@ -9,12 +9,6 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::churchill_matches_colebrook_white_smooth_pipe",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::churchill_recovers_laminar_hagen_poiseuille",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/closures/fs_drag/tests.rs::engel_laminar_constant_is_99",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/porous_drag.rs::laminar_drag_matches_stokes_darcy_limit",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_ported_wall_friction_reproduces_upstreams_psbt_drag",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_psbt_closures.rs::the_two_phase_cells_show_the_multiplier_the_single_phase_relation_omits",
 ]
 
 [module."mod.rs"]
@@ -139,8 +133,8 @@ doc_hash = "sha256:0fb61e806451c19bc6f8c63bd452f83ddeb349362d77b427b0207cd6e68f2
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -149,12 +143,6 @@ passed = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
 ]
 failed = []
 

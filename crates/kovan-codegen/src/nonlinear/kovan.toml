@@ -3,12 +3,6 @@ kind = "code_folder"
 crate = "kovan-codegen"
 dir = "crates/kovan-codegen/src/nonlinear"
 test_ids = [
-    "crates/kovan-codegen/src/lib.rs::emitted_source_is_the_compiled_reference_verbatim",
-    "crates/kovan-codegen/src/lib.rs::generate_artifact_packages_source_and_provenance",
-    "crates/kovan-codegen/src/lib.rs::generate_artifact_propagates_unimplemented",
-    "crates/kovan-codegen/src/lib.rs::generate_dispatches_to_each_family",
-    "crates/kovan-codegen/src/lib.rs::generate_is_deterministic_across_families",
-    "crates/kovan-codegen/src/lib.rs::unimplemented_catalogue_entries_report_the_method",
     "crates/kovan-codegen/src/nonlinear/mod.rs::fixed_point_finds_dottie_number",
     "crates/kovan-codegen/src/nonlinear/mod.rs::generate_is_deterministic",
     "crates/kovan-codegen/src/nonlinear/mod.rs::newton_system_solves_2d",
@@ -65,20 +59,14 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
     "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
 ]
 failed = []
 
