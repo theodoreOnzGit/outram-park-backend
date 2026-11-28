@@ -35,7 +35,10 @@
 //! is not reachable from the readers that feed this solver.~~ **CHANGED 2026-11-28 (gh:#1876, README round 87):** a compressible fluid
 //! (`perfectGas`, `psi = 1/(R T)`) is reachable and ported: `pEqnComp`'s `(alpha psi/rho) correction(fvm::ddt(p_rgh))` (lazy
 //! `p_rgh.oldTime()`), `-pEqnComp & p_rgh` for `dgdt`, the `p` patch values and `rho += psi (p_rgh - p_rgh_0)` (`updatePP_rghRho_1p.H`);
-//! differenced against the real binary on `3D_HTR-10` (tight, `uncorrected`: <= 8.7e-11 over 7 steps). A compressible CLOSED volume
+//! differenced against the real binary on `3D_HTR-10` (tight, `uncorrected`: <= 8.7e-11 over 7 steps). **ADDED 2026-11-28 (gh:#1991, README
+//! round 88):** the `corrected` Laplacian and snGrad ([`super::super::non_orth`]): the `U` Laplacian's source, `fvc::snGrad(rho)` and the
+//! `p_rgh` Laplacian rebuilt from the current `p_rgh` at each non-orthogonal pass, its correction flux in `pEqnIncomp.flux()`; differenced on
+//! `3D_HTR-10` as shipped (README round 88). A compressible CLOSED volume
 //! (`getRefCellValue`, `deltaMass/compressibility`) is still not reachable (HTR-10 has a `fixedValue` `p_rgh` patch).
 //!
 //! ~~Not ported here (refused by name when the case is read): `localTortuosity` with `faceCentered`.~~ **CHANGED 2026-11-27 (gh:#1943,
@@ -49,6 +52,7 @@ use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use super::super::fv::{self, Bc, Eqn, Scalar, Vector};
+use super::super::non_orth::NonOrthCorrection;
 use super::super::pcg::pcg_dic_if;
 use super::super::tensor_laplacian;
 use super::super::thermo::PhaseThermo;
@@ -107,6 +111,11 @@ impl OnePhaseCcSolver {
         } else {
             lap.eqn.neg_laplacian(&g, gamma, &zg);
             lap.boundary_laplacian(&g, gamma, &self.u);
+            // `corrected` (gh:#1991, README round 88): `-fvm::laplacian(alpha rho nuEff, U)` carries `+V div(gammaMagSf correction(U))` per
+            // component (`correctedSnGrads.C`), from `U`'s cells and patch values as they stand; the matrix's source was zero
+            if let Some(nc) = self.laplacian_correction() {
+                lap.src = nc.neg_laplacian_vector_correction_source(&g, gamma, &self.u.c, &self.u.b);
+            }
             // `fvc::div` = `dotInterpolate` (`lambda (P - N) + N`), and so is the face velocity of `fvc::grad(U)` (gh:#1905 round 80)
             if self.ctl_weighted_dev2 {
                 super::super::dev2_div(&g, &self.u, arn)
@@ -223,7 +232,14 @@ impl OnePhaseCcSolver {
                     _ => rho_b[i],
                 };
             }
-            let sng = fv::sn_grad(&g, &rho_t);
+            let mut sng = fv::sn_grad(&g, &rho_t);
+            // `snGradSchemes corrected` (gh:#1991): `snGrad(vf, nonOrthDeltaCoeffs) + correction(vf)` (`snGradScheme::sndGrad`)
+            if let Some(nc) = self.sn_grad_correction() {
+                let corr = nc.sn_grad_correction(&g, &rho_t);
+                for f in 0..ni {
+                    sng[f] += corr[f];
+                }
+            }
             let mut ms = Vector::uniform_with_constraint_patches(&g, Vector3::ZERO);
             ms.c = fc.momentum_source.clone();
             for (cells, src, profile) in &fc.momentum_profiles {
@@ -296,12 +312,14 @@ impl OnePhaseCcSolver {
                     comp_src[c] = (sdt + v * mphi) * coef;
                 }
             }
+            let mut s_comp_all = vec![0.0; n];
             for c in 0..n {
                 let v = m.cell_volumes[c];
                 let comp = (self.cont_err[c] - (0.0 + dap[c]) * rho[c]) / rho[c];
                 comp_all[c] = comp;
                 let mut s_comp = if compressible { comp_src[c] } else { 0.0 };
                 s_comp -= v * comp;
+                s_comp_all[c] = s_comp;
                 let s_inc = -(v * dphi[c]);
                 peqn.source[c] = s_comp + s_inc;
                 if compressible {
@@ -310,25 +328,43 @@ impl OnePhaseCcSolver {
             }
             // `volScalarField p_rgh_0(p_rgh_)`, cells and patches (gh:#1876)
             let p_rgh_0 = fs.p_rgh.clone();
-            // setReference(pRefCell, pRefValue): the value branch (psi = 0)
-            if fc.p_rgh_need_reference {
-                let rc = fc.p_ref_cell;
-                peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
-                peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
-            }
-            let mut folded = peqn.clone();
-            for f in ni..nf {
-                if g.active[f] {
-                    folded.ldu.diag[m.owner[f]] += pic[f - ni];
-                    // a coupled (cyclic) patch: its `boundaryCoeffs` are the `interfaceBouCoeffs` of the solve (gh:#1905)
-                    if g.cyclic_nbr[f - ni] == usize::MAX {
-                        folded.source[m.owner[f]] += pbc[f - ni];
-                    }
-                }
-            }
+            // `pEqn` before `setReference`: `solveP_rgh_1p.H` builds it afresh at every non-orthogonal pass
+            let peqn_base = peqn.clone();
             let ifs = g.interfaces(&pbc);
             let n_pass = fc.n_non_orth_correctors + 1;
+            // the `corrected` Laplacian's `faceFluxCorrection` of the latest pass (gh:#1991): `pEqnIncomp.flux()` adds it, negated with the
+            // matrix (`fvc::div(phiHbyA) - fvm::laplacian(...)` negates the Laplacian)
+            let mut p_ffc: Option<Vec<f64>> = None;
             for pass in 1..=n_pass {
+                // `pEqnIncomp = fvc::div(phiHbyA) - fvm::laplacian(rAUf, p_rgh_)` of THIS pass: with `corrected` its source carries
+                // `+V div(rAUf magSf correction(p_rgh))` from `p_rgh` as it stands (gh:#1991, README round 88); `uncorrected`: as built above
+                peqn = peqn_base.clone();
+                if let Some(nc) = self.laplacian_correction() {
+                    let ffc = nc.face_flux_correction(&g, &rauf, &fs.p_rgh);
+                    let src = NonOrthCorrection::neg_laplacian_source(&g, &ffc);
+                    for c in 0..n {
+                        let v = m.cell_volumes[c];
+                        let s_inc = src[c] - v * dphi[c];
+                        peqn.source[c] = s_comp_all[c] + s_inc;
+                    }
+                    p_ffc = Some(ffc);
+                }
+                // setReference(pRefCell, pRefValue): the value branch (psi = 0)
+                if fc.p_rgh_need_reference {
+                    let rc = fc.p_ref_cell;
+                    peqn.source[rc] += peqn.ldu.diag[rc] * fc.p_ref_value;
+                    peqn.ldu.diag[rc] += peqn.ldu.diag[rc];
+                }
+                let mut folded = peqn.clone();
+                for f in ni..nf {
+                    if g.active[f] {
+                        folded.ldu.diag[m.owner[f]] += pic[f - ni];
+                        // a coupled (cyclic) patch: its `boundaryCoeffs` are the `interfaceBouCoeffs` of the solve (gh:#1905)
+                        if g.cyclic_nbr[f - ni] == usize::MAX {
+                            folded.source[m.owner[f]] += pbc[f - ni];
+                        }
+                    }
+                }
                 let last = self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple);
                 let solver = if last { fc.p_rgh_final } else { fc.p_rgh };
                 let gamg_ctl = if last { fc.p_rgh_final_gamg } else { fc.p_rgh_gamg };
@@ -364,7 +400,13 @@ impl OnePhaseCcSolver {
                 }
             }
             // phi_ = phiHbyA + pEqnIncomp.flux(); phi = phi_/alphaf (a fixedValue flux patch ignores the assignment)
-            let p_flux = peqn.flux_of_coeffs(&g, &fs.p_rgh.c, &pic, &pbc);
+            let mut p_flux = peqn.flux_of_coeffs(&g, &fs.p_rgh.c, &pic, &pbc);
+            if let Some(ffc) = &p_ffc {
+                // `fvMatrix::flux`: `fieldFlux += *faceFluxCorrectionPtr_` last, the pointer negated with the Laplacian (gh:#1991)
+                for f in 0..ni {
+                    p_flux[f] += -ffc[f];
+                }
+            }
             for f in 0..nf {
                 if !g.active[f] {
                     continue;

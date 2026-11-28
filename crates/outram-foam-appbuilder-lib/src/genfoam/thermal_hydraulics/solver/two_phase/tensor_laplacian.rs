@@ -30,7 +30,7 @@
 //! SfGammaSn   = SfGamma & Sn              (the "gammaMagSf" of fvmLaplacianUncorrected)
 //! SfGammaCorr = SfGamma - SfGammaSn Sn
 //! fvm         = fvmLaplacianUncorrected(SfGammaSn, deltaCoeffs, vf)
-//! faceFluxCorrection[cmpt] = dotInterpolate(SfGammaCorr, fvc::grad(vf.component(cmpt)))     (+ SfGammaSn snGrad correction if `corrected`: refused)
+//! faceFluxCorrection[cmpt] = dotInterpolate(SfGammaCorr, fvc::grad(vf.component(cmpt)))     (+ SfGammaSn snGrad correction if `corrected`: refused, also after gh:#1991 ported the scalar-gamma `corrected`)
 //! fvm.source() -= V fvc::div(faceFluxCorrection)
 //! ```
 //!

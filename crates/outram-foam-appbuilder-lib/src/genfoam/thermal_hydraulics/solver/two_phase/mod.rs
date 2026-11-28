@@ -112,6 +112,7 @@ pub mod case;
 pub mod gamg_solve;
 pub mod fv;
 pub mod mules;
+pub mod non_orth;
 pub mod one_phase_cc;
 pub mod one_phase_fc;
 pub(crate) mod pbicgstab;

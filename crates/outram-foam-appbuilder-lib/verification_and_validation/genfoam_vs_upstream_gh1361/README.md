@@ -10782,3 +10782,10 @@ log's 6-digit numbers compared as printed.
 | P5 | `sh20` step 1: the six pebble log lines equal at the printed 6 digits | 50 % |
 | P6 | (gh:#1992) the turbulent first `p_rgh` residual difference on `ct2` is larger than the laminar one on `clam` by >= 10x, as in round 87 (2.1e-12 against 1.5e-14) | 60 % |
 | P7 | the port's wall time per step on the shipped settings is larger than the real binary's (2.7 s per step after step 1) | 70 % |
+
+**Added before the long shipped prefix's first port run (after the `ct2`, `clam`, `ct3`, `sh20` port runs; their results are below):**
+
+| id | prediction | probability |
+|---|---|---|
+| P8 | the port's first 500 steps of the case AS SHIPPED (to about 3.6 s, `endTime 10`, compared with round 87's `shipped_log.gz`): every pebble number (6 lines x avg/min/max per step) and every `deltaT` equal at the printed 6 digits | 45 % |
+| P8b | the same, every one within 1e-5 relative of the printed value | 80 % |

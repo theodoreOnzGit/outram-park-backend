@@ -63,7 +63,9 @@
 //! compressible fluid in the faceCentered branch (`psi > 0`; the cell-centred branch refuses it by name), `nuclearSteadyStatePebble`,
 //! `p` from `p_rgh` when absent, the `alpha.structure` FILE as the structure volume fraction (the zone's `volumeFraction` only without
 //! it; before round 87 the dictionary value was always taken, a defect), the `k`/`epsilon` inlet patches and a non-Boussinesq
-//! `porousKEpsilon`. Still refused: `corrected` Laplacian/snGrad schemes (gh:#1991).
+//! `porousKEpsilon`. ~~Still refused: `corrected` Laplacian/snGrad schemes (gh:#1991).~~ **CHANGED 2026-11-28 (gh:#1991, README round 88):**
+//! `Gauss linear corrected` / `corrected` are ported ([`super::non_orth`]: every `fvm::laplacian`, `fvc::snGrad(rho)`, the correction flux in
+//! `pEqnIncomp.flux()`) for `faceCentered` with a compressible fluid on a mesh without cyclic patches; refused by name elsewhere.
 //!
 //! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported, same-region secondary zone only**), pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; ~~power models other than `fixedTemperature`~~ **CORRECTED 2026-11-27 (gh:#1879, README round 37):**
@@ -119,6 +121,7 @@ use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPo
 
 use super::fv::{self, Bc, Eqn, Geometry, Scalar, Vector};
 use super::tensor_laplacian;
+use super::non_orth::{self, NonOrthCorrection, SnGradScheme};
 use super::thermo::PhaseThermo;
 use super::pbicgstab::{pbicgstab_diagonal_if, DEFAULT_MAX_ITER};
 use crate::error::AppBuilderError;
@@ -488,6 +491,11 @@ pub struct OnePhaseCcCase {
     /// (identity outside the tortuous zones); `None` when no zone has one (`structure_.tortuosityPtr().valid()` false: the scalar-gamma
     /// Laplacians of `UEqn_1p.H`/`EEqn_1p.H`).
     pub tortuosity: Option<Vec<[f64; 3]>>,
+    /// `laplacianSchemes.default`'s snGrad (`Gauss linear corrected|uncorrected`; gh:#1991, README round 88): every `fvm::laplacian` of
+    /// `UEqn_1p.H`, `EEqn_1p.H`, `pEqnf_1p.H` and `porousKEpsilon`.
+    pub laplacian_scheme: SnGradScheme,
+    /// `snGradSchemes.default` (`corrected|uncorrected`; gh:#1991): `fvc::snGrad(rho)` of `calcPhiSbyA_1p.H`.
+    pub sn_grad_scheme: SnGradScheme,
 }
 
 /// Parse `internalField` and the `value` of the named patches of a surface (or any scalar) field file.
@@ -1230,17 +1238,27 @@ impl OnePhaseCcCase {
         if hand.is_some() && !radial.models.is_empty() {
             return Err(ctx.e("radial power models cannot continue from handed-over fluid fields (their own state is not handed over)"));
         }
-        if radial.needs_laplacian && !solve_flow {
-            // `fvc::laplacian(Tmatrix)` is the `uncorrected` form only (the flow reader checks the same entry when it runs)
-            let schemes = ctx.read("system/fluidRegion/fvSchemes")?;
-            let d = ctx.sub(&schemes, "laplacianSchemes")?;
-            let uncorrected = match d.get("default") {
-                Some(FoamEntry::Tokens(vs)) => vs.iter().any(|v| matches!(v, outram_foam_basic_lib::io::FoamValue::Word(w) if w == "uncorrected")),
-                _ => false,
+        // `fvSchemes` (gh:#1991, README round 88): the Laplacian's and `fvc::snGrad`'s scheme, read whether or not the flow is solved (the
+        // energy equation's Laplacian takes it too)
+        let (laplacian_scheme, sn_grad_scheme) = {
+            let schemes = match ctx.read("system/fluidRegion/fvSchemes") {
+                Ok(d) => d,
+                Err(e) => return Err(e),
             };
-            if !uncorrected {
-                return Err(ctx.e("lumpedNuclearStructure with kappaMatrix != 0 needs laplacianSchemes `Gauss linear uncorrected` (the only fvc::laplacian ported)"));
+            match non_orth::read_schemes(&schemes) {
+                Ok(v) => v,
+                Err(m) => return Err(ctx.e(m)),
             }
+        };
+        // ~~`if radial.needs_laplacian && !solve_flow`~~ CHANGED 2026-11-28 (gh:#1991): `fvc::laplacian(Tmatrix)` is the `uncorrected` form only,
+        // whatever the flow does (the flow reader no longer refuses `corrected`)
+        if radial.needs_laplacian && laplacian_scheme != SnGradScheme::Uncorrected {
+            return Err(ctx.e("lumpedNuclearStructure with kappaMatrix != 0 needs laplacianSchemes `Gauss linear uncorrected` (the only fvc::laplacian ported)"));
+        }
+        let corrected_any = laplacian_scheme == SnGradScheme::Corrected || sn_grad_scheme == SnGradScheme::Corrected;
+        if corrected_any && g.has_cyclic() {
+            // `nonOrthCorrectionVectors` of a coupled patch are not zero (`basicFvGeometryScheme.C`), and `non_orth` corrects internal faces only
+            return Err(ctx.e("a `corrected` Laplacian or snGrad on a mesh with cyclic patches is not ported (their non-orthogonal correction vectors)"));
         }
         if let Some(h) = hand {
             if [h.t.len(), h.p.len(), h.u.len(), h.alphat.len(), h.t_fixed.len(), h.htc.len(), h.power_density.len()].iter().any(|&l| l != n)
@@ -1367,6 +1385,12 @@ impl OnePhaseCcCase {
             if !fc.face_centered && matches!(thermo, PhaseThermo::PerfectGasPolynomial(_) | PhaseThermo::PerfectGasConst(_)) {
                 return Err(ctx.e("a compressible (psi > 0, perfectGas) fluid with momentumMode other than faceCentered is not ported (pEqn_1p.H's pEqnComp)"));
             }
+            // gh:#1991 (README round 88): the `corrected` pressure path is ported in `pEqnf_1p.H` (faceCentered) for a compressible fluid,
+            // whose `p` patch values (the gradient of `p_rgh` reads the values the assignment `p_rgh = p - rho gh` writes) the port tracks
+            let compressible = matches!(thermo, PhaseThermo::PerfectGasPolynomial(_) | PhaseThermo::PerfectGasConst(_));
+            if corrected_any && !(fc.face_centered && compressible) {
+                return Err(ctx.e("a `corrected` Laplacian or snGrad with the flow solved is ported only for momentumMode faceCentered with a compressible (perfectGas) fluid (pEqn_1p.H and the incompressible p patch values are not)"));
+            }
             Some(fc)
         } else {
             None
@@ -1428,6 +1452,10 @@ impl OnePhaseCcCase {
         if let Some(td) = &tortuosity {
             tensor_laplacian::tortuosity_fields(&g, td).map_err(|m| ctx.e(m))?;
         }
+        if tortuosity.is_some() && laplacian_scheme == SnGradScheme::Corrected {
+            // the tensor-gamma `gaussLaplacianScheme` adds `SfGammaSn correction(vf)` under `corrected`: not in `tensor_laplacian`
+            return Err(ctx.e("structureProperties.localTortuosity with a `corrected` Laplacian is not ported (the tensor-gamma snGrad correction)"));
+        }
 
         Ok(Self {
             mesh,
@@ -1468,6 +1496,8 @@ impl OnePhaseCcCase {
             min_re,
             flow,
             tortuosity,
+            laplacian_scheme,
+            sn_grad_scheme,
         })
     }
 }
@@ -1477,6 +1507,8 @@ impl OnePhaseCcCase {
 pub struct OnePhaseCcSolver {
     case: OnePhaseCcCase,
     geom: Geometry,
+    /// `nonOrthCorrectionVectors` when the case selects a `corrected` Laplacian or snGrad (gh:#1991, README round 88), else `None`.
+    non_orth: Option<NonOrthCorrection>,
     /// `alpha = 1 - structure` (cells).
     alpha: Vec<f64>,
     /// Interpolated `alpha` on faces (constant).
@@ -1704,9 +1736,15 @@ impl OnePhaseCcSolver {
             ),
         };
         let structure_heat_flux = case.heat_flux0.clone().unwrap_or_else(|| vec![0.0; n]);
+        let non_orth = if case.laplacian_scheme == SnGradScheme::Corrected || case.sn_grad_scheme == SnGradScheme::Corrected {
+            Some(NonOrthCorrection::new(&geom))
+        } else {
+            None
+        };
         let mut s = Self {
             case,
             geom,
+            non_orth,
             alpha,
             alpha_f,
             he_old: he.clone(),
@@ -1803,6 +1841,22 @@ impl OnePhaseCcSolver {
             htc: self.htc.clone(),
             power_density: self.power_density.clone(),
             alpha_rho_mag_u: self.alpha_rho_mag_u.clone(),
+        }
+    }
+
+    /// The correction of every `fvm::laplacian` when `laplacianSchemes` is `Gauss linear corrected` (gh:#1991), else `None`.
+    pub(super) fn laplacian_correction(&self) -> Option<&NonOrthCorrection> {
+        match self.case.laplacian_scheme {
+            SnGradScheme::Corrected => self.non_orth.as_ref(),
+            SnGradScheme::Uncorrected => None,
+        }
+    }
+
+    /// The correction of `fvc::snGrad` when `snGradSchemes` is `corrected` (gh:#1991), else `None`.
+    pub(super) fn sn_grad_correction(&self) -> Option<&NonOrthCorrection> {
+        match self.case.sn_grad_scheme {
+            SnGradScheme::Corrected => self.non_orth.as_ref(),
+            SnGradScheme::Uncorrected => None,
         }
     }
 
@@ -2589,11 +2643,22 @@ impl OnePhaseCcSolver {
         } else {
             let ae_f = fv::interp_linear_openfoam(&g, &ae);
             let gam: Vec<f64> = (0..g.n_faces()).map(|f| self.alpha_f[f] * ae_f[f]).collect();
+            // `corrected` (gh:#1991, README round 88): `-fvm::laplacian` carries `+V div(gammaMagSf correction(he))` in its source, `he`'s
+            // gradient from its cells and patch values as they stand
+            let lap_corr = self.laplacian_correction().map(|nc| nc.neg_laplacian_correction_source(&g, &gam, &he_scalar));
             if self.ctl_folded_energy {
                 e.neg_laplacian_internal(&g, &gam);
+                if let Some(sc) = &lap_corr {
+                    for c in 0..n {
+                        e.source[c] += sc[c];
+                    }
+                }
             } else {
                 let mut lp = Eqn::new(&g);
                 lp.neg_laplacian_internal(&g, &gam);
+                if let Some(sc) = lap_corr {
+                    lp.source = sc;
+                }
                 e.add(&lp);
             }
             Eqn::neg_laplacian_boundary_coeffs(&g, &gam, &he_scalar)

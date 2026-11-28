@@ -50,7 +50,7 @@
 //! ## What is NOT ported (refused by name when the case is read)
 //!
 //! ~~`turbulence true` (gh:#1838 wall functions, gh:#1839 `porousKEpsilon::correct`)~~ **CORRECTED 2026-11-26 (round 20): ported, see [`super::turbulence`]**; ~~`momentumMode` other than
-//! `cellCentered`~~ **CORRECTED 2026-11-27 (gh:#1865, gh:#1870 round 62): `cellCenteredFaceReconstruction` and `porousInterfaceSharpness` are ported ([`reconstruct_u_1p`])**, ~~`nNonOrthogonalCorrectors != 0`~~ **CORRECTED 2026-11-27 (gh:#1866, round 33): ported (`n + 1` passes of the pressure solve, `p_rghFinal` in the last pass of the last corrector, `updateFirstPISOPrevPIMPLE` per pass; `corrected` Laplacian/snGrad schemes are refused by name)**, `minKdFS != 0`, ~~a
+//! `cellCentered`~~ **CORRECTED 2026-11-27 (gh:#1865, gh:#1870 round 62): `cellCenteredFaceReconstruction` and `porousInterfaceSharpness` are ported ([`reconstruct_u_1p`])**, ~~`nNonOrthogonalCorrectors != 0`~~ **CORRECTED 2026-11-27 (gh:#1866, round 33): ported (`n + 1` passes of the pressure solve, `p_rghFinal` in the last pass of the last corrector, `updateFirstPISOPrevPIMPLE` per pass; ~~`corrected` Laplacian/snGrad schemes are refused by name~~ **CHANGED 2026-11-28, gh:#1991: `corrected` is ported for `faceCentered` with a compressible fluid (`face_centered.rs`) and refused by name in this cell-centred `pEqn_1p.H` path**)**, `minKdFS != 0`, ~~a
 //! `momentumSourceTimeProfile`~~ **ported (round 62)**, drag models other than `ReynoldsPower`, tortuosity, `fvOptions`.
 
 #[cfg(not(any(feature = "std", test)))]
@@ -567,28 +567,10 @@ pub(super) fn read_flow_case(
             return Err(ctx.e(format!("PIMPLE.partialEliminationMode `{pe}` is not ported")));
         }
     }
-    // `uncorrected` Laplacian and snGrad are the only schemes `fv` implements: with a `corrected` one the extra pressure passes
-    // would carry an explicit non-orthogonal correction (gh:#1866 refuses it by name).
-    {
-        let schemes = ctx.read("system/fluidRegion/fvSchemes")?;
-        for (block, want) in [("laplacianSchemes", "uncorrected"), ("snGradSchemes", "uncorrected")] {
-            let d = ctx.sub(&schemes, block)?;
-            let words: Vec<String> = match d.get("default") {
-                Some(FoamEntry::Word(w)) => vec![w.clone()],
-                Some(FoamEntry::Tokens(vs)) => vs
-                    .iter()
-                    .filter_map(|v| match v {
-                        FoamValue::Word(w) => Some(w.clone()),
-                        _ => None,
-                    })
-                    .collect(),
-                _ => Vec::new(),
-            };
-            if !words.iter().any(|w| w == want) {
-                return Err(ctx.e(format!("fvSchemes.{block}.default = {words:?} is not ported (only `uncorrected`: no explicit non-orthogonal correction)")));
-            }
-        }
-    }
+    // ~~`uncorrected` Laplacian and snGrad are the only schemes `fv` implements: with a `corrected` one the extra pressure passes would
+    // carry an explicit non-orthogonal correction (gh:#1866 refuses it by name).~~ CHANGED 2026-11-28 (gh:#1991, README round 88): the
+    // `corrected` scheme is ported (`non_orth`); `OnePhaseCcCase::read_with_options` reads both schemes and refuses `corrected` where the
+    // pressure path is not ported (any mode but faceCentered, an incompressible fluid, a cyclic mesh).
     for (key, what) in [("minKdFS", "minKdFS")] {
         if scalar(pimple, key).unwrap_or(0.0) != 0.0 {
             return Err(ctx.e(format!("PIMPLE.{what} != 0 is not ported")));
@@ -1105,7 +1087,8 @@ impl OnePhaseCcSolver {
                     }
                 }
             }
-            // pEqnComp + pEqnIncomp. With the `uncorrected` Laplacian (the only scheme read, see `read_flow_case`) the matrix
+            // pEqnComp + pEqnIncomp. With the `uncorrected` Laplacian (the only scheme this cell-centred path reads: `corrected` is refused
+            // by `OnePhaseCcCase::read_with_options` here, gh:#1991) the matrix
             // and source of every non-orthogonal pass are the same, so they are built once; only `p_rgh` differs between passes.
             let dap = fv::div(&g, &self.alpha_phi);
             let mut peqn = Eqn::new(&g);

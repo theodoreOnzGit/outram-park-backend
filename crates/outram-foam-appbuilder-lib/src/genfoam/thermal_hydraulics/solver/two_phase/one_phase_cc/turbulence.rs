@@ -844,7 +844,18 @@ struct PorousKEpsilonTerms {
 /// its own matrix, `A + B` adds a whole matrix (`lduMatrix::operator+=`, `source_ +=`), `field - M` is `-M` with `source -= V field`,
 /// `M + field` is `source -= V field`, `A == B` is `A - B`; `psiSource()` and `fvOptions` are zero matrices. The first form
 /// (one running diagonal) is the ablation [`OnePhaseCcSolver::with_folded_k_epsilon_assembly`].
-fn porous_k_epsilon_matrix(g: &Geometry, ddt: (&[f64], &[f64]), phi: &[f64], gamma: &[f64], psi: &Scalar, t: &PorousKEpsilonTerms) -> Eqn {
+///
+/// `lap_corr` is the `corrected` Laplacian's explicit source (`+V div(gammaMagSf correction(psi))` of `-fvm::laplacian`, gh:#1991), put in
+/// the Laplacian matrix's source before its folded boundary contributions; `None` for `uncorrected`.
+fn porous_k_epsilon_matrix(
+    g: &Geometry,
+    ddt: (&[f64], &[f64]),
+    phi: &[f64],
+    gamma: &[f64],
+    psi: &Scalar,
+    t: &PorousKEpsilonTerms,
+    lap_corr: Option<&[f64]>,
+) -> Eqn {
     let n = g.n_cells();
     let vol = &g.mesh.cell_volumes;
     // LHS = (ddt + div) - laplacian
@@ -855,6 +866,9 @@ fn porous_k_epsilon_matrix(g: &Geometry, ddt: (&[f64], &[f64]), phi: &[f64], gam
     dv.div_upwind(g, phi, psi);
     lhs.add(&dv);
     let mut lp = Eqn::new(g);
+    if let Some(sc) = lap_corr {
+        lp.source.copy_from_slice(sc);
+    }
     lp.neg_laplacian(g, gamma, psi);
     lhs.add(&lp);
     // RHS B: C = -SuSp; C.source -= V S1; C -= Sp(sp); C += 0; C -= Sp(conv); C.source -= V S2
@@ -1074,6 +1088,9 @@ impl OnePhaseCcSolver {
         }
         // the inlet patches of `epsilon` (gh:#1876): `epsilon_.boundaryFieldRef().updateCoeffs()` (`k_b` as it stands)
         let k_b_now = ts.k.b.clone();
+        // the values `epsilon`'s gradient reads under a `corrected` Laplacian (gh:#1991): as stored, before `updateCoeffs` (which changes the
+        // coefficients, not the stored value)
+        let eps_stored = Scalar { c: ts.epsilon.c.clone(), b: ts.epsilon.b.clone(), bc: ts.epsilon.bc.clone() };
         update_inlet_coeffs(&g, &mut ts.epsilon, &c.epsilon_inlet, phi_registered, &self.u.b, &k_b_now, c.cmu);
         let eps_old = ts.epsilon_old.clone();
 
@@ -1111,6 +1128,7 @@ impl OnePhaseCcSolver {
         // ---- epsilon equation ----
         let use_final = self.pimple.final_iteration;
         let gamma_e = gamma_of(c.sigma_eps, &ts.nut);
+        let lap_corr_e = self.laplacian_correction().map(|nc| nc.neg_laplacian_correction_source(&g, &gamma_e, &eps_stored));
         let susp_scale = (2.0 / 3.0) * c.c1 - c.c3;
         let mut su = vec![0.0; n];
         let mut susp = vec![0.0; n];
@@ -1127,11 +1145,16 @@ impl OnePhaseCcSolver {
             let mut dd = Eqn::new(&g);
             ddt(&mut dd, &eps_old);
             let terms = PorousKEpsilonTerms { s1: su.clone(), susp: susp.clone(), sp: sp.clone(), conv: conv.clone(), s2: su_conv.clone() };
-            e = porous_k_epsilon_matrix(&g, (&dd.ldu.diag, &dd.source), phi, &gamma_e, &ts.epsilon, &terms);
+            e = porous_k_epsilon_matrix(&g, (&dd.ldu.diag, &dd.source), phi, &gamma_e, &ts.epsilon, &terms, lap_corr_e.as_deref());
         } else {
             ddt(&mut e, &eps_old);
             e.div_upwind(&g, phi, &ts.epsilon);
             e.neg_laplacian(&g, &gamma_e, &ts.epsilon);
+            if let Some(sc) = &lap_corr_e {
+                for (a, x) in e.source.iter_mut().zip(sc) {
+                    *a += x;
+                }
+            }
             e.su(&g, &su);
             e.su_sp(&g, &susp, &ts.epsilon.c);
             e.sp(&g, &sp);
@@ -1166,6 +1189,9 @@ impl OnePhaseCcSolver {
         let k_b_now = ts.k.b.clone();
         update_inlet_coeffs(&g, &mut ts.k, &c.k_inlet, phi_registered, &self.u.b, &k_b_now, c.cmu);
         let gamma_k = gamma_of(c.sigmak, &ts.nut);
+        // `k`'s gradient under a `corrected` Laplacian (gh:#1991): its cells and its patch values as stored before the `updateCoeffs` above
+        let k_stored = Scalar { c: ts.k.c.clone(), b: k_b_now.clone(), bc: ts.k.bc.clone() };
+        let lap_corr_k = self.laplacian_correction().map(|nc| nc.neg_laplacian_correction_source(&g, &gamma_k, &k_stored));
         let mut su = vec![0.0; n];
         let mut susp = vec![0.0; n];
         let mut sp = vec![0.0; n];
@@ -1181,11 +1207,16 @@ impl OnePhaseCcSolver {
             let mut dd = Eqn::new(&g);
             ddt(&mut dd, &ts.k_old);
             let terms = PorousKEpsilonTerms { s1: su.clone(), susp: susp.clone(), sp: sp.clone(), conv: conv.clone(), s2: su_conv.clone() };
-            e = porous_k_epsilon_matrix(&g, (&dd.ldu.diag, &dd.source), phi, &gamma_k, &ts.k, &terms);
+            e = porous_k_epsilon_matrix(&g, (&dd.ldu.diag, &dd.source), phi, &gamma_k, &ts.k, &terms, lap_corr_k.as_deref());
         } else {
             ddt(&mut e, &ts.k_old);
             e.div_upwind(&g, phi, &ts.k);
             e.neg_laplacian(&g, &gamma_k, &ts.k);
+            if let Some(sc) = &lap_corr_k {
+                for (a, x) in e.source.iter_mut().zip(sc) {
+                    *a += x;
+                }
+            }
             e.su(&g, &su);
             e.su_sp(&g, &susp, &ts.k.c);
             e.sp(&g, &sp);
