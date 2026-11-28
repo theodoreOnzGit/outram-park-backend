@@ -216,14 +216,25 @@ impl LinearSolve {
     /// solution on the template's mesh with zero-gradient patches, as basic-lib's solves do.
     #[must_use]
     pub fn solve(&self, role: NeutronEquation, eqn: &FvMatrix, name: &str, start: &VolScalarField) -> VolScalarField {
+        self.solve_recorded(role, eqn, name, start).0
+    }
+
+    /// [`Self::solve`], and the solve's [`LinearSolveRecord`] (what upstream's `lduMatrix::solve` prints as `Solving for <name>, Initial
+    /// residual = .., No Iterations ..`; gh:#1966, README round 86) for the upstream forms; `None` for basic-lib's solvers, whose residual
+    /// normalisation is not OpenFOAM's. The same solve, operation for operation, as [`Self::solve`] (which calls this).
+    #[must_use]
+    pub fn solve_recorded(&self, role: NeutronEquation, eqn: &FvMatrix, name: &str, start: &VolScalarField) -> (VolScalarField, Option<LinearSolveRecord>) {
         match self.form {
-            LinearSolverForm::BasicLib => match role {
-                NeutronEquation::Flux => eqn.solve_cg_with_guess(name.to_string(), start, self.settings).0,
-                NeutronEquation::Precursor | NeutronEquation::AngularFlux => {
-                    eqn.solve_bicgstab_with_guess(name.to_string(), start, KrylovOptions::default(), self.settings).0
-                }
-                NeutronEquation::StaticAngularFlux => eqn.solve(name.to_string(), self.settings).0,
-            },
+            LinearSolverForm::BasicLib => (
+                match role {
+                    NeutronEquation::Flux => eqn.solve_cg_with_guess(name.to_string(), start, self.settings).0,
+                    NeutronEquation::Precursor | NeutronEquation::AngularFlux => {
+                        eqn.solve_bicgstab_with_guess(name.to_string(), start, KrylovOptions::default(), self.settings).0
+                    }
+                    NeutronEquation::StaticAngularFlux => eqn.solve(name.to_string(), self.settings).0,
+                },
+                None,
+            ),
             LinearSolverForm::Upstream { rel_tol, min_iter } => {
                 let kind = match role {
                     NeutronEquation::Flux => NeutronSolverKind::PcgDic,
@@ -239,36 +250,63 @@ impl LinearSolve {
                     gamg: GamgControls::default(),
                     gamg_forward: true,
                 };
-                run_entry(eqn, name, start, entry)
+                let (field, record) = run_entry(eqn, name, start, entry);
+                (field, Some(record))
             }
-            LinearSolverForm::UpstreamFvSolution(entries) => run_entry(eqn, name, start, entries.entry_for(role)),
+            LinearSolverForm::UpstreamFvSolution(entries) => {
+                let (field, record) = run_entry(eqn, name, start, entries.entry_for(role));
+                (field, Some(record))
+            }
         }
     }
 }
 
+/// One linear solve as upstream's log line `Solving for <field>, Initial residual = <r>, Final residual = .., No Iterations <n>` reports
+/// it (gh:#1966, README round 86): the field name, the normalised initial residual and the iterations (V-cycles for `GAMG`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct LinearSolveRecord {
+    /// The solved field's name (`fluxStar0`, `flux1`, ...).
+    pub field: String,
+    /// The initial residual in OpenFOAM's normalisation.
+    pub initial_residual: f64,
+    /// Iterations performed.
+    pub iterations: usize,
+}
+
 /// Run the OpenFOAM solver `entry` selects on `eqn`, from `start`, and return the solution on the template's mesh with
-/// zero-gradient patches, as basic-lib's solves do.
-fn run_entry(eqn: &FvMatrix, name: &str, start: &VolScalarField, entry: NeutronSolverEntry) -> VolScalarField {
+/// zero-gradient patches, as basic-lib's solves do, and the solve's [`LinearSolveRecord`] (gh:#1966, README round 86: the
+/// performance each solver returns, which this function dropped before).
+fn run_entry(eqn: &FvMatrix, name: &str, start: &VolScalarField, entry: NeutronSolverEntry) -> (VolScalarField, LinearSolveRecord) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let mut x: Vec<f64> = start.internal.as_slice().to_vec();
     let (tol, rel_tol, max_iter, min_iter) = (entry.tolerance, entry.rel_tol, entry.max_iter, entry.min_iter);
-    match entry.kind {
+    let (initial_residual, iterations) = match entry.kind {
         NeutronSolverKind::PcgDic => {
-            let _ = pcg_dic(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+            let p = pcg_dic(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+            (p.initial_residual, p.iterations)
         }
         NeutronSolverKind::PbicgDilu => {
-            let _ = pbicg_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+            let p = pbicg_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+            (p.initial_residual, p.iterations)
         }
         NeutronSolverKind::PbicgstabDilu => {
-            let _ = pbicgstab_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+            let p = pbicgstab_dilu(&eqn.ldu, &b, &mut x, tol, rel_tol, max_iter, min_iter);
+            (p.initial_residual, p.iterations)
         }
         NeutronSolverKind::Gamg => {
             let ctl = GamgControls { tolerance: tol, rel_tol, max_iter, min_iter, ..entry.gamg };
-            let _ = gamg_solve_on_mesh_from(eqn, &ctl, entry.gamg_forward, &b, &mut x).unwrap_or_else(|e| panic!("{name}: {e}"));
+            match gamg_solve_on_mesh_from(eqn, &ctl, entry.gamg_forward, &b, &mut x) {
+                Ok(p) => (p.initial_residual, p.iterations),
+                // upstream stops with a FatalError on these selections; the readers refuse them before any solve, so reaching this is a bug
+                Err(e) => panic!("{name}: {e}"),
+            }
         }
-    }
+    };
     let boundary = eqn.mesh.patches.iter().map(|p| PatchField::zero_gradient(p.size)).collect();
-    VolScalarField::new(name.to_string(), eqn.mesh.clone(), Field::new(x), boundary)
+    (
+        VolScalarField::new(name.to_string(), eqn.mesh.clone(), Field::new(x), boundary),
+        LinearSolveRecord { field: name.to_string(), initial_residual, iterations },
+    )
 }
 
 /// One `GAMG` solve of `eqn` (gh:#1945, README round 79): the `faceAreaPair` agglomeration of `eqn`'s mesh with `ctl`, then

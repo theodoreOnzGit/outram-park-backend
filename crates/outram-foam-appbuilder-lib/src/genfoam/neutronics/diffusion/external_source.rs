@@ -86,7 +86,7 @@ use super::DiffusionNeutronics;
 use crate::genfoam::common::TimeProfile;
 use outram_foam_basic_lib::prelude::{Field, VolScalarField};
 use crate::genfoam::neutronics::pseudo_time::{
-    adjust_delta_t, field_like, neutronics_max_delta_t, solve_twice_residuals, PseudoTimeClock, PseudoTimeControls,
+    adjust_delta_t, field_like, neutronics_max_delta_t, solve_twice_residuals_logged, PseudoTimeClock, PseudoTimeControls,
 };
 use crate::genfoam::neutronics::NeutronicsError;
 
@@ -228,6 +228,9 @@ pub struct StationaryStep {
     pub p_target: Option<f64>,
     /// `integralPredictor.H`'s report (gh:#1919) when `neutronTransport.integralPredictor` is on, else `None`.
     pub predictor: Option<super::integral_predictor::IntegralPredictorReport>,
+    /// The flux linear solves of the step in solve order (gh:#1966, README round 86): upstream's `Solving for fluxStar<g>` lines, two per
+    /// group and neutron iteration; empty for basic-lib's solvers.
+    pub flux_solves: Vec<crate::genfoam::common::linear_solvers::LinearSolveRecord>,
 }
 
 /// One row of the history of [`DiffusionNeutronics::run_stationary_transient`].
@@ -458,6 +461,8 @@ impl DiffusionNeutronics {
         let mut neutro_iter = 0usize;
         let mut residual_history = Vec::new();
         let mut solver_residual = 0.0_f64;
+        // gh:#1966, README round 86: the flux solves of this call, as upstream's log prints them
+        self.flux_solve_log.clear();
         loop {
             let mut neutro_residual = 0.0_f64;
             for gg in 0..groups {
@@ -502,7 +507,7 @@ impl DiffusionNeutronics {
                     - fvm::su(&field_like(flux_g, delayed_g), flux_g)
                     - fvm::su(&field_like(flux_g, scatter), flux_g);
                 let (sol, init_res, second_res) =
-                    solve_twice_residuals(&eqn, &format!("fluxStar{gg}"), &star_fields[gg], self.settings.linear_solve());
+                    solve_twice_residuals_logged(&eqn, &format!("fluxStar{gg}"), &star_fields[gg], self.settings.linear_solve(), &mut self.flux_solve_log);
                 neutro_residual = neutro_residual.max(init_res);
                 solver_residual = solver_residual.max(second_res);
                 // fluxStar_ = solution; flux_ = fluxStar_/discFactor (fluxEq.H:31)
@@ -546,7 +551,8 @@ impl DiffusionNeutronics {
             _ => None,
         };
         let solver_residual = solver_residual.max(residual_history.last().copied().unwrap_or(0.0));
-        Ok(StationaryStep { power_old, power, neutron_iterations: neutro_iter, residual_history, solver_residual, p_target, predictor })
+        let flux_solves = self.flux_solve_log.clone();
+        Ok(StationaryStep { power_old, power, neutron_iterations: neutro_iter, residual_history, solver_residual, p_target, predictor, flux_solves })
     }
 
     /// GeN-Foam's main loop for a single stationary-fuel diffusion region

@@ -59,6 +59,8 @@ struct RefStep {
     neut: Vec<(f64, Vec<f64>)>,
     /// Per pass: the thermo-mechanics solves `(field, initial residual, iterations)`.
     tm: Vec<Vec<(String, f64, i64)>>,
+    /// Per pass: the flux solves `(initial residual, iterations)` (the `FLUX` lines; round 86, gh:#1966).
+    flux: Vec<Vec<(f64, i64)>>,
 }
 
 #[derive(Default)]
@@ -93,6 +95,10 @@ fn parse_log(text: &str) -> Reference {
                 let n: usize = w[4].parse().expect("n");
                 r.steps.last_mut().expect("step").neut.push((f(3), (0..n).map(|i| f(5 + i)).collect()));
             }
+            "FLUX" => {
+                let n: usize = w[3].parse().expect("n");
+                r.steps.last_mut().expect("step").flux.push((0..n).map(|i| (f(4 + 2 * i), w[5 + 2 * i].parse().expect("it"))).collect());
+            }
             "TM" => {
                 let n: usize = w[3].parse().expect("n");
                 r.steps.last_mut().expect("step").tm.push((0..n).map(|i| (w[4 + 3 * i].to_string(), f(5 + 3 * i), w[6 + 3 * i].parse().expect("it"))).collect());
@@ -108,11 +114,13 @@ fn parse_log(text: &str) -> Reference {
 }
 
 fn load_reference(tag: &str) -> Reference {
-    let text = String::from_utf8(gunzip(&vv_dir().join(format!("refs/esfr_r75_{tag}_log.ref.txt.gz")))).expect("utf8");
+    // round 86 (gh:#1955): `r86_<name>` reads `refs/esfr_r86_<name>_log.ref.txt.gz` (and its `_V_<region>` full fields, where present)
+    let stem = if tag.starts_with("r86_") { format!("esfr_{tag}") } else { format!("esfr_r75_{tag}") };
+    let text = String::from_utf8(gunzip(&vv_dir().join(format!("refs/{stem}_log.ref.txt.gz")))).expect("utf8");
     let mut r = parse_log(&text);
-    if tag.starts_with("tight") {
+    if tag.starts_with("tight") || tag.starts_with("r86_") {
         for region in ["fluidRegion", "neutroRegion", "thermoMechanicalRegion"] {
-            let p = vv_dir().join(format!("refs/esfr_r75_{tag}_V_{region}.ref.txt.gz"));
+            let p = vv_dir().join(format!("refs/{stem}_V_{region}.ref.txt.gz"));
             if !p.exists() {
                 continue;
             }
@@ -198,6 +206,9 @@ fn the_reference_parser_and_the_solve_comparison_read_the_extractor_format() {
     assert_eq!(r.steps[0].h, vec![(1e-11, 0), (2e-11, 1)]);
     assert_eq!(r.steps[0].neut[0], (8.1e8, vec![1e-3, 1e-6]));
     assert_eq!(r.steps[0].tm[1], vec![("dispx".to_string(), 0.2, 30)]);
+    // round 86: the FLUX lines, per pass
+    assert_eq!(r.steps[0].flux, vec![vec![(1e-3, 20), (1e-6, 0)], vec![]]);
+    assert_eq!(r.steps[1].flux, vec![Vec::<(f64, i64)>::new()]);
     assert_eq!(r.steps[1].next_dt, 1.44e-5);
     assert_eq!(r.fp[&(1, "fluidRegion T".to_string())], [3.0, 6.0, 3.0, 14.0]);
     let a = vec![("dispx".to_string(), 0.1, 29)];
@@ -205,6 +216,50 @@ fn the_reference_parser_and_the_solve_comparison_read_the_extractor_format() {
     let (eq, worst_rel, _abs, over1, worst_it) = compare_solves(&a, &b);
     assert!(eq && worst_rel < 2e-9 && over1 == 1 && worst_it == 2);
     assert!(!compare_solves(&a, &[]).0);
+}
+
+/// The fingerprint `(sum, max|.|, sumsq)` of a flat list.
+fn fingerprint(v: &[f64]) -> [f64; 3] {
+    let (mut s, mut m, mut q) = (0.0, 0.0_f64, 0.0);
+    for &x in v {
+        s += x;
+        m = m.max(x.abs());
+        q += x * x;
+    }
+    [s, m, q]
+}
+
+/// README round 86 (gh:#1955, the round 81 method; `ESFR_T_ALLFP`): every `FP` record of the reference at step `k` (an `ALL_FIELDS=1`
+/// extraction fingerprints every volume field file the real binary wrote) against the port's field of the same name, where the port holds
+/// one; prints `FPX <region> <field>: <worst>` per field (a field the port does not hold: `FPX ... absent in the port`) and keeps the first
+/// (step, field) above 1e-12 relative in `first`. Reached by `esfr_transient_steps_against_the_real_binary`.
+fn all_field_fingerprints(run: &RegionSolvers, reference: &Reference, k: usize, first: &mut Option<(usize, String, f64)>) {
+    let mut keys: Vec<&String> = reference.fp.keys().filter(|(s, _)| *s == k).map(|(_, key)| key).collect();
+    keys.sort();
+    for key in keys {
+        let mut it = key.splitn(2, ' ');
+        let (region, name) = match (it.next(), it.next()) {
+            (Some(r), Some(n)) => (r, n),
+            _ => continue,
+        };
+        let up = reference.fp[&(k, key.clone())];
+        let Some(mine) = port_field(run, region, name) else {
+            println!("  FPX {key}: absent in the port");
+            continue;
+        };
+        if mine.len() as f64 != up[0] {
+            println!("  FPX {key}: length {} against the real {}", mine.len(), up[0]);
+            continue;
+        }
+        let [s, m, q] = fingerprint(&mine);
+        let worst = rel(s, up[1]).max(rel(m, up[2])).max(rel(q, up[3]));
+        // a field that is 0 everywhere in both: equal
+        let worst = if up[2] == 0.0 && m == 0.0 { 0.0 } else { worst };
+        println!("  FPX {key}: {worst:e}");
+        if worst > 1e-12 && first.is_none() {
+            *first = Some((k, key.clone(), worst));
+        }
+    }
 }
 
 /// README round 75 Part B: the first `ESFR_T_STEPS` steps (default 3) of the port's multiPhysicsSolver transient, read from the real binary's
@@ -241,10 +296,12 @@ fn esfr_transient_steps_against_the_real_binary() {
         }
     }
     let mut first_diverging: Option<(usize, String, f64)> = None;
+    let mut first_above_1e12: Option<(usize, String, f64)> = None;
     let (mut worst_power, mut worst_dt) = ((0.0_f64, 0usize), (0.0_f64, 0usize));
     let (mut iter_mismatch, mut h_mismatch, mut tm_mismatch, mut neut_mismatch) = (0usize, 0usize, 0usize, 0usize);
     let (mut h_worst, mut tm_worst, mut neut_worst) = ((0.0_f64, 0usize), (0.0_f64, 0usize), (0.0_f64, 0usize));
     let (mut tm_it_over1, mut h_it_over1) = (0usize, 0usize);
+    let (mut flux_mismatch, mut flux_worst, mut flux_it_diff) = (0usize, (0.0_f64, 0usize), 0usize);
     let mut k = 0usize;
     while run.running() && k < n_steps {
         k += 1;
@@ -305,6 +362,23 @@ fn esfr_transient_steps_against_the_real_binary() {
                 }
             } else {
                 neut_mismatch += 1;
+            }
+            // round 86 (gh:#1966): the flux solves of the pass against the real `FLUX` line
+            if let (Some(ns), Some(uf)) = (&it.neutronics, up.flux.get(j)) {
+                let mine_f: Vec<(String, f64, i64)> = ns.flux_solves.iter().map(|s| ("flux".to_string(), s.initial_residual, s.iterations as i64)).collect();
+                let up_f: Vec<(String, f64, i64)> = uf.iter().map(|&(a, b)| ("flux".to_string(), a, b)).collect();
+                let (eq, wr, _wa, _o1, _wi) = compare_solves(&mine_f, &up_f);
+                if !eq {
+                    flux_mismatch += 1;
+                } else {
+                    if wr > flux_worst.0 {
+                        flux_worst = (wr, k);
+                    }
+                    flux_it_diff += mine_f.iter().zip(&up_f).filter(|(a, b)| a.2 != b.2).count();
+                    if k == 1 && j == 0 && std::env::var("ESFR_T_VERBOSE").is_ok() {
+                        println!("  FLUX step 1 pass 0: port {:?} upstream {:?}", &mine_f[..mine_f.len().min(4)], &up_f[..up_f.len().min(4)]);
+                    }
+                }
             }
             let mine_tm: Vec<(String, f64, i64)> = it.thermo_mechanics.iter().map(|(f, a, b)| (f.clone(), *a, *b as i64)).collect();
             match up.tm.get(j) {
@@ -393,11 +467,18 @@ fn esfr_transient_steps_against_the_real_binary() {
                 }
             }
         }
+        if std::env::var("ESFR_T_ALLFP").is_ok() {
+            all_field_fingerprints(&run, &reference, k, &mut first_above_1e12);
+        }
+    }
+    if std::env::var("ESFR_T_ALLFP").is_ok() {
+        println!("FIRST ABOVE 1e-12 (every field the reference and the port both hold): {first_above_1e12:?}");
     }
     println!("STEPS {k}: worst power {:e} (step {}); worst dt {:e} (step {}); pass-count mismatches {iter_mismatch}", worst_power.0, worst_power.1, worst_dt.0, worst_dt.1);
     println!("H: step solve-count mismatches {h_mismatch}; worst relative initial residual (upstream above 1e-10) {:e} (step {}); iteration differences above 1: {h_it_over1}", h_worst.0, h_worst.1);
     println!("NEUTRON: pass mismatches {neut_mismatch}; worst relative neutroResidual {:e} (step {})", neut_worst.0, neut_worst.1);
     println!("TM: pass solve-count/order mismatches {tm_mismatch}; worst relative initial residual (upstream above 1e-10) {:e} (step {}); iteration differences above 1: {tm_it_over1}", tm_worst.0, tm_worst.1);
+    println!("FLUX: pass solve-count mismatches {flux_mismatch}; worst relative initial residual (upstream above 1e-10) {:e} (step {}); iteration-count differences {flux_it_diff}", flux_worst.0, flux_worst.1);
     println!("FIRST DIVERGING (fingerprint > 1e-9): {first_diverging:?}");
 }
 

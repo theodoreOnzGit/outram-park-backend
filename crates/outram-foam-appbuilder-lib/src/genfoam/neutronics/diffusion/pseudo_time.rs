@@ -52,7 +52,7 @@ use outram_foam_basic_lib::prelude::{fvc, fvm};
 
 use super::DiffusionNeutronics;
 use crate::genfoam::neutronics::pseudo_time::{
-    calc_keff, field_like, neutronics_max_delta_t, solve_twice, PseudoTimeClock,
+    calc_keff, field_like, neutronics_max_delta_t, solve_twice_logged, PseudoTimeClock,
     PseudoTimeControls, PseudoTimeEigenvalue, PseudoTimeError, PseudoTimeStep,
 };
 
@@ -180,6 +180,8 @@ impl PseudoTimeEigenvalue for DiffusionNeutronics {
             .collect();
 
         let mut neutro_residual = 0.0_f64;
+        // gh:#1966, README round 86: the flux solves of this step, as upstream's log prints them
+        self.flux_solve_log.clear();
         for gg in 0..groups {
             // calcScatteringSource.H
             let mut scatter = vec![0.0; n];
@@ -224,7 +226,7 @@ impl PseudoTimeEigenvalue for DiffusionNeutronics {
                 - fvm::su(&field_like(&template, prompt), &star_g)
                 - fvm::su(&field_like(&template, delayed_g), &star_g)
                 - fvm::su(&field_like(&template, scatter), &star_g);
-            let (sol, init_res) = solve_twice(&eqn, &format!("flux{gg}"), &star_g, self.settings.linear_solve());
+            let (sol, init_res) = solve_twice_logged(&eqn, &format!("flux{gg}"), &star_g, self.settings.linear_solve(), &mut self.flux_solve_log);
             neutro_residual = neutro_residual.max(init_res);
             flux_star[gg] = sol.internal.as_slice().to_vec();
             // flux_ = fluxStar_/discFactor (`fluxEq.H:31`), before the next group's scattering source.

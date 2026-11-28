@@ -84,7 +84,8 @@ fn load_reference(tag: &str) -> Reference {
     // `r75step2` (gh:#1949, README round 75 Part C): the tight run of the round 74 case for 3 steps with the full fields kept at steps 1, 2, 3
     let step2 = tag == "r75step2";
     // `r82_gtight` / `r82_gloose` (gh:#1956, README round 82): the neutronics GAMG one-edit variant, tight and as shipped
-    let r82 = tag.starts_with("r82_");
+    // `r86_g40` (gh:#1966, README round 86): `r82_gloose` with `nCellsInCoarsestLevel 40` in the neutronics flux GAMG block
+    let r82 = tag.starts_with("r82_") || tag.starts_with("r86_");
     let with_full = tag == "tight" || step2 || r82;
     let mut r = Reference::default();
     let log_name = if step2 {
@@ -207,6 +208,9 @@ fn esfr_coupled_steps_against_the_real_binary() {
     let mut first_diverging: Option<(usize, String, f64)> = None;
     // solve bookkeeping: [count mismatches, solves compared, worst relative initial residual (upstream above 1e-10), iteration differences > 1, worst iteration difference]
     let mut sol = [[0.0_f64; 8]; 3];
+    // round 86 (gh:#1966): flux solves (steps with a reference, steps with a different count, worst relative initial residual above 1e-10,
+    // iteration differences where the real initial residual is above 1e-10, iteration differences at the floor)
+    let mut flux_stats = (0usize, 0usize, 0.0_f64, 0usize, 0usize);
     for k in 1..=n_steps {
         let t0 = std::time::Instant::now();
         let rec = run.step().unwrap_or_else(|e| panic!("step {k}: {e}"));
@@ -226,9 +230,29 @@ fn esfr_coupled_steps_against_the_real_binary() {
         }
         let lg = reference.log[k - 1];
         if let Some(fx) = reference.flux.get(k - 1) {
-            // the real flux GAMG solves (the port does not log its neutronics solves): count, and the iterations of each
+            // the real flux solves against the port's (gh:#1966, README round 86: the port logs its neutronics linear solves now)
             let its: Vec<i64> = fx.iter().map(|x| x.2).collect();
-            println!("  FLUX step {k}: {} real solves, iterations {its:?}; port forward_ after the step {}", fx.len(), run.gamg_forward());
+            let mine: Vec<(String, f64, i64)> = match run.region("neutroRegion").map(|r| &r.solver) {
+                Some(RegionSolver::Neutronics(n)) => n.solver.flux_solve_log().iter().map(|s| (s.field.clone(), s.initial_residual, s.iterations as i64)).collect(),
+                _ => Vec::new(),
+            };
+            let my_its: Vec<i64> = mine.iter().map(|x| x.2).collect();
+            println!("  FLUX step {k}: {} real solves, iterations {its:?}; port {} solves, iterations {my_its:?}; port forward_ after the step {}", fx.len(), mine.len(), run.gamg_forward());
+            flux_stats.0 += 1;
+            if mine.len() != fx.len() {
+                flux_stats.1 += 1;
+            } else {
+                for (m, u) in mine.iter().zip(fx) {
+                    if u.1 > 1e-10 {
+                        flux_stats.2 = flux_stats.2.max(((m.1 - u.1) / u.1).abs());
+                        if m.2 != u.2 {
+                            flux_stats.3 += 1;
+                        }
+                    } else if m.2 != u.2 {
+                        flux_stats.4 += 1;
+                    }
+                }
+            }
         }
         println!(
             "STEP {k} ({wall:.1} s): keff {:e} vs {:e} (rel {:e}); power {:e} vs {:e} (rel {:e}); sigma {:?} vs {:e}; dt {} vs {}",
@@ -332,5 +356,9 @@ fn esfr_coupled_steps_against_the_real_binary() {
             a[0], a[1], a[2], a[5], a[6], a[7], a[3], a[4]
         );
     }
+    println!(
+        "SOLVES flux: steps compared {}; steps with a different count {}; worst relative initial residual (upstream above 1e-10) {:e}; iteration differences above the floor {}; at the floor {}",
+        flux_stats.0, flux_stats.1, flux_stats.2, flux_stats.3, flux_stats.4
+    );
     println!("FIRST DIVERGING (fingerprint > 1e-9): {first_diverging:?}");
 }

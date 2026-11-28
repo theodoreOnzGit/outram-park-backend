@@ -12,7 +12,8 @@ Parses log.GeN-Foam of <run dir> (a finished run, or one still running: it waits
   TM k j n field ini it ...                    every thermo-mechanics solve of call j (TStruct, dispx..z, fuelDisp, CRDisp)
 and, when a step's time directory exists (writeControl timeStep: kept steps only), the fingerprint of every field (n sum max|.| sumsq) and, for
 the kept steps, the full internalField of the key fields (`V k <region> <field> v...`); the directory is deleted after it was read (the last one is
-kept). Numbers are printed as the binary wrote them (17 digits).
+kept). Numbers are printed as the binary wrote them (17 digits). ALL_FIELDS=1 (README round 86): fingerprint EVERY volume field file of each
+region directory (the round 81 method), not only the FIELDS list; a uniform field is expanded to the region's cell count.
 """
 import os, re, shutil, sys, time
 
@@ -87,10 +88,20 @@ def main():
                 out.write(line + '\n')
             if os.path.isdir(d):
                 for region, names in FIELDS.items():
+                    if os.environ.get('ALL_FIELDS') == '1' and os.path.isdir(os.path.join(d, region)):
+                        # README round 86 (gh:#1955, the round 81 method): every volume field file of the region, not only the list
+                        names = sorted(f for f in os.listdir(os.path.join(d, region)) if os.path.isfile(os.path.join(d, region, f)))
                     for fld in names:
                         p = os.path.join(d, region, fld)
                         if not os.path.exists(p):
                             continue
+                        if fld not in FIELDS[region] and 'internalField' not in open(p, errors='replace').read(4096):
+                            continue
+                        if fld not in FIELDS[region]:
+                            head = open(p, errors='replace').read()
+                            m = re.search(r'internalField\s+(uniform\s+([^;]+);|nonuniform\s+List<\w+>\s*(\d+)\s*\()', head)
+                            if m is None:
+                                continue
                         nn, v = read_list(p)
                         if nn is None:
                             v = v * NCELLS[region]

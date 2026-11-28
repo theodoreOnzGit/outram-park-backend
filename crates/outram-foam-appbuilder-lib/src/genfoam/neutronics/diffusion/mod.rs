@@ -259,6 +259,19 @@ pub struct DiffusionNeutronics {
     /// `oldTime()`, which stays the value of the previous TIME step while the step is corrected again); `None` (the default) takes the state the
     /// call starts from, which is the old time of a step that is solved once.
     stationary_old: Option<(Vec<Vec<f64>>, Vec<Vec<f64>>)>,
+    /// The flux linear solves of the last [`Self::eigenvalue_time_step`] or [`Self::upstream_stationary_step`] call, in order (two per group:
+    /// `fluxEq.H` solves twice), as upstream's log prints them (gh:#1966, README round 86); empty for basic-lib's solvers.
+    flux_solve_log: Vec<crate::genfoam::common::linear_solvers::LinearSolveRecord>,
+}
+
+impl DiffusionNeutronics {
+    /// The flux linear solves (field, initial residual, iterations) of the last eigenvalue pseudo-time step or stationary step, in solve
+    /// order: what upstream's `Solving for fluxStar<g>` / `flux<g>` lines report (gh:#1966, README round 86). Empty before the first
+    /// step and for basic-lib's solvers.
+    #[must_use]
+    pub fn flux_solve_log(&self) -> &[crate::genfoam::common::linear_solvers::LinearSolveRecord] {
+        &self.flux_solve_log
+    }
 }
 
 /// The old-time values `fvm::ddt` reads in `solveNeutronics.H`: per group the flux, per precursor group
@@ -368,6 +381,7 @@ impl DiffusionNeutronics {
             integral_predictor: false,
             implicit_predictor: false,
             stationary_old: None,
+            flux_solve_log: Vec::new(),
         })
     }
 

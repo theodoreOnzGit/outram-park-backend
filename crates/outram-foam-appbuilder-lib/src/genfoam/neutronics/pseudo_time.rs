@@ -63,7 +63,7 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use crate::genfoam::common::linear_solvers::{LinearSolve, NeutronEquation};
+use crate::genfoam::common::linear_solvers::{LinearSolve, LinearSolveRecord, NeutronEquation};
 use outram_foam_basic_lib::prelude::{BoundaryCondition, Field, FvMatrix, VolScalarField};
 use thiserror::Error;
 
@@ -412,12 +412,27 @@ pub(crate) fn solve_twice(
     start: &VolScalarField,
     settings: LinearSolve,
 ) -> (VolScalarField, f64) {
+    let mut log = Vec::new();
+    solve_twice_logged(eqn, name, start, settings, &mut log)
+}
+
+/// [`solve_twice`], appending each of the two solves' [`LinearSolveRecord`] to `log` (the two `Solving for <name>` lines upstream prints
+/// per group; gh:#1966, README round 86). Nothing is appended for basic-lib's solvers ([`LinearSolve::solve_recorded`]).
+pub(crate) fn solve_twice_logged(
+    eqn: &FvMatrix,
+    name: &str,
+    start: &VolScalarField,
+    settings: LinearSolve,
+    log: &mut Vec<LinearSolveRecord>,
+) -> (VolScalarField, f64) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let initial = eqn
         .ldu
         .openfoam_initial_residual(start.internal.as_slice(), &b);
-    let first = settings.solve(NeutronEquation::Flux, eqn, name, start);
-    let second = settings.solve(NeutronEquation::Flux, eqn, name, &first);
+    let (first, r1) = settings.solve_recorded(NeutronEquation::Flux, eqn, name, start);
+    let (second, r2) = settings.solve_recorded(NeutronEquation::Flux, eqn, name, &first);
+    log.extend(r1);
+    log.extend(r2);
     (second, initial)
 }
 
@@ -431,11 +446,26 @@ pub(crate) fn solve_twice_residuals(
     start: &VolScalarField,
     settings: LinearSolve,
 ) -> (VolScalarField, f64, f64) {
+    let mut log = Vec::new();
+    solve_twice_residuals_logged(eqn, name, start, settings, &mut log)
+}
+
+/// [`solve_twice_residuals`], appending each solve's [`LinearSolveRecord`] to `log` (gh:#1966, README round 86), as
+/// [`solve_twice_logged`].
+pub(crate) fn solve_twice_residuals_logged(
+    eqn: &FvMatrix,
+    name: &str,
+    start: &VolScalarField,
+    settings: LinearSolve,
+    log: &mut Vec<LinearSolveRecord>,
+) -> (VolScalarField, f64, f64) {
     let b: Vec<f64> = eqn.source.iter().copied().collect();
     let initial = eqn.ldu.openfoam_initial_residual(start.internal.as_slice(), &b);
-    let first = settings.solve(NeutronEquation::Flux, eqn, name, start);
+    let (first, r1) = settings.solve_recorded(NeutronEquation::Flux, eqn, name, start);
     let second_initial = eqn.ldu.openfoam_initial_residual(first.internal.as_slice(), &b);
-    let second = settings.solve(NeutronEquation::Flux, eqn, name, &first);
+    let (second, r2) = settings.solve_recorded(NeutronEquation::Flux, eqn, name, &first);
+    log.extend(r1);
+    log.extend(r2);
     (second, initial, second_initial)
 }
 
