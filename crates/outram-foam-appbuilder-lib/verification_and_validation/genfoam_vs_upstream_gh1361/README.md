@@ -10451,3 +10451,62 @@ No numeric pin moved: every default is unchanged (the new selections were refuse
 ### Reproduction
 
 Real: `GAMGDUMP_LIB=<dir> bash upstream_driver/gamg_dump/build.sh`, then `bash scripts/run_gamg_features_real_r85.sh <out> a1 ... a8 b1 ... b7` (FFTF 20-40 s each, `TStruct` 10 s each); `python3 -I scripts/make_ke_smooth_variants_r85.py cases/fftf_turb_variants/w8_zg <d>`, `VARIANTS="k0 k1 k2 k3 k4" PREFIX=fftf_r85_ bash scripts/run_fftf_turb_variants.sh <d> <out>`, then `bash scripts/extract_ke_solves_r85.sh <d>/<v>/log.GeN-Foam >> <out>/fftf_r85_<v>_log.ref.txt`; `f12`: `cases/fullcoupling_fluid` with the PIMPLE edit above, `ROUND=r85 FIELDS="U p p_rgh T alphaPhi htc T.passiveStructure T.fuelAvForNeutronics alphaRhoMagU" bash scripts/run_round73_variants.sh <d> <out> f12_cc_recon f12_base`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_gamg_features_vs_upstream --test genfoam_fftf_pieces_vs_upstream --test genfoam_fullcoupling_fluid_vs_upstream r85 -- --nocapture` (and the first target without a filter).
+
+
+# Round 86 (gh:#1955, gh:#1966 under #1216): where the 3D_SmallESFR_old loose transient first differs after round 78, and the real binary's own sensitivity; the neutronics GAMG rebuild's `forward_` bookkeeping on an odd level count
+
+> Research, education and V&V only. AI draft, not human-reviewed. Predictions and criteria below were written and committed BEFORE any port run of this round. The real binary was started first on the round 84 protocol (`scripts/run_esfr_baffle_less_r84.sh`, loose, steady then transient); no number of it was read before this section was committed.
+
+## Part A (gh:#1955): read before any port run
+
+* Round 84 measured the port's loose power worst at 6.90e-10 (step 52) on **round 84's real `tr` case**, which `run_esfr_baffle_less_r84.sh` stages with an extra **`GeN-Foam -initializeMappedFields`** before the transient (`meshHandler::mapAndWrite`, `meshHandlerTemplates.C:105-150`: every mapped field is mapped again and WRITTEN into the start directory `200`). The shipped `Allrun` does not run `-initializeMappedFields`, and neither did round 75/78's case (`make_esfr_old_case.sh transient`, then the binary). The reference the port is judged against is round 75's `esfr_r75_loose_log`, taken on the case WITHOUT it. So round 84's 6.90e-10 may compare the port, started from one start directory, with a real log started from another; round 78's 2.2e-10 compared like with like. This is a hypothesis to test, not a finding.
+* Code changed in rounds 79-83 on the path of this run (`git diff 6a9cb44ae 091fa7059`): `common/{gamg,linear_solvers,pcg}.rs`, `multi_region/{region_solvers,mesh_deformation}.rs`, `one_phase_cc{,/flow,/turbulence}.rs` (`Dh = SMALL` outside structures, `alphapas_`, `heatFlux.structure`, `T.storePrevIter()`), `neutronics/diffusion/mod.rs`, `fvm/laplacian.rs` (basic lib). Candidates for a bisection if the hypothesis fails.
+
+## Part A protocol
+
+* **A-R (real).** From ONE real loose steady state (`ss`, round 84 script): `tr_init` = the round 84 case (with `-initializeMappedFields`), `tr_plain` = `make_esfr_old_case.sh transient` from the same `ss` (round 75/78 protocol). Both run as shipped (loose), 73 steps; logs extracted with `extract_esfr_transient.py`. `tr_plain` against `esfr_r75_loose_log` is the reproducibility check R0 (round 78 found it bit-identical).
+* **A-P (port, HEAD of this branch).** `esfr_transient_steps_against_the_real_binary` on each case against its OWN real log (`ESFR_T_REF` given a new tag per log) and, for the attribution, the `tr_init` case against `esfr_r75_loose_log` (round 84's pairing).
+* **A-F (first difference, the round 81 method).** One more real run of the case the port is judged on, `writeControl timeStep; writeInterval 1`, the extractor fingerprinting EVERY volume field file of every region at every step (not only its fixed list) and keeping full key fields at a few steps; the port compares every field it holds under the same name at every step. The first (step, field) above 1e-12 relative is reported, with its cause traced to upstream. (Differences in the last steps from the write alignment are stated, as round 75.)
+* **A-S (sensitivity).** A real loose run of the same case with EVERY internal value of `200/fluidRegion/T` multiplied by `(1 + 1e-12)` (the seed the issue asks for), against the unperturbed real run: per-step power, counts, TM residuals, fingerprints at 210.
+* If the hypothesis fails (the plain case still gives ~6.9e-10 at HEAD), bisect rounds 79-83 with `git worktree` builds of `f0f61f056` (79), `f6138c52e` (80), `33e604a03` (81), `ec030a26e` (82), `091fa7059` (83) on the plain case, one at a time, each build deleted after use.
+
+## Part A criteria (fixed now)
+
+* **AC1 (attribution).** The 2.2e-10 -> 6.90e-10 movement is attributed to the start directory iff the HEAD port on `tr_plain` against `esfr_r75_loose_log` (or the same-day plain real log) prints round 78's numbers (power worst 2.2e-10 at step 52, the same TM worst) to every printed digit; else to code, located by the bisection to one round's commit.
+* **AC2 (gate).** On each case against its own real log: criteria 2 of round 75 Part B unchanged (power `<= 1e-9`, counts equal, initial residuals `<= 1e-6` relative above 1e-10 absolute, iteration counts at the floor reported); fingerprints at 210 `<= 1e-9`.
+* **AC3 (the real sensitivity, round 78's R2 rule).** Gate = `max(10 x max_steps |power_S - power_U| / power_U, 1e-9)`; the same for the TM initial residual of each solve (10 x the real-vs-real relative difference of that solve) and for each fingerprint at 210. A port miss of AC2 below its AC3 gate is the protocol's own sensitivity; above it, a defect to find.
+* **AC4.** A full-field difference (`max|d|/max|up|`) `<= 1e-9` where a fingerprint misses 1e-9 means cancellation in the fingerprint (round 75 Part C rule).
+
+## Part A predictions
+
+| id | claim | P |
+|---|---|---|
+| D1 | `tr_plain`'s real log is bit-identical to `esfr_r75_loose_log` in power and `dt` at all 73 steps (R0) | 85 % |
+| D2 | `tr_init`'s real log differs from `esfr_r75_loose_log` (the start state written by `-initializeMappedFields` is not bit-identical to the plain one) | 65 % |
+| D3 | AC1: the movement is the start directory (HEAD on `tr_plain` prints 2.2e-10 at step 52) | 55 % |
+| D4 | HEAD on `tr_init` against `tr_init`'s own log: power worst `<= 2.2e-10` | 50 % |
+| D5 | the step-52 TM residual miss (4.2e-3) is a solve whose real initial residual is below 1e-8 absolute (a near-floor solve the 1e-10 floor does not exclude) | 60 % |
+| D6 | A-S: the real-vs-real power difference at step 1 is within [1e-14, 1e-11] | 70 % |
+| D7 | A-S: the real-vs-real max power difference over 73 steps is at least 1e-10 (so AC3's gate is above 1e-9 and the port's loose misses are inside the protocol's sensitivity) | 45 % |
+| D8 | A-F: the full-field TM `disp` difference at step 73 is `<= 1e-9` (the fingerprint miss is cancellation) | 50 % |
+| D9 | A-F: the first field to differ above 1e-12 at step 1 is a thermo-mechanics field (`disp`/`fuelDisp`/`CRDisp`), as rounds 74-75 | 55 % |
+
+## Part B (gh:#1966): read before any port run
+
+* Round 82: on the ESFR neutronics-GAMG variant (`nCellsInCoarsestLevel 20`) the fluid `p_rgh` build is ODD (7 levels attempted), the neutronics build and every rebuild after `deformMesh`, and the TM build, are EVEN, so `forward_` is `false` after every step and `without_gamg_reagglomeration_after_mesh_motion` is inert. The levels attempted by `pairGAMGAgglomeration::agglomerate` stop when the coarse count falls below `nCellsInCoarsestLevel` (`pairGAMGAgglomerate.C`); on 23 322 cells halving per level, 20 -> 40 removes one level, so a ONE-EDIT variant `nCellsInCoarsestLevel 40` in the neutronics `flux.*` GAMG block should make every neutronics build odd (checked on the port's own `forward_` before the comparison; that is a design step, not a criterion).
+* `cacheAgglomeration true` (shipped): the build is kept until `movePoints` sets `requireUpdate_`; with an odd neutronics count `forward_` toggles at every rebuild, so the TM `TStruct` build (later in each step's order) and the next step's neutronics rebuild start from a value that depends on the rebuild count.
+
+## Part B protocol, criteria, predictions
+
+* Variant `g40` = round 82's `gloose` (as shipped, `make_esfr_coupled_case.sh` with `NEUTRO_GAMG=1 TIGHT=0 END=20`) with `nCellsInCoarsestLevel 40;` in the neutronics flux block (one line). Real: 20 steps, `extract_esfr_coupled_stream.py` (FLUX lines). Port: default, `ESFR_CONTROL=reagg_off`, `ESFR_CONTROL=shared_off`.
+* **Neutronics solve log.** The port records its flux linear solves (field, initial residual, iterations), compared with the real `FLUX` lines: count equal, initial residuals `<= 1e-6` relative above 1e-10 absolute, iterations equal (gated where the residual is above 1e-10, else reported).
+* **TM start.** Why `shared_off` (TM `TStruct` built from `true` instead of `false`) gave every TM number identical on the round 74 case: measured by building the port's `TStruct` agglomeration from both starts and comparing the agglomerations and the solve history.
+* **BC1**: default `g40` per step `keff`, `power` `<= 1e-9`, FLUX counts and iterations equal. **BC2**: `reagg_off` differs from the real run more than the default in `keff`, `power` or a count (the rebuild bookkeeping is then tested). **BC3**: round 82's `gloose`/`gtight` numbers do not move with the new log.
+
+| id | claim | P |
+|---|---|---|
+| G1 | `nCellsInCoarsestLevel 40` makes the neutronics builds odd on the port's count | 70 % |
+| G2 | BC1 holds for `g40` | 60 % |
+| G3 | BC2: `reagg_off` misses by more than 1e-9 in power at some step of 20 | 65 % |
+| G4 | the port's FLUX counts and iterations equal the real ones on round 82's `gloose` at every step | 60 % |
+| G5 | the TM `TStruct` agglomerations from `true` and `false` differ, but the numbers are identical because the TM `TStruct` solve is converged in 0-1 V-cycles on this case (the solution does not depend on the hierarchy) | 45 % |
