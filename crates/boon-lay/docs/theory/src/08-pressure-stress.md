@@ -225,7 +225,8 @@ formula of [Step 7](./09-panama.md).~~ **CORRECTED 2026-11-28:** items 1 to 3,
 5 and 6 of this list now exist in `boon-lay`, not `farrer-park`:
 `boon_lay::triso_particle_mechanics` uses a 1D spherical element on
 farrer-park's matrix and quadrature. It uses layered materials with the BISON
-2013 PyC laws (the elastic constants are inputs, with no cited values yet). It
+2013 PyC laws. The elastic constants are inputs; cited PARFUME layer
+correlations for them exist in `outram-park-fork-offbeat`, not yet wired in. It
 covers irradiation creep and dimensional change, an internal pressure that
 varies with fluence, and a Weibull criterion. It is verified against closed
 forms. Item 4 (contact or debonding) is still absent.

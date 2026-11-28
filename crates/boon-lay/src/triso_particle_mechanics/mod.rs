@@ -90,7 +90,13 @@
 //! particle fuel, no CO production model, and no Weibull parameters. Every
 //! one is a constructor argument of [`material::LayerMaterial`] or
 //! [`weibull::WeibullParameters`], with its unit stated. **Nothing is guessed,
-//! and no default value stands in for a missing one.** The fluence in
+//! and no default value stands in for a missing one.** Cited values for most
+//! of them already exist in the workspace: `outram-park-fork-offbeat` ports
+//! OFFBEAT's PARFUME correlations for the buffer, PyC and SiC (Young's
+//! modulus, conductivity, thermal expansion; Snead SiC heat capacity). They are
+//! not wired in, because that would need a `boon-lay -> outram-park-fork-offbeat`
+//! dependency that has not been asked for (found 2026-11-28, after this module
+//! was written; see `verification_and_validation/triso_particle_mechanics/bison-manual-vv-data.md`). The fluence in
 //! Eqs (10.1)–(10.6) is "fast" fluence, and the manual does not state its
 //! energy threshold.
 //!

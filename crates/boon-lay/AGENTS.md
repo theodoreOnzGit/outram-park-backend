@@ -314,7 +314,9 @@ equation number. Rules for this module:
 
 - **No material constant without a source.** The manual gives no PyC or SiC
   elastic constants, thermal expansion, conductivity or Weibull parameters,
-  so they are constructor arguments. Never give them defaults.
+  so they are constructor arguments. Never give them defaults. Cited PARFUME
+  correlations for them are in `outram-park-fork-offbeat` (not a dependency of
+  boon-lay; ask before adding the edge).
 - **The manual's printed creep sign (Eq (10.4), `+ν_c`) is kept as
   `CreepLawSign::AsPrinted`;** the volume-conserving `−` is the default. Do
   not silently collapse the two; the choice is flagged for the maintainer.

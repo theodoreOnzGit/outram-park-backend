@@ -664,3 +664,40 @@ fn full_integration_locks_under_incompressible_creep() {
     println!("full integration, incompressible creep: stress drift/p {:.3e}", ds / pa);
     assert!(ds / pa > 0.1, "expected locking, drift only {}", ds / pa);
 }
+
+/// **The BISON Theory Manual's Section 10 equations, point by point,**
+/// against values worked by hand from the printed coefficients. The manual
+/// prints no figure, table or test data for its TRISO laws (searched
+/// 2026-11-28: its figures and tables cover UO2/MOX, the clad, power and the
+/// gap only), so a hand evaluation of each printed formula is the check
+/// available. Hand values:
+///
+/// - Eq (10.1) at `Φ = 1` (10²⁵ n/m²): `−0.176 e^(−1.75) = −0.0305842`.
+/// - Eq (10.2) at `Φ = 1`: `−0.077 e^(−1) + 0.031 = +0.0026733`.
+/// - Eq (10.3) at `Φ = 1`: `−0.036 e^(−2.1) − 0.01 = −0.0144084`.
+/// - Eq (10.6) at 600 °C: `1.996e-29 − 2.649e-29 + 1.315584e-29 =
+///   6.62584e-30`; Eq (10.5) with `ρ = 1.9`, `M = 2`: `1.325168e-29` per
+///   MPa, `1.325168e-35` per Pa.
+/// - Section 10.2: `K = 2e-37` (640 °C) and `4e-37` (900 °C) (Pa·n/m²)⁻¹.
+/// - Section 10.1: `ν_c = 0.5`, `M_Irr,Creep = 2`.
+#[test]
+fn bison_manual_section_10_hand_values() {
+    let phi1 = 1.0e25;
+    let b = DimensionalChange::Bison2013Buffer.rate_per_fluence(phi1);
+    assert!((b[0] * 1e25 - (-0.0305842)).abs() < 1e-7 && b[0] == b[1], "{b:?}");
+    let p = DimensionalChange::Bison2013DensePyc.rate_per_fluence(phi1);
+    assert!((p[0] * 1e25 - 0.0026733).abs() < 1e-7, "{p:?}");
+    assert!((p[1] * 1e25 - (-0.0144084)).abs() < 1e-7, "{p:?}");
+    let k600 = pyc_creep_coefficient_bison2013(600.0, 1.9);
+    assert!((k600 - 1.325168e-35).abs() < 1e-9 * 1.325168e-35, "{k600}");
+    assert_eq!(super::material::SIC_CREEP_COEFFICIENT_640C_PER_PA_PER_FLUENCE, 2.0e-37);
+    assert_eq!(super::material::SIC_CREEP_COEFFICIENT_900C_PER_PA_PER_FLUENCE, 4.0e-37);
+    assert_eq!(super::material::PYC_CREEP_POISSON_RATIO, 0.5);
+    assert_eq!(super::material::PYC_CREEP_MULTIPLIER, 2.0);
+    // The Bison2013Pyc law evaluates K at the local temperature, in kelvin.
+    let law = IrradiationCreep::Bison2013Pyc { density_g_per_cm3: 1.9, sign: CreepLawSign::VolumeConserving };
+    let (k, nu) = law.coefficient_and_ratio(873.15);
+    assert!((k - 1.325168e-35).abs() < 1e-9 * 1.325168e-35 && nu == 0.5);
+    let printed = IrradiationCreep::Bison2013Pyc { density_g_per_cm3: 1.9, sign: CreepLawSign::AsPrinted };
+    assert_eq!(printed.coefficient_and_ratio(873.15).1, -0.5);
+}

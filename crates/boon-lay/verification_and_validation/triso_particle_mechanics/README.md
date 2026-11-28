@@ -8,7 +8,7 @@
 > measurement, a benchmark or BISON's output.
 
 Code: `crates/boon-lay/src/triso_particle_mechanics/`. Tests:
-`src/triso_particle_mechanics/tests.rs` (17 tests) and farrer-park's
+`src/triso_particle_mechanics/tests.rs` (18 tests) and farrer-park's
 `quadrature::tests::line_rule_exactness_order_holds`.
 To reproduce the numbers below:
 
@@ -132,6 +132,17 @@ was fixed in the code or the test. No pass criterion was relaxed to get a pass.
   suggests values about one tenth of the text values. The text values are
   the constants; Eq (10.7) is scalar and gives no creep Poisson's ratio.
 
+## V&V data in the BISON manual itself
+
+`bison-manual-vv-data.md` (this folder) lists every figure and table in the
+manual and what each can test. The manual has **no** figure or data for its
+TRISO laws, so they are checked against hand evaluations of the printed
+formulas (`bison_manual_section_10_hand_values`). One figure, Fig. 8.7
+(MATPRO UO2 swelling, relevant to a UO2 kernel), was digitised. It checks the
+existing `outram-park-fork-offbeat` correlation
+(`tests/bison_manual_fig87_matpro_swelling.rs`). The shape agrees within 0.003
+at five temperatures.
+
 ## Geometry drawn (boon-lay AGENTS.md rule)
 
 `particle_mesh.png` (from `examples/triso_particle_mechanics.rs`) draws
@@ -159,7 +170,10 @@ dimensions here are synthetic.
   benchmark cases or AGR data. The case data (IAEA-TECDOC-1674) are in the
   private corpus but were not read in this session.
 - **Not implemented:** cited PyC/SiC elastic constants, thermal expansion and
-  conductivities (the manual has none); gap heat transfer and contact or
+  conductivities. The manual has none. ~~and no cited values are in the
+  workspace~~ **CORRECTED 2026-11-28:** `outram-park-fork-offbeat` already
+  ports OFFBEAT's PARFUME buffer, PyC and SiC correlations. They are not wired
+  in, because that needs a new `boon-lay -> offbeat` dependency; gap heat transfer and contact or
   debonding (Sections 13.1–13.2); finite strain; transient conduction; kernel
   swelling and CO production for particle fuel; asphericity.
 
