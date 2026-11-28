@@ -10790,7 +10790,7 @@ log's 6-digit numbers compared as printed.
 | P8 | the port's first 500 steps of the case AS SHIPPED (to about 3.6 s, `endTime 10`, compared with round 87's `shipped_log.gz`): every pebble number (6 lines x avg/min/max per step) and every `deltaT` equal at the printed 6 digits | 45 % |
 | P8b | the same, every one within 1e-5 relative of the printed value | 80 % |
 
-## Round 88 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions P1-P7 committed first in `3318bf864`, P8 in `547c4b8f1`, each BEFORE its comparison's first port run; real binary 652b3da on ESI v2506, serial; references in the refs submodule (`htr10_r88/`, written by `scripts/run_htr10_r88_real.sh` + `make_htr10_r88_refs.py` + `make_htr10_r88_patch_refs.py`); tests `tests/genfoam_htr10_vs_upstream.rs`, all behind `long-tests` (they stage a 25 MB case); unit test `non_orth::tests::correction_vectors_match_the_implicit_delta_and_a_linear_field_is_recovered`)
+## Round 88 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions P1-P7 committed first in `9d3131260`, P8 in `547c4b8f1`, each BEFORE its comparison's first port run; real binary 652b3da on ESI v2506, serial; references in the refs submodule (`htr10_r88/`, written by `scripts/run_htr10_r88_real.sh` + `make_htr10_r88_refs.py` + `make_htr10_r88_patch_refs.py`); tests `tests/genfoam_htr10_vs_upstream.rs`, all behind `long-tests` (they stage a 25 MB case); unit test `non_orth::tests::correction_vectors_match_the_implicit_delta_and_a_linear_field_is_recovered`)
 
 ### What was ported (`two_phase/non_orth.rs`, wired where upstream applies it)
 
@@ -10865,3 +10865,60 @@ ran. The harness now restores every `sh20` edit (`writeControl adjustableRunTime
 `writePrecision 6`; checked by `diff` against the shipped file). A 3-step check of the harness then gave every `deltaT` and all 54
 pebble numbers equal at the printed 6 digits (worst 4.0e-6 and 3.7e-7 relative to the printed text). P9 is decided by the 500-step
 run below.
+
+### The case AS SHIPPED, 500 steps against the real shipped run (P9; measured 2026-11-28, `HTR10_SHIPPED_STEPS=500`)
+
+`r88_shipped_prefix_follows_the_shipped_log`: the unedited shipped case (every shipped file, `endTime 10`, `adjustableRunTime`,
+GAMG `p_rgh` 1e-6), the port's first 500 steps (t = 0.5 to 3.52 s) against round 87's real run to 10 s, number by number as printed:
+
+| quantity | compared | equal at the printed 6 digits | worst relative to the printed text |
+|---|---|---|---|
+| pebble lines (6 x avg/min/max per step) | 9000 | **9000** | 4.8e-6 (the printing's own rounding) |
+| `deltaT` | 500 | **500** | 8.9e-7 |
+| `p_rgh` GAMG initial residuals | 2000 | (not gated) | 4.9e-6 |
+| `Tfmax max` at step 500 | - | port 1450.43078, printed 1450.43 | - |
+
+Port wall time of the 500 steps: **2310 s (4.62 s per step)**; the real binary: 2122 s for the same steps (4.16 s per step after its
+44 s first step). The port was NOT run to 10 s: at that rate the 1584 steps would take about 2.0 h (the real binary: 4320 s). For the end
+state the real run's last-step `Tfmax (avg min max) = 774.452 523.15 1441.38 K` (round 87) stands; the port's end state is not measured.
+
+| id | prediction | probability | outcome |
+|---|---|---|---|
+| P9 | 500 shipped steps, every `deltaT` and pebble number equal at 6 digits | 55 % | **held** (500 of 500, 9000 of 9000) |
+| P9b | the same within 1e-5 relative of the printed value | 85 % | **held** (8.9e-7, 4.8e-6) |
+
+### Earlier numbers (moved: none)
+
+No pin moved. The uncorrected path is unchanged bit for bit: `r87_ut2` re-run on the round-87 code (`07f297e21`, `src` checked out
+temporarily) and on this round's code prints the same 17-digit `deltaT` (9.39582792731754463e-3), the same residuals and iteration
+counts and the same field differences. The round-87 table's `ut2` column did NOT match that re-run (`T` 6.5e-16, `U` 3.2e-11,
+`epsilon` 3.1e-16, `nut` 1.7e-15 printed there; 4.9e-16, 2.95e-11, 2.1e-16, 1.6e-15 measured on the round-87 code): corrected in place
+above with strike-through.
+
+### Tests run
+
+2026-11-28, release, `--no-fail-fast`, private target dir: `genfoam_htr10_vs_upstream` (13 tests; 12 pass at the full run, the 13th,
+the shipped prefix, failed there for the harness defect above and passes at 500 steps after the fix: 2313 s); the 22 targets
+`genfoam_{esfr_coupled, esfr_fluid, esfr_transient, fullcoupling_fluid, fullcoupling_neutronics, fullcoupling_three_region,
+fullcoupling_transient, gfhr_pebble, msr1d_coupled, msr1d_fluid, one_phase_fc, one_phase, fftf_pieces, msfr_th, msfr_th_options,
+msfr_th_pimple, msfr_th_nonorth, heat_exchanger_cc, heat_exchanger_3d, radial_power_wired, two_phase_radial_power,
+radial_power_models}_vs_upstream`: all pass, pins unchanged (`msfr_th_nonorth`'s `corrected_schemes_are_refused_by_name` needed the
+reader's new refusal message: the case is still refused by name). `--lib genfoam::thermal_hydraulics`: 304 pass (303 + the new
+`non_orth` test). `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none`
+(no_std): clean. basic-lib was reused, not changed. The workspace suite was not run.
+
+### Not done (filed)
+
+- gh:#1993: `clam`'s `U` 1.33e-9 against the 1e-9 gate (decision needed).
+- gh:#1994: the REAL binary diverges under the tight protocol with the shipped schemes; a stable multi-step tight protocol is needed.
+- gh:#1995: `corrected` on the paths still refused (cell-centred `pEqn_1p.H`, incompressible `faceCentered`, cyclic, tortuous,
+  `lumpedNuclearStructure`, `limited corrected`, `one_phase_fc`, `twoPhase`).
+- gh:#1992: the 2e-12 turbulent first-`p_rgh` seed (the `nut`/`alphat` patch values are excluded; open).
+- The port's run of the shipped case to 10 s (about 2 h): not run; gh:#1876.
+
+### Reproduction
+
+Real: `bash scripts/run_htr10_r88_real.sh <dir> ct2|clam|ct3|sh20`, then `python3 -I scripts/make_htr10_r88_refs.py <dir> <tag>
+refs/htr10_r88` (and `make_htr10_r88_patch_refs.py <dir> 0.5 ct2 refs/htr10_r88` for the patch values); delete `<dir>`. Port:
+`cargo test --release -p outram-foam-appbuilder-lib --test genfoam_htr10_vs_upstream -- --nocapture --test-threads=2`
+(`HTR10_SHIPPED_STEPS=500` for the long shipped prefix; default 100).
