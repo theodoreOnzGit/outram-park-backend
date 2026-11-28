@@ -10645,7 +10645,7 @@ No pin moved. The flux-log change is the same arithmetic: on `tr_plain` and `tr_
 
 The coupled-chain translation is checked by unit tests against the round-2df1 physics reading (`PebbleGeometry::steady_temperatures`, itself verified against the real class on gFHR data to 7.2e-6, the write precision), to 1e-12 relative: it is a reordering of the same formulas, so the two must agree to round-off.
 
-## Round 87 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; inventory and predictions committed first in `551228957`, BEFORE any comparison run; real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH`; references in the refs submodule `1007f5e` (`htr10_r87/`: the staged case, 13 files gzipped, and the logs and every-7th-cell samples of `ut2`, `vlam`, `ut3`; 25 MB, each file under 5.1 MB; written by `scripts/make_htr10_r87_refs.py`); tests `tests/genfoam_htr10_vs_upstream.rs` (4 tests, 231 s; `--nocapture` prints every number below); unit tests `structure::nuclear_steady_state_pebble::coupled::tests` (3), `two_phase::tests::mixed_patch_is_fixed_or_zero_gradient_by_its_value_fraction`, `one_phase_cc::turbulence::tests::inlet_patches_update_their_coefficients_from_the_flux`)
+## Round 87 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; inventory and predictions committed first in `551228957`, BEFORE any comparison run; real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH`; references in the refs submodule `1007f5e` and `aed5c77` (the shipped run's log) (`htr10_r87/`: the staged case, 13 files gzipped, and the logs and every-7th-cell samples of `ut2`, `vlam`, `ut3`; 25 MB, each file under 5.1 MB; written by `scripts/make_htr10_r87_refs.py`); tests `tests/genfoam_htr10_vs_upstream.rs` (4 tests, 231 s; `--nocapture` prints every number below); unit tests `structure::nuclear_steady_state_pebble::coupled::tests` (3), `two_phase::tests::mixed_patch_is_fixed_or_zero_gradient_by_its_value_fraction`, `one_phase_cc::turbulence::tests::inlet_patches_update_their_coefficients_from_the_flux`)
 
 ### What was ported (upstream's order: thermo, structure, turbulence, equations)
 
@@ -10662,7 +10662,7 @@ The coupled-chain translation is checked by unit tests against the round-2df1 ph
 
 | run | what | real time |
 |---|---|---|
-| `shipped` (unedited `rootCase`) | `endTime 10`, `adjustTimeStep`, `maxCo 10`: `deltaT` 0.5 for step 1 (Co 614), then 0.0055-0.009 | see "Shipped runtime" below |
+| `shipped` (unedited `rootCase`) | `endTime 10`, `adjustTimeStep`, `maxCo 10`: `deltaT` 0.5 for step 1 (Co 614), then 0.0053-0.0090; 1584 steps | **4320 s ExecutionTime (1 h 12 min wall), 0.84 GB RSS**, serial (`refs/htr10_r87/shipped_log.gz`; a first attempt was stopped at t = 2.87 s by the session's background limit and restarted unchanged) |
 | `ut1` | tight, `uncorrected`, `p_rgh` GAMG 1e-14 | 270 s for one step: **every GAMG solve hits `maxIter 1000` at ~1e-10** (the real binary cannot reach the tight tolerance with GAMG on this mesh) |
 | `ut2` | as `ut1` with `p_rgh` `PCG`/`DIC`, `maxIter 5000` | 55 s, one step: 500, 243, 477, 240 iterations |
 | `vlam` | `ut2` + `simulationType laminar` | one step |
@@ -10695,8 +10695,8 @@ The port refuses it by name for the `corrected` Laplacian/snGrad and for nothing
 |---|---|---|---|
 | H1 | (observed before the commit, not a prediction) | - | the shipped case's first refusal after items 1-2 is `corrected` |
 | H2 | after the `k`/`epsilon` patches: the non-Boussinesq turbulence, then `psi > 0`, no third | 60 % | **held** (the `psi > 0` refusal was this round's own, added when item 1 made it reachable); after items 4-7 the `uncorrected` variant reads |
-| H3 | the real shipped run takes 1-4 h serial | 55 % | see "Shipped runtime" |
-| H4 | the real shipped run reproduces `Alltest`'s `Tfmax` to 0.1 % | 70 % | see "Shipped runtime" |
+| H3 | the real shipped run takes 1-4 h serial | 55 % | **held** (1 h 12 min) |
+| H4 | the real shipped run reproduces `Alltest`'s `Tfmax` to 0.1 % | 70 % | **held**: last step `Tfmax (avg min max) = 774.452 523.15 1441.38 K` against `774.446 523.15 1441.35` (7.7e-6, 0, 2.1e-5) |
 | H5 | step-1 pebble log lines equal at 6 digits | 60 % | **MISSED at the first run** (port `Tfmax max` 967.64 against 949.57: the `alpha.structure` defect, item 8); **held after the fix**: 18 of 18 numbers bit-identical at 17 digits on `ut2` and on `vlam` |
 | H6 | step-1 fields <= 1e-9 | 35 % | **held** (<= 3.2e-11, `U`); also over 7 steps (8.7e-11) |
 
@@ -10717,4 +10717,4 @@ No pin moved. The regression targets run below pass with their pins unchanged; t
 
 ### Reproduction
 
-`bash crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/scripts/...` is not needed: copy the staged case (`refs/htr10_r87/case`, inflate the `.gz`), run `GeN-Foam -case <dir>` through `with-of.sh` (for `vlam` replace `turbulenceProperties` with `simulationType laminar;`, for `ut2`/`vlam` set `endTime 0.5`), then `make_htr10_r87_refs.py <rootCase> <ut3> <ut2> <vlam> refs/htr10_r87`.
+Real binary: inflate `refs/htr10_r87/case` into a directory, run `GeN-Foam -case <dir>` through `with-of.sh` with `libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH` (for `vlam` replace `turbulenceProperties` with `simulationType laminar;`; for `ut2`/`vlam` set `endTime 0.5`), then `python3 -I scripts/make_htr10_r87_refs.py <rootCase> <ut3> <ut2> <vlam> refs/htr10_r87`. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_htr10_vs_upstream -- --nocapture --test-threads=1`.
