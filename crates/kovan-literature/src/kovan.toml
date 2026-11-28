@@ -75,12 +75,6 @@ test_ids = [
     "crates/kovan-literature/src/pdf_import.rs::extract_assets_on_image_free_pdf_writes_nothing",
     "crates/kovan-literature/src/pdf_import.rs::extract_text_on_missing_file_is_error",
     "crates/kovan-literature/src/pdf_import.rs::pdf_to_markdown_extracts_body_text",
-    "crates/kovan-literature/tests/concept_proposals.rs::the_standard_tree_is_the_skeleton_plus_approved_and_deferred_concepts",
-    "crates/kovan-literature/tests/concept_sciences.rs::the_tree_reader_accepts_a_sciences_field",
-    "crates/kovan-literature/tests/concept_skeleton.rs::level_one_is_the_nineteen_iaea_issues_in_order",
-    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::apa_matches_citeproc_js_except_the_recorded_differences",
-    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::other_styles_match_citeproc_js_except_the_recorded_differences",
-    "crates/kovan-literature/tests/csl_vs_citeproc_js.rs::the_reference_was_made_from_the_csl_json_this_crate_produces",
 ]
 
 [module."bibtex.rs"]
@@ -2290,8 +2284,8 @@ doc_hash = "sha256:d7a53f5edd47f5029c12d975ee7391f59550dd67fe4b15293ca67d969a224
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2365,12 +2359,6 @@ passed = [
     "#68",
     "#69",
     "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
 ]
 failed = []
 

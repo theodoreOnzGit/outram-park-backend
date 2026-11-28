@@ -8,15 +8,6 @@ test_ids = [
     "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::no_secondary_returns_totals",
     "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::validation_rejects_bad_shapes_and_totals",
     "crates/outram-park-fork-pflotran/src/geochemistry/network.rs::weak_acid_dissociation_analytical",
-    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::approach_to_equilibrium",
-    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::constructor_validation",
-    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::mole_conservation",
-    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::no_mineral_clamp",
-    "crates/outram-park-fork-pflotran/src/kinetics/mod.rs::supersaturated_precipitates_from_zero",
-    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::closed_domain_conserves_component_mass",
-    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::constructor_validates_inputs",
-    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::post_step_speciation_is_equilibrium",
-    "crates/outram-park-fork-pflotran/src/reactive_transport/mod.rs::single_component_matches_solute_transport",
 ]
 
 [module."mod.rs"]
@@ -195,8 +186,8 @@ doc_hash = "sha256:d7bbefe401c1d6652bf3da439ebf25aea48a0121da508ab296a2e46f8a6eb
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -204,15 +195,6 @@ passed = [
     "#2",
     "#3",
     "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
 ]
 failed = []
 

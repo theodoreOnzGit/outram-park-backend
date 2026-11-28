@@ -26,3 +26,10 @@ name = "main"
 qual = "main#3"
 hash = "sha256:268951954d449f5b90d6e30390fbf3b5422a2e535ed0dcb60d6fdeb045b0e73b"
 doc_hash = "sha256:a1895c28bde9ad1771ebe1c7c7cad55a96222646b32a01ab87a1cd69557044a1"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

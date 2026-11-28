@@ -407,3 +407,10 @@ name = "sphere_box"
 qual = "sphere_box"
 hash = "sha256:4e561d850407b6ca2641dc51c9712629235d9a1a929e63fbcc34fcc45a3e9671"
 doc_hash = "sha256:c9a256d0a2071eced33ae584a9dd445597b92bbf5f235f74e5e3d6100d49c888"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

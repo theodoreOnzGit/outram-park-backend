@@ -10,38 +10,6 @@ test_ids = [
     "crates/outram-park-fork-dwsim-libs/src/reactions.rs::lh_reduces_to_power_law_in_weak_adsorption_limit",
     "crates/outram-park-fork-dwsim-libs/src/reactions.rs::lh_unimolecular_monotonic_and_saturating",
     "crates/outram-park-fork-dwsim-libs/src/reactions.rs::power_law_net_rate",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::extent_capped_at_availability",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::honours_set_conversion_exactly",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/conversion_reactor.rs::mole_changing_reaction_atom_balance",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::cstr_below_pfr_for_same_ktau",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::first_order_matches_analytic_conversion",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/cstr.rs::reversible_reaction_converges_below_irreversible",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::a_eq_b_reaches_keq",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::larger_k_shifts_toward_product",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/equilibrium_reactor.rs::temperature_dependent_k_satisfied",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/gibbs_reactor.rs::gibbs_matches_equilibrium_reactor_a_to_b",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::conversion_increases_with_residence_time",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::first_order_matches_analytic_conversion",
-    "crates/outram-park-fork-dwsim-libs/src/reactors/pfr.rs::rejects_nonpositive_flow",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::liquid_phase_reaction_gap_is_recorded",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::overspecified_group_reaches_exact_optimum",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::parallel_group_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::penalty_scope_upstream_defect_is_not_reproduced",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::sequential_ranks_match_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_conversion_parity.rs::single_reaction_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::heterogeneous_catalytic_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::liquid_isomerisation_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::steam_reforming_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_cstr_parity.rs::vapour_isomerisation_matches_upstream_diagnostic_build",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::activity_basis_vapour_gap_is_recorded",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::ideal_phi_cost_is_recorded",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::smr_fugacity_basis_matches_partial_pressure_and_records_phi_gap",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::smr_mole_fraction_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_equilibrium_parity.rs::wgs_mole_fraction_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::heterogeneous_catalytic_bed_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::liquid_isomerisation_reproduces_upstream_truncated_segments",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::steam_reforming_matches_upstream",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_pfr_parity.rs::vapour_isomerisation_matches_upstream",
 ]
 
 [module."lib.rs"]
@@ -328,8 +296,8 @@ doc_hash = "sha256:8916cd539277b912e611ca2896092dd0f7190237c99a3598a539ea774666a
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -338,38 +306,6 @@ passed = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
 ]
 failed = []
 

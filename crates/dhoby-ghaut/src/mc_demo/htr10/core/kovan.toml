@@ -2,6 +2,34 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_demo/htr10/core"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/bake.rs::product_records_are_the_records_a_browser_saves",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/mod.rs::a_cached_job_is_the_processed_job",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/mod.rs::a_worker_rebuilds_its_core_with_the_rods",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/mod.rs::the_jobs_are_dealt_once_each_longest_first",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::a_dead_worker_leaves_the_survivors_to_restart",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::a_pool_starts_and_terminates",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::a_pour_reaches_every_worker_before_its_rebuild",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::a_restart_discards_stale_replies_and_gives_the_same_k",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::a_serial_restart_uses_one_worker_and_gives_the_same_k",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::a_stopped_run_frees_the_pool_and_keeps_no_tracks",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::every_product_reaches_every_other_worker_before_its_assembly",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pool.rs::the_pool_answer_does_not_depend_on_the_worker_count",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pour.rs::a_pour_becomes_a_bed_cut_at_the_line",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pour.rs::the_cap_is_derived_from_the_reference_pour",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pour.rs::the_diagnostics_reproduce_the_reference_bed",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pour.rs::the_gpu_engine_uses_its_own_requests_and_records_its_time",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/pour.rs::the_page_pulls_the_pour_and_makes_beds",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/random_bed.rs::a_handed_over_pour_builds_as_the_baked_bed",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/random_bed.rs::the_pebble_counts_are_the_beds",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/random_bed.rs::the_random_bed_is_cut_to_the_lattice_count_and_builds",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/screen.rs::a_failed_run_offers_both_restarts_and_names_the_dead",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/screen.rs::a_run_is_recorded_only_with_an_active_mean",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/screen.rs::the_picture_keeps_only_the_bed_and_the_rods",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/screen.rs::the_pool_follows_the_rods_once_they_rest",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/screen.rs::the_temperature_sliders_apply_check_and_warn",
+    "crates/dhoby-ghaut/src/mc_demo/htr10/core/screen.rs::tracks_round_trip_and_the_record_is_read",
+]
 
 [module."bake.rs"]
 path = "crate::mc_demo::htr10::core::bake"
@@ -1679,3 +1707,37 @@ name = "triso_warning"
 qual = "triso_warning"
 hash = "sha256:6f0756460d2e51327e60e55295b7defdb4c0e186c0b831e94e2fc1ce5b822559"
 doc_hash = "sha256:7da6ebe00d68a81c4edf732e55f4f3cf7a837ea620c0ce36c760d618b9f12a9d"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+    "#20",
+    "#21",
+    "#22",
+    "#23",
+    "#24",
+    "#25",
+]
+failed = []

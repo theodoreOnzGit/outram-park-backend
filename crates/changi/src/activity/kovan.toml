@@ -61,13 +61,6 @@ test_ids = [
     "crates/changi/src/activity/units.rs::dilution_times_activity_is_a_time_integrated_concentration",
     "crates/changi/src/activity/units.rs::mean_concentration_divides_by_the_averaging_time",
     "crates/changi/src/activity/units.rs::uom_carries_the_curie_so_the_conversion_never_has_to_be_written_out",
-    "crates/changi/tests/activity_properties.rs::a_noble_gas_deposits_exactly_zero_through_the_whole_chain",
-    "crates/changi/tests/activity_properties.rs::a_stable_nuclide_through_the_whole_chain_matches_simulate_sensor_mode",
-    "crates/changi/tests/activity_properties.rs::decay_in_transit_is_monotone_in_the_half_life",
-    "crates/changi/tests/activity_properties.rs::deposition_scales_exactly_with_the_deposition_velocity",
-    "crates/changi/tests/activity_properties.rs::everything_downstream_is_exactly_linear_in_the_released_activity",
-    "crates/changi/tests/activity_properties.rs::ground_level_and_breathing_height_differ_by_a_sign_that_depends_on_distance",
-    "crates/changi/tests/activity_properties.rs::splitting_the_release_across_windows_conserves_the_total",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
@@ -1477,8 +1470,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#3",
@@ -1536,13 +1529,6 @@ passed = [
     "#55",
     "#56",
     "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
 ]
 failed = []
 
@@ -1554,6 +1540,13 @@ passed = [
     "#0",
     "#1",
     "#2",
+    "#135",
+    "#136",
+    "#137",
+    "#138",
+    "#139",
+    "#140",
+    "#141",
     "#142",
     "#143",
     "#144",
@@ -1575,19 +1568,19 @@ passed = [
     "#160",
     "#161",
     "#162",
-    "#163",
-    "#164",
-    "#165",
-    "#166",
-    "#167",
-    "#168",
-    "#169",
 ]
 failed = []
 targets = [
     "#0",
     "#1",
     "#2",
+    "#58",
+    "#59",
+    "#60",
+    "#61",
+    "#62",
+    "#63",
+    "#64",
     "#65",
     "#66",
     "#67",
@@ -1686,11 +1679,4 @@ targets = [
     "#160",
     "#161",
     "#162",
-    "#163",
-    "#164",
-    "#165",
-    "#166",
-    "#167",
-    "#168",
-    "#169",
 ]

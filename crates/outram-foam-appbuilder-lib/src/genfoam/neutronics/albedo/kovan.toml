@@ -8,14 +8,6 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_discretised_weight_matches_the_analytic_robin_face_value",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_limits_reduce_to_zero_gradient_and_to_fixed_value",
     "crates/outram-foam-appbuilder-lib/src/genfoam/neutronics/albedo/tests.rs::the_weight_tracks_the_groups_own_diffusion_coefficient",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_keff_against_upstream_run_at_its_converged_state",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::esfr_reference_state_keff_against_upstream",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_run_at_its_converged_state",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_per_cell_cross_sections",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_against_upstream_with_precursor_drift",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_keff_with_upstreams_albedo_boundary",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reactivity_coefficients_from_upstreams_perturbed_states",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_tutorial_keff.rs::msfr_reference_state_keff_brackets_upstream",
 ]
 
 [module."mod.rs"]
@@ -111,8 +103,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -120,14 +112,6 @@ passed = [
     "#2",
     "#3",
     "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
 ]
 failed = []
 

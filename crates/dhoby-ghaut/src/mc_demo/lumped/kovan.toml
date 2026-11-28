@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_demo/lumped"
+test_ids = ["crates/dhoby-ghaut/src/mc_demo/lumped/mod.rs::the_cell_is_a_uranium_lump_in_graphite_at_the_rung_three_ratio"]
 
 [module."mod.rs"]
 path = "crate::mc_demo::lumped"
@@ -136,3 +137,10 @@ name = "render_all"
 qual = "render_all"
 hash = "sha256:0320813d4b7dac94c088823bd503779537d0dd2f55bf153cae4a26a29fda2bba"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = ["#0"]
+failed = []

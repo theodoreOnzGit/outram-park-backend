@@ -32,8 +32,11 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::tick_advances_exactly_one_step",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_physics_path_draws_unpainted_with_its_pressure",
+    "crates/outram-park-digital-twin-engine/src/components/condenser.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_air_states_come_from_the_coolprop_psychrometrics",
     "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_physics_path_draws_no_plume_and_no_approach",
+    "crates/outram-park-digital-twin-engine/src/components/cooling_tower.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/excursion.rs::a_healthy_reactor_is_not_annotated",
     "crates/outram-park-digital-twin-engine/src/components/excursion.rs::alphas_saturate_instead_of_wrapping",
     "crates/outram-park-digital-twin-engine/src/components/excursion.rs::no_release_is_drawn_where_retention_is_demonstrated",
@@ -50,13 +53,17 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_arrangement_round_trips_through_the_physics_enum",
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_end_brackets_are_the_two_ends_of_the_log_mean",
     "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_physics_path_draws_its_arrangement_but_paints_no_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/heat_exchanger.rs::the_scalar_path_and_builders_reach_the_art",
+    "crates/outram-park-digital-twin-engine/src/components/mod.rs::a_crude_plant_snapshot_drives_the_widget",
     "crates/outram-park-digital-twin-engine/src/components/pipe.rs::length_is_proportional_to_run_length",
+    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::the_art_carries_the_pipes_cells_and_draws",
     "crates/outram-park-digital-twin-engine/src/components/pipe.rs::thickness_is_proportional_to_cross_sectional_area",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::residence_time_is_length_over_velocity",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
     "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
+    "crates/outram-park-digital-twin-engine/src/components/pump.rs::the_scalar_path_and_builders_reach_the_art",
     "crates/outram-park-digital-twin-engine/src/components/pump.rs::wrapping_a_tampines_pump_invents_no_state",
     "crates/outram-park-digital-twin-engine/src/components/reactor_archetype.rs::delayed_fractions_are_near_the_u235_value",
     "crates/outram-park-digital-twin-engine/src/components/reactor_archetype.rs::every_archetype_builds_a_valid_kinetics_model",
@@ -66,9 +73,12 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/components/reactor_vessel.rs::fuel_temperature_drives_the_fill_hotness",
     "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_constructor_starts_isothermal_until_told_otherwise",
     "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_physics_path_reads_the_live_secondary_temperature",
+    "crates/outram-park-digital-twin-engine/src/components/steam_generator.rs::the_scalar_path_reaches_the_art_and_draws",
     "crates/outram-park-digital-twin-engine/src/components/turbine.rs::fresh_preset_starts_at_rest",
     "crates/outram-park-digital-twin-engine/src/components/turbine.rs::generator_variant_reports_no_casing_temperature",
     "crates/outram-park-digital-twin-engine/src/components/turbine.rs::rotor_angle_is_omega_times_time",
+    "crates/outram-park-digital-twin-engine/src/components/turbine.rs::the_scalar_path_and_builders_reach_the_art",
+    "crates/outram-park-digital-twin-engine/src/components/valve.rs::the_valve_opening_comes_from_the_physics",
 ]
 
 [module."condenser.rs"]
@@ -2061,8 +2071,8 @@ doc_hash = "sha256:0c6f0d50a911602cf68a6238eccb18d4166a9ef3b9ae85a7483f2fd6a96fd
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#29",
@@ -2102,6 +2112,16 @@ passed = [
     "#63",
     "#64",
     "#65",
+    "#66",
+    "#67",
+    "#68",
+    "#69",
+    "#70",
+    "#71",
+    "#72",
+    "#73",
+    "#74",
+    "#75",
 ]
 failed = []
 

@@ -2,6 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-cfmesh"
 dir = "crates/outram-park-fork-cfmesh/src/pipeline/tet_source"
+test_ids = [
+    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source/wall_grade.rs::seeds_lie_inside_and_take_the_size_of_their_wall_distance",
+    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source/wall_grade.rs::size_grows_linearly_from_the_wall_to_the_cap",
+    "crates/outram-park-fork-cfmesh/src/pipeline/tet_source/wall_grade.rs::tetgen_tets_shrink_toward_the_walls_when_graded",
+]
 
 [module."wall_grade.rs"]
 path = "crate::pipeline::tet_source::wall_grade"
@@ -81,3 +86,14 @@ name = "wall_graded_sizes"
 qual = "wall_graded_sizes"
 hash = "sha256:4e79fb2d1c5b70f1708113528819151a7df53f011c67b38e4b71125fce725d96"
 doc_hash = "sha256:a53dd9f7dae2069b3a90f528b5715074845716bd4f8260d3900310e6efaa6daa"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

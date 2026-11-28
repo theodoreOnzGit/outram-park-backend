@@ -31,14 +31,6 @@ test_ids = [
     "crates/outram-foam-basic-lib/src/fv_operators/fvc/sn_grad.rs::uniform_field_zero_gradient",
     "crates/outram-foam-basic-lib/src/fv_operators/fvc/sn_grad.rs::vv_cyclic_sn_grad_across_seam",
     "crates/outram-foam-basic-lib/src/fv_operators/fvc/sn_grad.rs::vv_fixed_gradient_reports_prescribed_gradient",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::correction_is_a_no_op_on_an_orthogonal_mesh",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_corrected.rs::orthogonal_scheme_reproduces_the_uncorrected_matrix",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::laplacian_vec_1d_linear_profile",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::vv_ami_nonconformal_laplacian_vec_conserves",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::vv_cyclic_laplacian_vec_conserves",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::corrected_laplacian_recovers_a_linear_field_on_a_wavy_mesh",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::least_squares_gradient_is_exact_for_a_linear_field_on_a_wavy_mesh",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::limited_scheme_is_monotone_between_orthogonal_and_corrected",
 ]
 
 [module."ddt_corr.rs"]
@@ -549,8 +541,8 @@ doc_hash = "sha256:83ac92255397b2be81a442b1f18be1f053f8d93aeed920c42e5a4da1d6072
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -581,14 +573,6 @@ passed = [
     "#25",
     "#26",
     "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
 ]
 failed = []
 

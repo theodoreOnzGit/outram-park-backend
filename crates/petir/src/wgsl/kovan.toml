@@ -188,14 +188,6 @@ test_ids = [
     "crates/petir/src/wgsl/mod.rs::every_shader_declares_its_licence_and_lineage",
     "crates/petir/src/wgsl/mod.rs::the_binding_prelude_matches_the_generated_kernel",
     "crates/petir/src/wgsl/mod.rs::the_generated_kernel_has_the_pieces_a_shader_needs",
-    "crates/petir/tests/wgsl_validation.rs::all_and_all_names_are_the_same_length",
-    "crates/petir/tests/wgsl_validation.rs::every_documented_function_is_defined",
-    "crates/petir/tests/wgsl_validation.rs::every_generated_shader_and_its_mirror_hold_the_same_constants",
-    "crates/petir/tests/wgsl_validation.rs::every_shader_file_is_listed_here",
-    "crates/petir/tests/wgsl_validation.rs::every_shader_parses_and_validates_under_naga",
-    "crates/petir/tests/wgsl_validation.rs::every_shader_validates_against_baseline_webgpu_capabilities",
-    "crates/petir/tests/wgsl_validation.rs::the_coverage_ledger_lists_every_shipped_shader",
-    "crates/petir/tests/wgsl_validation.rs::the_cpu_mirror_answers_with_no_gpu_and_no_feature",
 ]
 
 [module."gpu.rs"]
@@ -4903,8 +4895,8 @@ doc_hash = "sha256:56c8e58c8452955e8790d33a58ab4760a99f8d5b15af5dfbedf9d819c6c29
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#43",
@@ -5049,14 +5041,6 @@ passed = [
     "#182",
     "#183",
     "#184",
-    "#185",
-    "#186",
-    "#187",
-    "#188",
-    "#189",
-    "#190",
-    "#191",
-    "#192",
 ]
 failed = []
 

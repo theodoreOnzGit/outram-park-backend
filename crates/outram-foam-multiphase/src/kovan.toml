@@ -35,10 +35,6 @@ test_ids = [
     "crates/outram-foam-multiphase/src/dryout.rs::dougall_rohsenow_rejects_bad_inputs",
     "crates/outram-foam-multiphase/src/dryout.rs::reserved_onset_variants_not_implemented",
     "crates/outram-foam-multiphase/src/dryout.rs::reserved_post_dryout_variants_not_implemented",
-    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::gunn_collapses_to_the_stagnant_limit_in_the_dilute_limit",
-    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::ranz_marshall_recovers_the_stagnant_sphere_limit",
-    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::spherical_conduction_reads_only_the_dispersed_side",
-    "crates/outram-foam-multiphase/src/heat_transfer/tests.rs::unphysical_inputs_are_refused",
     "crates/outram-foam-multiphase/src/pimple.rs::alpha_stays_bounded_under_coupling",
     "crates/outram-foam-multiphase/src/pimple.rs::hydrostatic_pressure_gradient",
     "crates/outram-foam-multiphase/src/pimple.rs::one_step_stays_finite_and_bounded",
@@ -2119,8 +2115,8 @@ test = true
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2186,10 +2182,6 @@ passed = [
     "#60",
     "#61",
     "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
 ]
 failed = []
 
@@ -2198,15 +2190,19 @@ commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "targeted"
 passed = [
+    "#135",
+    "#136",
+    "#137",
+    "#138",
     "#139",
     "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
 ]
 failed = []
 targets = [
+    "#63",
+    "#64",
+    "#65",
+    "#66",
     "#67",
     "#68",
     "#69",
@@ -2281,8 +2277,4 @@ targets = [
     "#138",
     "#139",
     "#140",
-    "#141",
-    "#142",
-    "#143",
-    "#144",
 ]

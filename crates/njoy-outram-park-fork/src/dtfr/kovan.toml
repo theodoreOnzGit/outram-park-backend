@@ -3,11 +3,6 @@ kind = "code_folder"
 crate = "njoy-outram-park-fork"
 dir = "crates/njoy-outram-park-fork/src/dtfr"
 test_ids = [
-    "crates/njoy-outram-park-fork/src/covr/boxer_text.rs::header_columns_match_fortran_edit_list",
-    "crates/njoy-outram-park-fork/src/covr/boxer_text.rs::text_round_trips_including_pages",
-    "crates/njoy-outram-park-fork/src/covr/boxer_text.rs::value_fields_pack_like_fortran",
-    "crates/njoy-outram-park-fork/src/covr/mod.rs::run_rejects_empty_case_list",
-    "crates/njoy-outram-park-fork/src/covr/mod.rs::run_reports_not_ported",
     "crates/njoy-outram-park-fork/src/dtfr/driver.rs::run_is_not_ported",
     "crates/njoy-outram-park-fork/src/dtfr/format.rs::column_extraction",
     "crates/njoy-outram-park-fork/src/dtfr/format.rs::format0_header_and_body",
@@ -26,28 +21,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/dtfr/table.rs::scatter_positions_reduced_band",
     "crates/njoy-outram-park-fork/src/dtfr/table.rs::scatter_record_absorption_correction",
     "crates/njoy-outram-park-fork/src/dtfr/table.rs::upscatter_clamped_above_iptotl",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_be9",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_c12",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_f19",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_h2_absolute",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_h2_relative",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_li6",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_si30",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_u234",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_u238",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_be9",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_c12",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_f19",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_absolute",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_relative",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_li6",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_si30",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u234",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u238",
-    "crates/njoy-outram-park-fork/tests/dtfr_u238_claw_full_golden.rs::dtfr_u238_claw_full_tables_match_njoy",
-    "crates/njoy-outram-park-fork/tests/dtfr_u238_claw_njoy_golden.rs::dtfr_u238_claw_nn_table_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/wimsr_u238_njoy_golden.rs::library_matches_njoy_wimsd_tape",
-    "crates/njoy-outram-park-fork/tests/wimsr_u238_njoy_golden.rs::listing_stage_values",
 ]
 
 [module."assemble.rs"]
@@ -649,8 +622,8 @@ doc_hash = "sha256:eda5e79b451451d447546829344c994cb0ba78fbea1516f2cef82fc061b11
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -671,33 +644,6 @@ passed = [
     "#15",
     "#16",
     "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
 ]
 failed = []
 

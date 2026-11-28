@@ -275,3 +275,10 @@ name = "two_body_recoil_kev"
 qual = "two_body_recoil_kev"
 hash = "sha256:b9a21e5bd0587096cf89e2f21cec35c26dccb022f806524d7afd5312d5a10412"
 doc_hash = "sha256:d511ac56345ca4c7d0732d595d7fd5b5c8dd7cf32535173aa066f5ab242c25bc"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

@@ -2,6 +2,28 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/msre/model"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/msre/model/pump_tests.rs::cost_of_the_line_model_and_of_a_coastdown_is_printed",
+    "crates/outram-park-digital-twin-engine/src/msre/model/pump_tests.rs::pump_trips_at_power_stay_finite",
+    "crates/outram-park-digital-twin-engine/src/msre/model/pump_tests.rs::the_core_rise_scales_with_one_over_the_fuel_flow",
+    "crates/outram-park-digital-twin-engine/src/msre/model/pump_tests.rs::the_fuel_pump_coastdown_against_ornl4233_fig24",
+    "crates/outram-park-digital-twin-engine/src/msre/model/pump_tests.rs::the_fuel_pump_startup_against_ornl4233_fig24",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::a_load_cut_lowers_the_power_without_breaking_the_second_law",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::a_rod_withdrawal_is_turned_by_feedback",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::cost_per_step_is_printed",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::out_of_range_inputs_are_refused",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::stepping_is_deterministic_and_carries_the_remainder",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_air_inlet_shifts_the_plant_uniformly",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_core_rise_is_the_power_over_the_fuel_heat_capacity_rate",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_default_circulation_loss_is_tm1626s_line_model",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_default_response_against_nee_soons_well_stirred_model_is_recorded",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_initial_state_is_steady_and_critical",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_natural_period_at_7_3_mw_against_tm1647",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_uncalibrated_steady_state_against_the_tm0728_design_point",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_well_stirred_ablation_loss_is_tm1070s_and_nee_soons",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_well_stirred_ablation_natural_period_is_nee_soons",
+    "crates/outram-park-digital-twin-engine/src/msre/model/tests.rs::the_well_stirred_ablation_reproduces_the_frequency_response",
+]
 
 [module."pump_tests.rs"]
 path = "crate::msre::model::pump_tests"
@@ -345,3 +367,31 @@ qual = "well_stirred_at"
 hash = "sha256:f00c26ecd878913692541bdce3f0d3afc6f9d72d73ffa09e0d48ad5597e15d52"
 doc_hash = "sha256:e6e2b84d53f862cb9426bccd0e9a088f5a91bb0d93e2f61a0c958f65e6dfea73"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+    "#17",
+    "#18",
+    "#19",
+]
+failed = []

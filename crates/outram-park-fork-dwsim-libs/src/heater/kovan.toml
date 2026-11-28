@@ -3,7 +3,6 @@ kind = "code_folder"
 crate = "outram-park-fork-dwsim-libs"
 dir = "crates/outram-park-fork-dwsim-libs/src/heater"
 test_ids = [
-    "crates/outram-park-fork-dwsim-libs/src/cooler/mod.rs::heat_removed_outlet_enthalpy",
     "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::heat_added_outlet_enthalpy",
     "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::outlet_temperature_duty_constant_cp",
     "crates/outram-park-fork-dwsim-libs/src/heater/mod.rs::outlet_temperature_duty_rigorous_closure",
@@ -148,8 +147,8 @@ doc_hash = "sha256:494ff123621d3f4de5a2886b177f4d91ce51d6cda7aaae0671a56f2b08391
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -157,7 +156,6 @@ passed = [
     "#2",
     "#3",
     "#4",
-    "#5",
 ]
 failed = []
 

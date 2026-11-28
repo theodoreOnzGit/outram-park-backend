@@ -88,3 +88,10 @@ name = "window_size"
 qual = "window_size"
 hash = "sha256:1ce049deb78072d93dc46ec4bc4c109d25843e1cec6c45e90d6cc75d7e435a22"
 doc_hash = "sha256:80b89fc78aac1f3d72530ab78e2f36c311e1c0215945986e6d95734dc62fdb36"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

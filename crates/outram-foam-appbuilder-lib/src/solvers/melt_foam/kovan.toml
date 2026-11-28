@@ -10,9 +10,6 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::temperature_solver_defaults_to_a_tight_tolerance",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::velocity_field_keeps_its_name_after_correction",
     "crates/outram-foam-appbuilder-lib/src/solvers/melt_foam/tests.rs::wall_face_fluxes_are_constrained_to_the_velocity_bc",
-    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::enthalpy_porosity_conserves_energy",
-    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::gallium_melting_cavity_gau_viskanta_configuration",
-    "crates/outram-foam-appbuilder-lib/tests/melting_vv_cases/main.rs::stefan_problem_matches_similarity_solution",
 ]
 
 [module."mod.rs"]
@@ -138,8 +135,8 @@ doc_hash = "sha256:071b6c9219c657b31cbddc075d6baf85401a2b1dfc153dc3ae36824022e00
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -149,9 +146,6 @@ passed = [
     "#4",
     "#5",
     "#6",
-    "#7",
-    "#8",
-    "#9",
 ]
 failed = []
 

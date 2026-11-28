@@ -3,15 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-cli"
 dir = "crates/outram-foam-cli/src"
 crate_root = true
-test_ids = [
-    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::genfoam_and_offbeat_agree_on_the_clamped_thermoelastic_bar",
-    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_agreement_and_the_convergence_order_survive_refinement",
-    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_agree_through_a_transient_elastic_response",
-    "crates/outram-foam-cli/tests/mechanics_code_to_code.rs::the_two_codes_disagree_on_the_thermal_load_at_a_dirichlet_boundary",
-    "crates/outram-foam-cli/tests/mesh_tools.rs::block_mesh_cavity_roundtrip",
-    "crates/outram-foam-cli/tests/mesh_tools.rs::ideas_unv_to_foam_single_hex",
-    "crates/outram-foam-cli/tests/mesh_tools.rs::poly_dual_mesh_box_roundtrip",
-]
 
 [module."lib.rs"]
 path = "crate"
@@ -56,18 +47,10 @@ hash = "sha256:45880dfb355cf165f985ed11944860fb132308cee320aa2d721362d6e98312e3"
 doc_hash = "sha256:c21bfb97ade5a244fe9d1c26b0fc731c82a770d8bd24e6ae7ab230b04d8ac167"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-]
+passed = []
 failed = []
 
 [targeted_run]

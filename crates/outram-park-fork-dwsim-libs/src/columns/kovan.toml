@@ -54,15 +54,6 @@ test_ids = [
     "crates/outram-park-fork-dwsim-libs/src/columns/tridiagonal.rs::tdma_residual_is_zero_for_dominant_system",
     "crates/outram-park-fork-dwsim-libs/src/columns/tridiagonal.rs::tdma_solves_known_4x4_system",
     "crates/outram-park-fork-dwsim-libs/src/columns/tridiagonal.rs::tdma_solves_poisson_operator",
-    "crates/outram-park-fork-dwsim-libs/src/petroleum/crude_distillation.rs::cut_compositions_close_the_component_balance",
-    "crates/outram-park-fork-dwsim-libs/src/petroleum/crude_distillation.rs::light_sweet_crude_column_converges_and_is_physically_ordered",
-    "crates/outram-park-fork-dwsim-libs/src/petroleum/crude_plant.rs::every_cut_has_a_positive_rate",
-    "crates/outram-park-fork-dwsim-libs/src/petroleum/crude_plant.rs::the_plant_holds_its_steady_seed",
-    "crates/outram-park-fork-dwsim-libs/src/petroleum/crude_plant.rs::the_steady_answer_does_not_depend_on_the_inventory",
-    "crates/outram-park-fork-dwsim-libs/src/petroleum/crude_plant.rs::the_temperature_profile_stays_ordered",
-    "crates/outram-park-fork-dwsim-libs/tests/cut_to_stream.rs::a_crude_cut_reaches_a_stream_but_stops_at_entropy",
-    "crates/outram-park-fork-dwsim-libs/tests/prelude_workflow.rs::crude_workflow_needs_only_the_prelude",
-    "crates/outram-park-fork-dwsim-libs/tests/upstream_column_parity.rs::rigorous_column_tracks_upstream_dwsim_to_the_kij_difference",
 ]
 
 [module."bubble_point.rs"]
@@ -2375,8 +2366,8 @@ doc_hash = "sha256:55416c7d2539cfa15e969d8379a901243a1853460fe79344d9f9fb86e9d0b
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2430,15 +2421,6 @@ passed = [
     "#48",
     "#49",
     "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
 ]
 failed = []
 

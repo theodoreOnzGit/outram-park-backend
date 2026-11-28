@@ -187,8 +187,8 @@ hash = "sha256:a239bae7b1a7bfb4f93d809f4683df0cc01e1d4fc7eeb2f5c97b4754e40a5b56"
 doc_hash = "sha256:708e404f9b97c769b1a100069b97d294336011e3edef3c4a2eacce3d007576e9"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",

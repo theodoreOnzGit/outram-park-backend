@@ -2,12 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "tuas_boussinesq_solver"
 dir = "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_heater_top_and_bottom_head_bare"
-test_ids = [
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_top_bottom_mx10_struct_supports.rs::heater_plus_mx_10_with_supports",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads.rs::test_inclusive_heater_top_bottom_head",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heated_section_with_top_bottom_heads_and_mx10.rs::heater_plus_mx_10_without_supports",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/non_insul_porous_media_fluid/tests/heater_example_with_data_record.rs::example_heater_with_struct_supports_and_mx10",
-]
 
 [module."calculation.rs"]
 path = "crate::pre_built_components::ciet_heater_top_and_bottom_head_bare::calculation"
@@ -337,15 +331,10 @@ hash = "sha256:d9bacd0c42446207cba455fab6baed0f66423bbddbbb3d3138ecfdcd9ff7aa33"
 doc_hash = "sha256:2c57eaa96f2f1c03aaaf91822a49c22d4809f6412a93e7b67ad87ccfafb7424a"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-]
+passed = []
 failed = []
 
 [targeted_run]

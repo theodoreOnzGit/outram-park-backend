@@ -2,13 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "njoy-outram-park-fork"
 dir = "crates/njoy-outram-park-fork/src/acer/photoatomic"
-test_ids = [
-    "crates/njoy-outram-park-fork/src/acer/photoatomic/fluorescence.rs::nflo_follows_upstreams_z_bands",
-    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::eszg_is_logged_and_zeros_survive",
-    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::mcnpx_type1_output_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::type1_output_is_byte_identical_to_njoy2016",
-    "crates/njoy-outram-park-fork/tests/acer_photoatomic_vs_njoy2016.rs::type2_output_matches_njoy2016_to_machine_precision",
-]
+test_ids = ["crates/njoy-outram-park-fork/src/acer/photoatomic/fluorescence.rs::nflo_follows_upstreams_z_bands"]
 
 [module."fluorescence.rs"]
 path = "crate::acer::photoatomic::fluorescence"
@@ -357,16 +351,10 @@ hash = "sha256:786c7c676fc23f4100fd93209101d1ed49e4727997ee2674ca2568a85b871636"
 doc_hash = "sha256:8e7969deb384a9aa9a8755d07546ca1e378d9b5a7ef28a5c5e4ec7f1910a4998"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-]
+passed = ["#0"]
 failed = []
 
 [targeted_run]

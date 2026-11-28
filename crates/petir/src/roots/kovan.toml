@@ -10,30 +10,6 @@ test_ids = [
     "crates/petir/src/roots/convergence.rs::interval_test_rejects_bad_input",
     "crates/petir/src/roots/convergence.rs::relative_tolerance_is_dropped_when_the_interval_straddles_zero",
     "crates/petir/src/roots/convergence.rs::residual_test_examines_only_the_function_value",
-    "crates/petir/tests/gsl_min.rs::asking_for_better_than_the_sqrt_eps_floor_reports_max_iterations",
-    "crates/petir/tests/gsl_min.rs::both_methods_find_an_off_origin_minimum",
-    "crates/petir/tests/gsl_min.rs::both_methods_find_the_minimum_of_cos",
-    "crates/petir/tests/gsl_min.rs::both_methods_find_the_minimum_of_x_to_the_fourth",
-    "crates/petir/tests/gsl_min.rs::both_methods_handle_an_infinite_derivative_at_the_minimum",
-    "crates/petir/tests/gsl_numerics_code_to_code.rs::the_bracketing_root_finders_follow_gsls_iterates",
-    "crates/petir/tests/gsl_numerics_code_to_code.rs::the_polishing_root_finders_follow_gsls_iterates",
-    "crates/petir/tests/gsl_roots.rs::a_bracket_that_does_not_straddle_zero_is_rejected",
-    "crates/petir/tests/gsl_roots.rs::a_root_exactly_at_an_endpoint_is_found",
-    "crates/petir/tests/gsl_roots.rs::a_zero_derivative_is_reported",
-    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_find_a_small_root_with_relative_tolerance",
-    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_find_the_flat_root_of_x_exp_minus_x",
-    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_find_the_root_of_x20_minus_1",
-    "crates/petir/tests/gsl_roots.rs::all_bracketing_methods_handle_an_infinite_derivative_at_the_root",
-    "crates/petir/tests/gsl_roots.rs::all_polishing_methods_find_the_root_of_x20_minus_1",
-    "crates/petir/tests/gsl_roots.rs::all_polishing_methods_find_the_root_of_x_exp_minus_x",
-    "crates/petir/tests/gsl_roots.rs::bisection_halves_the_interval_every_step",
-    "crates/petir/tests/gsl_roots.rs::bracketing_and_polishing_agree_on_the_same_root",
-    "crates/petir/tests/gsl_roots.rs::bracketing_survives_a_root_of_multiplicity_seven",
-    "crates/petir/tests/gsl_roots.rs::brent_converges_in_fewer_iterations_than_bisection",
-    "crates/petir/tests/gsl_roots.rs::newton_converges_quadratically_from_a_good_guess",
-    "crates/petir/tests/gsl_roots.rs::newton_diverges_on_a_hostile_function_without_complaint",
-    "crates/petir/tests/gsl_roots.rs::secant_evaluates_the_true_derivative_only_once",
-    "crates/petir/tests/no_panic_gate.rs::the_public_fallible_api_returns_result",
 ]
 
 [module."bracketing.rs"]
@@ -327,8 +303,8 @@ hash = "sha256:2bd589cfa3f28604b96edb9706f1e3d25c06332a98916fa040e26a862a1c307e"
 doc_hash = "sha256:5b7fb4ef3c178e87b3c8167b63a25e507326cad68f510a0e273f2191a5b15c0b"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -338,30 +314,6 @@ passed = [
     "#4",
     "#5",
     "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
 ]
 failed = []
 

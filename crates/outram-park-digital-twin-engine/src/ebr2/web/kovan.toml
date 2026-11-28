@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/ebr2/web"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff.rs::a_worker_without_a_model_refuses_runs",
+    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff.rs::jobs_tapes_and_wire",
+    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff.rs::the_raster_draws_the_assembled_core",
+    "crates/outram-park-digital-twin-engine/src/ebr2/web/keff_pool.rs::presets_workers_and_an_empty_pool",
+]
 
 [module."keff.rs"]
 path = "crate::ebr2::web::keff"
@@ -427,3 +433,15 @@ qual = "presets_workers_and_an_empty_pool"
 hash = "sha256:2a602351450cb1b6ec9f72310604ed1a588cef6cfcd1d15f640e443451eee7e3"
 doc_hash = "sha256:37d7a946aedf4fce490dd5d6eb3458f9f107098b3d21ee8961c8c66a769d4f45"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

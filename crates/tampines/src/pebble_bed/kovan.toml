@@ -111,8 +111,6 @@ test_ids = [
     "crates/tampines/src/pebble_bed/triso.rs::layer_conductivities_match_the_vtb_deck_expressions",
     "crates/tampines/src/pebble_bed/triso.rs::uniform_conductivity_collapses_to_the_analytic_sphere",
     "crates/tampines/src/pebble_bed/triso.rs::zero_power_gives_a_uniform_particle_temperature",
-    "crates/tampines/tests/genfoam_gfhr_pebble_conduction.rs::gfhr_reference_fuel_temperature_is_consistent_with_upstream_pebble_data",
-    "crates/tampines/tests/genfoam_gfhr_pebble_conduction.rs::the_shell_conductance_matches_upstreams_lumped_structure_formula",
 ]
 
 [module."cht.rs"]
@@ -1357,8 +1355,8 @@ doc_hash = "sha256:62d008392c492165e6281746a1a26e39701f0b02c65d4e1437e6ce17d1096
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#78",
@@ -1391,8 +1389,6 @@ passed = [
     "#105",
     "#106",
     "#107",
-    "#108",
-    "#109",
 ]
 failed = []
 

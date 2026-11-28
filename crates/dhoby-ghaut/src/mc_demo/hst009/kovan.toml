@@ -149,3 +149,10 @@ name = "render_all"
 qual = "render_all"
 hash = "sha256:a050adc32c1db3e29a6e2605dd4721fd1f17eceb9a97ba7c24cc26df4b0aab6e"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

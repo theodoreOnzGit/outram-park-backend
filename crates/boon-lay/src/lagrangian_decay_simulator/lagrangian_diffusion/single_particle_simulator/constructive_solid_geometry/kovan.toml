@@ -3,16 +3,6 @@ kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/constructive_solid_geometry"
 test_ids = [
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::snapshot_starts_full_in_kernel",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::buffer_midpoint_bounded_on_both_sides",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::fuel_center_hop_reaches_kernel_surface",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::hop_releases_at_outer_surface",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::multilayer_walk_transmits_across_interfaces",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::outside_particle_has_no_shell",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::failure_history_is_monotone_and_starts_at_end_of_irradiation",
@@ -270,21 +260,10 @@ hash = "sha256:ecd507963fae952656fa4a34a4b18825d3ceb12e432d6577377c66df7d716ec8"
 doc_hash = "sha256:e23c462cfb3049e31a288dabe38d823424b392a0dc3fd6adee6894aafc43e3dc"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-]
+passed = []
 failed = []
 
 [targeted_run]
@@ -294,13 +273,13 @@ suite = "targeted"
 passed = []
 failed = []
 targets = [
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
 ]

@@ -288,3 +288,10 @@ qual = "the_theatre_sample_matches_scram"
 hash = "sha256:8a09b6b365fe20fa44937586088ee369ca21980b7584e827eed7900117ab4441"
 doc_hash = "sha256:8258980feb9e855bb8132164ae8c150dcb3dba9ecad85435daf3cc9e990853cc"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

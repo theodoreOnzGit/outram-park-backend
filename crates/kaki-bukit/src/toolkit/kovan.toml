@@ -3,14 +3,6 @@ kind = "code_folder"
 crate = "kaki-bukit"
 dir = "crates/kaki-bukit/src/toolkit"
 test_ids = [
-    "crates/kaki-bukit/src/agents/sink.rs::a_full_sink_stops_requesting",
-    "crates/kaki-bukit/src/agents/sink.rs::a_recipe_sink_requests_that_composition",
-    "crates/kaki-bukit/src/agents/sink.rs::a_sink_refuses_to_supply",
-    "crates/kaki-bukit/src/agents/sink.rs::accepted_material_accumulates_and_conserves_mass",
-    "crates/kaki-bukit/src/agents/sink.rs::an_overrun_delivery_is_refused",
-    "crates/kaki-bukit/src/agents/sink.rs::capacity_and_remaining_space_both_cap_the_request",
-    "crates/kaki-bukit/src/agents/sink.rs::rejects_an_empty_commodity_list_or_name",
-    "crates/kaki-bukit/src/agents/sink.rs::requests_its_capacity_for_each_commodity_under_one_constraint",
     "crates/kaki-bukit/src/toolkit/commodity.rs::add_does_not_overwrite_an_existing_registration",
     "crates/kaki-bukit/src/toolkit/commodity.rs::an_unregistered_commodity_reports_the_defaults_without_registering",
     "crates/kaki-bukit/src/toolkit/commodity.rs::capacity_and_cost_round_trip",
@@ -94,12 +86,6 @@ test_ids = [
     "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::space_never_goes_negative",
     "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::sums_the_quantities_of_every_tracked_buffer",
     "crates/kaki-bukit/src/toolkit/total_inv_tracker.rs::the_cap_cannot_be_lowered_below_the_contents",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::a_malformed_hierarchy_is_rejected",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::a_simulation_with_no_requests_is_a_no_op",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::an_exhausted_source_stops_trading_and_retires",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::mine_to_repository",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::summaries_dispatch_through_the_enum",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::the_tighter_constraint_is_the_one_that_binds",
 ]
 
 [module."commodity.rs"]
@@ -1832,8 +1818,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1919,20 +1905,6 @@ passed = [
     "#80",
     "#81",
     "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
-    "#87",
-    "#88",
-    "#89",
-    "#90",
-    "#91",
-    "#92",
-    "#93",
-    "#94",
-    "#95",
-    "#96",
 ]
 failed = []
 

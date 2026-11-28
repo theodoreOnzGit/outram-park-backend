@@ -2,6 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/msre/moltres_drift"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/msre/moltres_drift/tests.rs::the_line_model_agrees_with_moltres",
+    "crates/outram-park-digital-twin-engine/src/msre/moltres_drift/tests.rs::the_loop_drift_bookkeeping",
+    "crates/outram-park-digital-twin-engine/src/msre/moltres_drift/tests.rs::the_loop_drift_holds_steady_and_relaxes_when_the_pump_stops",
+]
 
 [module."tests.rs"]
 path = "crate::msre::moltres_drift::tests"
@@ -29,3 +34,14 @@ qual = "the_loop_drift_holds_steady_and_relaxes_when_the_pump_stops"
 hash = "sha256:7e09bde7b4d6fc47de3ed8c937edc19b561edff6dfa4ae3f61255461f30065e1"
 doc_hash = "sha256:8386bce4096b523c015ef241a0ef305fc2e740eb377992d7435d0f8ed2cc8001"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

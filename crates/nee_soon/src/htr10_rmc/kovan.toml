@@ -3,7 +3,6 @@ kind = "code_folder"
 crate = "nee_soon"
 dir = "crates/nee_soon/src/htr10_rmc"
 test_ids = [
-    "crates/nee_soon/src/htr10_mgxs/run.rs::checks_fail_on_the_defect_they_name",
     "crates/nee_soon/src/htr10_rmc/bed.rs::a_seker_bed_of_n_layers_is_as_tall_as_the_tabulated_height",
     "crates/nee_soon/src/htr10_rmc/bed.rs::a_taller_loading_does_not_reshuffle_the_balls_below",
     "crates/nee_soon/src/htr10_rmc/bed.rs::every_kept_seker_ball_is_whole",
@@ -44,9 +43,6 @@ test_ids = [
     "crates/nee_soon/src/htr10_rmc/explicit_bed_tests.rs::the_dem_bed_cut_to_the_lattice_ball_count_is_the_beds_view_cut",
     "crates/nee_soon/src/htr10_rmc/explicit_bed_tests.rs::the_lens_volume_has_the_right_limits",
     "crates/nee_soon/src/htr10_rmc/explicit_bed_tests.rs::the_paper_assignment_leaves_the_conus_dummy",
-    "crates/nee_soon/src/htr10_rmc/keff_vs_height/mod.rs::curve_reads_rows_exactly_and_refuses_to_extrapolate",
-    "crates/nee_soon/src/htr10_rmc/keff_vs_height/mod.rs::every_sweep_height_has_all_three_references",
-    "crates/nee_soon/src/htr10_rmc/keff_vs_height/script.rs::script_is_deterministic_and_carries_no_timing",
     "crates/nee_soon/src/htr10_rmc/reflector.rs::boronated_and_plain_bricks_are_distinguishable",
     "crates/nee_soon/src/htr10_rmc/reflector.rs::every_zone_is_listed_exactly_once_except_the_cavity",
     "crates/nee_soon/src/htr10_rmc/reflector.rs::no_zone_is_denser_than_solid_reflector_graphite",
@@ -69,12 +65,6 @@ test_ids = [
     "crates/nee_soon/src/htr10_rmc/tests.rs::the_reference_curve_is_monotonic_and_brackets_criticality",
     "crates/nee_soon/src/htr10_rmc/tests.rs::the_reference_is_matched_to_the_bed_by_ball_count",
     "crates/nee_soon/src/htr10_rmc/tests.rs::the_sampled_bed_has_the_papers_packing_and_fuel_ball_fraction",
-    "crates/nee_soon/src/rod_insertion.rs::rod_insertion_lowers_k_and_preserves_the_balance",
-    "crates/nee_soon/tests/htr10_correct_physics_is_default.rs::the_default_htr10_data_configuration_is_the_correct_physics",
-    "crates/nee_soon/tests/htr10_correct_physics_is_default.rs::the_default_materials_carry_c13_helium_and_nickel",
-    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_bed_reproduces_the_published_ball_inventory",
-    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_reflector_covers_every_zone_the_model_can_reference",
-    "crates/nee_soon/tests/htr10_geometry_integrity.rs::the_tile_assignment_agrees_with_the_continuum_split",
 ]
 
 [module."bed.rs"]
@@ -3867,8 +3857,8 @@ doc_hash = "sha256:0ddb801e53ca6057d1b6010d564fd323d2d4b9b966368cf40f45297c13466
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -3933,16 +3923,6 @@ passed = [
     "#59",
     "#60",
     "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
 ]
 failed = []
 

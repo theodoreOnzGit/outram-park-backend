@@ -56,7 +56,6 @@ test_ids = [
     "crates/boon-lay/src/fuel_failure/history.rs::the_two_mechanisms_are_stepped_differently",
     "crates/boon-lay/src/fuel_failure/htr10/mod.rs::normal_operation_failure_is_negligible_against_the_placeholder",
     "crates/boon-lay/src/fuel_failure/htr10/mod.rs::the_accident_sweep_is_where_fuel_failure_has_something_to_say",
-    "crates/boon-lay/src/fuel_failure/htr10/mod.rs::the_derived_inputs_follow_from_the_published_design_data",
     "crates/boon-lay/src/fuel_failure/htr10/qualification.rs::the_burnup_ordering_at_1600c_matches_and_the_level_does_not",
     "crates/boon-lay/src/fuel_failure/mod.rs::failure_populations_combine_by_survival",
     "crates/boon-lay/src/fuel_failure/mod.rs::the_chain_composes_end_to_end",
@@ -700,10 +699,10 @@ hash = "sha256:1a7f51cd489f5bcf8e3d6152fe758165bef71d80de9dce8a474fa3997d0b83a7"
 doc_hash = "sha256:a11a990604096ceabc7b47f6e3423499347c6c160220e82c0545ccae83904284"
 reached_by = [
     "#26",
-    "#56",
+    "#55",
+    "#72",
     "#73",
     "#74",
-    "#75",
 ]
 
 [[module."geometry.rs".function]]
@@ -742,12 +741,13 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
-    "#56",
+    "#53",
+    "#55",
+    "#71",
     "#72",
     "#73",
     "#74",
-    "#75",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -756,7 +756,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 
 [[module."geometry.rs".function]]
@@ -772,7 +771,7 @@ uses = [
 ]
 reached_by = [
     "#26",
-    "#73",
+    "#72",
 ]
 physical_interface = true
 
@@ -792,11 +791,12 @@ reached_by = [
     "#48",
     "#50",
     "#51",
-    "#54",
-    "#56",
+    "#53",
+    "#55",
+    "#72",
     "#73",
     "#74",
-    "#75",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -805,7 +805,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
@@ -825,11 +824,12 @@ reached_by = [
     "#48",
     "#50",
     "#51",
-    "#54",
-    "#56",
+    "#53",
+    "#55",
+    "#72",
     "#73",
     "#74",
-    "#75",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -838,7 +838,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
@@ -895,12 +894,13 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
-    "#56",
+    "#53",
+    "#55",
+    "#71",
     "#72",
     "#73",
     "#74",
-    "#75",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -909,7 +909,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
@@ -951,12 +950,13 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
-    "#56",
+    "#53",
+    "#55",
+    "#71",
     "#72",
     "#73",
     "#74",
-    "#75",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -965,7 +965,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 
 [[module."geometry.rs".function]]
@@ -1548,12 +1547,13 @@ reached_by = [
     "#50",
     "#51",
     "#52",
+    "#53",
     "#54",
     "#55",
-    "#56",
+    "#76",
     "#77",
     "#78",
-    "#79",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -1562,7 +1562,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 
 [[module."mod.rs".function]]
@@ -1826,9 +1825,10 @@ reached_by = [
     "#48",
     "#50",
     "#51",
-    "#54",
-    "#56",
-    "#66",
+    "#53",
+    "#55",
+    "#65",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -1837,7 +1837,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 
 [[module."pressure.rs".function]]
@@ -1903,12 +1902,13 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
+    "#53",
+    "#66",
     "#67",
     "#68",
     "#69",
     "#70",
-    "#71",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -1917,7 +1917,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 
 [[module."strength.rs".function]]
@@ -1946,10 +1945,11 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
+    "#53",
+    "#66",
     "#67",
-    "#68",
-    "#71",
+    "#70",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -1958,7 +1958,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 
 [[module."strength.rs".function]]
@@ -1986,12 +1985,13 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
+    "#53",
+    "#66",
     "#67",
     "#68",
     "#69",
     "#70",
-    "#71",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -2000,7 +2000,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
@@ -2029,10 +2028,11 @@ reached_by = [
     "#50",
     "#51",
     "#52",
-    "#54",
+    "#53",
+    "#66",
     "#67",
-    "#68",
-    "#71",
+    "#70",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -2041,7 +2041,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
@@ -2112,10 +2111,10 @@ uses = [
     "fn:62323e762b03b9bf",
 ]
 reached_by = [
-    "#56",
+    "#55",
+    "#72",
     "#73",
     "#74",
-    "#75",
 ]
 physical_interface = true
 
@@ -2130,7 +2129,7 @@ uses = [
     "fn:5b2b33cb94ca9a56",
     "fn:62323e762b03b9bf",
 ]
-reached_by = ["#74"]
+reached_by = ["#73"]
 physical_interface = true
 
 [[module."stress.rs".function]]
@@ -2152,7 +2151,8 @@ reached_by = [
     "#48",
     "#50",
     "#51",
-    "#54",
+    "#53",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -2161,7 +2161,6 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
@@ -2248,10 +2247,11 @@ reached_by = [
     "#48",
     "#50",
     "#51",
-    "#54",
-    "#56",
+    "#53",
+    "#55",
+    "#76",
     "#77",
-    "#78",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -2260,13 +2260,12 @@ reached_by = [
     "#159",
     "#160",
     "#161",
-    "#162",
 ]
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2348,7 +2347,6 @@ passed = [
     "#76",
     "#77",
     "#78",
-    "#79",
 ]
 failed = []
 
@@ -2388,19 +2386,20 @@ passed = [
     "#50",
     "#51",
     "#52",
+    "#53",
     "#54",
     "#55",
-    "#56",
+    "#65",
     "#66",
     "#67",
     "#68",
     "#69",
     "#70",
-    "#71",
+    "#75",
     "#76",
     "#77",
     "#78",
-    "#79",
+    "#153",
     "#154",
     "#155",
     "#156",
@@ -2408,7 +2407,6 @@ passed = [
     "#158",
     "#159",
     "#160",
-    "#161",
 ]
 failed = []
 targets = [
@@ -2443,15 +2441,16 @@ targets = [
     "#50",
     "#51",
     "#52",
+    "#53",
     "#54",
     "#55",
-    "#56",
+    "#65",
     "#66",
     "#67",
     "#68",
     "#69",
     "#70",
-    "#71",
+    "#75",
     "#76",
     "#77",
     "#78",
@@ -2537,7 +2536,6 @@ targets = [
     "#158",
     "#159",
     "#160",
-    "#161",
 ]
 
 [[review]]

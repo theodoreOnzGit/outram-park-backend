@@ -8,7 +8,6 @@ test_ids = [
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_gfhr_pebble_rise_fits_inside_upstreams_reported_temperatures",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_maxwell_effective_conductivity_is_bounded_by_its_phases",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/structure/nuclear_steady_state_pebble/tests.rs::the_temperature_chain_increases_monotonically_inward",
-    "crates/outram-foam-appbuilder-lib/tests/genfoam_gfhr_pebble_vs_upstream.rs::the_ported_pebble_chain_reproduces_upstreams_gfhr_fields",
 ]
 
 [module."mod.rs"]
@@ -196,8 +195,8 @@ doc_hash = "sha256:56f395c38773249863122d52ee20b3e0eb6dd8df547a5ac828ef309371d06
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -205,7 +204,6 @@ passed = [
     "#2",
     "#3",
     "#4",
-    "#5",
 ]
 failed = []
 

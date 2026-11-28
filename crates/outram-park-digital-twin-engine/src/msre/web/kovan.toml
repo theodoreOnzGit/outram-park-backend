@@ -2,6 +2,23 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/msre/web"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::a_bad_command_is_an_error_event",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::a_freeze_is_posted_once_and_a_thaw_restarts_the_plant",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::the_drift_follows_the_plant",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::the_engine_runs_the_session",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::the_native_ticker_drives_the_plant",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::the_period_table_arrives_flat",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::ticks_drive_the_plant_at_the_chosen_speed",
+    "crates/outram-park-digital-twin-engine/src/msre/web/engine.rs::wire_codes_round_trip",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff.rs::a_worker_without_a_model_refuses_runs",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff.rs::the_jobs_are_the_plan_and_two_laws",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff.rs::the_raster_draws_the_assembled_geometry",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff.rs::the_wire_round_trips",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff_pool.rs::a_pool_without_workers_fails_cleanly",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff_pool.rs::presets_and_worker_counts",
+    "crates/outram-park-digital-twin-engine/src/msre/web/keff_pool.rs::the_split_runs_a_c_d_and_pairs_them",
+]
 
 [module."engine.rs"]
 path = "crate::msre::web::engine"
@@ -909,3 +926,26 @@ test = true
 
 [module."mod.rs"]
 path = "crate::msre::web"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+]
+failed = []

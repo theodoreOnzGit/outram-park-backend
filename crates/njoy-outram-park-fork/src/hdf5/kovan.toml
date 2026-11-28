@@ -49,13 +49,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/hdf5/xml_scan.rs::a_truncated_document_stops_rather_than_panics",
     "crates/njoy-outram-park-fork/src/hdf5/xml_scan.rs::multibyte_text_is_sliced_correctly",
     "crates/njoy-outram-park-fork/src/hdf5/xml_scan.rs::the_scanner_reports_attributes_text_and_nesting_order",
-    "crates/njoy-outram-park-fork/tests/depletion_chain_xml_vs_openmc.rs::chain_ni_matches_openmcs_own_parse",
-    "crates/njoy-outram-park-fork/tests/depletion_chain_xml_vs_openmc.rs::chain_simple_decay_matches_openmcs_own_parse",
-    "crates/njoy-outram-park-fork/tests/depletion_chain_xml_vs_openmc.rs::chain_simple_matches_openmcs_own_parse",
-    "crates/njoy-outram-park-fork/tests/mgxs_write_read_by_openmc.rs::openmc_reads_an_mgxs_written_here_and_gets_the_right_k",
-    "crates/njoy-outram-park-fork/tests/nuclide_h5_vs_openmc.rs::the_fissile_file_this_crate_writes_is_structurally_complete",
-    "crates/njoy-outram-park-fork/tests/nuclide_h5_vs_openmc.rs::the_law_inventory_matches_what_upstream_wrote",
-    "crates/njoy-outram-park-fork/tests/nuclide_h5_vs_openmc.rs::we_read_the_u235_library_openmc_produced",
 ]
 
 [module."cross_sections_xml.rs"]
@@ -1330,8 +1323,8 @@ doc_hash = "sha256:d860e4f34495090999f9ca7dd98dfef371cc34141314ebfe8065fd7a22154
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1380,13 +1373,6 @@ passed = [
     "#43",
     "#44",
     "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
 ]
 failed = []
 

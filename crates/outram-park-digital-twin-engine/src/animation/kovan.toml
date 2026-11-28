@@ -12,13 +12,6 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/mod.rs::the_whole_plant_steps_at_the_gui_timestep",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/physics/tede_accumulator.rs::the_plant_publishes_a_deterministic_integral",
     "crates/outram-park-digital-twin-engine/examples/htgr_sim_v1/runtime.rs::submitted_controls_survive_the_round_trip",
-    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::length_is_proportional_to_run_length",
-    "crates/outram-park-digital-twin-engine/src/components/pipe.rs::thickness_is_proportional_to_cross_sectional_area",
-    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::non_positive_timestep_is_rejected",
-    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::residence_time_is_length_over_velocity",
-    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stagnant_run_places_no_mark",
-    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::stepping_advances_the_backend",
-    "crates/outram-park-digital-twin-engine/src/components/pipe_component.rs::tracer_phase_persists_across_steps",
 ]
 
 [module."control_rod_drive.rs"]
@@ -711,18 +704,10 @@ doc_hash = "sha256:04a5c036c9000fff4f52807c2b67b1ed741f660fc8cd32f61138e83bc5788
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-]
+passed = []
 failed = []
 
 [targeted_run]

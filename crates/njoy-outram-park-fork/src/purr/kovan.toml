@@ -15,33 +15,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/purr/wfun.rs::doppler_table_tolerates_the_closed_tier_edges",
     "crates/njoy-outram-park-fork/src/purr/wfun.rs::uw2_agrees_with_unresr_uw_off_the_imaginary_axis",
     "crates/njoy-outram-park-fork/src/purr/wfun.rs::uw2_matches_gfortran_oracle",
-    "crates/njoy-outram-park-fork/tests/acer.rs::angular_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/acer.rs::esz_heating_column_is_physical",
-    "crates/njoy-outram-park-fork/tests/acer.rs::esz_total_equals_elastic_plus_partials",
-    "crates/njoy-outram-park-fork/tests/acer.rs::full_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/acer.rs::h2_elastic_angular_block_is_valid",
-    "crates/njoy-outram-park-fork/tests/acer.rs::h2_law6_producer_is_written_as_ace_law_66",
-    "crates/njoy-outram-park-fork/tests/acer.rs::h2_minimal_table_is_valid",
-    "crates/njoy-outram-park-fork/tests/acer.rs::one_writer_and_both_containers_for_a_built_table",
-    "crates/njoy-outram-park-fork/tests/acer.rs::type1_file_roundtrips",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_ace_header_and_dimensions",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_discrete_levels_carry_mf4_angular",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_elastic_angular_block_is_valid",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_full_table_mixes_law3_and_law4",
-    "crates/njoy-outram-park-fork/tests/purr_u235_urr.rs::purr_probability_table_at_first_energy_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/purr_u235_urr.rs::unresr_and_infinite_dilution_reference_match_njoy",
-    "crates/njoy-outram-park-fork/tests/purr_u238_ptables_vs_njoy.rs::purr_probability_tables_match_njoy2016",
-    "crates/njoy-outram-park-fork/tests/purr_u238_urr.rs::purr_probability_table_at_first_energy_matches_njoy_on_u238",
-    "crates/njoy-outram-park-fork/tests/purr_u238_urr.rs::unresr_and_infinite_dilution_reference_match_njoy_on_u238",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::purr_generates_njoys_bands_word_for_word",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::reading_then_writing_reproduces_njoys_unr_block_word_for_word",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::the_competition_flags_and_energy_grid_are_derived_exactly_as_njoy_derives_them",
-    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::a_block_running_past_xss_is_refused",
-    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::a_zero_locator_yields_none_rather_than_an_error",
-    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::ace_tables_and_our_own_purr_agree_on_range_and_convention",
-    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::u235_unr_block_decodes_and_differs_from_u238",
-    "crates/njoy-outram-park-fork/tests/urr_from_ace_unr_block.rs::u238_unr_block_decodes_into_sane_tables",
 ]
 
 [module."ladder.rs"]
@@ -619,8 +592,8 @@ hash = "sha256:bcfd08d7e02dcfc27ac413bc1959e2894ed2d26989ab5fff0111ac99664b168e"
 doc_hash = "sha256:d76c6be433f06d30f54ef77bda9c1da1f81a88a7e5515955e273f3e99336241b"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -635,33 +608,6 @@ passed = [
     "#9",
     "#10",
     "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
 ]
 failed = []
 

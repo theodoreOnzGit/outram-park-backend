@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_demo/dhshort"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_demo/dhshort/data.rs::a_watch_load_has_no_table",
+    "crates/dhoby-ghaut/src/mc_demo/dhshort/mod.rs::the_worker_serves_every_treatment",
+    "crates/dhoby-ghaut/src/mc_demo/dhshort/model.rs::each_arm_sees_its_own_fuel_zone",
+    "crates/dhoby-ghaut/src/mc_demo/dhshort/model.rs::every_treatment_draws_only_materials_its_palette_names",
+    "crates/dhoby-ghaut/src/mc_demo/dhshort/record.rs::the_table_reproduces_the_quoted_biases",
+    "crates/dhoby-ghaut/src/mc_demo/dhshort/ui.rs::selecting_and_redrawing_change_what_is_asked",
+]
 
 [module."data.rs"]
 path = "crate::mc_demo::dhshort::data"
@@ -600,3 +608,17 @@ qual = "selecting_and_redrawing_change_what_is_asked"
 hash = "sha256:c74a40652f562c162b0424937a0ccb50daabc5f32111aae1b64e0ea657e28e0f"
 doc_hash = "sha256:ae38123bfdde6686458755cfe3d8df63ba39ed5e304b22ae93f353684885b0d1"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

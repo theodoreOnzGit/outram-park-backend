@@ -2,6 +2,21 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-cfmesh"
 dir = "crates/outram-park-fork-cfmesh/src/surface"
+test_ids = [
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::check_surface_mesh_on_clean_surfaces",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::classify_edges_box_and_l_prism",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::feature_edges_against_outram_foam_mesh",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::lu_solve_known_system",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::orientation_against_volume_sign",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::partitioner_on_box_and_pipe",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::patches_to_subsets_and_back",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::pipe_rim_edge_curvature",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::removal_copy_import_merge",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::seeded_box_is_cleaned_to_volume_eight",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::sphere_curvature_against_one_over_r",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::triangle_pair_helpers",
+    "crates/outram-park-fork-cfmesh/src/surface/tests.rs::unlabelled_pipe_splits_into_three_patches",
+]
 
 [module."checks.rs"]
 path = "crate::surface::checks"
@@ -918,3 +933,24 @@ qual = "unlabelled_pipe_splits_into_three_patches"
 hash = "sha256:0c885ae88b91220e43c16c5d0f4f368ab044555208af81c0533dad3bbce70d73"
 doc_hash = "sha256:e7b689f9188e0decb58b0c74f457036d5fb84c4526d6cd7eef0b16194c052d77"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+]
+failed = []

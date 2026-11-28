@@ -9,15 +9,6 @@ test_ids = [
     "crates/outram-park-fork-pflotran/src/flow/richards.rs::closed_domain_conserves_total_mass",
     "crates/outram-park-fork-pflotran/src/flow/richards.rs::haverkamp_sand_column_runs_and_wets_up",
     "crates/outram-park-fork-pflotran/src/flow/richards.rs::saturated_1d_steady_state_is_linear",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::flow_mode_run_matches_direct_simulation",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::infiltration_column_runs_and_is_physically_sensible",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::output_writers_produce_wellformed_csv_and_vtk",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::richards_transport_coupling_advects_a_tracer",
-    "crates/outram-park-fork-pflotran/tests/integration.rs::th_coupling_advects_a_thermal_front",
-    "crates/outram-park-fork-pflotran/tests/regression.rs::transient_column_matches_frozen_baseline",
-    "crates/outram-park-fork-pflotran/tests/verification.rs::hydrostatic_column_matches_analytical_gravity",
-    "crates/outram-park-fork-pflotran/tests/verification.rs::mms_saturated_operator_is_second_order",
-    "crates/outram-park-fork-pflotran/tests/verification.rs::saturated_linear_profile_is_exact",
 ]
 
 [module."mod.rs"]
@@ -413,8 +404,8 @@ doc_hash = "sha256:933f611e42ac6c4a37d729c7305939672b1df8f06274e94ffcec3b4e04b2b
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -423,15 +414,6 @@ passed = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
 ]
 failed = []
 

@@ -10,16 +10,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/heatr/driver/state.rs::df_uses_the_constants_of_the_last_initialising_call",
     "crates/njoy-outram-park-fork/src/heatr/driver/state.rs::horder_sorts_the_one_based_slice",
     "crates/njoy-outram-park-fork/src/heatr/driver/state.rs::indx_routes_partials_as_upstream",
-    "crates/njoy-outram-park-fork/tests/acer.rs::esz_heating_column_is_physical",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::be9_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::fe58_userq_ed",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::h2_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::li6_local1",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::o16_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_kchk_plot",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_two_temperatures",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
 ]
 
 [module."conbar.rs"]
@@ -940,8 +930,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -951,16 +941,6 @@ passed = [
     "#4",
     "#5",
     "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
 ]
 failed = []
 

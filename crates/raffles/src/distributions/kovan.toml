@@ -6,10 +6,6 @@ test_ids = [
     "crates/raffles/src/distributions/seeded.rs::sample_exp_mean",
     "crates/raffles/src/distributions/seeded.rs::sample_normal_mean_and_variance",
     "crates/raffles/src/distributions/seeded.rs::uniform_stays_in_range",
-    "crates/raffles/src/estimators/autocorrelation.rs::ar1_recovers_the_exact_autocorrelation_time",
-    "crates/raffles/src/estimators/autocorrelation.rs::white_noise_is_not_inflated",
-    "crates/raffles/src/estimators/stationarity.rs::step_change_is_located",
-    "crates/raffles/src/estimators/stationarity.rs::transient_is_found_and_tail_passes",
 ]
 
 [module."seeded.rs"]
@@ -89,17 +85,13 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
 ]
 failed = []
 

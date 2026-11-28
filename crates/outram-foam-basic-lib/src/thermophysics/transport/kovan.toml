@@ -3,13 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/thermophysics/transport"
 test_ids = [
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::correct_recovers_temperature_from_he",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::correct_rho_clamps",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::initial_state_consistent",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/psi_thermo.rs::mu_and_kappa_fields_populated",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::correct_updates_temperature",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::initial_state_consistent",
-    "crates/outram-foam-basic-lib/src/fluid_thermo/rho_thermo.rs::psi_vs_rho_thermo_match",
     "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::alpha_h_equals_kappa_over_cp",
     "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::kappa_from_pr",
     "crates/outram-foam-basic-lib/src/thermophysics/transport/const_transport.rs::mu_is_constant",
@@ -849,8 +842,8 @@ doc_hash = "sha256:cfa9155d09e525b5c59b8082945d3bd504b661c0855ddd5a8287f35328e58
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -868,13 +861,6 @@ passed = [
     "#12",
     "#13",
     "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
 ]
 failed = []
 

@@ -559,3 +559,10 @@ qual = "tracers_take_their_speed_from_inventory_and_flow"
 hash = "sha256:b8bcb2d1fb1ade58b8668c312baf4e82facf2558a3d5116448cdb458c2a6e9ae"
 doc_hash = "sha256:0462526aa7c54c34921a9b031a68f122cd8409a4a2ac7b257422704372c26a3f"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

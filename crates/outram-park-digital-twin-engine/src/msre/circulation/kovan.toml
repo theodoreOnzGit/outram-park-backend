@@ -2,6 +2,13 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/msre/circulation"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/msre/circulation/tests.rs::stopping_the_flow_gives_back_the_loss",
+    "crates/outram-park-digital-twin-engine/src/msre/circulation/tests.rs::the_data_set_and_transit_ablations",
+    "crates/outram-park-digital-twin-engine/src/msre/circulation/tests.rs::the_line_model_reproduces_the_exact_line_model",
+    "crates/outram-park-digital-twin-engine/src/msre/circulation/tests.rs::the_tm1626_path_is_the_cited_one",
+    "crates/outram-park-digital-twin-engine/src/msre/circulation/tests.rs::the_well_stirred_model_is_teh_o_prkes_at_full_flow",
+]
 
 [module."tests.rs"]
 path = "crate::msre::circulation::tests"
@@ -103,3 +110,16 @@ qual = "the_well_stirred_model_is_teh_o_prkes_at_full_flow"
 hash = "sha256:a4a5ebb8c68611cf7098f248f01c42543617eb8226a535d33534ca8526088afb"
 doc_hash = "sha256:3a5ba8526a5fd7cf22fe4f3adfa140f27ef98552156d0ed34587d218926dc748"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+]
+failed = []

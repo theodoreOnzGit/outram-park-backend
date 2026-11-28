@@ -45,25 +45,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/covr/tape.rs::present_mts_lists_mf3_sections_in_order",
     "crates/njoy-outram-park-fork/src/covr/tape.rs::reads_auto_section_and_densifies",
     "crates/njoy-outram-park-fork/src/covr/tape.rs::reads_cross_section_skipping_other_subsections",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_be9",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_c12",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_f19",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_h2_absolute",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_h2_relative",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_li6",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_si30",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_u234",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier1_u238",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_be9",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_c12",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_f19",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_absolute",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_h2_relative",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_li6",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_si30",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u234",
-    "crates/njoy-outram-park-fork/tests/covr_boxer_golden.rs::covr_tier2_u238",
-    "crates/njoy-outram-park-fork/tests/openmc_notebooks_data/nuclear_data_resonance_covariance.rs::covariance_to_correlation_matches_closed_form",
 ]
 
 [module."boxer.rs"]
@@ -1243,8 +1224,8 @@ doc_hash = "sha256:47597a64a99ad58e7d09bc840c9605f5499fb516e0a23caa9a95d684a2807
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1289,25 +1270,6 @@ passed = [
     "#39",
     "#40",
     "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
 ]
 failed = []
 

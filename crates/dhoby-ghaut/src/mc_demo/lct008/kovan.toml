@@ -2,6 +2,10 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_demo/lct008"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_demo/lct008/mod.rs::the_core_has_the_benchmark_rods_and_passes_its_self_check",
+    "crates/dhoby-ghaut/src/mc_demo/lct008/mod.rs::the_pitch_case_reads_the_recorded_sweep",
+]
 
 [module."mod.rs"]
 path = "crate::mc_demo::lct008"
@@ -673,3 +677,13 @@ name = "new"
 qual = "Physics::new"
 hash = "sha256:d6a45991a31a099838fa2e6e21fe333bbebdff247972c477d29fa6e5e5c0ffc9"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+]
+failed = []

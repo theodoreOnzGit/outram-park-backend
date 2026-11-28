@@ -285,3 +285,10 @@ name = "trace_csv"
 qual = "trace_csv"
 hash = "sha256:938ab83efa8f2a8bedc74e258349db686c38ade3aaa3c02e6657e1cde834a468"
 doc_hash = "sha256:0c954738de13fc4180f0d40d5b9419d500e4c9946137e6c21e7096ba515212fd"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = []
+failed = []

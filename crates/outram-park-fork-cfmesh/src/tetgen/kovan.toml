@@ -2,6 +2,25 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-cfmesh"
 dir = "crates/outram-park-fork-cfmesh/src/tetgen"
+test_ids = [
+    "crates/outram-park-fork-cfmesh/src/tetgen/delaunay.rs::degenerate_inputs_are_errors",
+    "crates/outram-park-fork-cfmesh/src/tetgen/delaunay.rs::mesh_is_consistent_and_locate_finds_vertices",
+    "crates/outram-park-fork-cfmesh/src/tetgen/mesh.rs::glibc_rand_matches_glibc",
+    "crates/outram-park-fork-cfmesh/src/tetgen/mesh.rs::handles_and_primitives",
+    "crates/outram-park-fork-cfmesh/src/tetgen/mesh.rs::memorypool_is_lifo_and_slot_ordered",
+    "crates/outram-park-fork-cfmesh/src/tetgen/mesh.rs::randomnation_follows_the_lcg",
+    "crates/outram-park-fork-cfmesh/src/tetgen/mesh.rs::tables_are_consistent",
+    "crates/outram-park-fork-cfmesh/src/tetgen/output.rs::fmt_g17_is_c_percent_17g",
+    "crates/outram-park-fork-cfmesh/src/tetgen/output.rs::to_volume_mesh_is_a_valid_upper_triangular_mesh",
+    "crates/outram-park-fork-cfmesh/src/tetgen/plc.rs::scanning_follows_the_c_library",
+    "crates/outram-park-fork-cfmesh/src/tetgen/plc.rs::smesh_round_trips_and_edges_are_read",
+    "crates/outram-park-fork-cfmesh/src/tetgen/predicates.rs::exactinit_constants_are_ieee_double",
+    "crates/outram-park-fork-cfmesh/src/tetgen/predicates.rs::predicate_signs_on_a_unit_tetrahedron",
+    "crates/outram-park-fork-cfmesh/src/tetgen/quality.rs::fmt_g_is_c_percent_g",
+    "crates/outram-park-fork-cfmesh/src/tetgen/surface.rs::circumcircle_of_a_right_triangle",
+    "crates/outram-park-fork-cfmesh/src/tetgen/surface.rs::shell_faces_encode_and_reuse_slots",
+    "crates/outram-park-fork-cfmesh/src/tetgen/surface.rs::slocate_computes_its_own_above_point",
+]
 
 [module."carve.rs"]
 path = "crate::tetgen::carve"
@@ -4260,3 +4279,28 @@ name = "switch_number"
 qual = "switch_number"
 hash = "sha256:94c0ccf6f7814cb588af161f00c61b9d0382841dfa224ee5a739f6baced3acc3"
 doc_hash = "sha256:d6ecb6d6ae434584fad87bcb99557b4bf82b370135b13eab390075be1d9550a2"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
+    "#12",
+    "#13",
+    "#14",
+    "#15",
+    "#16",
+]
+failed = []

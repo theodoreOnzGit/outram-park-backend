@@ -4,25 +4,6 @@ crate = "kovan-semantics"
 dir = "crates/kovan-semantics/src"
 crate_root = true
 test_ids = [
-    "crates/kovan-semantics/src/extract/cpp.rs::class_methods_qualify_same_line_brace",
-    "crates/kovan-semantics/src/extract/cpp.rs::control_flow_is_not_a_function",
-    "crates/kovan-semantics/src/extract/cpp.rs::forward_declaration_does_not_open_scope",
-    "crates/kovan-semantics/src/extract/cpp.rs::free_function_and_prototype",
-    "crates/kovan-semantics/src/extract/cpp.rs::namespace_next_line_brace_and_nesting",
-    "crates/kovan-semantics/src/extract/fortran.rs::case_insensitive_and_prefixed",
-    "crates/kovan-semantics/src/extract/fortran.rs::comments_are_stripped",
-    "crates/kovan-semantics/src/extract/fortran.rs::module_with_contained_procedures",
-    "crates/kovan-semantics/src/extract/fortran.rs::type_variable_declaration_is_not_a_definition",
-    "crates/kovan-semantics/src/extract/mod.rs::dispatch_routes_to_the_right_scanner",
-    "crates/kovan-semantics/src/extract/mod.rs::into_kovan_symbol_is_deterministic",
-    "crates/kovan-semantics/src/extract/python.rs::methods_qualify_under_class",
-    "crates/kovan-semantics/src/extract/python.rs::nested_function_qualifies_and_then_dedents",
-    "crates/kovan-semantics/src/extract/python.rs::top_level_def_and_class",
-    "crates/kovan-semantics/src/extract/rust.rs::ignores_commented_definition",
-    "crates/kovan-semantics/src/extract/rust.rs::methods_qualify_under_impl_and_mod",
-    "crates/kovan-semantics/src/extract/rust.rs::scope_closes_after_block",
-    "crates/kovan-semantics/src/extract/rust.rs::top_level_items",
-    "crates/kovan-semantics/src/extract/rust.rs::trait_impl_records_trait_for_type_but_qualifies_members_by_type",
     "crates/kovan-semantics/src/lib.rs::adapters_name_their_tools",
     "crates/kovan-semantics/src/lib.rs::catalogue_finds_this_crates_own_symbols",
     "crates/kovan-semantics/src/lib.rs::markdown_outputs_render_from_a_real_scan",
@@ -797,8 +778,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -827,25 +808,6 @@ passed = [
     "#23",
     "#24",
     "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
 ]
 failed = []
 

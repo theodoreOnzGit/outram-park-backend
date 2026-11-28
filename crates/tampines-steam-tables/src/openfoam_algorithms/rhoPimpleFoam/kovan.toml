@@ -60,22 +60,6 @@ test_ids = [
     "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::new_initializes_liquid_water_reference_state_consistently",
     "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::one_d_array_constructs_and_steps",
     "crates/tampines-steam-tables/src/openfoam_algorithms/rhoPimpleFoam/mod.rs::zero_cells_is_rejected",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::a_turning_shaft_delivers_electrical_power",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::heavier_electrical_load_slows_the_shaft",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::initialise_uniform_puts_superheated_steam_in_every_cell",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::machine_spins_up_from_rest",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::moving_steam_extracts_work_from_both_mechanisms",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::power_sources_are_consumed_by_the_step",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::shaft_speed_is_solved_rather_than_held",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::short_run_stays_bounded",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::standstill_develops_starting_torque_but_no_power",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::still_steam_extracts_no_work",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::total_shaft_power_is_the_sum_of_the_stages",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/mean_flow_stages/transient_tests.rs::zero_rotor_drop_fraction_gives_a_pure_impulse_stage",
-    "crates/tampines-steam-tables/tests/heated_tube_never_undercuts_its_feedwater.rs::the_default_scheme_never_undercuts_the_feedwater",
-    "crates/tampines-steam-tables/tests/heated_tube_never_undercuts_its_feedwater.rs::the_linear_ablation_reproduces_the_walk_toward_the_floor",
-    "crates/tampines-steam-tables/tests/wasm_smoke.rs::edwards_blowdown_advances_under_wasm",
-    "crates/tampines-steam-tables/tests/wasm_smoke.rs::steam_property_flash_works_under_wasm",
 ]
 
 [module."central_upwind.rs"]
@@ -1019,8 +1003,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#36",
@@ -1044,22 +1028,6 @@ passed = [
     "#54",
     "#55",
     "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
 ]
 failed = []
 

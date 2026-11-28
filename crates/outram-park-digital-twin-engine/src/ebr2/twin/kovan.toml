@@ -2,6 +2,11 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/ebr2/twin"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/ebr2/twin/tests.rs::the_cv_map_is_the_live_plant",
+    "crates/outram-park-digital-twin-engine/src/ebr2/twin/tests.rs::the_sources_and_pages_are_named",
+    "crates/outram-park-digital-twin-engine/src/ebr2/twin/tests.rs::the_twin_plant_is_the_session_bit_for_bit",
+]
 
 [module."tests.rs"]
 path = "crate::ebr2::twin::tests"
@@ -29,3 +34,14 @@ qual = "the_twin_plant_is_the_session_bit_for_bit"
 hash = "sha256:7373436ac714fdc36b9ec4a7b67fbc41c6d8de2fac5d7c854dbfc4423675ade1"
 doc_hash = "sha256:208fe3d86f21e48d67db750328c0a202716118f9266665f3a25a147d7a2ed61e"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+]
+failed = []

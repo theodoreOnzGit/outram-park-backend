@@ -2,20 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "buangkok"
 dir = "crates/buangkok/src/pydoseia/ingestion"
-test_ids = [
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::every_fixture_value_is_reproduced_within_its_group_tolerance",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_age_bracket_shift_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_calm_correction_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_corrected_ingestion_driver_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_daughter_lookup_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_gamma_line_lookup_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_exact_sector_width_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_intended_zeroing_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_petir_qag_instead_of_dqagse_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_single_counted_summary_ingestion_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::mutation_true_ln2_is_rejected",
-    "crates/buangkok/tests/pydoseia_code_to_code.rs::petir_plume_shine_also_reproduces_the_fixture",
-]
 
 [module."corrected.rs"]
 path = "crate::pydoseia::ingestion::corrected"
@@ -504,23 +490,10 @@ hash = "sha256:dd21262405ca133b8d826dabed012cd6de99b079772e7d536fa1bd8a53f89e11"
 doc_hash = "sha256:69dd66212ad8293a63b538a268ba61000cce5ec9fe7d889abce68d9c6dd09d13"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-]
+passed = []
 failed = []
 
 [targeted_run]

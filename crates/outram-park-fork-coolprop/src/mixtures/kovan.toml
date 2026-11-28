@@ -6,17 +6,6 @@ test_ids = [
     "crates/outram-park-fork-coolprop/src/mixtures/departure.rs::gaussian_matches_finite_difference",
     "crates/outram-park-fork-coolprop/src/mixtures/departure.rs::gerg_exponential_matches_finite_difference",
     "crates/outram-park-fork-coolprop/src/mixtures/departure.rs::power_matches_finite_difference",
-    "crates/outram-park-fork-coolprop/tests/all_binary_pairs_smoke.rs::every_binary_pair_evaluates_at_a_representative_state",
-    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::departure_function_is_actually_exercised",
-    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::pure_r32_limit_is_exact",
-    "crates/outram-park-fork-coolprop/tests/mixture_departure_function.rs::r32_r125_blend_state_is_physical",
-    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::air_like_mixture_matches_known_air_properties",
-    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::malformed_composition_is_rejected",
-    "crates/outram-park-fork-coolprop/tests/mixture_nitrogen_oxygen.rs::pure_nitrogen_limit_is_exact",
-    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::air_composition_matches_coolprop_reference",
-    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::air_speed_of_sound_and_compressibility_match_reference",
-    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::composition_hygiene_rejects_unnormalized",
-    "crates/outram-park-fork-coolprop/tests/mixture_predefined.rs::r410a_predefined_constructs_and_evaluates",
 ]
 
 [module."departure.rs"]
@@ -207,24 +196,13 @@ hash = "sha256:c1985fb8bfcee4eae2bf2f0b9143236b3e9ee5683fffc2002b76b9b235f25c1a"
 doc_hash = "sha256:b35c6dbfa6be6e7e6b35ef50c1b8e5fd75ac4379f4794a17c0ca4ca139ef34ae"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
-    "#13",
 ]
 failed = []
 

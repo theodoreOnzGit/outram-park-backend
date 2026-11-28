@@ -3,21 +3,6 @@ kind = "code_folder"
 crate = "outram-foam-basic-lib"
 dir = "crates/outram-foam-basic-lib/src/ldu_matrix/solvers"
 test_ids = [
-    "crates/outram-foam-basic-lib/src/fluid_thermo/solid_thermo.rs::conduction_solve",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/d2dt2.rs::d2dt2_no_spatial_terms_continues_linearly",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt.rs::ddt_coeff_solves_to_old_when_no_spatial_terms",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt.rs::ddt_solves_to_old_when_no_spatial_terms",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt_vec.rs::ddt_coeff_vec_solves_to_old_when_no_spatial_terms",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/ddt_vec.rs::ddt_vec_recovers_constant_field",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::laplacian_solves_linear_dirichlet",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_cyclic_diffusion_matches_ring_mesh",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_fixed_gradient_linear_profile",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian.rs::vv_robin_convective_analytic",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/laplacian_vec.rs::laplacian_vec_1d_linear_profile",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/sup.rs::sp_su_scalar_solve_k_phi_equals_s",
-    "crates/outram-foam-basic-lib/src/fv_operators/fvm/sup.rs::sp_su_vector_solve_componentwise",
-    "crates/outram-foam-basic-lib/src/ldu_matrix/fv_matrix.rs::solve_diagonal_system",
-    "crates/outram-foam-basic-lib/src/ldu_matrix/fv_vector_matrix.rs::diagonal_system_solves_vector",
     "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/conjugate_gradient.rs::cg_faster_than_gs_on_symmetric",
     "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/conjugate_gradient.rs::cg_identity",
     "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/conjugate_gradient.rs::cg_solves_1d_poisson",
@@ -30,12 +15,6 @@ test_ids = [
     "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/krylov_solve.rs::every_method_preconditioner_pair_solves_an_asymmetric_system",
     "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/krylov_solve.rs::ilu0_needs_no_more_iterations_than_unpreconditioned",
     "crates/outram-foam-basic-lib/src/ldu_matrix/solvers/krylov_solve.rs::warm_start_from_the_answer_costs_no_iterations",
-    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_beats_gauss_seidel_on_convection_diffusion",
-    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::krylov_matches_dense_lu_on_convection_diffusion",
-    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::solve_krylov_dispatch_matches_the_named_entry_points",
-    "crates/outram-foam-basic-lib/tests/krylov_convection_diffusion.rs::warm_started_krylov_costs_fewer_iterations",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::corrected_laplacian_recovers_a_linear_field_on_a_wavy_mesh",
-    "crates/outram-foam-basic-lib/tests/non_orthogonal_laplacian.rs::limited_scheme_is_monotone_between_orthogonal_and_corrected",
 ]
 
 [module."conjugate_gradient.rs"]
@@ -417,8 +396,8 @@ test = true
 path = "crate::ldu_matrix::solvers"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -433,27 +412,6 @@ passed = [
     "#9",
     "#10",
     "#11",
-    "#12",
-    "#13",
-    "#14",
-    "#15",
-    "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
-    "#22",
-    "#23",
-    "#24",
-    "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
 ]
 failed = []
 

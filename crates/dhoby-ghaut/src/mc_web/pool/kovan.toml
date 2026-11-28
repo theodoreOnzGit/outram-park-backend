@@ -2,6 +2,12 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_web/pool"
+test_ids = [
+    "crates/dhoby-ghaut/src/mc_web/pool/tests.rs::a_mesh_survives_its_words",
+    "crates/dhoby-ghaut/src/mc_web/pool/tests.rs::every_product_reaches_every_other_worker_before_assembly",
+    "crates/dhoby-ghaut/src/mc_web/pool/tests.rs::the_dealer_is_lpt_and_deals_every_job_once",
+    "crates/dhoby-ghaut/src/mc_web/pool/tests.rs::the_run_protocol_is_guarded",
+]
 
 [module."tests.rs"]
 path = "crate::mc_web::pool::tests"
@@ -37,3 +43,15 @@ qual = "the_run_protocol_is_guarded"
 hash = "sha256:1d52e76eac3a3bfb7c39ba16d7878cd8f89e4fa9a387a3861af8bc8d982e838c"
 doc_hash = "sha256:79110e7dbb7073a072190e0987b30ba8bf8c8232ae2674caff878855ee0eafea"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+]
+failed = []

@@ -2,18 +2,6 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-fork-coolprop"
 dir = "crates/outram-park-fork-coolprop/src/incompressibles/fluids"
-test_ids = [
-    "crates/outram-park-fork-coolprop/tests/all_incompressible_fluids_smoke.rs::every_fluid_evaluates_at_its_midrange_state",
-    "crates/outram-park-fork-coolprop/tests/incompressible_freeze_psat.rs::meg_freezing_point_water_anchor_and_30_mass_percent",
-    "crates/outram-park-fork-coolprop/tests/incompressible_freeze_psat.rs::saturation_pressure_guards_below_tminpsat_and_when_absent",
-    "crates/outram-park-fork-coolprop/tests/incompressible_freeze_psat.rs::t66_entropy_matches_numerical_cp_over_t_integral",
-    "crates/outram-park-fork-coolprop/tests/incompressible_freeze_psat.rs::t66_internal_energy_equals_enthalpy_minus_p_over_rho",
-    "crates/outram-park-fork-coolprop/tests/incompressible_freeze_psat.rs::t66_saturation_pressure_at_300c_and_normal_boiling_point",
-    "crates/outram-park-fork-coolprop/tests/incompressible_freeze_psat.rs::t_freeze_unavailable_on_pure_oil_and_out_of_range_composition",
-    "crates/outram-park-fork-coolprop/tests/incompressible_t66.rs::t66_density_heat_capacity_conductivity_viscosity_at_300k",
-    "crates/outram-park-fork-coolprop/tests/incompressible_t66.rs::t66_enthalpy_matches_heat_capacity_integral",
-    "crates/outram-park-fork-coolprop/tests/incompressible_t66.rs::t66_rejects_out_of_range_temperature_and_nonzero_composition",
-]
 
 [module."acetone.rs"]
 path = "crate::incompressibles::fluids::acetone"
@@ -1531,21 +1519,10 @@ hash = "sha256:64590ff36cc3dd67ec3d66c6e079aa8e5961de79d548974cd50fdbcade7f6a7b"
 doc_hash = "sha256:4227940177e5c8f45e9d295807e942bbe57d6f838714651fe20d790177d0f0cf"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-]
+passed = []
 failed = []
 
 [targeted_run]

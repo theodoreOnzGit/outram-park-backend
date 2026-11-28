@@ -5,20 +5,6 @@ dir = "crates/tampines/src/multiphase_1d"
 test_ids = [
     "crates/tampines/src/multiphase_1d/edwards_tests.rs::edwards_drift_flux_gs1_pressure_history",
     "crates/tampines/src/multiphase_1d/edwards_tests.rs::two_fluid_constructs_on_the_edwards_geometry",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::a_stale_conduction_set_is_refused",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::constructor_refuses_a_pair_from_the_same_resistance_side",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::constructor_refuses_unusable_geometry_and_floors",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::droplet_topology_exchanges_which_conductivity_closes_which_side",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::finite_slip_drag_is_antisymmetric_and_opposes_the_slip",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::latent_heat_guard_fires_only_next_to_the_critical_point",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::mass_transfer_sign_flips_between_superheated_vapour_and_subcooled_liquid",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::mass_transfer_vanishes_when_both_phases_sit_on_the_saturation_line",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::out_of_range_and_non_finite_states_are_refused_not_clipped",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::reference_properties_at_seven_megapascal",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::the_self_evaluating_entry_point_matches_the_cached_one",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::the_uom_boundary_agrees_with_the_raw_si_boundary",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::two_resistance_pair_reads_one_conductivity_from_each_side",
-    "crates/tampines/src/multiphase_1d/interfacial/tests.rs::zero_slip_drag_recovers_the_stokes_closed_form",
     "crates/tampines/src/multiphase_1d/marviken_tests.rs::marviken_test_23_drift_flux_critical_mass_flux",
     "crates/tampines/src/multiphase_1d/marviken_tests.rs::marviken_test_24_drift_flux_critical_mass_flux",
     "crates/tampines/src/multiphase_1d/tests.rs::reservoir_inlet_reaches_the_bernoulli_limit_in_subcooled_water",
@@ -2434,8 +2420,8 @@ doc_hash = "sha256:de6b43924c8cc59875b9d229c6036c24edf30eef508f67ec7ed245d971318
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2465,20 +2451,6 @@ passed = [
     "#24",
     "#25",
     "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
 ]
 failed = []
 

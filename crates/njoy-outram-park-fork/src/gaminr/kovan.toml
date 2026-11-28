@@ -22,8 +22,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/gaminr/weights.rs::build_from_option",
     "crates/njoy-outram-park-fork/src/gaminr/weights.rs::iwt_selector_roundtrip",
     "crates/njoy-outram-park-fork/src/gaminr/weights.rs::loglog_interpolation",
-    "crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs::njoy_gaminr_synthetic_z6_matches_gamout",
-    "crates/njoy-outram-park-fork/tests/gaminr_vs_njoy2016.rs::njoy_gaminr_u_photoatomic_matches_gamout",
 ]
 
 [module."gpanel.rs"]
@@ -940,8 +938,8 @@ doc_hash = "sha256:f2a3800a1f60c284a8e0ea2704159f093a4fa9a25b1e154f0f5007714bcfa
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -963,8 +961,6 @@ passed = [
     "#16",
     "#17",
     "#18",
-    "#19",
-    "#20",
 ]
 failed = []
 

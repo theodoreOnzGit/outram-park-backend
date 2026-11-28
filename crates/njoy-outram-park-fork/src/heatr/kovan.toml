@@ -32,37 +32,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/heatr/twobody.rs::a_level_is_interpolated_between_nodes",
     "crates/njoy-outram-park-fork/src/heatr/twobody.rs::breakup_yields_follow_nheat",
     "crates/njoy-outram-park-fork/src/heatr/twobody.rs::isotropic_elastic_is_the_two_body_mean",
-    "crates/njoy-outram-park-fork/tests/acer.rs::angular_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/acer.rs::esz_heating_column_is_physical",
-    "crates/njoy-outram-park-fork/tests/acer.rs::esz_total_equals_elastic_plus_partials",
-    "crates/njoy-outram-park-fork/tests/acer.rs::full_table_roundtrips_through_file",
-    "crates/njoy-outram-park-fork/tests/acer.rs::h2_elastic_angular_block_is_valid",
-    "crates/njoy-outram-park-fork/tests/acer.rs::h2_law6_producer_is_written_as_ace_law_66",
-    "crates/njoy-outram-park-fork/tests/acer.rs::h2_minimal_table_is_valid",
-    "crates/njoy-outram-park-fork/tests/acer.rs::one_writer_and_both_containers_for_a_built_table",
-    "crates/njoy-outram-park-fork/tests/acer.rs::type1_file_roundtrips",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_ace_header_and_dimensions",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_discrete_levels_carry_mf4_angular",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_elastic_angular_block_is_valid",
-    "crates/njoy-outram-park-fork/tests/acer.rs::u235_full_table_mixes_law3_and_law4",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::be9_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::fe58_userq_ed",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::h2_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::li6_local1",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::o16_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_kchk_plot",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_local0",
-    "crates/njoy-outram-park-fork/tests/heatr_driver_vs_njoy2016.rs::si28_two_temperatures",
-    "crates/njoy-outram-park-fork/tests/heatr_kerma_vs_kinematics.rs::kerma_reproduces_the_closed_form_heating_models",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::energy_balance_subtracts_mt442_and_nothing_else",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_energy_balance_against_njoy_is_recorded",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_local1_kinematic_against_njoy_is_recorded",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt4_is_not_heated_beside_the_levels",
-    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::damage_elastic_matches_njoy_where_scattering_is_isotropic",
-    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::damage_total_against_njoy_is_recorded_not_asserted",
-    "crates/njoy-outram-park-fork/tests/heatr_vs_njoy2016.rs::kerma_matches_njoy_local_deposition_in_the_capture_regime",
-    "crates/njoy-outram-park-fork/tests/unr_block_write_vs_njoy2016.rs::build_full_with_purr_writes_a_block_that_reads_back_as_generated",
 ]
 
 [module."damage.rs"]
@@ -598,8 +567,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -631,37 +600,6 @@ passed = [
     "#26",
     "#27",
     "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
 ]
 failed = []
 

@@ -3,8 +3,6 @@ kind = "code_folder"
 crate = "njoy-outram-park-fork"
 dir = "crates/njoy-outram-park-fork/src/groupr/mf6_feed"
 test_ids = [
-    "crates/njoy-outram-park-fork/src/groupr/matrix_panel.rs::continuum6_feed_runs_through_the_same_matrix_driver",
-    "crates/njoy-outram-park-fork/src/groupr/matrix_panel.rs::continuum6_refuses_the_fission_mts_that_need_nubar",
     "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::cm_frame_law1_respects_the_kinematic_lab_energy_ceiling",
     "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::flat_lab_spectrum_deposits_equally_and_sums_to_the_yield",
     "crates/njoy-outram-park-fork/src/groupr/mf6_feed/tests.rs::illegal_upscatter_is_folded_into_the_ingroup",
@@ -304,8 +302,8 @@ doc_hash = "sha256:16cfc62eb97b9554799ac39d34307660f63cd2c86e39f7364e80d7669496f
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -319,8 +317,6 @@ passed = [
     "#8",
     "#9",
     "#10",
-    "#11",
-    "#12",
 ]
 failed = []
 

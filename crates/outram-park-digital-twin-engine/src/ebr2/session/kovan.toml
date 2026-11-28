@@ -2,6 +2,14 @@ schema_version = 1
 kind = "code_folder"
 crate = "outram-park-digital-twin-engine"
 dir = "crates/outram-park-digital-twin-engine/src/ebr2/session"
+test_ids = [
+    "crates/outram-park-digital-twin-engine/src/ebr2/session/tests.rs::a_failed_step_holds_the_plant_until_a_command",
+    "crates/outram-park-digital-twin-engine/src/ebr2/session/tests.rs::commands_reach_the_model",
+    "crates/outram-park-digital-twin-engine/src/ebr2/session/tests.rs::headless_rejects_bad_input_and_applies_its_script",
+    "crates/outram-park-digital-twin-engine/src/ebr2/session/tests.rs::snapshots_round_trip",
+    "crates/outram-park-digital-twin-engine/src/ebr2/session/tests.rs::the_headless_trace_is_deterministic_and_bounded",
+    "crates/outram-park-digital-twin-engine/src/ebr2/session/tests.rs::the_pacer_is_reused",
+]
 
 [module."tests.rs"]
 path = "crate::ebr2::session::tests"
@@ -69,3 +77,17 @@ qual = "the_pacer_is_reused"
 hash = "sha256:5f0febe8f8c08b3709b6cfe34a771cf831839c34b3cf4d9deb58bdc47e427606"
 doc_hash = "sha256:9c8f983f29f28af7bb187fe99646ae746cb29472088aaa45432ee5b3c74acfd2"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = [
+    "#0",
+    "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+]
+failed = []

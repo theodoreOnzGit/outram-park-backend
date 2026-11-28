@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_demo/ugraphite"
+test_ids = ["crates/dhoby-ghaut/src/mc_demo/ugraphite/mod.rs::the_cube_is_rung_twos_mixture_everywhere"]
 
 [module."mod.rs"]
 path = "crate::mc_demo::ugraphite"
@@ -339,3 +340,10 @@ item = "type"
 shape = "struct"
 hash = "sha256:97914223435a2604ee1c74e1e3f4dcc6889b63213560093113669883a9ce0360"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = ["#0"]
+failed = []

@@ -10,11 +10,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/photon/mod.rs::discrete_and_primary_photon_energy",
     "crates/njoy-outram-park-fork/src/photon/mod.rs::empty_without_photon_files",
     "crates/njoy-outram-park-fork/src/photon/mod.rs::first_moment_of_flat_spectrum_is_midpoint",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::energy_balance_subtracts_mt442_and_nothing_else",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::heating_matches_njoy_where_elastic_and_mf12_capture_are_the_only_channels",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt301_energy_balance_against_njoy_is_recorded",
-    "crates/njoy-outram-park-fork/tests/heatr_mt442_vs_njoy2016.rs::mt442_matches_njoy_at_print_precision",
-    "crates/njoy-outram-park-fork/tests/photon.rs::u235_fission_photon_energy_is_physical",
 ]
 
 [module."capture.rs"]
@@ -356,8 +351,8 @@ hash = "sha256:937a5ac87b39cd36c2f6c5e09ad2a362505016325aba9d2ccbf0f06b6d376422"
 doc_hash = "sha256:0f74bfcd0999c9693d9590e55a0ce37d3a1a798db2ae01bdbdef77d6a6caf183"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -367,11 +362,6 @@ passed = [
     "#4",
     "#5",
     "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
 ]
 failed = []
 

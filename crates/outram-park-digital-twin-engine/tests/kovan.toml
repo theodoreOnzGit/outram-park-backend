@@ -5,6 +5,14 @@ dir = "crates/outram-park-digital-twin-engine/tests"
 test_ids = [
     "crates/outram-park-digital-twin-engine/tests/ciet_v2_headless_remote_control.rs::a_remote_client_can_drive_the_ciet_loop",
     "crates/outram-park-digital-twin-engine/tests/ciet_v2_opcua_roundtrip.rs::opcua_interface_round_trips_controls_and_outputs",
+    "crates/outram-park-digital-twin-engine/tests/hf_lf_double_pipe_gh1178.rs::coarse_grid_plumbing",
+    "crates/outram-park-digital-twin-engine/tests/hf_lf_double_pipe_gh1178.rs::predictions_that_held_still_hold_on_the_committed_record",
+    "crates/outram-park-digital-twin-engine/tests/hf_lf_double_pipe_gh1178.rs::the_committed_dataset_regenerates_within_1e_3",
+    "crates/outram-park-digital-twin-engine/tests/hf_lf_double_pipe_gh1178.rs::the_held_out_one_d_runs_regenerate_the_record",
+    "crates/outram-park-digital-twin-engine/tests/msre_correct_physics_is_default.rs::the_line_model_is_the_default_circulation_model",
+    "crates/outram-park-digital-twin-engine/tests/msre_correct_physics_is_default.rs::the_well_stirred_model_is_an_explicit_ablation",
+    "crates/outram-park-digital-twin-engine/tests/wgpu_only_renderer.rs::no_crate_selects_glow",
+    "crates/outram-park-digital-twin-engine/tests/wgpu_only_renderer.rs::the_workspace_eframe_is_on_wgpu",
 ]
 
 [module."ciet_v2_headless_remote_control.rs"]
@@ -337,12 +345,20 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
+    "#2",
+    "#3",
+    "#4",
+    "#5",
+    "#6",
+    "#7",
+    "#8",
+    "#9",
 ]
 failed = []
 

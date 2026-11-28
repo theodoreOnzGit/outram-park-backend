@@ -16,8 +16,6 @@ test_ids = [
     "crates/njoy-outram-park-fork/src/resxsr/input.rs::defaults_are_zeroed",
     "crates/njoy-outram-park-fork/src/resxsr/resxs.rs::pendf_feeder_reads_resonance_mts",
     "crates/njoy-outram-park-fork/src/resxsr/resxs.rs::resxs_file_roundtrip",
-    "crates/njoy-outram-park-fork/tests/resxsr_h2_njoy_golden.rs::resxsr_h2_matches_njoy",
-    "crates/njoy-outram-park-fork/tests/resxsr_h2_njoy_golden.rs::resxsr_h2_two_temperatures_matches_njoy",
 ]
 
 [module."assemble.rs"]
@@ -575,8 +573,8 @@ hash = "sha256:f8392eabc0cf5614be784056c9b69bc1b63ec7719def1027721ecce85aac4deb"
 doc_hash = "sha256:a9654d3d18858224e75bda860d7208ed06d123f0f95fbcb1ade4a9d36ec90a6e"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -592,8 +590,6 @@ passed = [
     "#10",
     "#11",
     "#12",
-    "#13",
-    "#14",
 ]
 failed = []
 

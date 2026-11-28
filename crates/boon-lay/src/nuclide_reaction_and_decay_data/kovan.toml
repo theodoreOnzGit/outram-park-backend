@@ -3,30 +3,6 @@ kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/nuclide_reaction_and_decay_data"
 test_ids = [
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::decay_changes_nuclide_to_higher_z_daughter",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::irradiation_transmutes_a_stable_target",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/depletion.rs::no_field_leaves_a_stable_nuclide_unchanged",
-    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::decay_chain_th232",
-    "crates/boon-lay/src/lagrangian_decay_simulator/monte_carlo_single_radionuclide_decay_simulator/tests.rs::stochastic_half_life_calculator",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ba137m",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_c14",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_co60",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_cs137",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_h3",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_i131",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_k40",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_kr85",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_na22",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_po210",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_pu239",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_ra226",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_rn222",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_sr90",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_test_tritium",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_th232",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u235",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_u238",
-    "crates/boon-lay/src/lagrangian_decay_simulator/tests/mod.rs::half_life_xe135",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/actinides_test.rs::test_actinides_parsing",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/alkali_metals_and_hydrogen.rs::test_cesium_parsing",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/alkali_metals_and_hydrogen.rs::test_francium_parsing",
@@ -48,9 +24,6 @@ test_ids = [
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/chalcogens_test.rs::test_selenium_parsing",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/chalcogens_test.rs::test_sulfur_parsing",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/chalcogens_test.rs::test_tellurium_parsing",
-    "crates/boon-lay/src/nuclide_reaction_and_decay_data/decay_library/tests.rs::index_tritium",
-    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_decay_chain",
-    "crates/boon-lay/src/nuclide_reaction_and_decay_data/get_decay_info/tests.rs::test_rng",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/halogens_test.rs::test_astatine_parsing",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/halogens_test.rs::test_bromine_parsing",
     "crates/boon-lay/src/nuclide_reaction_and_decay_data/halogens_test.rs::test_chlorine_parsing",
@@ -607,8 +580,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -662,33 +635,6 @@ passed = [
     "#48",
     "#49",
     "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
-    "#56",
-    "#57",
-    "#58",
-    "#59",
-    "#60",
-    "#61",
-    "#62",
-    "#63",
-    "#64",
-    "#65",
-    "#66",
-    "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
 ]
 failed = []
 
@@ -699,13 +645,13 @@ suite = "targeted"
 passed = []
 failed = []
 targets = [
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
-    "#86",
+    "#51",
+    "#52",
+    "#53",
+    "#54",
+    "#55",
+    "#56",
+    "#57",
+    "#58",
+    "#59",
 ]

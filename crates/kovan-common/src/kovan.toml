@@ -4,9 +4,6 @@ crate = "kovan-common"
 dir = "crates/kovan-common/src"
 crate_root = true
 test_ids = [
-    "crates/kovan-common/src/code_map/svg.rs::every_crate_and_edge_is_drawn_with_its_tooltip",
-    "crates/kovan-common/src/code_map/svg.rs::the_fixture_svg_is_pinned",
-    "crates/kovan-common/src/code_map/svg.rs::the_same_map_gives_byte_identical_svg",
     "crates/kovan-common/src/document.rs::author_json_and_toml_round_trip",
     "crates/kovan-common/src/document.rs::author_with_no_affiliation_round_trips",
     "crates/kovan-common/src/document.rs::builder_sets_every_field",
@@ -45,13 +42,6 @@ test_ids = [
     "crates/kovan-common/src/symbol.rs::language_json_round_trips",
     "crates/kovan-common/src/symbol.rs::repository_json_and_toml_round_trip",
     "crates/kovan-common/src/symbol.rs::symbol_json_and_toml_round_trip",
-    "crates/kovan-common/tests/kovan_document_schema_compat.rs::document_with_zotero_item_round_trips",
-    "crates/kovan-common/tests/kovan_document_schema_compat.rs::pre_port_json_loads_and_reserialises_identically",
-    "crates/kovan-common/tests/kovan_document_schema_compat.rs::pre_port_toml_loads_and_reserialises_identically",
-    "crates/kovan-common/tests/zotero_port.rs::kovan_to_zotero_to_kovan",
-    "crates/kovan-common/tests/zotero_port.rs::round_trip_is_lossless_without_citation_key_and_with_a_stored_file",
-    "crates/kovan-common/tests/zotero_port.rs::zotero_to_kovan_field_map",
-    "crates/kovan-common/tests/zotero_port.rs::zotero_to_kovan_to_zotero_is_lossless",
 ]
 
 [module."document.rs"]
@@ -1012,8 +1002,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1054,16 +1044,6 @@ passed = [
     "#35",
     "#36",
     "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
 ]
 failed = []
 

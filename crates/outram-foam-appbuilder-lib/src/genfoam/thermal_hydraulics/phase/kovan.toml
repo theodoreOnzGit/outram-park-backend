@@ -3,19 +3,9 @@ kind = "code_folder"
 crate = "outram-foam-appbuilder-lib"
 dir = "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase"
 test_ids = [
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::correct_alpha_rho_mag_u_matches_hand_calc",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::correct_mag_velocity_matches_hand_calc",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::correct_thermo_residual_markers_partition_cells",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::new_sets_gen_foam_defaults",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::nu_matches_hand_calc",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/fluid/tests.rs::rho_boussinesq_selection",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/phase_pair.rs::ff_relative_velocity_and_reynolds",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/phase_pair.rs::fs_reynolds_applies_floor",
     "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/phase/phase_pair.rs::fs_reynolds_matches_hand_calc",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/porous_drag.rs::laminar_drag_matches_stokes_darcy_limit",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::laminar_darcy_spinup_terminal_velocity",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::porous_energy_equilibrates_to_wall_temperature",
-    "crates/outram-foam-appbuilder-lib/src/genfoam/thermal_hydraulics/solver/tests.rs::turbulent_darcy_weisbach_pressure_drop",
 ]
 
 [module."mod.rs"]
@@ -168,23 +158,13 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
     "#1",
     "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
 ]
 failed = []
 

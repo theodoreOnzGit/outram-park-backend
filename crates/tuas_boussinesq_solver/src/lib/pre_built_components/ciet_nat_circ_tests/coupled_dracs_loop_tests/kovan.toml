@@ -29,36 +29,6 @@ test_ids = [
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/dataset_c.rs::ciet_coupled_nat_circ_set_c8",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/dataset_c.rs::ciet_coupled_nat_circ_set_c9",
     "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/coupled_dracs_loop_tests/sam_vs_tuas_vs_experiment_summary.rs::generate_coupled_natcirc_sam_vs_tuas_vs_experiment_md",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c2",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c3",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c4",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c5",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c6",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c7",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c8",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dhx_sthe_calibration/mod.rs::dhx_regression_set_c9",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v1_uncalibrated/mod.rs::quick_test_uncalibrated_dracs_loop",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c2",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c3",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c4",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c5",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c6",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c7",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_nat_circ_tests/para_heat_loss_regr_tests/dracs_loop_v2_calibrated/mod.rs::regression_long_test_calibrated_ver2_set_c8",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_fwd_flow_for_three_branch_ver1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::flow_diode_reverse_flow_for_three_branch_ver1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/regression_tests.rs::zero_flow_for_three_branch_ver_1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_fwd_flow_for_three_branch_ver1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::flow_diode_reverse_flow_for_three_branch_ver1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_1.rs::zero_flow_for_three_branch_ver_1",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_dhx_blocked",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_2.rs::ctah_flow_short_test_reverse_diode_effect",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_dhx_blocked",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/ciet_three_branch_plus_dracs/ciet_educational_simulator_loop_prototypes/version_3/mod.rs::ctah_flow_short_test_reverse_diode_effect",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss",
-    "crates/tuas_boussinesq_solver/src/lib/pre_built_components/shell_and_tube_heat_exchanger/tests/calibration_functions.rs::calibration_regression_set_c9_no_heat_loss_mesh_refined",
 ]
 
 [module."dataset_a.rs"]
@@ -579,8 +549,8 @@ doc_hash = "sha256:e6841d1537bf7e7919b701de70d3392e7e769057083324343d725044778e7
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -609,36 +579,6 @@ passed = [
     "#23",
     "#24",
     "#25",
-    "#26",
-    "#27",
-    "#28",
-    "#29",
-    "#30",
-    "#31",
-    "#32",
-    "#33",
-    "#34",
-    "#35",
-    "#36",
-    "#37",
-    "#38",
-    "#39",
-    "#40",
-    "#41",
-    "#42",
-    "#43",
-    "#44",
-    "#45",
-    "#46",
-    "#47",
-    "#48",
-    "#49",
-    "#50",
-    "#51",
-    "#52",
-    "#53",
-    "#54",
-    "#55",
 ]
 failed = []
 

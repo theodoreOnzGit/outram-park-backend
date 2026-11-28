@@ -3,9 +3,6 @@ kind = "code_folder"
 crate = "boon-lay"
 dir = "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator"
 test_ids = [
-    "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/ensemble.rs::parallel_kernel_release_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/walk_on_spheres.rs::absorbing_sphere_release_matches_crank",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released_at_t_zero",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_analytical_fraction_released_zero_radius_panics",
@@ -13,8 +10,6 @@ test_ids = [
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_analytical_solution.rs::test_cs_release_1600c_200h",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b.rs::test_cs_release_1200c_200h",
     "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b.rs::test_cs_release_1600c_200h",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1a_cs_release_1200c_matches_crank",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/single_particle_simulator/release_fraction_crp_6_case_1a_1b/monte_carlo_test.rs::crp6_case1b_cs_release_1600c_matches_crank",
     "crates/boon-lay/tests/triso_atops_booth_vs_crp6.rs::crp6_case1_booth_equals_the_crank_series",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::chemistry_curves_pass_through_the_transcription_checks",
     "crates/dhoby-ghaut/examples/triso_atops_web/engine.rs::decay_population_follows_the_decay_law",
@@ -290,8 +285,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -301,12 +296,6 @@ passed = [
     "#4",
     "#5",
     "#6",
-    "#7",
-    "#8",
-    "#9",
-    "#10",
-    "#11",
-    "#12",
 ]
 failed = []
 
@@ -314,17 +303,17 @@ failed = []
 commit = "d1e207f18ff37336b8c7e48ee039e0febf9fdddd"
 cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
 suite = "targeted"
-passed = ["#12"]
+passed = ["#7"]
 failed = []
 targets = [
+    "#7",
+    "#8",
+    "#9",
+    "#10",
+    "#11",
     "#12",
     "#13",
     "#14",
     "#15",
     "#16",
-    "#17",
-    "#18",
-    "#19",
-    "#20",
-    "#21",
 ]

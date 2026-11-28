@@ -10,8 +10,6 @@ test_ids = [
     "crates/boon-lay/src/compute.rs::resolve_is_always_at_least_one",
     "crates/boon-lay/src/gpu.rs::best_effort_matches_crank",
     "crates/boon-lay/src/gpu.rs::theta_table_is_monotonic",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::cpu_single_and_multi_advance_time_and_agree",
-    "crates/boon-lay/src/lagrangian_decay_simulator/lagrangian_diffusion/first_passage/live.rs::gpu_selection_is_safe_and_advances",
 ]
 
 [module."compute.rs"]
@@ -497,8 +495,8 @@ hash = "sha256:307b1344577f83fa826aa60b84568e11e5906b67a2c6544b38549ba2895b4715"
 doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add015"
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -507,8 +505,6 @@ passed = [
     "#3",
     "#4",
     "#5",
-    "#6",
-    "#7",
 ]
 failed = []
 

@@ -22,8 +22,6 @@ test_ids = [
     "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::later_request_supersedes_earlier_within_a_timestep",
     "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::requests_are_consumed_exactly_once",
     "crates/outram-park-digital-twin-engine/src/ciet_opcua/user_controls.rs::slot_counts_match_the_node_map",
-    "crates/outram-park-digital-twin-engine/tests/ciet_v2_headless_remote_control.rs::a_remote_client_can_drive_the_ciet_loop",
-    "crates/outram-park-digital-twin-engine/tests/ciet_v2_opcua_roundtrip.rs::opcua_interface_round_trips_controls_and_outputs",
 ]
 
 [module."discovery.rs"]
@@ -1007,8 +1005,8 @@ doc_hash = "sha256:b98cd3a3c29051741690323181c0f62ae6e836a539a5c13ab10dd1ab016a6
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -1030,8 +1028,6 @@ passed = [
     "#16",
     "#17",
     "#18",
-    "#19",
-    "#20",
 ]
 failed = []
 

@@ -2,6 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "dhoby-ghaut"
 dir = "crates/dhoby-ghaut/src/mc_demo/natu"
+test_ids = ["crates/dhoby-ghaut/src/mc_demo/natu/mod.rs::the_bar_is_natural_uranium_and_holds_the_birth_point"]
 
 [module."mod.rs"]
 path = "crate::mc_demo::natu"
@@ -78,3 +79,10 @@ qual = "the_bar_is_natural_uranium_and_holds_the_birth_point"
 hash = "sha256:d8026b7f9a35afb72248ddae35e90814a5e7004831cbed0dbf52b711bfb7bc7d"
 doc_hash = "sha256:934fee265d3cacbbe2288d30bf1dae9fe477ff5dcf0b94886fd1c730ca78033d"
 test = true
+
+[test_run]
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
+suite = "full"
+passed = ["#0"]
+failed = []

@@ -3,19 +3,6 @@ kind = "code_folder"
 crate = "kaki-bukit"
 dir = "crates/kaki-bukit/src/exchange"
 test_ids = [
-    "crates/kaki-bukit/src/agents/sink.rs::a_full_sink_stops_requesting",
-    "crates/kaki-bukit/src/agents/sink.rs::a_recipe_sink_requests_that_composition",
-    "crates/kaki-bukit/src/agents/sink.rs::a_sink_refuses_to_supply",
-    "crates/kaki-bukit/src/agents/sink.rs::accepted_material_accumulates_and_conserves_mass",
-    "crates/kaki-bukit/src/agents/sink.rs::an_overrun_delivery_is_refused",
-    "crates/kaki-bukit/src/agents/sink.rs::capacity_and_remaining_space_both_cap_the_request",
-    "crates/kaki-bukit/src/agents/sink.rs::requests_its_capacity_for_each_commodity_under_one_constraint",
-    "crates/kaki-bukit/src/agents/source.rs::a_finite_inventory_depletes_and_then_retires_the_source",
-    "crates/kaki-bukit/src/agents/source.rs::a_source_refuses_a_delivery",
-    "crates/kaki-bukit/src/agents/source.rs::bids_the_requested_quantity_when_unconstrained",
-    "crates/kaki-bukit/src/agents/source.rs::does_not_bid_on_a_commodity_it_does_not_supply",
-    "crates/kaki-bukit/src/agents/source.rs::throughput_caps_the_bid",
-    "crates/kaki-bukit/src/agents/source.rs::with_no_recipe_it_supplies_the_requested_composition",
     "crates/kaki-bukit/src/exchange/bid.rs::a_bid_defaults_to_inheriting_the_requesters_preference",
     "crates/kaki-bukit/src/exchange/bid.rs::a_shared_offer_tag_is_recorded",
     "crates/kaki-bukit/src/exchange/bid.rs::a_zero_or_negative_offer_is_rejected",
@@ -84,11 +71,6 @@ test_ids = [
     "crates/kaki-bukit/src/exchange/translate.rs::mutual_requests_are_satisfied_by_a_full_order_of_either",
     "crates/kaki-bukit/src/exchange/translate.rs::the_automatic_mass_constraint_caps_a_request_group_at_its_own_demand",
     "crates/kaki-bukit/src/exchange/translate.rs::translating_twice_gives_the_same_graph",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::a_malformed_hierarchy_is_rejected",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::a_simulation_with_no_requests_is_a_no_op",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::an_exhausted_source_stops_trading_and_retires",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::mine_to_repository",
-    "crates/kaki-bukit/tests/fuel_cycle.rs::the_tighter_constraint_is_the_one_that_binds",
 ]
 
 [module."bid.rs"]
@@ -1964,8 +1946,8 @@ doc_hash = "sha256:cc0e49ab07658770bb77dbe62bacd5f3e59c094cee92645523d475f159add
 test = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
 passed = [
     "#0",
@@ -2036,24 +2018,6 @@ passed = [
     "#65",
     "#66",
     "#67",
-    "#68",
-    "#69",
-    "#70",
-    "#71",
-    "#72",
-    "#73",
-    "#74",
-    "#75",
-    "#76",
-    "#77",
-    "#78",
-    "#79",
-    "#80",
-    "#81",
-    "#82",
-    "#83",
-    "#84",
-    "#85",
 ]
 failed = []
 

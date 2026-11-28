@@ -2,16 +2,7 @@ schema_version = 1
 kind = "code_folder"
 crate = "tampines-steam-tables"
 dir = "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles"
-test_ids = [
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/joule_thomson.rs::superheated_steam",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::dry_steam_test_overexpanded",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::validate_against_cengel_choked_flow_nozzle",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_choked_flow_overexpanded.rs::validate_against_cengel_isentropic_steam_nozzle",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_subsonic_flow.rs::dry_steam_test",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/cd_nozzle_subsonic_flow.rs::wet_steam_test",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_subsonic_dry_steam",
-    "crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/tests/diverging_nozzle_perfectly_expanded_supersonic.rs::diverging_nozzle_perfectly_expanded_supersonic_dry_steam",
-]
+test_ids = ["crates/tampines-steam-tables/src/steam_turbine_equations/converging_diverging_nozzles/joule_thomson.rs::superheated_steam"]
 
 [module."differential_nozzle_equations.rs"]
 path = "crate::steam_turbine_equations::converging_diverging_nozzles::differential_nozzle_equations"
@@ -160,19 +151,10 @@ doc_hash = "sha256:4f7b46f9f0b15df57fec604105452b0d368f9b79d0dcb219938ff80d594e2
 physical_interface = true
 
 [test_run]
-commit = "ef9eded0b14fef5f5419d3b30228724e358b8553"
-cargo_lock = "sha256:b49ac16438c8a5bdf54e06f0cb4d709d778d85f2fb0275ce25adeafa3ad19288"
+commit = "13e791e1e73e86926600bff585b13d6b89e70e96"
+cargo_lock = "sha256:8ae278baaecedc64be697949fcdd38d1339d3d39ec33bb5f813dbaf3fcc6a729"
 suite = "full"
-passed = [
-    "#0",
-    "#1",
-    "#2",
-    "#3",
-    "#4",
-    "#5",
-    "#6",
-    "#7",
-]
+passed = ["#0"]
 failed = []
 
 [targeted_run]
