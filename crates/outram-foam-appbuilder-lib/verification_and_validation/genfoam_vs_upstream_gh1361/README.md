@@ -10922,3 +10922,67 @@ Real: `bash scripts/run_htr10_r88_real.sh <dir> ct2|clam|ct3|sh20`, then `python
 refs/htr10_r88` (and `make_htr10_r88_patch_refs.py <dir> 0.5 ct2 refs/htr10_r88` for the patch values); delete `<dir>`. Port:
 `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_htr10_vs_upstream -- --nocapture --test-threads=2`
 (`HTR10_SHIPPED_STEPS=500` for the long shipped prefix; default 100).
+
+
+# Round 89 (gh:#1876 under #1216): `reactorCases/3D_gFHR` AS SHIPPED, inventory first
+
+**Branch `claude/genfoam-round89` on `3d49d65e6` (round 88).** Read before any port code was written: the shipped tutorial
+(`Tutorials/reactorCases/3D_gFHR/{README.md,Allrun,Alltest}` and every file of `rootCase` of GeN-Foam 652b3da), `GeN-Foam.C:95-200`
+(`mappingMode`: `solvers.mapper().initializeMappedFields(runTime, mappingMode)`, then `while (runTime.run() and !(mappingMode))`),
+`meshHandler.C:332-386` and `meshHandlerTemplates.C:95-148` (`initializeMappedFields`, `mapAndWrite`), ESI v2506 `TimeIO.C:343-360`
+(`stopAt`: anything but `endTime` sets `endTime_ = GREAT`; no `stopAt` and no `endTime` gives `endTime_ = 0`), `Time.C:102-140`
+(`adjustDeltaT`), `Time.C:1040-1180` (`operator++`: with `stopAt nextWrite` the step that lands on a write time sets
+`endTime_ = value()`; `writeNow` sets it and forces the write; `noWriteNow` sets it), `Time.C:876` (`end()`), GeN-Foam
+`setDeltaT.C`, `ReynoldsPowerFSDragCoefficient.C:76-78` (`const` defaults to 0). The real binary's shipped NSSP run was started
+(unedited, through the Allrun's own two commands: `scripts/run_gfhr_r89_real.sh <dir> nssp`) before any port code.
+
+## Inventory of the shipped case (read from the files; no geometry was built: the shipped hex mesh is read as it is)
+
+**ONE region**, as HTR-10: `regionProperties` lists only `fluidRegion` (`onePhase`), and `multiRegionCouplingDict` has an EMPTY
+`mappings { fluidRegion { } }`. There is no neutronics region, so gh:#1854 (`meshToMesh`) and multi-region coupling are not on its path.
+
+| item | shipped selection | port before round 89 |
+|---|---|---|
+| Allrun | two cases: `steadyStateNSSP` = `cp -r rootCase`, `GeN-Foam -initializeMappedFields -case steadyStateNSSP`, `GeN-Foam -case steadyStateNSSP`; `steadyStateLPS` = `cp -r rootCase`, `cp phaseProperties_lumpedParam phaseProperties`, `GeN-Foam -case steadyStateLPS` | `RegionSolvers::initialize_mapped_fields` (round 81) exists; the chain is not driven for gFHR |
+| `-initializeMappedFields` | constructs the regions, maps the EMPTY mapping list, writes nothing, leaves before the time loop | **observed on the real binary before this commit**: the md5 of all 35 case files is the same before and after the stage (a no-op on the case) |
+| mesh | 292 500 hexahedra (`blockMesh` of `cylinderMesh.m4`, shipped already built), patches `wall` (`wall`, 9000 faces), `bottom`, `top` (`patch`, 3900 each), one cellZone `Core` = every cell; the same polyMesh in `constant/polyMesh` and `constant/fluidRegion/polyMesh` | read |
+| controlDict | `startFrom latestTime` (only `0` exists), **`stopAt nextWrite`** (no `endTime`), `deltaT 0.1`, `writeControl adjustableRunTime`, `writeInterval 50`, `adjustTimeStep true`, `maxCo 1`, `maxDeltaT 1`, `writePrecision 6`, `regionSolvers { fluidRegion onePhase; }`, `removeBaffles { fluidRegion false; }` | **refused** (`missing scalar endTime` in `OnePhaseCcCase::read`; `controlDict: no endTime` in `RegionSolvers::read`) |
+| solver | `onePhase`, `momentumMode faceCentered`, `nCorrectors 2`, `nOuterCorrectors 1`, `nNonOrthogonalCorrectors 0` | ported |
+| thermo | `heRhoThermo`, `icoPolynomial` (`rho = 2413.03 - 0.4884 T`, `psi = 0`) + `hPolynomial` (`Cp 2265.75`) + `polynomial` (`mu 1e-3`, `kappa 1.1`), FLiBe | ported (round 55) |
+| structure (NSSP) | `Core`: `volumeFraction 0.61`, `Dh 0.02557`, `nuclearSteadyStatePebble` with a central core (`pebbleCoreRadius 1.38e-2`), uniform `powerDensityNeutronics 19.96567386e6` from the dictionary (no field file), `pebbleSurfaceTemperatureGuess 939`, constant conductivities, polynomial densities | ported (round 87) |
+| structure (LPS) | `lumpedNuclearStructure`, 2 nodes, `volumetricArea 91.5`, `powerDensity 3.34e7`, three conductances, `rhoCp`, `volumeFractions`, `powerFractions (1 0)`, `T0 950` | ported (rounds 80-81, gh:#1230) |
+| closures | `ReynoldsPower` drag (`coeff 8.4505`, `exp -0.147`, `const` default 0), `NusseltReynoldsPrandtlPower` (Wakao 2, 1.1, 0.6, 1/3), `regimeMapModel none` | ported |
+| turbulence | `porousKEpsilon` (`Core`: `convergenceLength 0.5`, 0.16 Re^-0.125, 0.07 Dh, `DhStruct 5`) with the variable `rho` of `icoPolynomial`; `k` internal 0, `k`/`epsilon` `inletOutlet` (`top`), `turbulentIntensityKineticEnergyInlet` / `turbulentMixingLengthDissipationRateInlet` (`bottom`), `zeroGradient` (`wall`) | ported (round 87) |
+| `p_rgh` | `GAMG`/`DIC` 1e-7, `relTol 0`; `fixedValue 1e5` (`top`), `fixedFluxExtrapolatedPressure` (`bottom`), `zeroGradient` (`wall`); no `p` file | ported (native GAMG, round 72; `p` from `p_rgh`, round 87) |
+| `U`, `T` | `fixedValue (0 0 0.211369)` / `823.15` at `bottom`, `zeroGradient` elsewhere | ported |
+| schemes | `Gauss linear uncorrected`, `uncorrected`, `upwind` | ported |
+| `h`, others | `smoothSolver`/`symGaussSeidel` 1e-7; `PBiCGStab`/`diagonal` 1e-7 `relTol 1e-3`; relaxation 1 | ported |
+
+**Probe (read only, before this commit):** with `stopAt endTime; endTime 50;` put into a copy, `OnePhaseCcCase::read` reads the NSSP
+case AND the LPS case (`phaseProperties_lumpedParam` copied over) without a refusal. So the port's ONLY refusal of the shipped gFHR is
+`stopAt nextWrite` without `endTime`.
+
+## Plan (upstream's order)
+
+1. `stopAt` (`TimeIO.C:343-360`, `Time.C:1165-1180`) in the GeN-Foam clock (`PseudoTimeClock`) and in the two readers (`RegionSolvers::read`,
+   `OnePhaseCcCase::read`): all four controls (`endTime`, `nextWrite`, `writeNow`, `noWriteNow`), `endTime_ = GREAT` unless `endTime`.
+2. The Allrun chain through `RegionSolvers` (the `GeN-Foam.C` main loop): `read`, `initialize_mapped_fields` (round 81, reused), `step` while
+   `running()`. The written-file check of the first stage is the real md5 result above (no file).
+3. Differential runs against the real binary: the tight protocol on a short prefix (`run_gfhr_r89_real.sh <dir> tN`), then the case AS
+   SHIPPED to its `stopAt nextWrite` end (the whole run, if the port's runtime allows), compared through the log (every `deltaT`, the six
+   pebble lines per step, the `T` line) and the written `t = 50` fields; then, if time allows, the LPS variant.
+
+## Predictions and criteria (committed BEFORE any port run of a comparison)
+
+| id | prediction | probability |
+|---|---|---|
+| G0 | NOT a prediction (observed before this commit): `-initializeMappedFields` changes no file of the shipped NSSP case | observed |
+| G1 | the real shipped NSSP run (serial) takes between 3 and 30 min to its `stopAt nextWrite` end (written AFTER seeing its first 4 steps at about 2 s per step) | 75 % |
+| G2 | the real shipped NSSP run reproduces `Alltest`'s `Tfmax (avg min max) = 981.808 900.664 1062.87` to 0.1 % | 80 % |
+| G3 | with `stopAt` ported, the port reads and runs the shipped NSSP case through `RegionSolvers` with no other refusal, and stops after the same number of steps as the real binary (the step that lands on `t = 50`) | 80 % |
+| G4 | tight protocol (`t3`: every tolerance 1e-14, `relTol 0`, `maxIter 5000`, GAMG kept), 3 steps: every compared field, pebble number and `deltaT` <= 1e-9 relative (gate: 1e-9 with the cause of any difference explained) | 45 % |
+| G4b | the real binary's GAMG reaches the tight 1e-14 on this hex mesh within `maxIter` (it did not on HTR-10's tetrahedra) | 55 % |
+| G5 | the case AS SHIPPED, the whole run: every `deltaT`, every pebble number and every `T (avg min max)` equal at the printed 6 digits | 45 % |
+| G5b | the same, each within 1e-5 relative of the printed value | 80 % |
+| G6 | the shipped run's written `t = 50` fields (every 7th cell): `T`, `p_rgh`, `U`, `k`, `epsilon`, `TpS`, `Tfmax` within 1e-6 relative to the field max (the solvers stop at 1e-7; the criterion stated now is 1e-5) | 70 % |
+| G7 | the port's wall time per step on the shipped settings is larger than the real binary's | 70 % |
