@@ -67,7 +67,11 @@ def main():
     case, v = sys.argv[1], sys.argv[2]
     fv = f"{case}/system/fluidRegion/fvSolution"
     pp = f"{case}/constant/fluidRegion/phaseProperties"
-    if v[0] == "c" and v[1:] in EXTRA:
+    if v == "c6":
+        # ADDENDUM A (round 83, written after the first port run of b0-b5, BEFORE c6's real run): `h` only, `relTol 0.1`; `hFinal`
+        # then resolves to the catch-all `".*"` (PBiCGStab), so the final outer iteration's solver differs from the others
+        edit(fv, after_catch_all(["h"], EXTRA["1"]))
+    elif v[0] == "c" and v[1:] in EXTRA:
         edit(fv, after_catch_all(["h", "hFinal"], EXTRA[v[1:]]))
     elif v[0] == "b" and v[1:] in EXTRA:
         edit(fv, after_catch_all(["h.liquid", "h.vapour"], EXTRA[v[1:]]))
