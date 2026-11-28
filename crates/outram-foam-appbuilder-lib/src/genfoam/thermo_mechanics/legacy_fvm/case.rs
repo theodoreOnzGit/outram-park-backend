@@ -420,7 +420,12 @@ impl LegacyFvmCase {
         };
         let t_gamg = if t_solver_kind == TStructSolver::Gamg {
             let Some(FoamEntry::SubDict(d)) = lookup_pattern(solvers, "TStruct") else { unreachable!("read above") };
-            Some(crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::read_gamg_controls("TStruct", d, None).map_err(|m| err(root, m))?)
+            let c = crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::read_gamg_controls("TStruct", d, None).map_err(|m| err(root, m))?;
+            // gh:#1946: the thermo-mechanics region does not hand its time index to the GAMG state
+            if let Err(m) = crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::refuse_update_interval_without_time_index("TStruct", &c) {
+                return Err(err(root, m));
+            }
+            Some(c)
         } else {
             None
         };

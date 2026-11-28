@@ -1417,6 +1417,9 @@ impl TwoPhaseCase {
         let p_rgh_gamg = match lookup_pattern_last(solvers, "p_rgh") {
             Some(FoamEntry::SubDict(d)) if word(d, "solver").as_deref() == Some("GAMG") => {
                 let c = super::gamg_solve::read_gamg_controls("p_rgh", d, None).map_err(|e| ctx.e(e))?;
+                if let Err(e) = super::gamg_solve::refuse_update_interval_without_time_index("p_rgh", &c) {
+                    return Err(ctx.e(e));
+                }
                 if let Some(FoamEntry::SubDict(f)) = lookup_pattern_last(solvers, "p_rghFinal") {
                     if word(f, "solver").as_deref() == Some("GAMG") {
                         let cf = super::gamg_solve::read_gamg_controls("p_rghFinal", f, None).map_err(|e| ctx.e(e))?;

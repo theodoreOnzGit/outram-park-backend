@@ -1833,6 +1833,13 @@ impl OnePhaseCcSolver {
             t.epsilon_old = t.epsilon.c.clone();
         }
         self.steps_begun += 1;
+        // gh:#1946 (README round 85): the time index of this step for the `p_rgh` GAMG agglomeration (`updateInterval`). The port's own
+        // step count: OpenFOAM's `timeIndex()` for a run that starts at time index 0 (a restart whose `uniform/time` carries a later index
+        // is NOT wired: gh:#1946 follow-up).
+        let ti = self.steps_begun as i64;
+        if let Some(fs) = self.flow.as_mut() {
+            fs.gamg.set_time_index(ti);
+        }
     }
 
     /// What a RESTART from the written state at `start_time` rebuilds that an uninterrupted run keeps (gh:#1919, README round 60): a new

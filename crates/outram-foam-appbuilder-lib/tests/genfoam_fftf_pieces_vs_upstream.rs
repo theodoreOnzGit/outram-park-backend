@@ -197,6 +197,8 @@ struct LogRef {
     tstat: HashMap<(usize, usize), [f64; 3]>,
     dt_next: HashMap<usize, f64>,
     step_time: HashMap<usize, String>,
+    /// Round 85 (gh:#1984, `scripts/extract_ke_solves_r85.sh`): `(step -> [(outer, epsilon residual, its, k residual, its)])`.
+    ke: HashMap<usize, Vec<(usize, f64, i64, f64, i64)>>,
 }
 
 fn read_log(path: &Path) -> LogRef {
@@ -218,6 +220,7 @@ fn read_log(path: &Path) -> LogRef {
             "DTNEXT" => {
                 l.dt_next.insert(u(1), f(2));
             }
+            "KE" => l.ke.entry(u(1)).or_default().push((u(2), f(3), w[4].parse().expect("int"), f(5), w[6].parse().expect("int"))),
             "STEPTIME" => {
                 l.step_time.insert(u(1), w[2].to_string());
             }
@@ -271,6 +274,10 @@ struct RunReport {
     prgh: (usize, usize, Vec<String>, f64),
     /// Per step: worst relative initial-residual difference of the `p_rgh` solves whose upstream residual exceeds 1e-6 (the first steps where the paths part).
     prgh_by_step: Vec<(usize, f64)>,
+    /// Round 85 (gh:#1984): the `k`/`epsilon` solves against the `KE` lines: `(solves compared, solves gated (upstream initial residual
+    /// > FLOOR), worst iteration difference of the gated ones, solves with residual 0 in both, worst relative initial-residual difference
+    /// of the gated ones, the gated solves whose counts differ)`.
+    ke: (usize, usize, i64, usize, f64, Vec<String>),
 }
 
 fn bump(v: &mut Vec<(String, f64)>, key: &str, x: f64) {
@@ -358,6 +365,7 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
         turb: Vec::new(),
         prgh: (0, 0, Vec::new(), 0.0),
         prgh_by_step: Vec::new(),
+        ke: (0, 0, 0, 0, 0.0, Vec::new()),
     };
     let patches = patch_ranges(poly);
     let rp = read_patch_values(&vv_dir().join("refs").join(field_ref));
@@ -444,6 +452,28 @@ fn run_case(root: &Path, poly: &Path, field_ref: &str, log_ref: &str, n_steps: O
             } else {
                 rep.solve_floor_reported.0 += 1;
                 rep.solve_floor_reported.1 = rep.solve_floor_reported.1.max((mine.iterations as i64 - it).abs());
+            }
+        }
+        // round 85 (gh:#1984): the k/epsilon solves of every outer iteration
+        if let Some(ts) = solver.turbulence_solves() {
+            for &(o, ei, en, ki, kn) in lg.ke.get(&step).map_or(&[][..], Vec::as_slice) {
+                let Some(mine) = ts.get(o - 1) else { continue };
+                for (name, (ri, rn), (mi, mn)) in [("epsilon", (ei, en), mine[0]), ("k", (ki, kn), mine[1])] {
+                    rep.ke.0 += 1;
+                    if ri == 0.0 && mi == 0.0 {
+                        rep.ke.3 += 1;
+                        if mn as i64 != rn {
+                            rep.ke.5.push(format!("{name} step {step} outer {o}: residual 0, its {rn} vs {mn}"));
+                        }
+                    } else if ri > FLOOR {
+                        rep.ke.1 += 1;
+                        rep.ke.2 = rep.ke.2.max((mn as i64 - rn).abs());
+                        rep.ke.4 = rep.ke.4.max(((mi - ri) / ri).abs());
+                        if mn as i64 != rn {
+                            rep.ke.5.push(format!("{name} step {step} outer {o}: ini {ri:e} its {rn} vs {mn}"));
+                        }
+                    }
+                }
             }
         }
         let hs = solver.h_solves().to_vec();
@@ -970,4 +1000,96 @@ fn gamg_as_shipped_loose_steady_state_matches_the_real_log() {
     assert!(r.prgh.3 <= 1e-6, "p_rgh initial residuals {:e}", r.prgh.3);
     assert!(r.dt_worst <= 1e-6, "dt {:e}", r.dt_worst);
     assert!(r.t_line_worst <= 1e-6, "T lines {:e}", r.t_line_worst);
+}
+
+// ------------------------------------------------------------------------------------------------------------------------------
+// Round 85 (gh:#1984; README "Round 85", Part B): `smoothSolver` (`symGaussSeidel`) for the onePhase `porousKEpsilon` `k`/`epsilon`.
+// Variants `k0`-`k4` of `scripts/make_ke_smooth_variants_r85.py` (round 65's `w8_zg` plus explicit `k`, `epsilon`, `kFinal`,
+// `epsilonFinal` entries after the catch-all), real binary 652b3da on ESI v2506, serial, 20 steps (`run_fftf_turb_variants.sh` with
+// `PREFIX=fftf_r85_`, `KE` lines by `extract_ke_solves_r85.sh`).
+// ------------------------------------------------------------------------------------------------------------------------------
+
+static KE_STAGE_CALL: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// `w8_zg` staged at a path unique to this call, with `plain` / `final_keys` extra keys in the explicit entries.
+fn stage_ke(tag: &str, plain: &str, final_keys: &str) -> (PathBuf, PathBuf) {
+    let call = KE_STAGE_CALL.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1984_{tag}_{}_{call}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    copy_dir(&vv_dir().join("cases/fftf_turb_variants/w8_zg"), &root);
+    let entry = |name: &str, extra: &str| -> String {
+        let keys: String = extra.split(';').map(str::trim).filter(|k| !k.is_empty()).map(|k| format!("        {k};\n")).collect();
+        format!("    {name}\n    {{\n        solver          smoothSolver;\n        smoother        symGaussSeidel;\n        tolerance       1e-14;\n{keys}    }}\n")
+    };
+    let add = format!("{}{}{}{}", entry("k", plain), entry("epsilon", plain), entry("kFinal", final_keys), entry("epsilonFinal", final_keys));
+    edit_file(&root, "system/fluidRegion/fvSolution", |t| {
+        let Some(i) = t.find("\".*\"") else { panic!("catch-all") };
+        let Some(close) = t[i..].find('}') else { panic!("closing brace") };
+        let Some(nl) = t[i + close..].find('\n') else { panic!("newline") };
+        let at = i + close + nl + 1;
+        format!("{}{}{}", &t[..at], add, &t[at..])
+    });
+    let poly = root.join("constant/fluidRegion/polyMesh");
+    (root, poly)
+}
+
+/// The five variants: `(name, plain keys, Final keys, counts gated)` (README round 85: `k0` ends at the 1e-14 floor, reported).
+fn ke_variants() -> Vec<(&'static str, &'static str, &'static str, bool)> {
+    vec![
+        ("k0", "relTol 0;", "relTol 0;", false),
+        ("k1", "relTol 0.1;", "relTol 0.1;", true),
+        ("k2", "relTol 0.05; nSweeps 2; maxIter 5;", "relTol 0.05; nSweeps 2; maxIter 5;", true),
+        ("k3", "relTol 0; nSweeps -2;", "relTol 0; nSweeps -2;", true),
+        ("k4", "relTol 0.1;", "relTol 0; nSweeps 3;", true),
+    ]
+}
+
+fn print_ke(name: &str, r: &RunReport) {
+    println!(
+        "{name}: k/epsilon solves compared {}, gated {} (worst iteration difference {}, worst relative initial residual {:e}), residual 0 in both {}; differing counts {} {:?}",
+        r.ke.0,
+        r.ke.1,
+        r.ke.2,
+        r.ke.4,
+        r.ke.3,
+        r.ke.5.len(),
+        &r.ke.5[..r.ke.5.len().min(8)]
+    );
+}
+
+/// # gh:#1984: `smoothSolver` for the onePhase `k`/`epsilon` against the real binary (README round 85, Part B)
+///
+/// Criteria (fixed before any run): round 65's `check_turb` and the `k`/`epsilon` iteration counts equal in every solve whose upstream
+/// initial residual exceeds 1e-10 (`k0`: reported, the 1e-14 floor); `k3` (fixed sweeps) logs residual 0 in both.
+///
+/// Results: README "Round 85 results".
+#[test]
+fn r85_k_epsilon_smooth_solver_controls_match_the_real_binary() {
+    let mut fails = Vec::new();
+    for (name, plain, fin, gated) in ke_variants() {
+        let (root, poly) = stage_ke(name, plain, fin);
+        let r = run_case(&root, &poly, &format!("fftf_r85_{name}.ref.txt.gz"), &format!("fftf_r85_{name}_log.ref.txt.gz"), Some(VARIANT_STEPS), |s| s);
+        let _ = std::fs::remove_dir_all(&root);
+        print_ke(name, &r);
+        check_turb(name, &r);
+        if r.ke.0 != 2 * 3 * VARIANT_STEPS {
+            fails.push(format!("{name}: {} k/epsilon solves compared", r.ke.0));
+        }
+        if gated && !r.ke.5.is_empty() {
+            fails.push(format!("{name}: counts differ {:?}", &r.ke.5[..r.ke.5.len().min(4)]));
+        }
+    }
+    assert!(fails.is_empty(), "{fails:?}");
+}
+
+/// # gh:#1984 control: `k4` with the stock-OpenFOAM Final selection (the `kFinal`/`epsilonFinal` entries in the last outer iteration)
+/// must give different `k`/`epsilon` iteration counts from the real binary (which never selects them without `residualControl`).
+#[test]
+fn r85_k4_final_entries_are_not_selected_and_the_stock_selection_differs() {
+    let (_, plain, fin, _) = ke_variants()[4];
+    let (root, poly) = stage_ke("k4ctl", plain, fin);
+    let r = run_case(&root, &poly, "fftf_r85_k4.ref.txt.gz", "fftf_r85_k4_log.ref.txt.gz", Some(VARIANT_STEPS), |s| s.with_stock_final_iteration_selection());
+    let _ = std::fs::remove_dir_all(&root);
+    print_ke("k4 CONTROL (stock Final selection)", &r);
+    assert!(!r.ke.5.is_empty(), "the stock Final selection must change the k/epsilon counts");
 }

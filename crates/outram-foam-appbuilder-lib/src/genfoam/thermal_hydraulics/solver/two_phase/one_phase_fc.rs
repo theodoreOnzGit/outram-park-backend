@@ -509,7 +509,14 @@ impl OnePhaseFcCase {
         let (p_rgh_pcg, substituted) = pcg_from_entry(&ctx, "p_rgh", p_rgh_entry, None, gamg)?;
         let gamg_entry = |name: &str, d: &outram_foam_basic_lib::io::FoamDict| -> Result<Option<GamgControls>, AppBuilderError> {
             if gamg == GamgPolicy::Native && word(d, "solver").as_deref() == Some("GAMG") {
-                read_gamg_controls(name, d, None).map(Some).map_err(|e| ctx.e(e))
+                match read_gamg_controls(name, d, None) {
+                    // gh:#1946: this solver does not hand its time index to the GAMG state
+                    Ok(c) => match super::gamg_solve::refuse_update_interval_without_time_index(name, &c) {
+                        Ok(()) => Ok(Some(c)),
+                        Err(e) => Err(ctx.e(e)),
+                    },
+                    Err(e) => Err(ctx.e(e)),
+                }
             } else {
                 Ok(None)
             }

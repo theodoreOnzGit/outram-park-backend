@@ -319,6 +319,10 @@ pub struct DiagonalBicgstab {
     pub max_iter: usize,
     /// `solver PBiCG; preconditioner DILU;` instead of `PBiCGStab`/`diagonal` (the shipped `2D_FFTF`, gh:#1870 round 62; default false).
     pub dilu: bool,
+    /// `solver smoothSolver; smoother symGaussSeidel;` with its controls (gh:#1984, README round 85): `Some` selects
+    /// [`crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel_if`] (round 79) and overrides `dilu`; the fields above
+    /// then hold the same `tolerance`/`relTol`/`minIter`/`maxIter`.
+    pub smooth: Option<crate::genfoam::common::smooth_solver::SmoothSolverControls>,
 }
 
 impl DiagonalBicgstab {
@@ -333,6 +337,11 @@ impl DiagonalBicgstab {
     /// # Panics
     /// `PBiCG`/`DILU` with interfaces (refused by the reader before a run).
     pub fn solve_if(&self, ldu: &outram_foam_basic_lib::prelude::LduMatrix, ifs: &LduInterfaces, source: &[f64], x: &mut [f64]) -> (f64, usize) {
+        if let Some(ctl) = self.smooth.as_ref() {
+            // gh:#1984: `smoothSolver::solve` with every control (round 79's module, cyclic interfaces included)
+            let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel_if(ldu, ifs, source, x, ctl);
+            return (perf.initial_residual, perf.iterations);
+        }
         if self.dilu {
             assert!(ifs.is_empty(), "PBiCG/DILU with cyclic interfaces is not ported (refused when the case is read)");
             let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(ldu, source, x, self.tolerance, self.rel_tol, self.max_iter, self.min_iter);
@@ -1370,18 +1379,25 @@ pub(super) fn read_turbulence_case(
     let solver_of = |name: &str| -> Result<DiagonalBicgstab, AppBuilderError> {
         match last_match(solvers, name) {
             Some(FoamEntry::SubDict(d)) => {
-                let dilu = match (word(d, "solver").as_deref(), word(d, "preconditioner").as_deref()) {
-                    (Some("PBiCGStab"), Some("diagonal")) => false,
-                    (Some("PBiCG"), Some("DILU")) => true,
-                    _ => return Err(ctx.e(format!("solvers for `{name}`: only PBiCGStab/diagonal and PBiCG/DILU are ported"))),
+                let tolerance = scalar(d, "tolerance").unwrap_or(1e-6);
+                let rel_tol = scalar(d, "relTol").unwrap_or(0.0);
+                let min_iter = scalar(d, "minIter").unwrap_or(0.0) as usize;
+                let max_iter = scalar(d, "maxIter").map_or(DEFAULT_MAX_ITER, |v| v as usize);
+                let (dilu, smooth) = match (word(d, "solver").as_deref(), word(d, "preconditioner").as_deref(), word(d, "smoother").as_deref()) {
+                    (Some("PBiCGStab"), Some("diagonal"), _) => (false, None),
+                    (Some("PBiCG"), Some("DILU"), _) => (true, None),
+                    // gh:#1984 (README round 85): `smoothSolver` with `symGaussSeidel` and every control (`smoothSolver.C:73-209`)
+                    (Some("smoothSolver"), _, Some("symGaussSeidel")) => {
+                        let n_sweeps = scalar(d, "nSweeps").map_or(1, |v| v as i64);
+                        let sweeps = crate::genfoam::common::smooth_solver::SmoothSolverSweeps { n_sweeps, max_iter };
+                        (false, Some(crate::genfoam::common::smooth_solver::SmoothSolverControls { tolerance, rel_tol, min_iter, sweeps }))
+                    }
+                    (Some("smoothSolver"), _, other) => {
+                        return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with smoother `{}` is not ported (symGaussSeidel only)", other.unwrap_or("<none>"))))
+                    }
+                    _ => return Err(ctx.e(format!("solvers for `{name}`: only PBiCGStab/diagonal, PBiCG/DILU and smoothSolver/symGaussSeidel are ported"))),
                 };
-                Ok(DiagonalBicgstab {
-                    dilu,
-                    tolerance: scalar(d, "tolerance").unwrap_or(1e-6),
-                    rel_tol: scalar(d, "relTol").unwrap_or(0.0),
-                    min_iter: scalar(d, "minIter").unwrap_or(0.0) as usize,
-                    max_iter: scalar(d, "maxIter").map_or(DEFAULT_MAX_ITER, |v| v as usize),
-                })
+                Ok(DiagonalBicgstab { dilu, smooth, tolerance, rel_tol, min_iter, max_iter })
             }
             _ => Err(ctx.e(format!("fvSolution: no solver entry for `{name}`"))),
         }
@@ -1444,13 +1460,23 @@ mod tests {
         m.upper = alloc::vec![-1.0, -1.5, -1.0];
         m.lower = alloc::vec![-2.0, -0.5, -1.2];
         let source = [1.0, 2.0, 3.0, 4.0];
-        let mk = |dilu: bool| DiagonalBicgstab { tolerance: 1e-14, rel_tol: 0.0, min_iter: 0, max_iter: 1000, dilu };
+        let mk = |dilu: bool| DiagonalBicgstab { tolerance: 1e-14, rel_tol: 0.0, min_iter: 0, max_iter: 1000, dilu, smooth: None };
         let (mut a, mut b) = ([0.0; 4], [0.0; 4]);
         let (ra, ia) = mk(false).solve(&m, &source, &mut a);
         let (rb, ib) = mk(true).solve(&m, &source, &mut b);
         assert!(ra > 0.0 && rb > 0.0 && ia > 0 && ib > 0);
         for c in 0..4 {
             assert!((a[c] - b[c]).abs() < 1e-12, "{c}: {} {}", a[c], b[c]);
+        }
+        // gh:#1984: the smoothSolver selection runs round 79's `smoothSolver::solve` (same numbers as calling it directly)
+        let ctl = crate::genfoam::common::smooth_solver::SmoothSolverControls { tolerance: 1e-14, ..Default::default() };
+        let mut s = [0.0; 4];
+        let (rs, is) = DiagonalBicgstab { smooth: Some(ctl), ..mk(false) }.solve(&m, &source, &mut s);
+        let mut d = [0.0; 4];
+        let p = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&m, &source, &mut d, &ctl);
+        assert_eq!((rs, is, s), (p.initial_residual, p.iterations, d));
+        for c in 0..4 {
+            assert!((s[c] - b[c]).abs() < 1e-12, "{c}: {} {}", s[c], b[c]);
         }
         // the solution satisfies the system
         let res = m.multiply(&b);

@@ -146,6 +146,10 @@ fn entry_of(d: &FoamDict, name: &str, family: Family, file: &str, policy: GamgPo
     if solver == "GAMG" && family == Family::Flux && policy == GamgPolicy::Native {
         // upstream's own `GAMGSolver` (gh:#1945): the entry's keys, refusals by name (`read_gamg_controls`)
         let ctl = read_gamg_controls(name, d, None).map_err(|m| err(file, m))?;
+        // gh:#1946: this path builds its own agglomeration (`common::linear_solvers`); what it does not honour is refused by name
+        if let Err(m) = crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::refuse_agglomeration_controls_outside_the_state(name, &ctl) {
+            return Err(err(file, m));
+        }
         return Ok((NeutronSolverEntry::gamg(ctl), false));
     }
     let kind = match (solver.as_str(), precon.as_deref(), family) {
@@ -376,9 +380,18 @@ mod tests {
         assert!(r.gamg_substituted);
         assert_eq!(r.entries.flux.kind, NeutronSolverKind::PcgDic);
         assert!(resolve_neutron_fv_solution_with(&gamg, "t", 1, 0, 0, GamgPolicy::Refuse).is_err());
-        // an unported GAMG selection is refused by name through the fluid reader
-        let dilu = parse("solvers { \"flux.*\" { solver GAMG; smoother DILU; } }");
-        let e = resolve_neutron_fv_solution(&dilu, "t", 1, 0, 0).unwrap_err();
+        // an unported GAMG selection is refused by name through the fluid reader (~~`smoother DILU`~~: ported since gh:#1946, README
+        // round 85, and refused at the solve on a symmetric matrix as upstream's smoother table does; a word no table holds instead)
+        let ilu = parse("solvers { \"flux.*\" { solver GAMG; smoother ILU; } }");
+        let e = resolve_neutron_fv_solution(&ilu, "t", 1, 0, 0).unwrap_err();
         assert!(format!("{e}").contains("smoother"), "{e}");
+        // gh:#1946: the agglomeration controls this solve path does not honour are refused by name
+        for (text, needle) in [("agglomerator algebraicPair;", "agglomerator"), ("cacheAgglomeration false;", "cacheAgglomeration"), ("updateInterval 5;", "updateInterval")] {
+            let d = parse(&alloc::format!("solvers {{ \"flux.*\" {{ solver GAMG; smoother DIC; {text} }} }}"));
+            match resolve_neutron_fv_solution(&d, "t", 1, 0, 0) {
+                Ok(_) => panic!("{text} accepted"),
+                Err(e) => assert!(format!("{e}").contains(needle), "{e}"),
+            }
+        }
     }
 }

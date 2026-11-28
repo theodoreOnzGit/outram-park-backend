@@ -14,7 +14,10 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use super::fv::Geometry;
-use crate::genfoam::common::gamg::{GamgSmoother, face_area_pair_weights, gamg_dic_solve, gamg_dic_solve_if, gamg_dic_solve_without_coarse_interfaces, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
+use crate::genfoam::common::gamg::{
+    algebraic_pair_weights, face_area_pair_weights_at, gamg_dic_solve, gamg_dic_solve_if, gamg_dic_solve_without_coarse_interfaces, matrix_has_lower, pair_agglomerate,
+    GamgAgglomeration, GamgAgglomerator, GamgControls, GamgPerformance, GamgSmoother,
+};
 use outram_foam_basic_lib::prelude::LduMatrix;
 use crate::genfoam::common::ldu_interfaces::LduInterfaces;
 
@@ -27,15 +30,41 @@ pub struct GamgSolveState {
     log: Vec<(f64, Vec<f64>)>,
     /// `false` only for the CONTROL [`Self::without_coarse_interfaces`] (gh:#1905 round 80, Q9).
     coarse_interfaces: bool,
+    /// `mesh.time().timeIndex()` of the next build (gh:#1946: `updateInterval` decides the `faceAreaPair` weights from it). Default 1,
+    /// the first step of a run started at time index 0; a solver hands in its own with [`Self::set_time_index`].
+    time_index: i64,
 }
 
 impl Default for GamgSolveState {
     fn default() -> Self {
-        Self { agg: None, forward: true, log: Vec::new(), coarse_interfaces: true }
+        Self { agg: None, forward: true, log: Vec::new(), coarse_interfaces: true, time_index: 1 }
     }
 }
 
 impl GamgSolveState {
+    /// Hand in `mesh.time().timeIndex()` before the solves of a time step (gh:#1946, README round 85): the build of the agglomeration
+    /// (the first solve, or every solve under `cacheAgglomeration false`) takes its `faceAreaPair` weights from `updateInterval` and this
+    /// index ([`face_area_pair_weights_at`]).
+    pub fn set_time_index(&mut self, time_index: i64) {
+        self.time_index = time_index;
+    }
+
+    /// The `GAMGAgglomeration` the constructor of a `GAMG` solver with `ctl` builds for `ldu` (`internal_face_areas` gives `Sf` of the
+    /// internal faces, read only by `faceAreaPair`).
+    fn build<F: FnOnce() -> Vec<[f64; 3]>>(&mut self, internal_face_areas: F, ldu: &LduMatrix, ctl: &GamgControls) -> Result<GamgAgglomeration, String> {
+        let w = match ctl.agglomerator {
+            GamgAgglomerator::FaceAreaPair => face_area_pair_weights_at(&internal_face_areas(), ctl.update_interval, self.time_index),
+            GamgAgglomerator::AlgebraicPair => algebraic_pair_weights(ldu, matrix_has_lower(ldu, ctl.has_lower)),
+        };
+        pair_agglomerate(ldu.n_cells, &ldu.owner, &ldu.neighbour, &w, ctl, &mut self.forward)
+    }
+
+    /// `~GAMGSolver`: with `cacheAgglomeration false` the agglomeration is deleted and the next solve builds it again (gh:#1946).
+    fn after_solve(&mut self, ctl: &GamgControls) {
+        if !ctl.cache_agglomeration {
+            self.agg = None;
+        }
+    }
     /// `pairGAMGAgglomeration::forward_` as this state holds it: the value its next agglomeration starts from, or (once built) the value
     /// its build left (gh:#1956, README round 82).
     #[must_use]
@@ -98,9 +127,12 @@ impl GamgSolveState {
     pub fn solve_if(&mut self, g: &Geometry, ldu: &LduMatrix, ifs: &LduInterfaces, source: &[f64], x: &mut [f64], ctl: &GamgControls) -> GamgPerformance {
         if self.agg.is_none() {
             let ni = g.n_internal();
-            let sf: Vec<[f64; 3]> = g.mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect();
-            let w = face_area_pair_weights(&sf);
-            let agg = pair_agglomerate(ldu.n_cells, &ldu.owner, &ldu.neighbour, &w, ctl, &mut self.forward).unwrap_or_else(|e| panic!("{e}"));
+            let sf = || -> Vec<[f64; 3]> { g.mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect() };
+            let agg = match self.build(sf, ldu, ctl) {
+                Ok(a) => a,
+                // the readers refuse every unsupported control by name before a run
+                Err(e) => panic!("{e}"),
+            };
             self.agg = Some(agg);
         }
         let agg = self.agg.as_ref().expect("built above");
@@ -111,6 +143,7 @@ impl GamgSolveState {
         }
         .unwrap_or_else(|e| panic!("{e}"));
         self.log.push((perf.initial_residual, perf.cycles.clone()));
+        self.after_solve(ctl);
         perf
     }
 }
@@ -123,13 +156,17 @@ impl GamgSolveState {
     /// As [`Self::solve`].
     pub fn solve_with_face_areas<F: FnOnce() -> Vec<[f64; 3]>>(&mut self, internal_face_areas: F, ldu: &LduMatrix, source: &[f64], x: &mut [f64], ctl: &GamgControls) -> GamgPerformance {
         if self.agg.is_none() {
-            let w = face_area_pair_weights(&internal_face_areas());
-            let agg = pair_agglomerate(ldu.n_cells, &ldu.owner, &ldu.neighbour, &w, ctl, &mut self.forward).unwrap_or_else(|e| panic!("{e}"));
+            let agg = match self.build(internal_face_areas, ldu, ctl) {
+                Ok(a) => a,
+                // the readers refuse every unsupported control by name before a run
+                Err(e) => panic!("{e}"),
+            };
             self.agg = Some(agg);
         }
         let agg = self.agg.as_ref().expect("built above");
         let perf = gamg_dic_solve(ldu, agg, ctl, source, x).unwrap_or_else(|e| panic!("{e}"));
         self.log.push((perf.initial_residual, perf.cycles.clone()));
+        self.after_solve(ctl);
         perf
     }
 }
@@ -164,26 +201,64 @@ pub(crate) fn read_gamg_controls(name: &str, d: &outram_foam_basic_lib::io::Foam
     c.pre_sweeps_level_multiplier = count("preSweepsLevelMultiplier", c.pre_sweeps_level_multiplier);
     c.max_pre_sweeps = count("maxPreSweeps", c.max_pre_sweeps);
     if let Some(s) = word(d, "smoother") {
-        c.smoother = GamgSmoother::from_word(&s)
-            .ok_or_else(|| format!("solvers.{name}: GAMG smoother `{s}` is not ported (DIC, GaussSeidel, DICGaussSeidel, symGaussSeidel only)"))?;
+        c.smoother = match GamgSmoother::from_word(&s) {
+            Some(k) => k,
+            None => {
+                return Err(format!(
+                    "solvers.{name}: GAMG smoother `{s}` is not ported (DIC, FDIC, GaussSeidel, DICGaussSeidel, symGaussSeidel, DILU, DILUGaussSeidel, nonBlockingGaussSeidel only)"
+                ))
+            }
+        };
     } else {
         return Err(format!("solvers.{name}: GAMG without a `smoother` entry is not ported"));
     }
+    // gh:#1946 (README round 85): `algebraicPair`, `interpolateCorrection`, `directSolveCoarsest`, `cacheAgglomeration`, `updateInterval`
     if let Some(a) = word(d, "agglomerator") {
-        if a != "faceAreaPair" {
-            return Err(format!("solvers.{name}: GAMG agglomerator `{a}` is not ported (faceAreaPair only)"));
-        }
+        c.agglomerator = match GamgAgglomerator::from_word(&a) {
+            Some(k) => k,
+            None => return Err(format!("solvers.{name}: GAMG agglomerator `{a}` is not ported (faceAreaPair, algebraicPair only)")),
+        };
     }
-    for (key, refused_value) in [("interpolateCorrection", true), ("directSolveCoarsest", true), ("cacheAgglomeration", false)] {
-        if bool_entry(d, key) == Some(refused_value) {
-            return Err(format!("solvers.{name}: GAMG {key} {refused_value} is not ported"));
-        }
+    c.interpolate_correction = bool_entry(d, "interpolateCorrection").unwrap_or(c.interpolate_correction);
+    c.direct_solve_coarsest = bool_entry(d, "directSolveCoarsest").unwrap_or(c.direct_solve_coarsest);
+    c.cache_agglomeration = bool_entry(d, "cacheAgglomeration").unwrap_or(c.cache_agglomeration);
+    if let Some(v) = scalar(d, "updateInterval") {
+        c.update_interval = v as i64;
     }
-    if scalar(d, "updateInterval").is_some() {
-        return Err(format!("solvers.{name}: GAMG updateInterval is not ported (default 1)"));
+    match c.check_supported() {
+        Ok(()) => Ok(c),
+        Err(e) => Err(format!("solvers.{name}: {e}")),
     }
-    c.check_supported().map_err(|e| format!("solvers.{name}: {e}"))?;
-    Ok(c)
+}
+
+/// For a region whose solver does not hand its time index to [`GamgSolveState::set_time_index`] (gh:#1946, README round 85): refuse,
+/// by name, an `updateInterval` other than 1, whose `faceAreaPair` weights depend on the time index of the build.
+///
+/// # Errors
+/// `updateInterval != 1`, named.
+pub(crate) fn refuse_update_interval_without_time_index(name: &str, c: &GamgControls) -> Result<(), String> {
+    if c.update_interval != 1 {
+        return Err(format!("solvers.{name}: GAMG updateInterval {} is not ported in this region (its solver does not hand the time index to the agglomeration; default 1)", c.update_interval));
+    }
+    Ok(())
+}
+
+/// For the neutronics flux `GAMG` (`common::linear_solvers`, which builds its own `faceAreaPair` agglomeration outside
+/// [`GamgSolveState`]): refuse, by name, the agglomeration controls that path does not honour (gh:#1946, README round 85).
+///
+/// # Errors
+/// `updateInterval != 1`, `agglomerator algebraicPair`, `cacheAgglomeration false`, named.
+pub(crate) fn refuse_agglomeration_controls_outside_the_state(name: &str, c: &GamgControls) -> Result<(), String> {
+    if let Err(e) = refuse_update_interval_without_time_index(name, c) {
+        return Err(e);
+    }
+    if c.agglomerator != GamgAgglomerator::FaceAreaPair {
+        return Err(format!("solvers.{name}: GAMG agglomerator algebraicPair is not ported for this solve (faceAreaPair only here)"));
+    }
+    if !c.cache_agglomeration {
+        return Err(format!("solvers.{name}: GAMG cacheAgglomeration false is not ported for this solve"));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -216,16 +291,64 @@ mod tests {
         assert_eq!(c.max_iter, 25);
         let c = read_gamg_controls("TStruct", &parse("solver GAMG; smoother GaussSeidel; nCellsInCoarsestLevel 50; nPreSweeps 1;"), None).expect("TStruct entry");
         assert!(c.smoother == GamgSmoother::GaussSeidel && c.n_pre_sweeps == 1 && c.n_cells_in_coarsest_level == 50);
+        // gh:#1946 (README round 85): the selections refused before this round are read
+        let text = "solver GAMG; smoother DILU; agglomerator algebraicPair; interpolateCorrection true; directSolveCoarsest true; mergeLevels 2; cacheAgglomeration false; updateInterval 10;";
+        let c = match read_gamg_controls("p_rgh", &parse(text), None) {
+            Ok(c) => c,
+            Err(e) => panic!("round 85 entry: {e}"),
+        };
+        assert_eq!(
+            c,
+            GamgControls {
+                smoother: GamgSmoother::Dilu,
+                agglomerator: GamgAgglomerator::AlgebraicPair,
+                interpolate_correction: true,
+                direct_solve_coarsest: true,
+                merge_levels: 2,
+                cache_agglomeration: false,
+                update_interval: 10,
+                ..GamgControls::default()
+            }
+        );
+        match refuse_update_interval_without_time_index("p_rgh", &c) {
+            Ok(()) => panic!("updateInterval 10 must be refused where no time index is handed in"),
+            Err(e) => assert!(e.contains("updateInterval"), "{e}"),
+        }
+        assert!(refuse_update_interval_without_time_index("p_rgh", &GamgControls::default()).is_ok());
         for (text, needle) in [
-            ("solver GAMG; smoother DILU; tolerance 1e-6;", "smoother"),
+            ("solver GAMG; smoother ILU; tolerance 1e-6;", "smoother"),
             ("solver GAMG; tolerance 1e-6;", "smoother"),
-            ("solver GAMG; smoother DIC; agglomerator algebraicPair;", "agglomerator"),
-            ("solver GAMG; smoother DIC; interpolateCorrection true;", "interpolateCorrection"),
-            ("solver GAMG; smoother DIC; mergeLevels 2;", "mergeLevels"),
-            ("solver GAMG; smoother DIC; cacheAgglomeration false;", "cacheAgglomeration"),
+            ("solver GAMG; smoother DIC; agglomerator MGridGen;", "agglomerator"),
+            ("solver GAMG; smoother DIC; mergeLevels 0;", "mergeLevels"),
         ] {
-            let e = read_gamg_controls("p_rgh", &parse(text), None).unwrap_err();
-            assert!(e.contains(needle), "{text}: {e}");
+            match read_gamg_controls("p_rgh", &parse(text), None) {
+                Ok(c) => panic!("{text}: accepted as {c:?}"),
+                Err(e) => assert!(e.contains(needle), "{text}: {e}"),
+            }
+        }
+    }
+
+    /// gh:#1946: `cacheAgglomeration false` drops the agglomeration after each solve (the next one builds it again, `forward_` toggled
+    /// on); `true` keeps it.
+    #[test]
+    fn cache_agglomeration_false_rebuilds_for_the_next_solve() {
+        let n = 64;
+        let mut a = LduMatrix::new(n, (0..n - 1).collect(), (1..n).collect());
+        a.diag = vec![2.5; n];
+        a.upper = vec![-1.0; n - 1];
+        a.lower = vec![-1.0; n - 1];
+        let sf = || -> Vec<[f64; 3]> { (0..n - 1).map(|i| [1.0, 0.1 * i as f64, 0.0]).collect() };
+        let b = vec![1.0; n];
+        for cache in [true, false] {
+            let ctl = GamgControls { cache_agglomeration: cache, tolerance: 1e-10, ..GamgControls::default() };
+            let mut s = GamgSolveState::default();
+            let mut x = vec![0.0; n];
+            let _ = s.solve_with_face_areas(sf, &a, &b, &mut x, &ctl);
+            assert_eq!(s.is_built(), cache);
+            let mut y = vec![0.0; n];
+            let _ = s.solve_with_face_areas(sf, &a, &b, &mut y, &ctl);
+            assert_eq!(s.is_built(), cache);
+            assert_eq!(s.take_log().len(), 2);
         }
     }
 }

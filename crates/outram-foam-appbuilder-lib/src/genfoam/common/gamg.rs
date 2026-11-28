@@ -28,9 +28,17 @@
 //! # NOT ported (refused by name, see [`GamgControls::check_supported`])
 //!
 //! processor agglomeration and every parallel path; ~~coupled interfaces (cyclic, AMI, processor)~~ (**CHANGED 2026-11-28, gh:#1905 README round 80:** translational `cyclic` interfaces are ported, [`gamg_dic_solve_if`]; AMI, processor and rotational cyclics are not); DIC/DICGaussSeidel on an asymmetric matrix (upstream has none; a symmetric
-//! matrix is one whose `lower` equals `upper` bit for bit; asymmetric ones run with `GaussSeidel`/`symGaussSeidel` since gh:#1936); `interpolateCorrection true`; `directSolveCoarsest
+//! matrix is one whose `lower` equals `upper` bit for bit; asymmetric ones run with `GaussSeidel`/`symGaussSeidel` since gh:#1936); ~~`interpolateCorrection true`; `directSolveCoarsest
 //! true`; `mergeLevels != 1`; `cacheAgglomeration false`; agglomerators other than `faceAreaPair`; smoothers other than `DIC`,
-//! `GaussSeidel`, `DICGaussSeidel`, `symGaussSeidel` (`DILU`, `FDIC`, `DILUGaussSeidel`, `nonBlockingGaussSeidel`).
+//! `GaussSeidel`, `DICGaussSeidel`, `symGaussSeidel` (`DILU`, `FDIC`, `DILUGaussSeidel`, `nonBlockingGaussSeidel`).~~
+//! **CHANGED 2026-11-28 (gh:#1946, README "Round 85"):** `interpolateCorrection` ([`GamgControls::interpolate_correction`], `interpolate`),
+//! `directSolveCoarsest` ([`LuScalarMatrix`]), `mergeLevels` (`combine_levels`), `cacheAgglomeration false` and `updateInterval`
+//! (the caller's [`crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::GamgSolveState`], [`face_area_pair_weights_at`]),
+//! the `algebraicPair` agglomerator ([`algebraic_pair_weights`]) and the `FDIC`, `DILU`, `DILUGaussSeidel` and `nonBlockingGaussSeidel`
+//! smoothers are ported. Still refused by name: processor agglomeration (parallel only); the `MGridGen`, `assemblyFaceAreaPair` and
+//! `dummy` agglomerators; `mergeLevels 0`; `DILU`/`DILUGaussSeidel` on a symmetric and `DIC`/`FDIC`/`DICGaussSeidel` on an asymmetric
+//! matrix (as upstream's smoother tables); `nonBlockingGaussSeidel`, `directSolveCoarsest` and `mergeLevels != 1` on a matrix with coupled
+//! interfaces (not verified).
 //!
 //! # Deliberate differences of form (no effect on any arithmetic)
 //!
@@ -63,8 +71,10 @@ const GREAT: f64 = 1.0e15;
 /// `pTraits<double>::vsmall` (`stabilise` in `GAMGSolverScale.C`).
 const VSMALL: f64 = 1e-300;
 
-/// The `smoother` entry of a `GAMG` solver for a SYMMETRIC matrix (gh:#1936, README "Round 72"): `lduMatrix::smoother::New` selects one
-/// per level. `DILU`/`DILUGaussSeidel`/`FDIC`/`nonBlockingGaussSeidel` and the `smoothSolver`s are refused by name.
+/// The `smoother` entry of a `GAMG` solver (gh:#1936, README "Round 72"; `FDIC`, `DILU`, `DILUGaussSeidel`, `nonBlockingGaussSeidel` since
+/// gh:#1946, README "Round 85"): `lduMatrix::smoother::New` selects one per level from the symmetric table (`DIC`, `FDIC`, `DICGaussSeidel`,
+/// `GaussSeidel`, `symGaussSeidel`, `nonBlockingGaussSeidel`) or the asymmetric one (`DILU`, `DILUGaussSeidel`, `GaussSeidel`,
+/// `symGaussSeidel`, `nonBlockingGaussSeidel`); a smoother missing from the matrix's table is refused by name (upstream: FatalIOError).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum GamgSmoother {
     /// `DIC` (`DICSmoother.C`, round 67): the default of every shipped `p_rgh`.
@@ -77,6 +87,15 @@ pub enum GamgSmoother {
     DicGaussSeidel,
     /// `symGaussSeidel` (`symGaussSeidelSmoother.C:74-199`): a forward then a backward sweep.
     SymGaussSeidel,
+    /// `FDIC` (`FDICSmoother.C`, gh:#1946): `DIC` with the products `rD[u] upper`, `rD[l] upper` precomputed; symmetric only.
+    Fdic,
+    /// `DILU` (`DILUSmoother.C`, gh:#1946): asymmetric only.
+    Dilu,
+    /// `DILUGaussSeidel` (`DILUGaussSeidelSmoother.C`, gh:#1946): `DILU` for `nSweeps`, then `GaussSeidel` for `nSweeps`; asymmetric only.
+    DiluGaussSeidel,
+    /// `nonBlockingGaussSeidel` (`nonBlockingGaussSeidelSmoother.C`, gh:#1946): `GaussSeidel` with the interface update moved after the
+    /// cells below `blockStart`; without coupled interfaces it is `GaussSeidel`. Refused on a matrix with coupled interfaces (not verified).
+    NonBlockingGaussSeidel,
 }
 
 impl GamgSmoother {
@@ -88,13 +107,46 @@ impl GamgSmoother {
             "GaussSeidel" => Some(Self::GaussSeidel),
             "DICGaussSeidel" => Some(Self::DicGaussSeidel),
             "symGaussSeidel" => Some(Self::SymGaussSeidel),
+            "FDIC" => Some(Self::Fdic),
+            "DILU" => Some(Self::Dilu),
+            "DILUGaussSeidel" => Some(Self::DiluGaussSeidel),
+            "nonBlockingGaussSeidel" => Some(Self::NonBlockingGaussSeidel),
             _ => None,
         }
     }
 
-    /// `true` when the smoother needs `DICSmoother::rD_`.
+    /// `true` when the smoother needs `DICSmoother::rD_` (`DICPreconditioner::calcReciprocalD`); these are symmetric-only.
     fn uses_dic(self) -> bool {
-        matches!(self, Self::Dic | Self::DicGaussSeidel)
+        matches!(self, Self::Dic | Self::DicGaussSeidel | Self::Fdic)
+    }
+
+    /// `true` when the smoother needs `DILUSmoother::rD_` (`DILUPreconditioner::calcReciprocalD`); these are asymmetric-only.
+    fn uses_dilu(self) -> bool {
+        matches!(self, Self::Dilu | Self::DiluGaussSeidel)
+    }
+}
+
+/// The `agglomerator` entry (gh:#1946, README "Round 85"): `GAMGAgglomeration::New(matrix, dict)` tries the `lduMatrix` constructor
+/// table first (`algebraicPair`), then the mesh one (`faceAreaPair`, the default). `MGridGen` (external library), `assemblyFaceAreaPair`
+/// (assembled multi-region matrices) and `dummy` (a test agglomerator) are refused by name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum GamgAgglomerator {
+    /// `faceAreaPair` (`faceAreaPairGAMGAgglomeration.C`): the default.
+    #[default]
+    FaceAreaPair,
+    /// `algebraicPair` (`algebraicPairGAMGAgglomeration.C`): pair agglomeration on [`algebraic_pair_weights`].
+    AlgebraicPair,
+}
+
+impl GamgAgglomerator {
+    /// The `agglomerator` word, or `None` for one that is not ported.
+    #[must_use]
+    pub fn from_word(w: &str) -> Option<Self> {
+        match w {
+            "faceAreaPair" => Some(Self::FaceAreaPair),
+            "algebraicPair" => Some(Self::AlgebraicPair),
+            _ => None,
+        }
     }
 }
 
@@ -127,13 +179,26 @@ pub struct GamgControls {
     pub n_finest_sweeps: usize,
     /// `nCellsInCoarsestLevel` (default 10).
     pub n_cells_in_coarsest_level: usize,
-    /// `mergeLevels` (default 1; other values are refused).
+    /// `mergeLevels` (default 1; `combineLevels` on every pair level not a multiple of it since gh:#1946; 0 is refused: upstream divides
+    /// by it).
     pub merge_levels: usize,
     /// `scaleCorrection` (`None`: the default, `matrix.symmetric()`).
     pub scale_correction: Option<bool>,
     /// `true` when upstream's matrix HAS a `lower` array although it equals `upper` value for value (`fvMatrix::operator*=` by a field
     /// allocates it: the row-scaled `TStruct` equation): the solve then takes the asymmetric path (gh:#1936).
     pub has_lower: bool,
+    /// `interpolateCorrection` (default false; `GAMGSolverInterpolate.C` on every level since gh:#1946).
+    pub interpolate_correction: bool,
+    /// `directSolveCoarsest` (default false; `LUscalarMatrix` on the coarsest level since gh:#1946).
+    pub direct_solve_coarsest: bool,
+    /// `cacheAgglomeration` (default true; false: `~GAMGSolver` deletes the agglomeration and the next solve agglomerates again,
+    /// gh:#1946).
+    pub cache_agglomeration: bool,
+    /// `updateInterval` (default 1): `GAMGAgglomeration::requiresUpdate` at construction decides the `faceAreaPair` weights
+    /// ([`face_area_pair_weights_at`], gh:#1946).
+    pub update_interval: i64,
+    /// `agglomerator` (default `faceAreaPair`; gh:#1946).
+    pub agglomerator: GamgAgglomerator,
 }
 
 impl Default for GamgControls {
@@ -155,6 +220,11 @@ impl Default for GamgControls {
             merge_levels: 1,
             scale_correction: None,
             has_lower: false,
+            interpolate_correction: false,
+            direct_solve_coarsest: false,
+            cache_agglomeration: true,
+            update_interval: 1,
+            agglomerator: GamgAgglomerator::FaceAreaPair,
         }
     }
 }
@@ -165,8 +235,8 @@ impl GamgControls {
     /// # Errors
     /// Names the first unsupported selection.
     pub fn check_supported(&self) -> Result<(), String> {
-        if self.merge_levels != 1 {
-            return Err("GAMG mergeLevels != 1 (combineLevels) is not ported".to_string());
+        if self.merge_levels == 0 {
+            return Err("GAMG mergeLevels 0 is refused (upstream's `nPairLevels % mergeLevels_` divides by it)".to_string());
         }
         Ok(())
     }
@@ -215,6 +285,37 @@ pub fn face_area_pair_weights(sf: &[[f64; 3]]) -> Vec<f64> {
             (a * a + b * b + c * c).sqrt()
         })
         .collect()
+}
+
+/// The `faceAreaPair` weights of an agglomeration constructed at time index `time_index` with `updateInterval` `update_interval`
+/// (`faceAreaPairGAMGAgglomeration.C` ctor, gh:#1946): [`face_area_pair_weights`] when `GAMGAgglomeration::requiresUpdate()`
+/// (`update_interval > 0 && time_index % update_interval == 0`), else `mag(magSf)`, the Galilean-invariant form of the partial-updating
+/// mode.
+#[must_use]
+pub fn face_area_pair_weights_at(sf: &[[f64; 3]], update_interval: i64, time_index: i64) -> Vec<f64> {
+    let requires_update = update_interval > 0 && time_index % update_interval == 0;
+    if requires_update {
+        return face_area_pair_weights(sf);
+    }
+    sf.iter().map(|v| (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt().abs()).collect()
+}
+
+/// `algebraicPairGAMGAgglomeration` weights (`algebraicPairGAMGAgglomeration.C` ctor, gh:#1946): `max(mag(upper), mag(lower))` when
+/// the matrix `hasLower()`, else `mag(upper)`.
+#[must_use]
+pub fn algebraic_pair_weights(a: &LduMatrix, has_lower: bool) -> Vec<f64> {
+    let n = a.n_internal_faces;
+    if has_lower {
+        (0..n).map(|f| a.upper[f].abs().max(a.lower[f].abs())).collect()
+    } else {
+        (0..n).map(|f| a.upper[f].abs()).collect()
+    }
+}
+
+/// `true` when upstream's matrix would have a `lower` array: the caller says so (`has_lower`), or `lower` differs from `upper`.
+#[must_use]
+pub fn matrix_has_lower(a: &LduMatrix, has_lower: bool) -> bool {
+    has_lower || !is_symmetric(a)
 }
 
 /// `pairGAMGAgglomeration::agglomerate(nCoarseCells, fineMatrixAddressing, faceWeights)` (`pairGAMGAgglomerate.C:144-300`): one level of
@@ -399,6 +500,7 @@ pub fn pair_agglomerate(
     let mut cur_lower = lower.to_vec();
     let mut cur_upper = upper.to_vec();
     let mut cur_cells = n_cells;
+    let mut n_pair_levels = 0usize;
     while levels.len() < MAX_LEVELS - 1 {
         let (map, n_coarse) = agglomerate_level(cur_cells, &cur_lower, &cur_upper, &weights, forward);
         // continueAgglomerating (one process)
@@ -418,9 +520,45 @@ pub fn pair_agglomerate(
         cur_lower = lvl.lower.clone();
         cur_upper = lvl.upper.clone();
         cur_cells = n_coarse;
-        levels.push(lvl);
+        // `if (nPairLevels % mergeLevels_) combineLevels(nCreatedLevels); else nCreatedLevels++;` (gh:#1946)
+        if n_pair_levels % ctl.merge_levels != 0 {
+            match levels.last_mut() {
+                Some(prev) => combine_levels(prev, &lvl),
+                None => levels.push(lvl),
+            }
+        } else {
+            levels.push(lvl);
+        }
+        n_pair_levels += 1;
     }
     Ok(GamgAgglomeration { n_fine_cells: n_cells, levels })
+}
+
+/// `GAMGAgglomeration::combineLevels(curLevel)` (`GAMGAgglomerateLduAddressing.C:658-754`, gh:#1946), no interfaces: the level `cur`
+/// just created is merged into the previous one, `prev`, whose restriction then maps the finer cells straight onto `cur`'s coarse cells.
+/// As upstream: a combined face takes `cur`'s flip of its intermediate face (not composed with `prev`'s), and a face interior to a coarse
+/// cell of `prev` takes `curFaceFlipMap[cell index]` (upstream indexes the face list with a cell; here `false` when that index is out of
+/// range: the value is never read for an interior face).
+fn combine_levels(prev: &mut AggLevel, cur: &AggLevel) {
+    prev.n_cells = cur.n_cells;
+    prev.n_faces = cur.n_faces;
+    for i in 0..prev.face_restrict.len() {
+        let fr = prev.face_restrict[i];
+        if fr >= 0 {
+            let fine = fr as usize;
+            prev.face_restrict[i] = cur.face_restrict[fine];
+            prev.face_flip[i] = cur.face_flip[fine];
+        } else {
+            let fine = (-fr - 1) as usize;
+            prev.face_restrict[i] = -(cur.restrict[fine] as isize) - 1;
+            prev.face_flip[i] = cur.face_flip.get(fine).copied().unwrap_or(false);
+        }
+    }
+    for r in prev.restrict.iter_mut() {
+        *r = cur.restrict[*r];
+    }
+    prev.lower = cur.lower.clone();
+    prev.upper = cur.upper.clone();
 }
 
 /// `GAMGAgglomeration::restrictField(cf, ff, fineToCoarse)`.
@@ -682,16 +820,220 @@ pub(crate) fn sym_gauss_seidel_smooth_if(a: &LduMatrix, ifs: &LduInterfaces, psi
     }
 }
 
-/// `lduMatrix::smoother::smooth` of the selected smoother (`r_d` is `DICSmoother::rD_`, empty when the smoother does not use it).
+/// `FDICSmoother::smooth` (`FDICSmoother.C`, gh:#1946): the constructor's `rDuUpper = rD[u] upper` and `rDlUpper = rD[l] upper`
+/// (computed here once per call, the same products), then per sweep the residual, `*= rD`, the forward sweep `rA[u] -= rDuUpper rA[l]`
+/// and the backward sweep `rA[l] -= rDlUpper rA[u]`. The association equals [`dic_smooth`]'s, so the two are bit-identical.
+fn fdic_smooth(a: &LduMatrix, ifs: &LduInterfaces, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+    let n_faces = a.n_internal_faces;
+    let rdu_upper: Vec<f64> = (0..n_faces).map(|f| r_d[a.neighbour[f]] * a.upper[f]).collect();
+    let rdl_upper: Vec<f64> = (0..n_faces).map(|f| r_d[a.owner[f]] * a.upper[f]).collect();
+    for _ in 0..n_sweeps {
+        let mut r_a = ldu_residual_if(a, ifs, psi, source);
+        for i in 0..r_a.len() {
+            r_a[i] *= r_d[i];
+        }
+        for face in 0..n_faces {
+            let l = r_a[a.owner[face]];
+            r_a[a.neighbour[face]] -= rdu_upper[face] * l;
+        }
+        for face in (0..n_faces).rev() {
+            let u = r_a[a.neighbour[face]];
+            r_a[a.owner[face]] -= rdl_upper[face] * u;
+        }
+        for i in 0..psi.len() {
+            psi[i] += r_a[i];
+        }
+    }
+}
+
+/// `DILUSmoother::smooth` (`DILUSmoother.C`, gh:#1946) with `r_d` the constructor's `DILUPreconditioner::calcReciprocalD`: per sweep the
+/// residual, `*= rD`, the forward sweep `rA[u] -= rD[u] lower rA[l]`, the backward sweep `rA[l] -= rD[l] upper rA[u]`, `psi += rA`.
+fn dilu_smooth(a: &LduMatrix, ifs: &LduInterfaces, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+    let n_faces = a.n_internal_faces;
+    for _ in 0..n_sweeps {
+        let mut r_a = ldu_residual_if(a, ifs, psi, source);
+        for i in 0..r_a.len() {
+            r_a[i] *= r_d[i];
+        }
+        for face in 0..n_faces {
+            let u = a.neighbour[face];
+            r_a[u] -= r_d[u] * a.lower[face] * r_a[a.owner[face]];
+        }
+        for face in (0..n_faces).rev() {
+            let l = a.owner[face];
+            r_a[l] -= r_d[l] * a.upper[face] * r_a[a.neighbour[face]];
+        }
+        for i in 0..psi.len() {
+            psi[i] += r_a[i];
+        }
+    }
+}
+
+/// `lduMatrix::smoother::smooth` of the selected smoother (`r_d` is the smoother's `rD_`: `DICSmoother`/`FDICSmoother`'s or
+/// `DILUSmoother`'s, empty when the smoother does not use one). `nonBlockingGaussSeidel` is `GaussSeidel` here: the solve refuses it on
+/// a matrix with coupled interfaces, and without them `blockStart = nCells` makes the two sweeps the same.
 fn smooth(kind: GamgSmoother, a: &LduMatrix, ifs: &LduInterfaces, r_d: &[f64], psi: &mut [f64], source: &[f64], n_sweeps: usize) {
     match kind {
         GamgSmoother::Dic => dic_smooth(a, ifs, r_d, psi, source, n_sweeps),
-        GamgSmoother::GaussSeidel => gauss_seidel_smooth(a, ifs, psi, source, n_sweeps),
+        GamgSmoother::Fdic => fdic_smooth(a, ifs, r_d, psi, source, n_sweeps),
+        GamgSmoother::GaussSeidel | GamgSmoother::NonBlockingGaussSeidel => gauss_seidel_smooth(a, ifs, psi, source, n_sweeps),
         GamgSmoother::SymGaussSeidel => sym_gauss_seidel_smooth_if(a, ifs, psi, source, n_sweeps),
         GamgSmoother::DicGaussSeidel => {
             dic_smooth(a, ifs, r_d, psi, source, n_sweeps);
             gauss_seidel_smooth(a, ifs, psi, source, n_sweeps);
         }
+        GamgSmoother::Dilu => dilu_smooth(a, ifs, r_d, psi, source, n_sweeps),
+        GamgSmoother::DiluGaussSeidel => {
+            dilu_smooth(a, ifs, r_d, psi, source, n_sweeps);
+            gauss_seidel_smooth(a, ifs, psi, source, n_sweeps);
+        }
+    }
+}
+
+/// `GAMGSolver::interpolate(psi, Apsi, m, interfaceBouCoeffs, interfaces, restrictAddressing, psiC)` (`GAMGSolverInterpolate.C`,
+/// gh:#1946): `psi = -(off-diagonal and interface part of A psi)/diag`, then each coarse cell's diagonal-weighted mean of that is replaced
+/// by the coarse value `psi_c`.
+fn interpolate(psi: &mut [f64], m: &LduMatrix, ifs: &LduInterfaces, restrict: &[usize], psi_c: &[f64]) {
+    let n = m.diag.len();
+    let mut apsi = vec![0.0; n];
+    for face in 0..m.n_internal_faces {
+        apsi[m.neighbour[face]] += m.lower[face] * psi[m.owner[face]];
+        apsi[m.owner[face]] += m.upper[face] * psi[m.neighbour[face]];
+    }
+    // `initMatrixInterfaces(true, ...)`/`updateMatrixInterfaces(true, ...)`: the `Amul` sign
+    ifs.amul_update(psi, &mut apsi);
+    for c in 0..n {
+        psi[c] = -apsi[c] / m.diag[c];
+    }
+    let nc = psi_c.len();
+    let mut corr_c = vec![0.0; nc];
+    let mut diag_c = vec![0.0; nc];
+    for c in 0..n {
+        corr_c[restrict[c]] += m.diag[c] * psi[c];
+        diag_c[restrict[c]] += m.diag[c];
+    }
+    for cc in 0..nc {
+        corr_c[cc] = psi_c[cc] - corr_c[cc] / diag_c[cc];
+    }
+    for c in 0..n {
+        psi[c] += corr_c[restrict[c]];
+    }
+}
+
+/// `LUscalarMatrix` of a serial, interface-free coarsest matrix (`LUscalarMatrix.C:convert`, then `LUDecompose`; gh:#1946): the dense
+/// row-major factors and the pivot indices.
+#[derive(Debug, Clone, PartialEq)]
+pub struct LuScalarMatrix {
+    n: usize,
+    m: Vec<f64>,
+    pivot: Vec<usize>,
+}
+
+/// `SMALL` (`doubleScalarSMALL`), the pivot `LUDecompose` puts in place of an exact zero.
+const SMALL: f64 = 1.0e-15;
+
+impl LuScalarMatrix {
+    /// `convert(ldum, ...)` (the diagonal, `M[u][l] = lower`, `M[l][u] = upper`) and `LUDecompose(matrix, pivotIndices)`
+    /// (`scalarMatrices.C`: implicit row scaling `vv = 1/max|row|`, Crout with partial pivoting, a zero pivot set to `SMALL`, the column
+    /// below the pivot multiplied by `1/pivot`).
+    ///
+    /// # Errors
+    /// A row of zeros (upstream: FatalError "Singular matrix").
+    pub fn new(a: &LduMatrix) -> Result<Self, String> {
+        let n = a.diag.len();
+        let mut m = vec![0.0; n * n];
+        for c in 0..n {
+            m[c * n + c] = a.diag[c];
+        }
+        for face in 0..a.n_internal_faces {
+            let (u, l) = (a.neighbour[face], a.owner[face]);
+            m[u * n + l] = a.lower[face];
+            m[l * n + u] = a.upper[face];
+        }
+        let mut vv = vec![0.0; n];
+        for i in 0..n {
+            let mut largest = 0.0_f64;
+            for j in 0..n {
+                let t = m[i * n + j].abs();
+                if t > largest {
+                    largest = t;
+                }
+            }
+            if largest == 0.0 {
+                return Err("LUDecompose: singular matrix (a row of zeros) on the GAMG coarsest level".to_string());
+            }
+            vv[i] = 1.0 / largest;
+        }
+        let mut pivot = vec![0usize; n];
+        for j in 0..n {
+            for i in 0..j {
+                let mut sum = m[i * n + j];
+                for k in 0..i {
+                    sum -= m[i * n + k] * m[k * n + j];
+                }
+                m[i * n + j] = sum;
+            }
+            let mut i_max = 0usize;
+            let mut largest = 0.0_f64;
+            for i in j..n {
+                let mut sum = m[i * n + j];
+                for k in 0..j {
+                    sum -= m[i * n + k] * m[k * n + j];
+                }
+                m[i * n + j] = sum;
+                let t = vv[i] * sum.abs();
+                if t >= largest {
+                    largest = t;
+                    i_max = i;
+                }
+            }
+            pivot[j] = i_max;
+            if j != i_max {
+                for k in 0..n {
+                    m.swap(j * n + k, i_max * n + k);
+                }
+                vv[i_max] = vv[j];
+            }
+            if m[j * n + j] == 0.0 {
+                m[j * n + j] = SMALL;
+            }
+            if j != n - 1 {
+                let r_diag = 1.0 / m[j * n + j];
+                for i in (j + 1)..n {
+                    m[i * n + j] *= r_diag;
+                }
+            }
+        }
+        Ok(Self { n, m, pivot })
+    }
+
+    /// `LUscalarMatrix::solve(x, source)` serial: `x = source`, `LUBacksubstitute(*this, pivotIndices_, x)` (`scalarMatricesTemplates.C`).
+    #[must_use]
+    pub fn solve(&self, source: &[f64]) -> Vec<f64> {
+        let n = self.n;
+        let mut x = source.to_vec();
+        let mut ii = 0usize;
+        for i in 0..n {
+            let ip = self.pivot[i];
+            let mut sum = x[ip];
+            x[ip] = x[i];
+            if ii != 0 {
+                for j in (ii - 1)..i {
+                    sum -= self.m[i * n + j] * x[j];
+                }
+            } else if sum != 0.0 {
+                ii = i + 1;
+            }
+            x[i] = sum;
+        }
+        for i in (0..n).rev() {
+            let mut sum = x[i];
+            for j in (i + 1)..n {
+                sum -= self.m[i * n + j] * x[j];
+            }
+            x[i] = sum / self.m[i * n + i];
+        }
+        x
     }
 }
 
@@ -736,6 +1078,8 @@ struct Hierarchy {
     /// The coupled interfaces of the fine matrix (`[0]`) and of each coarse one (`[i + 1]`: `interfaceLevels_[i]` with
     /// `interfaceLevelsBouCoeffs_[i]`); all empty for a matrix without coupled patches (gh:#1905 round 80).
     ifs: Vec<LduInterfaces>,
+    /// `coarsestLUMatrixPtr_` (`directSolveCoarsest true`, gh:#1946).
+    lu: Option<LuScalarMatrix>,
 }
 
 /// `GAMGSolver::Vcycle` (`GAMGSolverSolve.C:156-380`) with `interpolateCorrection = false`; `nPreSweeps > 0` since gh:#1936.
@@ -765,7 +1109,10 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
     // coarsest level: PCG/DIC at the outer tolerance and relTol (`PCGsolverDict`), default maxIter 1000, minIter 0
     let mut corr: Vec<Vec<f64>> = vec![Vec::new(); h.mats.len()];
     let mut cc = vec![0.0; h.mats[coarsest].diag.len()];
-    if h.symmetric {
+    if let Some(lu) = h.lu.as_ref() {
+        // `directSolveCoarsest`: `coarsestLUMatrixPtr_->solve(coarsestCorrField, coarsestSource)` (gh:#1946)
+        cc = lu.solve(&sources[coarsest]);
+    } else if h.symmetric {
         let _ = pcg_dic_if(&h.mats[coarsest], &h.ifs[coarsest + 1], &sources[coarsest], &mut cc, ctl.tolerance, ctl.rel_tol, 1000, 0);
     } else {
         // `GAMGSolver.C:298-312`: an asymmetric coarsest matrix is solved by `PBiCGStab`/`DILU` (`PBiCGStabSolverDict`)
@@ -776,7 +1123,10 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
     for leveli in (0..coarsest).rev() {
         let map = &agg.levels[leveli + 1].restrict;
         let mut c: Vec<f64> = (0..map.len()).map(|i| corr[leveli + 1][map[i]]).collect();
-        if scale_corr && leveli < coarsest - 1 {
+        if ctl.interpolate_correction {
+            interpolate(&mut c, &h.mats[leveli], &h.ifs[leveli + 1], map, &corr[leveli + 1]);
+        }
+        if scale_corr && (ctl.interpolate_correction || leveli < coarsest - 1) {
             scale(&mut c, &h.mats[leveli], &h.ifs[leveli + 1], &sources[leveli]);
         }
         if ctl.n_pre_sweeps > 0 {
@@ -791,6 +1141,9 @@ fn v_cycle(h: &Hierarchy, agg: &GamgAgglomeration, a: &LduMatrix, ctl: &GamgCont
     // prolong the finest level correction
     let map0 = &agg.levels[0].restrict;
     let mut fc: Vec<f64> = (0..map0.len()).map(|i| corr[0][map0[i]]).collect();
+    if ctl.interpolate_correction {
+        interpolate(&mut fc, a, &h.ifs[0], map0, &corr[0]);
+    }
     if scale_corr {
         scale(&mut fc, a, &h.ifs[0], finest_residual);
     }
@@ -841,7 +1194,22 @@ fn gamg_solve_impl(
     ctl.check_supported()?;
     let sym = is_symmetric(a) && !ctl.has_lower;
     if !sym && ctl.smoother.uses_dic() {
-        return Err("GAMG: the DIC and DICGaussSeidel smoothers need a symmetric matrix (upstream has no asymmetric `DIC`)".to_string());
+        return Err("GAMG: the DIC, FDIC and DICGaussSeidel smoothers need a symmetric matrix (upstream's asymmetric smoother table has none of them)".to_string());
+    }
+    if sym && ctl.smoother.uses_dilu() {
+        return Err("GAMG: the DILU and DILUGaussSeidel smoothers need an asymmetric matrix (upstream's symmetric smoother table has neither)".to_string());
+    }
+    if !ifs.is_empty() {
+        // gh:#1946: ported without interfaces only (no shipped cyclic case selects them; not verified against the real binary)
+        if ctl.smoother == GamgSmoother::NonBlockingGaussSeidel {
+            return Err("GAMG: nonBlockingGaussSeidel on a matrix with coupled interfaces is not ported".to_string());
+        }
+        if ctl.direct_solve_coarsest {
+            return Err("GAMG: directSolveCoarsest on a matrix with coupled interfaces is not ported".to_string());
+        }
+        if ctl.merge_levels != 1 {
+            return Err("GAMG: mergeLevels != 1 on a matrix with coupled interfaces (GAMGInterface::combine) is not ported".to_string());
+        }
     }
     if agg.levels.is_empty() {
         return Err("GAMG: no coarse levels created (matrix too small for GAMG or nCellsInCoarsestLevel too large)".to_string());
@@ -854,9 +1222,22 @@ fn gamg_solve_impl(
         for m in &mats {
             r_d.push(dic_reciprocal_diag(m));
         }
+    } else if ctl.smoother.uses_dilu() {
+        r_d.push(dilu_reciprocal_diag(a));
+        for m in &mats {
+            r_d.push(dilu_reciprocal_diag(m));
+        }
     } else {
         r_d.resize(mats.len() + 1, Vec::new());
     }
+    let lu = if ctl.direct_solve_coarsest {
+        match LuScalarMatrix::new(&mats[mats.len() - 1]) {
+            Ok(lu) => Some(lu),
+            Err(e) => return Err(e),
+        }
+    } else {
+        None
+    };
     // `agglomerateLduAddressing` / `cyclicGAMGInterface`: the coarse interfaces follow the cell restriction of each level
     let mut lvl_ifs = Vec::with_capacity(agg.levels.len() + 1);
     lvl_ifs.push(ifs.clone());
@@ -864,7 +1245,7 @@ fn gamg_solve_impl(
         let next = if coarse_interfaces { lvl_ifs[lvl_ifs.len() - 1].coarsen(&lvl.restrict) } else { LduInterfaces::none() };
         lvl_ifs.push(next);
     }
-    let h = Hierarchy { mats, symmetric: sym, r_d, ifs: lvl_ifs };
+    let h = Hierarchy { mats, symmetric: sym, r_d, ifs: lvl_ifs, lu };
     let scale_corr = ctl.scale_correction.unwrap_or(sym);
 
     let apsi = amul(a, ifs, psi);
@@ -978,7 +1359,8 @@ mod tests {
         let (m, sf) = grid(8, 8);
         let w = face_area_pair_weights(&sf);
         let mut fwd = true;
-        let bad = GamgControls { merge_levels: 2, ..GamgControls::default() };
+        // gh:#1946: mergeLevels != 1 is ported; 0 stays refused (upstream divides by it)
+        let bad = GamgControls { merge_levels: 0, ..GamgControls::default() };
         assert!(pair_agglomerate(m.n_cells, &m.owner, &m.neighbour, &w, &bad, &mut fwd).unwrap_err().contains("mergeLevels"));
         let ctl = GamgControls::default();
         let agg = pair_agglomerate(m.n_cells, &m.owner, &m.neighbour, &w, &ctl, &mut fwd).expect("agg");
@@ -1040,6 +1422,91 @@ mod tests {
         sym_gauss_seidel_smooth(&d, &mut y, &[2.0, 8.0, 0.0], 1);
         assert_eq!(y[..2], [1.0, 2.0]);
         assert_eq!(GamgSmoother::from_word("DICGaussSeidel"), Some(GamgSmoother::DicGaussSeidel));
-        assert_eq!(GamgSmoother::from_word("DILU"), None);
+        // gh:#1946: DILU is ported; a word upstream's tables do not hold is still `None`
+        assert_eq!(GamgSmoother::from_word("DILU"), Some(GamgSmoother::Dilu));
+        assert_eq!(GamgSmoother::from_word("ILU"), None);
+    }
+
+    /// gh:#1946 (README "Round 85"): every newly ported selection converges the grid problem; FDIC is bit-identical to DIC, and
+    /// nonBlockingGaussSeidel to GaussSeidel (no interfaces); the others change the first cycle; the table refusals hold.
+    #[test]
+    fn round85_selections_converge_and_the_smoother_tables_are_enforced() {
+        let (m, sf) = grid(16, 16);
+        let w = face_area_pair_weights(&sf);
+        let b: Vec<f64> = (0..m.n_cells).map(|c| 1.0 + (c % 7) as f64).collect();
+        let run = |ctl: &GamgControls, a: &LduMatrix, weights: &[f64]| -> GamgPerformance {
+            let mut fwd = true;
+            let agg = match pair_agglomerate(a.n_cells, &a.owner, &a.neighbour, weights, ctl, &mut fwd) {
+                Ok(x) => x,
+                Err(e) => panic!("agglomerate: {e}"),
+            };
+            let mut x = vec![0.0; a.n_cells];
+            match gamg_dic_solve(a, &agg, ctl, &b, &mut x) {
+                Ok(p) => p,
+                Err(e) => panic!("solve: {e}"),
+            }
+        };
+        let base = GamgControls { tolerance: 1e-10, ..GamgControls::default() };
+        let p0 = run(&base, &m, &w);
+        let fdic = run(&GamgControls { smoother: GamgSmoother::Fdic, ..base }, &m, &w);
+        assert_eq!(fdic, p0, "FDIC must equal DIC bit for bit");
+        let gs = GamgControls { smoother: GamgSmoother::GaussSeidel, ..base };
+        let nb = run(&GamgControls { smoother: GamgSmoother::NonBlockingGaussSeidel, ..base }, &m, &w);
+        assert_eq!(nb, run(&gs, &m, &w));
+        for (label, ctl, weights) in [
+            ("interpolateCorrection", GamgControls { interpolate_correction: true, ..base }, w.clone()),
+            ("directSolveCoarsest", GamgControls { direct_solve_coarsest: true, ..base }, w.clone()),
+            ("mergeLevels 2", GamgControls { merge_levels: 2, ..base }, w.clone()),
+            ("algebraicPair", base, algebraic_pair_weights(&m, false)),
+            ("updateInterval 10 at time index 1", base, face_area_pair_weights_at(&sf, 10, 1)),
+        ] {
+            let p = run(&ctl, &m, &weights);
+            assert!(p.final_residual < 1e-10 && p.iterations < 200, "{label}: {p:?}");
+            assert!(p.cycles[0] != p0.cycles[0], "{label}: the first cycle equals the default's");
+        }
+        assert_eq!(face_area_pair_weights_at(&sf, 1, 7), w);
+        // mergeLevels 2 halves the level count (rounded up)
+        let agglomerate = |ctl: &GamgControls, a: &LduMatrix| -> GamgAgglomeration {
+            let mut fwd = true;
+            match pair_agglomerate(a.n_cells, &a.owner, &a.neighbour, &w, ctl, &mut fwd) {
+                Ok(x) => x,
+                Err(e) => panic!("agglomerate: {e}"),
+            }
+        };
+        let solve_err = |a: &LduMatrix, agg: &GamgAgglomeration, ctl: &GamgControls| -> String {
+            let mut x = vec![0.0; a.n_cells];
+            match gamg_dic_solve(a, agg, ctl, &b, &mut x) {
+                Ok(p) => panic!("accepted: {p:?}"),
+                Err(e) => e,
+            }
+        };
+        let a1 = agglomerate(&base, &m);
+        let a2 = agglomerate(&GamgControls { merge_levels: 2, ..base }, &m);
+        assert_eq!(a2.levels.len(), a1.levels.len().div_ceil(2));
+        assert_eq!(a2.levels[0].n_cells, a1.levels[1].n_cells);
+        // the asymmetric path: DILU, DILUGaussSeidel converge; DIC/FDIC refused there, DILU refused on the symmetric matrix
+        let mut asym = m.clone();
+        for f in 0..asym.n_internal_faces {
+            asym.lower[f] *= 1.3;
+            let u = asym.neighbour[f];
+            asym.diag[u] += 0.3;
+        }
+        for kind in [GamgSmoother::Dilu, GamgSmoother::DiluGaussSeidel] {
+            let c = GamgControls { smoother: kind, ..base };
+            let p = run(&c, &asym, &algebraic_pair_weights(&asym, true));
+            assert!(p.final_residual < 1e-10, "{kind:?}: {p:?}");
+            assert!(solve_err(&m, &agglomerate(&c, &m), &c).contains("asymmetric matrix"));
+        }
+        let c = GamgControls { smoother: GamgSmoother::Fdic, ..base };
+        assert!(solve_err(&asym, &agglomerate(&c, &m), &c).contains("symmetric matrix"));
+        // the LU of a small dense-ish system reproduces the solution
+        let lu = match LuScalarMatrix::new(&asym) {
+            Ok(lu) => lu,
+            Err(e) => panic!("lu: {e}"),
+        };
+        let xs = lu.solve(&b);
+        assert!(asym.residual(&xs, &b).iter().all(|v| v.abs() < 1e-9));
+        assert_eq!(GamgAgglomerator::from_word("algebraicPair"), Some(GamgAgglomerator::AlgebraicPair));
+        assert_eq!(GamgAgglomerator::from_word("MGridGen"), None);
     }
 }
