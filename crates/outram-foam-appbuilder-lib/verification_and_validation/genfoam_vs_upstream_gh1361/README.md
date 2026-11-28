@@ -10277,3 +10277,70 @@ No pin moved and no earlier test changed its numbers. Why nothing could move: th
 ### Reproduction
 
 Real: `bash scripts/run_fc_later_writes_r84.sh <d>` (steady 4 s, each transient 4-5 s), `bash scripts/run_fc_mesh_variants_r84.sh <d>` (1-2 s each), `bash scripts/run_esfr_baffle_less_r84.sh <d>` (steady 242 s, transient 137 s); packed with `scripts/pack_start_dir_r66.py` from staging directories holding the listed time directories (`gzip -9 -n`); the `deltaT` lists are the `deltaT = ` lines of the `*_ts9` logs. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_transient_vs_upstream r84 -- --nocapture`; `ESFR_T_CASE=<inflated tr case> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_baffle_less_vs_upstream -- --nocapture`.
+
+
+# Round 85 (gh:#1946, gh:#1984, gh:#1987 under #1216; maintainer 2026-11-27: "Port genfoam exhaustively", "Match all upstream"): the GAMG features still refused by name; `smoothSolver` for the onePhase `porousKEpsilon` `k`/`epsilon`
+
+> Research, education and V&V only. AI draft, not human-reviewed. Predictions and criteria below were written and committed BEFORE any run of this round (real binary or port).
+
+### What was read first (upstream, ESI v2506 `src/OpenFOAM/matrices/lduMatrix/`)
+
+* `GAMGSolver.C` (ctor: `directSolveCoarsest` -> `LUscalarMatrix`; destructor: `cacheAgglomeration false` DELETES the registry's `GAMGAgglomeration`, so the next `GAMG` solver on the mesh agglomerates again, from the process-wide `pairGAMGAgglomeration::forward_` as the previous builds left it), `GAMGSolverSolve.C` (`Vcycle`: `interpolate` on every coarse level and on the finest, scaling then `interpolateCorrection_ || leveli < coarsestLevel - 1`; `solveCoarsestLevel`), `GAMGSolverInterpolate.C` (both overloads).
+* `LUscalarMatrix.C` (serial `convert(ldum, interfaceCoeffs, interfaces)`, `LUDecompose`), `scalarMatrices.C` (`LUDecompose` with implicit-scaling partial pivoting, `SMALL` on a zero pivot, `*= 1/diag` for the column), `scalarMatricesTemplates.C` (`LUBacksubstitute`, the `ii` skip of leading zeros).
+* `pairGAMGAgglomerate.C:agglomerate` (`if (nPairLevels % mergeLevels_) combineLevels(nCreatedLevels)`), `GAMGAgglomerateLduAddressing.C:combineLevels` (the face map of an interior face indexes `curFaceFlipMap` with a CELL index: reproduced where it is in range; the value is never read for an interior face).
+* `algebraicPairGAMGAgglomeration.C` (weights `mag(upper)`, or `max(mag(upper), mag(lower))` when the matrix `hasLower()`; selected through the `lduMatrix` constructor table, which `GAMGAgglomeration::New(matrix, dict)` tries first).
+* `GAMGAgglomeration.C:requiresUpdate` (`updateInterval > 0 && timeIndex % updateInterval == 0`) and `faceAreaPairGAMGAgglomeration.C` ctor: when `requiresUpdate()` is FALSE at construction the weights are `mag(magSf)` (no `(1, 1.01, 1.02)` perturbation). So `updateInterval` changes the agglomeration of a STATIC mesh too: with `updateInterval 10` a build at time index 1 uses `magSf`.
+* Smoothers: `DILUSmoother.C` and `DILUGaussSeidelSmoother.C` are in the ASYMMETRIC table only, `FDICSmoother.C` in the SYMMETRIC table only (upstream refuses DILU on a symmetric and FDIC on an asymmetric matrix with a FatalIOError), `nonBlockingGaussSeidelSmoother.C` in both: it is `GaussSeidel` with the interface update moved after the cells below `blockStart` (the smallest interface face cell; `nCells` without interfaces). `FDIC` precomputes `rD[u] upper` and `rD[l] upper`, the same products, in the same association, as `DIC` evaluates: **predicted bit-identical to `DIC`**.
+* Processor agglomeration (`GAMGProcAgglomerations/`): needs `UPstream::parRun()`. The real binary here is built on the DUMMY `Pstream` (no MPI): a decomposed run is out of reach. It stays refused by name. `MGridGen`, `assemblyFaceAreaPair` and `dummy` agglomerators: not ported (external library; multi-region assembled matrices; a test agglomerator with `nLevels` identity levels), refused by name.
+
+### What was searched (reuse)
+
+`common/gamg.rs` (round 67/72/80) is extended, not duplicated: the new smoothers sit beside `dic_smooth`/`gauss_seidel_smooth`; `legacy_fvm/pbicg.rs::dilu_reciprocal_diag` is `DILUPreconditioner::calcReciprocalD` (reused for the `DILU` smoother); `pcg::dic_reciprocal_diag` for `FDIC`. No LU decomposition existed in this crate's GeN-Foam port (`outram-foam-basic-lib` has dense solvers, not upstream's `LUDecompose` with its pivoting and scaling): translated. For gh:#1984, `common/smooth_solver.rs` (round 79) is reused unchanged.
+
+### Part A (gh:#1946): comparisons and criteria (fixed here; none changed after a result)
+
+Instrument: round 72's (the instrumented COPY `GAMGdump` of `GAMGSolver`, rebuilt from `upstream_driver/gamg_dump/build.sh` into a private dir; upstream's own dumped matrix, agglomeration, V-cycle residuals and solution).
+
+* **S1** (FFTF `p_rgh` solve 0 of step 1, symmetric, 18 538 cells, round 67's matrix; `run_fftf_gamg_real.sh <w> tight 1 dump` with `GAMG_SMOOTHER`; tolerance 1e-14, relTol 0, upstream stops at `maxIter 1000`): one-edit variants of the round 67 `smoother DIC;` entry: `a1` `smoother FDIC;`, `a2` `smoother nonBlockingGaussSeidel;`, `a3` `+ interpolateCorrection true;`, `a4` `+ directSolveCoarsest true;`, `a5` `+ mergeLevels 2;`, `a6` `+ agglomerator algebraicPair;`, `a7` `+ updateInterval 10;`, `a8` `+ cacheAgglomeration false;` (`GAMGDUMP_TARGET=1`: the matrix, the agglomeration and the solution of SOLVE 1, which upstream agglomerates again).
+* **S2** (the asymmetric `TStruct` solve 0 of step 1 of the shipped legacy thermo-mechanics case, round 72's `s2t` protocol: shipped entry, `tolerance 1e-14`, `relTol 0`, `maxIter 40`): `b1` `smoother DILU;`, `b2` `smoother DILUGaussSeidel;`, `b3` `smoother nonBlockingGaussSeidel;`, `b4` `+ interpolateCorrection true;`, `b5` `+ directSolveCoarsest true;`, `b6` `agglomerator algebraicPair;`, `b7` `mergeLevels 2;`.
+* **Criterion (each variant):** the dumped matrix equals round 67's / round 72's (`a8`: its own solve-1 matrix); the agglomeration (every `restrict`, `faceRestrict` of every level, and the level count) and every coarse matrix where dumped, every V-cycle residual of the real run and the solution **bit-identical**. 1e-9 relative only with an explained round-off cause (then reported per entry).
+* **Controls (each must differ by more than 1e-9 relative at some cycle, or in the agglomeration):** each variant run by the port WITHOUT its feature (the round 72 default) against the variant's real reference. Expected NOT to discriminate, stated here: `a1` (FDIC = DIC by construction), `a2`, `b3` (nonBlockingGaussSeidel = GaussSeidel without interfaces); those controls are reported, not gated.
+* **Refusals kept, by name:** processor agglomeration, `MGridGen`/`assemblyFaceAreaPair`/`dummy`, `mergeLevels 0` (upstream divides by it), DILU/DILUGaussSeidel on a symmetric matrix, FDIC/DIC/DICGaussSeidel on an asymmetric one, `updateInterval != 1` in the readers of a region whose solver does not hand its time index to the GAMG state (only the cell-centred onePhase one does after this round).
+* **Earlier numbers must not move:** every GAMG target (`genfoam_gamg_vs_upstream`, `genfoam_gamg_smoothers_vs_upstream`, `genfoam_gamg_is_default`, `genfoam_msfr_gamg_vs_upstream`), every onePhase, msr1d, fullcoupling and esfr target, the `--lib` filters of the changed modules and `scripts/check-nostd.sh` pass at their pins.
+
+### Part A predictions
+
+| # | prediction | p |
+|---|---|---|
+| A1 | `a1` FDIC: the real cycles equal round 67's DIC cycles bit for bit, and the port's FDIC equals them | 85 % |
+| A2 | `a2` nonBlockingGaussSeidel: the real cycles equal round 72's `gs` reference bit for bit, and the port's | 85 % |
+| A3 | `a3` interpolateCorrection: bit-identical | 65 % |
+| A4 | `a4` directSolveCoarsest: bit-identical | 70 % |
+| A5 | `a5` mergeLevels 2: agglomeration and cycles bit-identical | 70 % |
+| A6 | `a6` algebraicPair: bit-identical | 75 % |
+| A7 | `a7` updateInterval 10: the real build uses `magSf` (time index 1); port bit-identical | 65 % |
+| A8 | `a8` cacheAgglomeration false: solve 1's agglomeration differs from solve 0's (forward_ toggled) and equals the port's rebuild; cycles bit-identical | 60 % |
+| A9 | `b1` DILU, `b2` DILUGaussSeidel: bit-identical | 75 % each |
+| A10 | `b3` nonBlockingGaussSeidel equals round 72's `s2t` GaussSeidel cycles and the port | 85 % |
+| A11 | `b4` interpolateCorrection on the asymmetric matrix: bit-identical | 60 % |
+| A12 | `b5` directSolveCoarsest on the asymmetric coarsest matrix: bit-identical | 65 % |
+| A13 | `b6` algebraicPair with `hasLower`: bit-identical | 70 % |
+| A14 | `b7` mergeLevels 2 asymmetric: bit-identical (coarse `lower` through the combined flip map) | 65 % |
+| A15 | every discriminating control differs | 90 % |
+| A16 | no earlier pin moves | 90 % |
+
+### Part B (gh:#1984): `smoothSolver` for the onePhase `porousKEpsilon` `k`/`epsilon`
+
+Case: round 65's `cases/fftf_turb_variants/w8_zg` (porousKEpsilon, FFTF numbers, tight protocol, 20 steps, no `residualControl`), one edit each: explicit `k`, `epsilon`, `kFinal`, `epsilonFinal` entries AFTER the catch-all (exact keywords win), `solver smoothSolver; smoother symGaussSeidel; tolerance 1e-14;` plus: `k0` `relTol 0;`; `k1` `relTol 0.1;`; `k2` `relTol 0.05; nSweeps 2; maxIter 5;` (5 is not a multiple of 2: upstream stops at 6); `k3` `nSweeps -2;` (fixed sweeps, no residual); `k4` plain entries `relTol 0.1;`, the Final entries `relTol 0; nSweeps 3;` (the Final selection tested deliberately: without `residualControl` GeN-Foam's `isFinalIteration()` is never true, so the plain entries must run in every outer iteration).
+
+* **Criteria:** round 65's `check_turb` (every gated field and every turbulence field `<= 1e-9` of its max, no first diverging step, `dt` 1e-12, the round 65 solve pins) AND the `k`/`epsilon` iteration counts equal in every solve whose upstream initial residual exceeds `1e-10`, except where the upstream solve ends at the 1e-14 round-off floor (`k0`; reported, as round 79 found for `h`).
+* **Control:** `k4` with `with_stock_final_iteration_selection` (the Final entries in the last outer iteration) must give different `k`/`epsilon` counts.
+
+| # | prediction | p |
+|---|---|---|
+| B1 | `k0`-`k4` fields within the criterion | 75 % |
+| B2 | counts equal in every gated solve of `k1`, `k2`, `k4`; `k3` residuals 0 in both | 70 % |
+| B3 | the `k4` control differs | 80 % |
+| B4 | no earlier pin moves (the change only adds a selection that was refused) | 95 % |
+
+### Part C (gh:#1987): if time allows; predictions will be committed in an addendum BEFORE any run.
