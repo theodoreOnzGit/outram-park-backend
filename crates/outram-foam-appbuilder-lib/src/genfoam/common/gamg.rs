@@ -571,7 +571,7 @@ fn coarse_matrices_for(a: &LduMatrix, agg: &GamgAgglomeration, sym: bool) -> Vec
 
 /// `lduMatrix::residual(rA, psi, source)` (`lduMatrixATmul.C:268-340`): note `source - diag psi` first, then the faces
 /// subtracted, which is NOT `source - Amul(psi)` in floating point.
-fn ldu_residual(a: &LduMatrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
+pub(crate) fn ldu_residual(a: &LduMatrix, psi: &[f64], source: &[f64]) -> Vec<f64> {
     let mut r: Vec<f64> = (0..psi.len()).map(|c| source[c] - a.diag[c] * psi[c]).collect();
     for f in 0..a.n_internal_faces {
         let (l, u) = (a.owner[f], a.neighbour[f]);
@@ -639,7 +639,7 @@ fn gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[f64], n_sweeps:
 
 /// `symGaussSeidelSmoother::smooth` (`symGaussSeidelSmoother.C:74-199`, gh:#1936): the forward sweep of [`gauss_seidel_smooth`], then a
 /// backward sweep that finishes each cell from the same `bPrime` without distributing.
-fn sym_gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[f64], n_sweeps: usize) {
+pub(crate) fn sym_gauss_seidel_smooth(a: &LduMatrix, psi: &mut [f64], source: &[f64], n_sweeps: usize) {
     let own_start = owner_start(a);
     let n = psi.len();
     for _ in 0..n_sweeps {

@@ -511,7 +511,8 @@ fn read_dict(root: &Path, rel: &str) -> Result<FoamFile, AppBuilderError> {
 ///
 /// # Errors
 /// An `fvSolution` that cannot be read, an entry the port does not translate (reader's refusals), or a flux entry that selects `GAMG`
-/// (the reader would run `PCG`/`DIC` in its place, a deviation this region refuses by name rather than carries).
+/// (~~the reader would run `PCG`/`DIC` in its place~~ CHANGED 2026-11-27, gh:#1945: GAMG is ported, but the process-wide `forward_` state
+/// of upstream's pair agglomeration across regions and mesh motion is not carried, so a multi-region run refuses it by name).
 fn neutronics_diffusion_settings(root: &Path, name: &str, xs: &CrossSectionData, tight: bool) -> Result<DiffusionSettings, AppBuilderError> {
     let base = DiffusionSettings {
         k_tolerance: 1e-13,
@@ -525,8 +526,12 @@ fn neutronics_diffusion_settings(root: &Path, name: &str, xs: &CrossSectionData,
     }
     let path = root.join(format!("system/{name}/fvSolution"));
     let sol = read_neutron_fv_solution(&path, xs.energy_groups(), xs.prec_groups(), 0).map_err(|e| case_err(root, format!("{}: {e}", path.display())))?;
-    if sol.gamg_substituted {
-        return Err(case_err(root, format!("system/{name}/fvSolution: the flux entry selects GAMG; GAMG for the neutronics flux equation is not ported (the reader would run PCG/DIC instead)")));
+    // ~~GAMG for the neutronics flux equation is not ported (the reader would run PCG/DIC instead)~~ CHANGED 2026-11-27 (gh:#1945, README
+    // round 79): it is ported and is what a neutronics-only or EN-stage case runs (`LinearSolve`); in a multi-region run it is still refused,
+    // because upstream's `pairGAMGAgglomeration::forward_` is ONE process-wide static that the other regions' GAMG agglomerations and every
+    // re-agglomeration after `movePoints` (mesh deformation) toggle, and the port does not carry that state across regions
+    if sol.gamg_substituted || sol.entries.flux.kind == crate::genfoam::common::linear_solvers::NeutronSolverKind::Gamg {
+        return Err(case_err(root, format!("system/{name}/fvSolution: the flux entry selects GAMG; in a multi-region run GAMG for the neutronics flux is refused by name: the process-wide pairGAMGAgglomeration::forward_ shared with the other regions' agglomerations and the re-agglomeration after mesh motion are not carried (gh:#1945)")));
     }
     Ok(base.with_fv_solution(sol.entries))
 }

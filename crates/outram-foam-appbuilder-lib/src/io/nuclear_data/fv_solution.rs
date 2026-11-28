@@ -17,8 +17,13 @@
 //!   `final_entries_are_never_selected`.
 //!
 //! Refused by name: a regex feature other than `.`, `.*` and `|`; `norm none`; a solver / preconditioner pair other than
-//! `PCG`/`DIC`, `PBiCG`/`DILU`, `PBiCGStab`/`DILU`; `GAMG` is the named deviation of round 40 (runs `PCG`/`DIC`) for the
-//! flux family only, and is reported in [`NeutronFvSolution::gamg_substituted`]; a symmetric solver on an asymmetric
+//! `PCG`/`DIC`, `PBiCG`/`DILU`, `PBiCGStab`/`DILU`, `GAMG` (flux family); ~~`GAMG` is the named deviation of round 40
+//! (runs `PCG`/`DIC`) for the flux family only, and is reported in [`NeutronFvSolution::gamg_substituted`]~~
+//! **CHANGED 2026-11-27 (gh:#1945, README round 79):** a `GAMG` flux entry runs upstream's own `GAMGSolver`
+//! ([`NeutronSolverKind::Gamg`], its keys read by the fluid region's reader `read_gamg_controls`, which refuses unported
+//! selections by name) under `GamgPolicy::Native`, the default; `PCG`/`DIC` in its place is the named ablation
+//! `GamgPolicy::SubstitutePcgDic` of [`resolve_neutron_fv_solution_with`], reported in [`NeutronFvSolution::gamg_substituted`];
+//! `GamgPolicy::Refuse` refuses it; a symmetric solver on an asymmetric
 //! family and the converse (OpenFOAM selects from the symmetric table for a symmetric matrix).
 
 #[cfg(not(any(feature = "std", test)))]
@@ -28,6 +33,8 @@ use outram_foam_basic_lib::io::dict::{FoamDict, FoamEntry, FoamFile};
 
 use crate::error::AppBuilderError;
 use crate::genfoam::common::linear_solvers::{NeutronSolverEntries, NeutronSolverEntry, NeutronSolverKind};
+use crate::genfoam::thermal_hydraulics::solver::two_phase::gamg_solve::read_gamg_controls;
+pub use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::GamgPolicy;
 
 fn err(file: &str, msg: impl Into<String>) -> AppBuilderError {
     AppBuilderError::Parse { file: file.to_string(), line: 0, msg: msg.into() }
@@ -123,7 +130,7 @@ enum Family {
     AngularFlux,
 }
 
-fn entry_of(d: &FoamDict, name: &str, family: Family, file: &str) -> Result<(NeutronSolverEntry, bool), AppBuilderError> {
+fn entry_of(d: &FoamDict, name: &str, family: Family, file: &str, policy: GamgPolicy) -> Result<(NeutronSolverEntry, bool), AppBuilderError> {
     let solver = word_of(d, "solver").ok_or_else(|| err(file, format!("`{name}`: no `solver` word")))?;
     let precon = match d.get("preconditioner") {
         Some(FoamEntry::Word(w)) => Some(w.clone()),
@@ -136,11 +143,19 @@ fn entry_of(d: &FoamDict, name: &str, family: Family, file: &str) -> Result<(Neu
         }
     }
     let mut gamg = false;
+    if solver == "GAMG" && family == Family::Flux && policy == GamgPolicy::Native {
+        // upstream's own `GAMGSolver` (gh:#1945): the entry's keys, refusals by name (`read_gamg_controls`)
+        let ctl = read_gamg_controls(name, d, None).map_err(|m| err(file, m))?;
+        return Ok((NeutronSolverEntry::gamg(ctl), false));
+    }
     let kind = match (solver.as_str(), precon.as_deref(), family) {
         ("PCG", Some("DIC"), Family::Flux) => NeutronSolverKind::PcgDic,
-        ("GAMG", _, Family::Flux) => {
+        ("GAMG", _, Family::Flux) if policy == GamgPolicy::SubstitutePcgDic => {
             gamg = true;
             NeutronSolverKind::PcgDic
+        }
+        ("GAMG", _, Family::Flux) => {
+            return Err(err(file, format!("`{name}`: GAMG is refused by the caller's GamgPolicy::Refuse")));
         }
         ("PBiCG", Some("DILU"), Family::Precursor | Family::AngularFlux) => NeutronSolverKind::PbicgDilu,
         ("PBiCGStab", Some("DILU"), Family::Precursor | Family::AngularFlux) => NeutronSolverKind::PbicgstabDilu,
@@ -172,7 +187,8 @@ fn entry_of(d: &FoamDict, name: &str, family: Family, file: &str) -> Result<(Neu
 pub struct NeutronFvSolution {
     /// The entries per equation family.
     pub entries: NeutronSolverEntries,
-    /// Whether the flux entry selects `GAMG` (run as `PCG`/`DIC`, the named deviation of round 40, gh:#1843).
+    /// Whether the flux entry selects `GAMG` AND it is run as `PCG`/`DIC` (`GamgPolicy::SubstitutePcgDic`, the named ablation; the
+    /// default form of round 40 until gh:#1945). `false` when `GAMG` runs natively.
     pub gamg_substituted: bool,
 }
 
@@ -190,9 +206,24 @@ pub fn read_neutron_fv_solution(
     prec_groups: usize,
     directions: usize,
 ) -> Result<NeutronFvSolution, AppBuilderError> {
+    read_neutron_fv_solution_with(path, groups, prec_groups, directions, GamgPolicy::Native)
+}
+
+/// [`read_neutron_fv_solution`] with an explicit [`GamgPolicy`] for a `GAMG` flux entry (gh:#1945).
+///
+/// # Errors
+///
+/// As [`read_neutron_fv_solution`], and a `GAMG` flux entry under [`GamgPolicy::Refuse`].
+pub fn read_neutron_fv_solution_with(
+    path: &std::path::Path,
+    groups: usize,
+    prec_groups: usize,
+    directions: usize,
+    gamg: GamgPolicy,
+) -> Result<NeutronFvSolution, AppBuilderError> {
     let file = FoamFile::read_with_includes_esi(path)
         .map_err(|e| AppBuilderError::Parse { file: path.display().to_string(), line: 0, msg: e.to_string() })?;
-    resolve_neutron_fv_solution(&file.dict, &path.display().to_string(), groups, prec_groups, directions)
+    resolve_neutron_fv_solution_with(&file.dict, &path.display().to_string(), groups, prec_groups, directions, gamg)
 }
 
 /// [`read_neutron_fv_solution`] on a parsed dictionary (`file` only labels errors).
@@ -206,6 +237,24 @@ pub fn resolve_neutron_fv_solution(
     groups: usize,
     prec_groups: usize,
     directions: usize,
+) -> Result<NeutronFvSolution, AppBuilderError> {
+    resolve_neutron_fv_solution_with(dict, file, groups, prec_groups, directions, GamgPolicy::Native)
+}
+
+/// [`resolve_neutron_fv_solution`] with an explicit [`GamgPolicy`] for a `GAMG` flux entry: [`GamgPolicy::Native`] (the default of
+/// [`resolve_neutron_fv_solution`]) runs upstream's `GAMGSolver`, [`GamgPolicy::SubstitutePcgDic`] runs `PCG`/`DIC` at the entry's
+/// `tolerance`/`relTol` (reported in [`NeutronFvSolution::gamg_substituted`]), [`GamgPolicy::Refuse`] refuses it (gh:#1945).
+///
+/// # Errors
+///
+/// As [`read_neutron_fv_solution`], and a `GAMG` flux entry under [`GamgPolicy::Refuse`].
+pub fn resolve_neutron_fv_solution_with(
+    dict: &FoamDict,
+    file: &str,
+    groups: usize,
+    prec_groups: usize,
+    directions: usize,
+    gamg: GamgPolicy,
 ) -> Result<NeutronFvSolution, AppBuilderError> {
     let Some(FoamEntry::SubDict(solvers)) = dict.get("solvers") else {
         return Err(err(file, "no `solvers` dictionary"));
@@ -231,7 +280,7 @@ pub fn resolve_neutron_fv_solution(
             let Some(d) = lookup(solvers, name, file)? else {
                 continue; // never solved by this case (e.g. precursors of stationary fuel)
             };
-            let e = entry_of(d, name, family, file)?;
+            let e = entry_of(d, name, family, file, gamg)?;
             match first {
                 None => first = Some(e),
                 Some(f) if f == e => {}
@@ -313,9 +362,23 @@ mod tests {
         let sm = parse("solvers { \"flux.*\" { solver smoothSolver; smoother GaussSeidel; } }");
         assert!(resolve_neutron_fv_solution(&sm, "t", 1, 0, 0).is_err());
     
-        let gamg = parse("solvers { \"flux.*\" { solver GAMG; tolerance 1e-8; smoother DICGaussSeidel; } }");
+        // the default (gh:#1945): upstream's own GAMG with the entry's keys
+        let gamg = parse("solvers { \"flux.*\" { solver GAMG; tolerance 1e-8; relTol 0.01; smoother DICGaussSeidel; nPreSweeps 1; nPostSweeps 1; nFinestSweeps 1; nCellsInCoarsestLevel 20; processorAgglomerator masterCoarsest; } }");
         let r = resolve_neutron_fv_solution(&gamg, "t", 1, 0, 0).unwrap();
+        assert!(!r.gamg_substituted);
+        let f = r.entries.flux;
+        assert_eq!(f.kind, NeutronSolverKind::Gamg);
+        assert_eq!((f.tolerance, f.rel_tol, f.max_iter, f.min_iter), (1e-8, 0.01, 1000, 0));
+        assert_eq!((f.gamg.n_pre_sweeps, f.gamg.n_post_sweeps, f.gamg.n_finest_sweeps, f.gamg.n_cells_in_coarsest_level), (1, 1, 1, 20));
+        assert_eq!(f.gamg.smoother, crate::genfoam::common::gamg::GamgSmoother::DicGaussSeidel);
+        // the named ablation: PCG/DIC in its place, reported; and the refusal
+        let r = resolve_neutron_fv_solution_with(&gamg, "t", 1, 0, 0, GamgPolicy::SubstitutePcgDic).unwrap();
         assert!(r.gamg_substituted);
         assert_eq!(r.entries.flux.kind, NeutronSolverKind::PcgDic);
+        assert!(resolve_neutron_fv_solution_with(&gamg, "t", 1, 0, 0, GamgPolicy::Refuse).is_err());
+        // an unported GAMG selection is refused by name through the fluid reader
+        let dilu = parse("solvers { \"flux.*\" { solver GAMG; smoother DILU; } }");
+        let e = resolve_neutron_fv_solution(&dilu, "t", 1, 0, 0).unwrap_err();
+        assert!(format!("{e}").contains("smoother"), "{e}");
     }
 }

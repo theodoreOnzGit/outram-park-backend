@@ -139,8 +139,13 @@ pub enum HSolver {
     PBiCGStabDiagonal,
     /// `smoothSolver` with the `symGaussSeidel` smoother, `nSweeps 1`, `relTol 0`
     /// (`one_phase::smooth_solve_sym_gauss_seidel_openfoam`, differenced against the real binary in README round 46 and, for the
-    /// cell-centred region, in round 55 variant V3).
+    /// cell-centred region, in round 55 variant V3). ~~What a `smoothSolver` entry selects~~ **CHANGED 2026-11-27 (gh:#1942, README
+    /// round 79):** the earlier form, kept callable; the reader selects [`HSolver::SmoothSolver`] (bit-identical to this one at `nSweeps 1`,
+    /// `relTol 0`, `maxIter 1000`).
     SmoothSymGaussSeidel,
+    /// `smoothSolver` with `symGaussSeidel` and every control of the entry: `relTol`, `minIter` (the controls' own fields), `nSweeps` and
+    /// `maxIter` (here) ([`crate::genfoam::common::smooth_solver`], gh:#1942, README round 79). What a `smoothSolver` entry selects.
+    SmoothSolver(crate::genfoam::common::smooth_solver::SmoothSolverSweeps),
     /// `PBiCG` with the `DILU` preconditioner (`legacy_fvm::pbicg::pbicg_dilu`, README rounds 23 and 62): the shipped `2D_FFTF`'s
     /// `"(h|k|epsilon)"` entries (the real log reads `DILUPBiCG: Solving for h`).
     PbicgDilu,
@@ -744,17 +749,13 @@ impl OnePhaseCcCase {
                         (Some("PBiCGStab"), Some("diagonal"), _) => HSolver::PBiCGStabDiagonal,
                         (Some("PBiCG"), Some("DILU"), _) => HSolver::PbicgDilu,
                         (Some("smoothSolver"), _, Some("symGaussSeidel")) => {
-                            // the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55)
-                            if scalar(d, "relTol").unwrap_or(0.0) != 0.0 {
-                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with relTol != 0 is not ported")));
-                            }
-                            if scalar(d, "nSweeps").unwrap_or(1.0) != 1.0 {
-                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with nSweeps != 1 is not ported")));
-                            }
-                            if scalar(d, "maxIter").unwrap_or(1000.0) != 1000.0 {
-                                return Err(ctx.e(format!("solvers for `{name}`: smoothSolver with maxIter != 1000 is not ported")));
-                            }
-                            HSolver::SmoothSymGaussSeidel
+                            // ~~the translated solver takes no `relTol` and runs `nSweeps 1` (README round 55): relTol != 0, nSweeps != 1,
+                            // maxIter != 1000 refused~~ CHANGED 2026-11-27 (gh:#1942, README round 79): `smoothSolver::solve` with every
+                            // control (`smoothSolver.C:73-209`; `nSweeps` default 1, `maxIter` default 1000)
+                            HSolver::SmoothSolver(crate::genfoam::common::smooth_solver::SmoothSolverSweeps {
+                                n_sweeps: scalar(d, "nSweeps").unwrap_or(1.0) as i64,
+                                max_iter: scalar(d, "maxIter").unwrap_or(1000.0) as usize,
+                            })
                         }
                         _ => {
                             return Err(ctx.e(format!(
@@ -1198,9 +1199,8 @@ impl OnePhaseCcCase {
         let flow = if solve_flow {
             let mut fc = flow::read_flow_case(&ctx, &g, &tdir, pimple, &fs, &pp, momentum_source, drag, options.gamg, laminar)?;
             fc.momentum_profiles = momentum_profiles;
-            if fc.face_centered && tortuosity.is_some() {
-                return Err(ctx.e("momentumMode faceCentered with structureProperties.localTortuosity is not ported (not differenced against the real binary, gh:#1939)"));
-            }
+            // ~~momentumMode faceCentered with structureProperties.localTortuosity is not ported~~ CHANGED 2026-11-27 (gh:#1943, README round 79):
+            // the tortuous `UEqn_1p.H` branch is in `one_phase_cc::face_centered` too
             fc.turbulence = if laminar {
                 None
             } else {
@@ -2043,6 +2043,19 @@ impl OnePhaseCcSolver {
         self
     }
 
+    /// ABLATION, NOT upstream (gh:#1942, README round 79): a `smoothSolver` `h`/`hFinal` entry runs the earlier round 46 translation
+    /// ([`HSolver::SmoothSymGaussSeidel`]: `nSweeps 1`, `maxIter 1000`, no `relTol`) instead of [`HSolver::SmoothSolver`] with the entry's
+    /// controls. Other `h` solvers are unchanged.
+    #[must_use]
+    pub fn with_round46_h_smoother(mut self) -> Self {
+        for k in [&mut self.case.controls.h_solver, &mut self.case.controls.h_solver_final] {
+            if matches!(k, HSolver::SmoothSolver(_)) {
+                *k = HSolver::SmoothSymGaussSeidel;
+            }
+        }
+        self
+    }
+
     /// CONTROL, NOT upstream (gh:#1229): the `UEqn_1p.H` Laplacian and `dev2` divergence use the scalar `alpha rho nuEff` (tortuosity ignored).
     #[must_use]
     pub fn without_tortuosity_in_momentum(mut self) -> Self {
@@ -2342,6 +2355,11 @@ impl OnePhaseCcSolver {
             }
             HSolver::PbicgDilu => {
                 let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(&e.ldu, &e.source, &mut x, tol, rel_tol, DEFAULT_MAX_ITER, min_iter);
+                (perf.initial_residual, perf.iterations)
+            }
+            HSolver::SmoothSolver(sweeps) => {
+                let ctl = crate::genfoam::common::smooth_solver::SmoothSolverControls { tolerance: tol, rel_tol, min_iter, sweeps };
+                let perf = crate::genfoam::common::smooth_solver::smooth_solver_sym_gauss_seidel(&e.ldu, &e.source, &mut x, &ctl);
                 (perf.initial_residual, perf.iterations)
             }
             HSolver::SmoothSymGaussSeidel => {

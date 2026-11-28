@@ -9500,3 +9500,60 @@ One-edit variant of the shipped `2D_MSFR` `steadyStateEN` stage (`Allrun` replay
 **Finding from the first port run:** `f9` and `f10` meet the criterion (results below), but the ABLATION of criterion B (tortuosity left out of the momentum) misses the real `f10` by only 2.1e-13 in `U`: with the tortuosity uniform over all 144 cells the case's flow is a plug flow whose viscous term is round-off, so `f10` cannot tell the tortuous branch from the scalar one; it does not test the piece. Round 64 had met the same with `w7_tort` (the half zone, an alpha interface: ablation 3.1e-7). **Added variant, before its real run:** `f11_fc_tort_half` = round 64's `w7_tort` (zone0 shrunk to its first 72 cells + `localTortuosity`) + `momentumMode faceCentered` (named pair). Criteria for `f11`: those of Part B (every field `<= 1e-12`, ablation `> 1e-6` in `U`); `f10` is kept as recorded and its ablation is reported, not gated. Prediction B4: port `f11` `<= 1e-12` (65 %); B5: the `f11` ablation misses by more than 1e-6 in `U` (75 %).
 
 **Part C, criterion as written (not changed):** C2 gates the `h` iteration counts for `s1`, `s3`, `s4`, `s5` only; `s0` and `s2` (`relTol 0`, `maxIter 1000`) stop at the round-off floor of the 1e-14 tolerance, where a 1000-iteration stagnation on one side is round 73's known noise-floor case: their counts are reported, not gated. The first port run applied C2 to `s0` by mistake in the test (fixed in the test, criterion unchanged).
+
+
+## Round 79 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria committed first: Part A `de03e0dd1` (before any comparison run), Parts B and C `ac67f5e9b` (before any run of the variants), addendum A `24f9cc886` (before any port run of `s0`-`s5`), addendum B `c528bd0f7` (before the real run of `f11`); real binary 652b3da on ESI v2506, serial; references in the refs submodule (`25459d8`): `msfr_en20_gamg_tight`, `msfr_en20_gamg` (1.2 MB each, + `_flux_solves`: the real `GAMG` solve lines), `fc_fluid_r79_{f9_cc_tort,f10_fc_tort,f11_fc_tort_half,s0_h_smooth,s1_h_reltol,s2_h_nsweeps,s3_h_maxiter,s4_h_all,s5_h_fixed}` (+ `_log`); tests `tests/genfoam_msfr_chain_vs_upstream.rs::r79_*` (2, 17 s), `tests/genfoam_fullcoupling_fluid_vs_upstream.rs::r79_*` (4, 0.8 s); unit tests `io::nuclear_data::fv_solution::tests::refusals_and_gamg`, `genfoam::common::smooth_solver::tests` (2), `region_solvers::neutronics_settings_tests`)
+
+AI-written, not human-reviewed. Research, education and V&V only.
+
+### What was ported (new code only; no Kovan review stamp exists in any touched folder: no `kind = "review"` block in the crate)
+
+| piece | upstream | port |
+|---|---|---|
+| `GAMG` for the neutronics `flux.*` equations (gh:#1945) | `fvMatrix::solve` -> `GAMGSolver`, `GAMGAgglomeration::New` (registry cache, `requireUpdate_`), `pairGAMGAgglomeration::forward_` | `NeutronSolverKind::Gamg` + `NeutronSolverEntry::gamg`, `linear_solvers::gamg_solve_on_mesh` (round 72's `pair_agglomerate`/`gamg_dic_solve`, unchanged), `resolve_neutron_fv_solution_with` / `read_neutron_fv_solution_with` with `GamgPolicy` (default `Native`; `SubstitutePcgDic` the named ablation; `Refuse`); `RegionSolvers` refuses it by name (process-wide `forward_` across regions and mesh motion not carried) |
+| `localTortuosity` in the faceCentered branch (gh:#1943) | `UEqn_1p.H:20-52` | `one_phase_cc/face_centered.rs`: the tensor terms of round 64 in the separately assembled `lap` matrix; the refusal removed |
+| `smoothSolver` + `symGaussSeidel` with `relTol`, `nSweeps` (incl. `< 0`), `maxIter`, `minIter` (gh:#1942) | `smoothSolver.C:73-209`, `SolverPerformance.C:63-88`, `symGaussSeidelSmoother.C:74-199` | new module `genfoam/common/smooth_solver.rs` (reuses `gamg::sym_gauss_seidel_smooth`, `gamg::ldu_residual`, made `pub(crate)`, and `pcg::{norm_factor, converged, g_sum_mag}`); `HSolver::SmoothSolver(SmoothSolverSweeps)` is what the cell-centred reader selects; the round 46 form stays callable (`HSolver::SmoothSymGaussSeidel`, `OnePhaseCcSolver::with_round46_h_smoother`) and is bit-identical at `nSweeps 1`/`relTol 0`/`maxIter 1000` (unit test, 4 tolerance/minIter cases) |
+
+### Part A (gh:#1945): the 2D_MSFR `steadyStateEN` stage with the shipped GAMG block, 20 steps
+
+A0 (input): the re-run real `steadyStateTH` t = 15 s `T`, `U`, `p`, `alphaPhi`, `htc` are byte-identical to `cases/msfr_fluid/restart_15`. The real EN runs are deterministic (the tight run repeated: identical `keff_` and `GAMG` lines).
+
+| protocol | `keff_` worst (20 steps) | `power:` | `T` lines | first `h` residual | t = 20 s: flux, precStar | powerDensity | fluid `T` | `keff` |
+|---|---|---|---|---|---|---|---|---|
+| TIGHT (`1e-14`, `relTol 0`) | **3.4e-16** | 3.7e-16 | 1.3e-15 | 3.0e-10 (as the PCG EN test, 2.6e-9 pin) | 3.1e-14 | 3.7e-15 | 2.0e-15 | 3.4e-16 |
+| AS SHIPPED (`1e-6`, `relTol 0.01`; fluid `1e-7`) | **8.4e-12** | 1.2e-11 | 1.8e-12 | 3.0e-10 | 3.7e-10 | 1.5e-11 | 1.1e-12 | 4.8e-14 |
+| ABLATION: PCG/DIC substitute, as shipped | **4.5e-5** (step 1) | 7.3e-5 | 1.6e-6 | 1.2e-4 | 3.5e-3 | 2.8e-3 | 1.0e-6 | 1.4e-6 |
+
+Real-binary GAMG iteration counts (reported, not gated; `refs/*_flux_solves`): tight 240 solves, 0-55 V-cycles (median 4), **none at `maxIter`**: GAMG reaches 1e-14 on this matrix; as shipped 240 solves, 1-8 V-cycles.
+
+**A protocol error of mine, post-run, the criterion unchanged:** the first port run of the AS-SHIPPED test staged the fluid region with `cases/msfr_fluid/system/fluidRegion/fvSolution`, which is TIGHT (1e-14), while the real loose run used the shipped `1e-7` fluid tolerances; it gave `keff` 3.7e-10, `T` lines 5.7e-9 (a miss of criterion 2 that was the fluid `h` tolerance, not GAMG: step 1 `T` 1.5e-12 already). The real loose run's own fluid file is committed (`cases/msfr_fluid/fvSolution.en_as_shipped`, differing only in `tolerance`) and the test stages it; the numbers in the table are that run.
+
+### Part B (gh:#1943): `localTortuosity` with `faceCentered` (20 steps each; criterion: every field `<= 1e-12`)
+
+| variant | `U` (max|U|) | `p`, `p_rgh` | `T` | `alphaPhi` | `htc` | `dt` | `T` lines | ablation (tortuosity off in the momentum) |
+|---|---|---|---|---|---|---|---|---|
+| `f9_cc_tort` (control, cell-centred) | 1.7e-13 | 3.9e-14 | 3.7e-15 | 2.2e-13 | 2.8e-14 | 9.4e-14 | 2.6e-15 | not run |
+| `f10_fc_tort` (uniform tortuosity) | 1.8e-13 | 2.6e-14 | 6.7e-15 | 2.2e-13 | 3.1e-14 | 1.1e-13 | 5.3e-15 | 2.1e-13 (cannot discriminate: addendum B; reported) |
+| `f11_fc_tort_half` (half zone, addendum B) | **5.8e-22** | **0** | 3.3e-15 | 1.5e-21 | **0** | **0** | 1.1e-15 | **4.9e-8** |
+
+`f11` is bit-identical in `p`, `p_rgh`, `htc` and `dt` over 20 steps and at round-off of ZERO in `U` (the faceCentered `U` comes from `reconstruct(phi)`); two of its 154 gated solves (`h`, initial residual 1e-2) differ by 2 iterations, reported.
+
+### Part C (gh:#1942): `smoothSolver` controls for `h` (20 steps each)
+
+All six variants meet the field criterion: `U` 1.8e-13, `p` 3.5e-14, `T` `<= 3.2e-15`, `alphaPhi` 2.4e-13, `htc` 2.9e-14, `dt` 1.4e-13, `T` lines `<= 1.9e-15`. `h` iteration counts: **equal in all 60 non-floor solves of `s1` (`relTol 0.1`: 1 sweep each), `s3` (`maxIter 2`), `s4` (`relTol 0.05`, `nSweeps 3`, `maxIter 7`: 3 each, the relTol stops at the first call)**; `s5` (`nSweeps -2`): every `h` residual is 0 in the real log and in the port (2 iterations each); `s0`/`s2` reported: one solve at the 1e-14 round-off floor (step 2, outer 2) runs 6 sweeps in the binary and 1000 in the port, the stagnation case of round 73 (fields at 1e-13 after it). Ablation: the round 46 form on `s1` misses `T` by **4.9e-5**.
+
+### Predictions: held / missed (post-run)
+
+A0 **held**. A1 **held** (3.4e-16 against 1e-11). A2 **held** (55 %). **A3 MISSED** (GAMG reaches 1e-14 on the neutronics matrix in 0-55 V-cycles; no solve at `maxIter`). A4 **held** after the protocol error was fixed (8.4e-12; the first run, with the wrong fluid file, missed on `T` lines). A5 **held** (4.5e-5 against 1e-8). A6: see the tests below. B1 **held**. B2 **held** at the first run (65 %). **B3 MISSED** (the `f10` ablation is 2.1e-13: the uniform-tortuosity variant cannot discriminate, addendum B). B4 **held** (5.8e-22, 65 %). **B5 MISSED** (4.9e-8 against the criterion 1e-6; the test asserts it at a POST-RUN pin `> 1e-9`, not at the criterion: the branch moves `U` eight orders above the agreement, but less than the fixed criterion). C1 **held** (70 %). C2 **held** (80 %). C3 **held** in form (`s4`'s `relTol 0.05` stopped every non-floor solve at the first 3-sweep call, so the `maxIter 7` -> 9 stop was not reached in any solve: the unit test `rel_tol_n_sweeps_max_iter_and_fixed_sweeps` pins the 12-at-`maxIter 10` case instead). C4 **held**. C5: see the tests below.
+
+### Earlier numbers: none moved (A6, C5 held)
+
+Tests run (2026-11-28, release; targeted, no full suite): `genfoam_fullcoupling_fluid_vs_upstream` 26 + 4 ignored (incl. round 55's `v3_smooth`, now through the new module, and every round 71/73 variant at its pin), `genfoam_msfr_chain_vs_upstream` 7 (incl. the 600-step EN chain, 188 s), `genfoam_msfr_allrun_vs_upstream` 6 + 2 ignored, `genfoam_fv_solution_df_vs_upstream` 24 + 1 ignored, `genfoam_external_source_vs_upstream` 11, `genfoam_esfr_fluid_vs_upstream` 2, `genfoam_fftf_pieces_vs_upstream` 14 + 4 ignored, `genfoam_one_phase_vs_upstream` 5 + 2 ignored, `genfoam_one_phase_fc_vs_upstream` 18 + 3 ignored, `genfoam_esfr_coupled_vs_upstream` 2, `genfoam_coupled_tutorials_requirements` 2, `genfoam_fullcoupling_three_region_vs_upstream` 5, `genfoam_gamg_is_default` 2, `genfoam_gamg_smoothers_vs_upstream` 4, `genfoam_msfr_gamg_vs_upstream` 1 + 5 ignored; `--lib` filters `nuclear_data` 11, `linear_solvers` 4, `smooth_solver` 2, `neutronics_settings` 2, `one_phase` 23, `gamg` 8: no failure; `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean. The ignored long ESFR tests, `scripts/check-nostd.sh` as a whole and `scripts/check-wasm.sh` were not run.
+
+### Not done, and filed
+
+GAMG for the neutronics flux in a multi-region `RegionSolvers` run (the process-wide `forward_` and the re-agglomeration after mesh motion: gh:#1956, refused by name until then); `smoothSolver` controls for `k`/`epsilon` and for the `h` of `one_phase_fc` and twoPhase (gh:#1957); a variant in which the faceCentered tortuous term moves `U` by more than 1e-6, and the `SfGammaCorr` path (gh:#1958).
+
+### Reproduction
+
+Part A: `bash scripts/run_msfr_chain.sh steadyStateTH <root>` (528 s), then `NEUTRO_FVSOLUTION=cases/msfr_neutro/fvSolution.gamg [PROTOCOL=tight] EN_END=20 EN_WRITE=5 bash scripts/run_msfr_chain.sh steadyStateEN <root>` (about 1 min each), `bash scripts/extract_msfr_en_reference.sh <root> 20 msfr_en20_gamg[_tight]`; port `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_msfr_chain_vs_upstream r79_ -- --nocapture`. Parts B, C: `bash scripts/make_round79_variants.sh cases/fullcoupling_fluid <out>`, `ROUND=r79 bash scripts/run_round73_variants.sh <out> <refs out> <names>` (seconds each); port `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_fluid_vs_upstream r79_ -- --nocapture`.

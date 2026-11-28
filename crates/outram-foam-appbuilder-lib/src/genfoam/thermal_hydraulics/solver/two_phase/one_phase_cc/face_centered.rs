@@ -34,7 +34,9 @@
 //! [`super::super::one_phase_fc`] does (rounds 38, 45, 46). `psi = 0` is assumed (`Boussinesq`, `icoPolynomial`): a compressible closed volume
 //! is not reachable from the readers that feed this solver.
 //!
-//! Not ported here (refused by name when the case is read): `localTortuosity` with `faceCentered`.
+//! ~~Not ported here (refused by name when the case is read): `localTortuosity` with `faceCentered`.~~ **CHANGED 2026-11-27 (gh:#1943,
+//! README round 79):** the tortuous branch of `UEqn_1p.H` (tensor diffusivity `alpha rho nuEff tortuosity`) is in the `faceCentered`
+//! `UEqn` too; nothing else of `pEqnf_1p.H` reads the tortuosity.
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -44,6 +46,7 @@ use outram_foam_basic_lib::primitives::Vector3;
 
 use super::super::fv::{self, Bc, Eqn, Scalar, Vector};
 use super::super::pcg::pcg_dic;
+use super::super::tensor_laplacian;
 use super::super::thermo::PhaseThermo;
 use super::flow::{reconstruct_u_1p, FlowState, OnePhaseFlowCase, PressureSolve, UEqnCc};
 use super::OnePhaseCcSolver;
@@ -83,9 +86,22 @@ impl OnePhaseCcSolver {
         let ce: Vec<f64> = self.cont_err.iter().map(|v| -v).collect();
         e.su_sp(&g, &ce, &self.u.c);
         let mut lap = UEqnCc::new(&g);
-        lap.eqn.neg_laplacian(&g, gamma, &zg);
-        lap.boundary_laplacian(&g, gamma, &self.u);
-        let dev2 = super::super::dev2_div(&g, &self.u, arn);
+        let dev2 = if let Some(td) = self.case.tortuosity.as_ref().filter(|_| !self.ctl_no_tort_momentum) {
+            // the tortuous branch of `UEqn_1p.H:27-40` (gh:#1943, README round 79): `- fvm::laplacian(alpha rho nuEff tortuosity, U)
+            // - fvc::div(alpha rho nuEff tortuosity & dev2(T(grad U)))`, the same tensor-diffusivity terms as the cell-centred branch
+            // (round 64, `tensor_laplacian`), assembled here as their own matrix (`lap`) and added whole, as upstream's parenthesis does
+            let (tc, tb) = tensor_laplacian::tortuosity_fields(&g, td).expect("validated when the case was read");
+            let gc: Vec<_> = (0..n).map(|c| tensor_laplacian::scale(arn.c[c], &tc[c])).collect();
+            let gb: Vec<_> = (0..nb).map(|i| tensor_laplacian::scale(arn.b[i], &tb[i])).collect();
+            let gf = tensor_laplacian::interpolate(&g, &gc, &gb);
+            let tg = tensor_laplacian::decompose(&g, &gf);
+            tensor_laplacian::add_neg_laplacian_vector(&mut lap, &g, &tg, &self.u);
+            super::super::dev2_div_tortuous(&g, &self.u, arn, (&tc, &tb))
+        } else {
+            lap.eqn.neg_laplacian(&g, gamma, &zg);
+            lap.boundary_laplacian(&g, gamma, &self.u);
+            super::super::dev2_div(&g, &self.u, arn)
+        };
         lap.sub_field(&g, &dev2);
         e.add(&lap);
         let mut sp_m = UEqnCc::new(&g);

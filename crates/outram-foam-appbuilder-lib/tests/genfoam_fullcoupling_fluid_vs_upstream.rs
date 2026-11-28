@@ -225,6 +225,10 @@ struct RunReport {
     first_residual_over: Option<(usize, f64)>,
     /// Number of `p_rgh` solves whose count or order could not be matched to the port's (round 73).
     unmatched_solves: usize,
+    /// Worst iteration-count difference of the `h` solves whose upstream initial residual is above `FLOOR` (round 79, gh:#1942).
+    h_iter_worst: i64,
+    /// Number of those `h` solves.
+    h_gated: usize,
 }
 
 fn decade(ini: f64) -> usize {
@@ -279,6 +283,8 @@ fn run_solver(
         first_t_line_over: None,
         first_residual_over: None,
         unmatched_solves: 0,
+        h_iter_worst: 0,
+        h_gated: 0,
     };
     for step in 1..=n_steps {
         solver.begin_time_step(dt);
@@ -320,6 +326,8 @@ fn run_solver(
         for &(o, ini, it) in lg.h.get(&step).map_or(&[][..], Vec::as_slice) {
             let (r, n) = hs[o - 1];
             if ini > FLOOR {
+                rep.h_iter_worst = rep.h_iter_worst.max((n as i64 - it).abs());
+                rep.h_gated += 1;
                 rep.solve_worst_res = rep.solve_worst_res.max(((r - ini) / ini).abs());
                 rep.solve_worst_it = rep.solve_worst_it.max((n as i64 - it).abs());
                 rep.log_gated += 1;
@@ -845,4 +853,144 @@ fn r73_face_centered_differs_from_cell_centred_in_the_port() {
     let (a, b) = (run(false), run(true));
     // the two modes differ at round-off level on this 1-D-like channel (the real references differ in all 160 entries by bits)
     assert!(a.iter().zip(&b).any(|(x, y)| x.to_bits() != y.to_bits()), "faceCentered and cellCentered gave bit-identical U and p_rgh");
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Round 79 (gh:#1943, #1942; README "Round 79", Parts B and C): `localTortuosity` in the faceCentered branch, and `smoothSolver` with
+// `relTol`, `nSweeps`, `maxIter` for `h`. Each variant is the edit of `scripts/make_round79_variants.sh` (after its addendum A), applied
+// here as a string edit; references `refs/fc_fluid_r79_<name>` (real binary 652b3da on ESI v2506, serial, 20 steps,
+// `ROUND=r79 scripts/run_round73_variants.sh`). Criteria (fixed before any run): round 73's (every field `<= 1e-12`, `dt` and `T` lines
+// `<= 1e-12`), plus for Part C the `h` iteration counts equal in every solve above the noise floor.
+// ---------------------------------------------------------------------------------------------------------------------------------
+
+/// `localTortuosity (0.7 1.3 0.01389);` in `structureProperties.zone0` (the round 64 value).
+fn variant_tortuosity(root: &Path) {
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| t.replacen("volumeFraction      0.5;", "volumeFraction      0.5;\n        localTortuosity     (0.7 1.3 0.01389);", 1));
+}
+
+/// Round 55's `v3_smooth` with `extra` keys in both the `h` and the `hFinal` entry (README round 79 addendum A).
+fn smooth_entries(root: &Path, extra: &'static str) {
+    edit_file(root, "system/fluidRegion/fvSolution", |t| {
+        let entry = |name: &str| {
+            format!("    {name}\n    {{\n        solver          smoothSolver;\n        smoother        symGaussSeidel;\n        tolerance       1e-14;\n{extra}    }}\n")
+        };
+        let i = t.find("\".*\"").expect("catch-all");
+        let close = i + t[i..].find('}').expect("}");
+        let nl = close + t[close..].find('\n').expect("nl") + 1;
+        format!("{}{}{}{}", &t[..nl], entry("h"), entry("hFinal"), &t[nl..])
+    });
+}
+
+fn variant_s0(root: &Path) {
+    smooth_entries(root, "        relTol          0;\n");
+}
+fn variant_s1(root: &Path) {
+    smooth_entries(root, "        relTol          0.1;\n");
+}
+fn variant_s2(root: &Path) {
+    smooth_entries(root, "        relTol          0;\n        nSweeps         2;\n");
+}
+fn variant_s3(root: &Path) {
+    smooth_entries(root, "        relTol          0;\n        maxIter         2;\n");
+}
+fn variant_s4(root: &Path) {
+    smooth_entries(root, "        relTol          0.05;\n        nSweeps         3;\n        maxIter         7;\n");
+}
+fn variant_s5(root: &Path) {
+    smooth_entries(root, "        relTol          0;\n        nSweeps         -2;\n");
+}
+
+fn run79(tag: &str, edits: &[fn(&Path)], reference: &str, ctl: impl Fn(OnePhaseCcSolver) -> OnePhaseCcSolver) -> RunReport {
+    let (root, poly) = stage(tag);
+    for e in edits {
+        e(&root);
+    }
+    run_case(&root, &poly, &format!("fc_fluid_r79_{reference}.ref.txt.gz"), &format!("fc_fluid_r79_{reference}_log.ref.txt.gz"), Some(VARIANT_STEPS), ctl)
+}
+
+/// # B, control (gh:#1943): the cell-centred tortuous `UEqn` (round 64's code) on this case, against the real binary
+///
+/// Results (2026-11-28, 20 steps): `U` 1.7e-13 (max|U|), `p` 3.9e-14, `T` 3.7e-15, `alphaPhi` 2.2e-13, `dt` 9.4e-14, `T` lines 2.6e-15: criterion met.
+#[test]
+fn r79_cell_centred_tortuosity_matches_the_real_binary() {
+    round73_gate("f9", &run79("r79f9", &[variant_tortuosity], "f9_cc_tort", |s| s));
+}
+
+/// # B (gh:#1943): `localTortuosity` (uniform over all 144 cells) in the faceCentered branch, against the real binary. Its ablation
+/// (tortuosity left out of the momentum, a CONTROL) is REPORTED, not gated (README round 79 addendum B: the plug flow makes the viscous
+/// term round-off, so this variant cannot tell the branches apart; measured 2.1e-13): [`r79_face_centred_tortuosity_at_an_interface_matches_the_real_binary_and_the_ablation_does_not`]
+/// is the discriminating one.
+///
+/// Results (2026-11-28, 20 steps): `U` 1.8e-13, `p` 2.6e-14, `T` 6.7e-15, `alphaPhi` 2.2e-13, `dt` 1.1e-13: criterion met; ablation 2.1e-13 (reported).
+#[test]
+fn r79_face_centred_tortuosity_matches_the_real_binary() {
+    round73_gate("f10", &run79("r79f10", &[variant_tortuosity, variant_face_centered], "f10_fc_tort", |s| s));
+    let abl = run79("r79f10a", &[variant_tortuosity, variant_face_centered], "f10_fc_tort", |s| s.without_tortuosity_in_momentum());
+    println!("f10 ABLATION without tortuosity in the momentum (reported): U {:e}", abl.worst[0]);
+}
+
+/// `zone0` shrunk to its first 72 of 144 cells (an alpha interface; round 62's `w2_half_cc` edit).
+fn variant_half_zone(root: &Path) {
+    edit_file(root, "constant/fluidRegion/polyMesh/cellZones", |t| {
+        let i = t.find("cellLabels").expect("cellLabels");
+        let cnt = i + t[i..].find("\n144\n").expect("count") + 1;
+        let open = cnt + "144\n(\n".len();
+        let close = open + t[open..].find("\n)").expect(")");
+        let labels: Vec<&str> = t[open..close].split('\n').collect();
+        assert_eq!(labels.len(), 144);
+        format!("{}72\n(\n{}{}", &t[..cnt], labels[..72].join("\n"), &t[close..])
+    });
+}
+
+/// # B (gh:#1943, addendum B): round 64's `w7_tort` (half zone + `localTortuosity`) with `momentumMode faceCentered`, against the real
+/// binary; the ablation (tortuosity left out of the momentum) must miss it by more than 1e-6 in `U` (criterion B5).
+///
+/// Results (2026-11-28): every field at round-off of zero (`U` 5.8e-22 of max|U|, `p`/`p_rgh`/`htc` 0, `T` 3.3e-15), `dt` 0, `T` lines
+/// 1.1e-15, 154 gated solves (two `h` solves differ by 2 iterations at 1e-2 initial residual, reported). The ablation misses by **4.9e-8**
+/// in `U`: **criterion B5 (1e-6) MISSED**; asserted here at a POST-RUN pin (`> 1e-9`: the branch moves `U` 8 orders above the 5.8e-22
+/// agreement), not at the criterion. README "Round 79 results".
+#[test]
+fn r79_face_centred_tortuosity_at_an_interface_matches_the_real_binary_and_the_ablation_does_not() {
+    let edits: [fn(&Path); 3] = [variant_half_zone, variant_tortuosity, variant_face_centered];
+    round73_gate("f11", &run79("r79f11", &edits, "f11_fc_tort_half", |s| s));
+    let abl = run79("r79f11a", &edits, "f11_fc_tort_half", |s| s.without_tortuosity_in_momentum());
+    println!("f11 ABLATION without tortuosity in the momentum: U {:e}", abl.worst[0]);
+    assert!(abl.worst[0] > 1e-9, "the tortuous branch must matter (post-run pin; criterion 1e-6 missed at 4.9e-8): {:e}", abl.worst[0]);
+}
+
+/// Part C gate: round 73's, and (when `counts_gated`) the `h` iteration counts equal in every solve above the noise floor.
+fn round79_c_gate(name: &str, r: &RunReport, counts_gated: bool) {
+    round73_gate(name, r);
+    println!("{name}: h solves above the floor {} (worst iteration difference {}, gated: {counts_gated})", r.h_gated, r.h_iter_worst);
+    if counts_gated {
+        assert_eq!(r.h_iter_worst, 0, "{name}: h iteration counts");
+    }
+}
+
+/// # C (gh:#1942): `smoothSolver` for `h` with `relTol`, `nSweeps`, `maxIter` (and the fixed-sweep `nSweeps < 0`) against the real binary
+///
+/// Methodology: the six variants `s0`-`s5` of `scripts/make_round79_variants.sh` (README round 79 addendum A), 20 steps each; criteria
+/// above. The ablation: `s1` (`relTol 0.1`) run with the round 46 form (`HSolver::SmoothSymGaussSeidel`: `nSweeps 1`, no `relTol`) must
+/// miss the real `s1` `T` by more than 1e-10.
+///
+/// Results (2026-11-28, 20 steps each): every variant `U` 1.8e-13, `p` 3.5e-14, `T` <= 3.2e-15, `alphaPhi` 2.4e-13, `dt` 1.4e-13: criterion met;
+/// `h` iteration counts EQUAL in all 60 non-floor solves of `s1`, `s3`, `s4` (`s5`: every `h` residual 0 in both, as upstream logs it);
+/// `s0`/`s2` reported: one `h` solve at the 1e-14 floor runs 1000 sweeps in the port against 6 in the binary (step 2, outer 2).
+/// Ablation: the round 46 form on `s1` misses `T` by 4.9e-5 (criterion C4 held).
+#[test]
+fn r79_smooth_solver_controls_match_the_real_binary() {
+    // the `h` counts of s0 and s2 (`relTol 0`, `maxIter 1000`) end at the 1e-14 round-off floor: reported, not gated (addendum B)
+    for (name, v, reference, counts_gated) in [
+        ("s0", variant_s0 as fn(&Path), "s0_h_smooth", false),
+        ("s1", variant_s1, "s1_h_reltol", true),
+        ("s2", variant_s2, "s2_h_nsweeps", false),
+        ("s3", variant_s3, "s3_h_maxiter", true),
+        ("s4", variant_s4, "s4_h_all", true),
+        ("s5", variant_s5, "s5_h_fixed", true),
+    ] {
+        round79_c_gate(name, &run79(&format!("r79{name}"), &[v], reference, |s| s), counts_gated);
+    }
+    let abl = run79("r79s1a", &[variant_s1], "s1_h_reltol", |s| s.with_round46_h_smoother());
+    println!("s1 ABLATION round 46 smoother (no relTol): T {:e}", abl.worst[6]);
+    assert!(abl.worst[6] > 1e-10, "relTol must matter: {:e}", abl.worst[6]);
 }

@@ -74,6 +74,7 @@ pub mod time_profile;
 pub mod linear_solvers;
 pub(crate) mod pcg;
 pub mod gamg;
+pub mod smooth_solver;
 
 pub use interpolate_table::{
     InterpolateTableError, InterpolationMethod, OutOfBounds, ScalarInterpolateTable,
