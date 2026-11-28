@@ -7,6 +7,7 @@
 #                         (every precPKStar solve, in order), `NRES <step> <iteration> <neutroResidual>`, `POWER <step> <totalPower>`,
 #                         `REACT <step> <totalReactivity pcm>`, `LFBETA <step> <liquidFuelBeta pcm>`, `PEQ <step> <precEquilibriumReactivity pcm>`,
 #                         `DTNEXT`, `STEPTIME`
+# Round 81 (gh:#1962): `MSR_EXTRA_FIELDS="<region/name> ..."` appends fields to the list below.
 R=$1; OUT=$2; EVERY=${3:-1}
 HERE=$(dirname "$0")
 TIMES=$(ls "$R" | grep -E '^[0-9.e+-]+$' | awk '$1 > 100' | sort -g | awk -v e="$EVERY" '{n++; if (n % e == 0) print}' | tr '\n' ' ')
@@ -15,7 +16,7 @@ for t in $TIMES; do
   for rf in fluidRegion/U fluidRegion/p fluidRegion/p_rgh fluidRegion/T fluidRegion/k fluidRegion/epsilon fluidRegion/nut fluidRegion/alphat \
             neutroRegion/precPKStar0 neutroRegion/precPKStar1 neutroRegion/precPKStar2 neutroRegion/precPKStar3 neutroRegion/precPKStar4 \
             neutroRegion/precPKStar5 neutroRegion/precPKStar6 neutroRegion/precPKStar7 neutroRegion/powerDensity neutroRegion/TFuel \
-            neutroRegion/TCool neutroRegion/rhoCool; do
+            neutroRegion/TCool neutroRegion/rhoCool $MSR_EXTRA_FIELDS; do
     file=$R/$t/$rf
     [ -f "$file" ] || continue
     printf "F %s %s " "$t" "$rf" >> "$OUT.ref.txt"

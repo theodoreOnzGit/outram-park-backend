@@ -6,7 +6,10 @@
 #   writeControl adjustableRunTime, writeInterval 10, regionSolvers/neutroRegion pointKinetics, removeBaffles/neutroRegion false,
 #   multiRegionCouplingDict_Coupled, `GeN-Foam -initializeMappedFields`), then the protocol edits only: writePrecision 17;
 #   MODE first: writeControl timeStep, writeInterval 1, endTime = the time of step N_FIRST of `<out dir>/../tr_full/log.GeN-Foam`.
+# Round 81 (gh:#1962): `MSR_CASE_DIR=<tutorial dir>` names the tutorial whose Allrun is followed (default 1D_MSR_pointKinetics); an edit
+#   only some Allruns perform (`startFrom startTime`, `startTime 100` in 1D_thermalMSR's setTransient) is applied when that Allrun has it.
 set -e
+CASEDIR=${MSR_CASE_DIR:-${GENFOAM_UPSTREAM:-/home/user/upstream-build/GeN-Foam-src}/Tutorials/reactorCases/1D_MSR_pointKinetics}
 SS=$1; OUT=$2; MODE=$3; NF=${4:-60}
 W=/home/user/upstream-build/scripts/with-of.sh
 rm -rf "$OUT"; mkdir -p "$OUT"
@@ -14,6 +17,10 @@ cp -r "$SS/0" "$SS/100" "$SS/constant" "$SS/system" "$OUT/"
 cd "$OUT"
 cp -r 0/neutroRegion 100/
 cp -r 0/uniform 100/
+if grep -q 'startTime -set 100' "$CASEDIR/Allrun"; then
+  $W foamDictionary system/controlDict -entry startFrom -set startTime >/dev/null
+  $W foamDictionary system/controlDict -entry startTime -set 100 >/dev/null
+fi
 $W foamDictionary system/controlDict -entry endTime -set 400 >/dev/null
 $W foamDictionary system/controlDict -entry adjustTimeStep -set true >/dev/null
 $W foamDictionary system/controlDict -entry writeControl -set adjustableRunTime >/dev/null

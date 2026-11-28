@@ -107,11 +107,20 @@ fn protocol_edits(root: &Path, tight: bool, pcg: bool) {
 
 /// Stage `cases/msr1d_root` with Allrun's `steadyState` edits and the protocol edits.
 fn stage(tag: &str, tight: bool, pcg: bool) -> (PathBuf, PathBuf) {
+    stage_case("msr1d_root", tag, tight, pcg)
+}
+
+/// [`stage`] of any copy of a shipped 1-D MSR `rootCase` (round 81, gh:#1962: `msr1d_thermal_root`, whose Allrun's extra
+/// `startFrom startTime; startTime 0` are already the case's own values).
+fn stage_case(case: &str, tag: &str, tight: bool, pcg: bool) -> (PathBuf, PathBuf) {
     let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1905_{tag}"));
     let _ = std::fs::remove_dir_all(&root);
-    copy_dir(&vv_dir().join("cases/msr1d_root"), &root);
+    copy_dir(&vv_dir().join(format!("cases/{case}")), &root);
     std::fs::copy(root.join("constant/multiRegionCouplingDict_TH"), root.join("constant/multiRegionCouplingDict")).expect("coupling dict");
-    edit_file(&root, "system/controlDict", |t| t.replacen("endTime         1000;", "endTime         100;", 1));
+    edit_file(&root, "system/controlDict", |t| {
+        assert!(t.contains("endTime         1000;"), "endTime edit");
+        t.replacen("endTime         1000;", "endTime         100;", 1)
+    });
     protocol_edits(&root, tight, pcg);
     let poly = root.join("constant/fluidRegion/polyMesh");
     (root, poly)
@@ -605,4 +614,13 @@ fn first_epsilon_difference_is_the_pow_of_the_wall_function() {
         dt = adjust_delta_t(true, &[s.max_delta_t()], 1e-300, dt).expect("adjustable");
     }
     println!("differing epsilon cells {}: upstream equals the platform-pow value in {}, the port equals the PETIR-pow value in {}", tally.0, tally.1, tally.2);
+}
+
+/// Round 81 (gh:#1962): the shipped `1D_thermalMSR_pointKinetics` fluid region reads (probe of the reader, no comparison).
+#[test]
+fn thermal_msr_case_reads() {
+    let (root, poly) = stage_case("msr1d_thermal_root", "thermal_read", false, false);
+    let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+    let c = OnePhaseCcCase::read_with_options(&root, &poly, &opts).unwrap_or_else(|e| panic!("thermal: {e}"));
+    assert_eq!(c.t.len(), 640);
 }

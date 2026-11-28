@@ -9,11 +9,25 @@
 #   PROTO tight: every `tolerance` 1e-14, every `relTol` 0 (the protocol of rounds 18-79). PROTO loose: tolerances as shipped.
 #   SOLVER pcg: p_rgh/p_rghFinal `GAMG` -> `PCG`/`DIC` (the named substitute). SOLVER gamg: as shipped.
 # The case directory is case-for-case what the port reads (`cases/msr1d_root` = the shipped rootCase verbatim).
+# Round 81 (gh:#1962): the tutorial is a parameter, `MSR_CASE_DIR=<tutorial dir>` (default the shipped 1D_MSR_pointKinetics; e.g.
+#   `MSR_CASE_DIR=.../Tutorials/reactorCases/1D_thermalMSR_pointKinetics`, the port's copy `cases/msr1d_thermal_root`). An Allrun edit
+#   that only some tutorials' Allrun performs (`startFrom startTime`, `startTime 0` in 1D_thermalMSR's setSteadyState) is applied when
+#   THAT tutorial's Allrun contains it (for 1D_MSR both are no-ops: `startFrom latestTime` with only `0` written).
 set -e
 OUT=$1; PROTO=$2; SOLVER=$3; MODE=$4; NF=${5:-60}
-SRC=${GENFOAM_UPSTREAM:-/home/user/upstream-build/GeN-Foam-src}/Tutorials/reactorCases/1D_MSR_pointKinetics/rootCase
+HERE=$(cd "$(dirname "$0")" && pwd)
+CASEDIR=${MSR_CASE_DIR:-${GENFOAM_UPSTREAM:-/home/user/upstream-build/GeN-Foam-src}/Tutorials/reactorCases/1D_MSR_pointKinetics}
+SRC=$CASEDIR/rootCase
 W=/home/user/upstream-build/scripts/with-of.sh
 rm -rf "$OUT"; cp -r "$SRC" "$OUT"; cd "$OUT"
+if [ -n "$MSR_VARIANT" ]; then
+  # round 81: a `kappaMatrix` variant of 1D_thermalMSR (`make_msr1d_thermal_kappa_r81.py`: core|seam), NOT shipped
+  python3 -I "$HERE/make_msr1d_thermal_kappa_r81.py" constant/fluidRegion/phaseProperties "$MSR_VARIANT"
+fi
+if grep -q 'startTime -set 0' "$CASEDIR/Allrun"; then
+  $W foamDictionary system/controlDict -entry startFrom -set startTime >/dev/null
+  $W foamDictionary system/controlDict -entry startTime -set 0 >/dev/null
+fi
 $W foamDictionary system/controlDict -entry endTime -set 100 >/dev/null
 $W foamDictionary system/controlDict -entry adjustTimeStep -set true >/dev/null
 $W foamDictionary system/controlDict -entry writeControl -set timeStep >/dev/null
