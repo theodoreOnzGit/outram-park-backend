@@ -1947,6 +1947,15 @@ pub(super) fn read_thermo(ctx: &Ctx, rel: &str) -> Result<PhaseThermo, AppBuilde
                 ctx.list8(tr, "kappaCoeffs<8>")?,
             ))
         }
+        // gh:#1876 (README round 87): `3D_HTR-10`'s helium
+        ("perfectGas", "hPolynomial", "polynomial") => Ok(PhaseThermo::perfect_gas_polynomial(
+            w,
+            ctx.list8(th, "CpCoeffs<8>")?,
+            ctx.f64(th, "Hf")?,
+            ctx.f64(th, "Sf")?,
+            ctx.list8(tr, "muCoeffs<8>")?,
+            ctx.list8(tr, "kappaCoeffs<8>")?,
+        )),
         ("perfectGas", "hConst", "const") => Ok(PhaseThermo::perfect_gas_const(
             w,
             ctx.f64(th, "Cp")?,

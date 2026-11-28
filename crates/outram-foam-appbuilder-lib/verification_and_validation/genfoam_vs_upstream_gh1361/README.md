@@ -10593,3 +10593,54 @@ No pin moved. The flux-log change is the same arithmetic: on `tr_plain` and `tr_
 ### Reproduction
 
 `bash scripts/run_esfr_transient_r86.sh <d> <out>` (real: steady 255 s, each transient about 140 s; `tr_init`, `tr_plain`, `sens`, `ts`); `NEUTRO_GAMG=1 NEUTRO_NCOARSEST=40 TIGHT=0 END=20 INFLATE=1 bash scripts/make_esfr_coupled_case.sh <c>`, the real run and `python3 -I scripts/extract_esfr_coupled_stream.py <c> <prefix> 20 1,2,5,10,20` (started after the binary has passed `removeBaffles`: the extractor stops at the first log line `End`, which the mesh step prints too). Port: `ESFR_T_CASE=<inflated copy of constant, system, 0, 200> ESFR_T_STEPS=500 ESFR_T_REF=loose|r86_loose_sens|r86_loosets [ESFR_T_ALLFP=1] [ESFR_T_ABLATE=folded_energy] cargo test --release -p outram-foam-appbuilder-lib --test genfoam_esfr_transient_vs_upstream esfr_transient_steps -- --nocapture`; `ESFR_COUPLED_CASE=<c> ESFR_STEPS=20 ESFR_REF=r86_g40|r82_gloose [ESFR_CONTROL=reagg_off|shared_off] cargo test ... --test genfoam_esfr_coupled_vs_upstream esfr_coupled_steps -- --nocapture`.
+
+# Round 87 (gh:#1876 under #1216): `reactorCases/3D_HTR-10` AS SHIPPED, inventory first
+
+**Branch `claude/genfoam-round87` on `cf05250d3` (round 86).** Read before any run: the shipped tutorial (`Tutorials/reactorCases/3D_HTR-10/{README.md,Allrun,Alltest,rootCase}` of GeN-Foam 652b3da), `nuclearSteadyStatePebble.{C,H}`, `thermalHydraulicsModel.C` (the `p`, `phi` and `powerDensityNeutronics` fields), `pEqnf_1p.H` and its `pEqnRoutines`, ESI v2506 `turbulentIntensityKineticEnergyInletFvPatchScalarField.C`, `turbulentMixingLengthDissipationRateInletFvPatchScalarField.C`, `Polynomial.C`. The real binary was started on an unedited copy of `rootCase` before any port code was written (to measure its shipped runtime).
+
+## Inventory of the shipped case (read from the files; no geometry was built: the shipped mesh is read as it is)
+
+**The shipped case is ONE region.** `regionProperties` lists only `fluidRegion` (`onePhase`). **There is no Voronoi power mesh and no `meshToMesh` in the case:** the pebble-wise Serpent power was mapped onto the thermal-hydraulic mesh OFFLINE by the tutorial's `PF_mapping.ipynb` and ships as the nonuniform field `0/fluidRegion/powerDensityNeutronics` (337 675 values; the field has priority over the dictionary's `powerDensityNeutronics 1480541.22`); `alpha.structure` (the packing fraction, per cell) is mapped the same way. So gh:#1854 (`meshToMesh` between non-identical meshes) is **not** a blocker of the shipped HTR-10 (it may be of a variant with a neutronics region; none ships). gh:#1230 (`lumpedNuclearStructure`, ported in rounds 80-81) and gh:#1872 (H2) are not used by HTR-10 either. `long_geo_HTR_ori.msh` (gmsh) is the source of the polyMesh and is not read by the solver.
+
+| item | shipped selection | port before round 87 |
+|---|---|---|
+| mesh | 337 675 cells, 662 120 internal faces (about two internal faces per cell: tetrahedra), 6 patches (`Outlet`, `Inlet`, `Active`, `Cone`, `Defueling_chute`, `Defueling_end`, all `patch`), one cellZone `Core` = every cell | read |
+| solver | `onePhase`, `momentumMode faceCentered`, `nCorrectors 2`, `nNonOrthogonalCorrectors 1`, `solveFluidMechanics true`, `solveEnergy true`, no `nOuterCorrectors` (1) | ported (rounds 33, 38, 73) |
+| thermo | `heRhoThermo`, `pureMixture`, `polynomial` transport, `hPolynomial` thermo, **`perfectGas`** EOS, `sensibleEnthalpy`; helium `molWeight 4`, `CpCoeffs (5195 0 ...)`, 6-term `mu`/`kappa` polynomials | **refused** (`thermoType.transport must be const`) |
+| compressibility | `psi = 1/(R T) > 0`: `pEqnComp`'s `(alpha psi/rho) correction(fvm::ddt(p_rgh))`, `rho += psi (p_rgh - p_rgh_0)`; NOT a closed volume (`p_rgh` `fixedValue` on `Outlet`: `setReference` inert) | **assumed 0** (`face_centered.rs`: "not reachable from the readers") |
+| structure | `Core`: `volumeFraction 0.57` (overridden by the `alpha.structure` file), `Dh 0.04547`, **`nuclearSteadyStatePebble`** (`pebbleCoreRadius 0`, matrix 2.5e-2, shell 3e-2, TRISO 2.5/3.4/3.8/4.15/4.55e-4, `nTRISO 8335`, constant conductivities, polynomial densities) | **refused** (`powerModel is not ported in the one-phase cell-centred region`); the physics chain exists as `PebbleGeometry` (round 2df1) but requires a central core (`assert 0 < core_radius`) and reorders the arithmetic |
+| closures | `ReynoldsPower` drag (`coeff 300`, `exp -1`, `const 3.5`), `NusseltReynoldsPrandtlPower` (Wakao: 2, 1.1, 0.6, 0.33), `regimeMapModel none` | ported |
+| `p` | **no `0/fluidRegion/p`**: upstream's `p` is `READ_IF_PRESENT`, else a copy of `p_rgh` (`thermalHydraulicsModel.C:159-170`) | **refused** (I/O error on `p`) |
+| `p_rgh` | GAMG/DIC 1e-6, `relTol 0`; patches `fixedFluxExtrapolatedPressure` (`Inlet`, `Defueling_end`), `fixedValue 3e6` (`Outlet`), `zeroGradient` | ported (round 73: alias of `fixedFluxPressure`; GAMG native, round 76) |
+| `U` | `fixedValue` (`Inlet` -0.612 m/s, `Defueling_end` +0.541 m/s: the chute flow upward), `zeroGradient` | ported |
+| `T` | nonuniform internal field, `fixedValue 523.15` (`Inlet`, `Defueling_end`), `zeroGradient` | ported |
+| turbulence | `RAS porousKEpsilon` with `DhStruct 5`, `convergenceLength 0.01`, intensity 0.16 Re^-0.125, length 0.07 Dh | ported for **Boussinesq only** (the model's `rho` is the constant `rho0`); here `rho` is the perfect-gas field |
+| `k` patches | `inletOutlet` (`Inlet`), **`turbulentIntensityKineticEnergyInlet`** (`Defueling_end`, `Outlet`; intensity 0.135), `zeroGradient` | **refused** (`zeroGradient` and wall functions only) |
+| `epsilon` patches | `inletOutlet` (`Inlet`), **`turbulentMixingLengthDissipationRateInlet`** (`Defueling_end`, `Outlet`; mixing length 1e-3), `zeroGradient` | **refused** |
+| `nut`, `alphat` | `calculated`, `zeroGradient` | ported (round 65) |
+| schemes | **`laplacianSchemes Gauss linear corrected`, `snGradSchemes corrected`**, `div` upwind, `grad Gauss linear` | **refused** (`only uncorrected`): on a tetrahedral mesh the explicit non-orthogonal correction acts in every Laplacian (`p_rgh`, `h`, `k`, `epsilon`, `U`), in `snGrad(rho)` of the buoyancy flux and in the second pass of the `nNonOrthogonalCorrectors 1` loop |
+| `h` | `smoothSolver`/`symGaussSeidel` 1e-5 `relTol 0` | ported (round 79) |
+| others | `PBiCGStab`/`diagonal` 1e-5 `relTol 0.01`; `relaxationFactors.equations ".*" 0.8` | ported |
+| time | `endTime 10`, `deltaT 0.5`, `adjustTimeStep true`, `maxCo 10`, `maxDeltaT 1`, `writeInterval 10` (`adjustableRunTime`), `writePrecision 6` | ported (`maxCo`) |
+
+`Alltest` gates `T.nuclearSteadyStatePebble.Tfmax (avg min max) = 774.446 523.15 1441.35` at the last step to 0.1 %.
+
+## Plan of the round (upstream's order of construction: thermo, structure power model, turbulence, then the equations)
+
+1. `perfectGas` + `hPolynomial` + `polynomial` thermo (`PhaseThermo::PerfectGasPolynomial`, ESI v2506 gas constant).
+2. `nuclearSteadyStatePebble` as a `RadialPowerModel` (statement-for-statement translation, `structure/nuclear_steady_state_pebble/coupled.rs`), `p` from `p_rgh` when absent.
+3. Refuse by name what is still missing, in the reader's order (a `psi > 0` fluid with the flow solved is refused from now on: it was reachable only through item 1). If time allows: the `k`/`epsilon` inlet patches, the variable-`rho` `porousKEpsilon`, the `psi > 0` pressure equation; the `corrected` scheme last (largest).
+4. Differential runs against the real binary on the shipped mesh: first a one-edit variant (`uncorrected` Laplacian and snGrad) under the tight protocol, if the port reads it; then the case as shipped.
+
+## Predictions and criteria (committed BEFORE any port run of a comparison)
+
+| id | prediction | probability |
+|---|---|---|
+| H1 | NOT a prediction (observed by the probe `probe_shipped_first_refusal` while porting items 1-2, before this commit): after items 1-2 the shipped case's first refusal is the `corrected` Laplacian scheme | observed |
+| H2 | on the `uncorrected` variant (its first refusal, the `k` inlet patches, was observed before this commit) the refusals after the `k`/`epsilon` patches are exactly: the non-Boussinesq turbulence, then `psi > 0` (no third) | 60 % |
+| H3 | the real binary's shipped run (serial, this machine) takes between 1 and 4 hours to `endTime 10` | 55 % |
+| H4 | the real binary's shipped run reproduces `Alltest`'s `Tfmax` triple to 0.1 % | 70 % |
+| H5 | if items 3-4 complete: on the tight `uncorrected` variant the port's step-1 pebble log lines (6 significant digits) equal the real binary's exactly | 60 % |
+| H6 | if items 3-4 complete: step-1 `T`, `p_rgh`, `U`, `k`, `epsilon` agree with the real binary to <= 1e-9 relative (gate: 1e-9 with the cause of any difference explained) | 35 % |
+
+The coupled-chain translation is checked by unit tests against the round-2df1 physics reading (`PebbleGeometry::steady_temperatures`, itself verified against the real class on gFHR data to 7.2e-6, the write precision), to 1e-12 relative: it is a reordering of the same formulas, so the two must agree to round-off.

@@ -49,6 +49,10 @@ pub type PolynomialStack = PolynomialTransport<HPolynomialThermo<IcoPolynomial<8
 /// The vapour stack: `perfectGas` EOS, `hConst` thermo, `const` transport.
 pub type PerfectGasConstStack = ConstTransport<HConstThermo<PerfectGas>>;
 
+/// The gas stack of `3D_HTR-10`'s helium (gh:#1876, README round 87): `perfectGas` EOS, `hPolynomial` thermo, `polynomial`
+/// transport, eight coefficients each; the universal gas constant is ESI v2506's (as [`PhaseThermo::perfect_gas_const`]).
+pub type PerfectGasPolynomialStack = PolynomialTransport<HPolynomialThermo<PerfectGas, 8>, 8>;
+
 /// One phase's thermophysical package (closed enum, no `dyn`).
 #[derive(Debug, Clone)]
 pub enum PhaseThermo {
@@ -60,6 +64,9 @@ pub enum PhaseThermo {
     /// `psi = 0`, `Hs = Cp (T - Tref) + Hsref`. Upstream's `fluid::rho()` is the CONSTANT `rho0` for it
     /// ([`PhaseThermo::boussinesq_rho0`]); this thermo's `rho` is `fluid::rho(true)`, used only in the buoyancy flux.
     BoussinesqHConst(super::one_phase_cc::BoussinesqHConst),
+    /// `heRhoThermo<pureMixture<polynomial<hPolynomial<perfectGas<specie>>>>>` (gh:#1876, README round 87; `3D_HTR-10`'s helium):
+    /// `rho = p/(R T)`, `psi = 1/(R T)`, `Cp` and `Hs` from the `CpCoeffs` polynomial (perfectGas adds no departure terms).
+    PerfectGasPolynomial(PerfectGasPolynomialStack),
 }
 
 /// Point properties at one `(p, T)`, SI base units.
@@ -106,6 +113,28 @@ impl PhaseThermo {
             Polynomial::new(mu_coeffs),
             Polynomial::new(kappa_coeffs),
         ))
+    }
+
+    /// The `perfectGas` + `hPolynomial` + `polynomial` stack from the dictionary coefficients: molar weight [g/mol], `CpCoeffs`,
+    /// `Hf` [J/kg], `Sf` [J/(kg K)], `muCoeffs`, `kappaCoeffs` (gh:#1876). The gas constant is OpenFOAM-v2506's
+    /// (`GasConstant::EsiV2506`), the binary this port is compared with.
+    #[must_use]
+    pub fn perfect_gas_polynomial(
+        mol_weight_g_per_mol: f64,
+        cp_coeffs: [f64; 8],
+        hf: f64,
+        sf: f64,
+        mu_coeffs: [f64; 8],
+        kappa_coeffs: [f64; 8],
+    ) -> Self {
+        let eos = PerfectGas::new(MolarMass::new::<gram_per_mole>(mol_weight_g_per_mol)).with_gas_constant(GasConstant::EsiV2506);
+        let thermo = HPolynomialThermo::new(
+            eos,
+            Polynomial::new(cp_coeffs),
+            AvailableEnergy::new::<joule_per_kilogram>(hf),
+            SpecificHeatCapacity::new::<joule_per_kilogram_kelvin>(sf),
+        );
+        Self::PerfectGasPolynomial(PolynomialTransport::new(thermo, Polynomial::new(mu_coeffs), Polynomial::new(kappa_coeffs)))
     }
 
     /// The vapour stack: molar weight [g/mol], `Cp` [J/(kg K)], `Hf` [J/kg],
@@ -159,6 +188,7 @@ impl PhaseThermo {
         match self {
             Self::Polynomial(s) => s.hs(p, t),
             Self::PerfectGasConst(s) => s.hs(p, t),
+            Self::PerfectGasPolynomial(s) => s.hs(p, t),
             Self::BoussinesqHConst(b) => return b.hs(t.get::<kelvin>()),
         }
         .get::<joule_per_kilogram>()
@@ -201,6 +231,7 @@ impl PhaseThermo {
         let r = match self {
             Self::Polynomial(s) => s.t_from_hs(h, p, t0),
             Self::PerfectGasConst(s) => s.t_from_hs(h, p, t0),
+            Self::PerfectGasPolynomial(s) => s.t_from_hs(h, p, t0),
             Self::BoussinesqHConst(b) => return Some(b.t_from_hs(he, t0.get::<kelvin>())),
         };
         r.ok().map(|t| t.get::<kelvin>())
@@ -244,6 +275,13 @@ impl PhaseThermo {
                 cp: b.cp,
                 mu: b.mu,
                 kappa: b.cp * b.alpha_h(),
+            },
+            Self::PerfectGasPolynomial(s) => PointProps {
+                rho: s.rho(p, t).get::<kilogram_per_cubic_meter>(),
+                psi: (s.psi(p, t) * Pressure::new::<pascal>(1.0)).get::<kilogram_per_cubic_meter>(),
+                cp: s.cp(p, t).get::<joule_per_kilogram_kelvin>(),
+                mu: s.mu(p, t).get::<pascal_second>(),
+                kappa: s.kappa(p, t).get::<watt_per_meter_kelvin>(),
             },
             Self::PerfectGasConst(s) => PointProps {
                 rho: s.rho(p, t).get::<kilogram_per_cubic_meter>(),

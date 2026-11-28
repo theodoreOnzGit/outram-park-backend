@@ -359,5 +359,7 @@ impl PebbleTemperatures {
     }
 }
 
+pub mod coupled;
+
 #[cfg(test)]
 mod tests;

@@ -28,6 +28,7 @@ use super::heated_pin::HeatedPin;
 use super::interpolated_nuclear_fuel_pin::InterpolatedNuclearFuelPin;
 use super::lumped_nuclear_structure::LumpedNuclearStructure;
 use super::nuclear_fuel_pin::NuclearFuelPin;
+use super::nuclear_steady_state_pebble::coupled::NuclearSteadyStatePebble;
 use super::radial_solve::RadialError;
 
 /// The per-step inputs a structure hands to `powerModel::correct` besides `HT` and `H`.
@@ -60,6 +61,8 @@ pub enum RadialPowerModel {
     LumpedNuclearStructure(LumpedNuclearStructure),
     /// `interpolatedNuclearFuelPin`.
     InterpolatedNuclearFuelPin(InterpolatedNuclearFuelPin),
+    /// `nuclearSteadyStatePebble` (gh:#1876, README round 87): algebraic, no radial solve.
+    NuclearSteadyStatePebble(NuclearSteadyStatePebble),
 }
 
 impl RadialPowerModel {
@@ -72,6 +75,7 @@ impl RadialPowerModel {
             Self::NuclearFuelPinTest(_) => "nuclearFuelPinTest",
             Self::LumpedNuclearStructure(_) => "lumpedNuclearStructure",
             Self::InterpolatedNuclearFuelPin(_) => "interpolatedNuclearFuelPin",
+            Self::NuclearSteadyStatePebble(_) => "nuclearSteadyStatePebble",
         }
     }
 
@@ -92,6 +96,10 @@ impl RadialPowerModel {
                 m.correct(ht_sum, h_sum);
                 Ok(())
             }
+            Self::NuclearSteadyStatePebble(m) => {
+                m.correct(ht_sum, h_sum, &step.q_neutronics, &step.volumes);
+                Ok(())
+            }
         }
     }
 
@@ -110,6 +118,7 @@ impl RadialPowerModel {
             Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.surface_temperature(cell),
             Self::LumpedNuclearStructure(m) => m.surface_temperature(cell),
             Self::InterpolatedNuclearFuelPin(m) => m.surface_temperature(cell),
+            Self::NuclearSteadyStatePebble(m) => m.surface_temperature(cell),
         }
     }
 
@@ -121,6 +130,7 @@ impl RadialPowerModel {
             Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.cells(),
             Self::LumpedNuclearStructure(m) => m.cells(),
             Self::InterpolatedNuclearFuelPin(m) => m.cells(),
+            Self::NuclearSteadyStatePebble(m) => m.cells(),
         }
     }
 
@@ -132,6 +142,7 @@ impl RadialPowerModel {
             Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.interfacial_area(cell),
             Self::LumpedNuclearStructure(m) => m.interfacial_area(cell),
             Self::InterpolatedNuclearFuelPin(m) => m.interfacial_area(cell),
+            Self::NuclearSteadyStatePebble(m) => m.interfacial_area(cell),
         }
     }
 
@@ -150,6 +161,8 @@ impl RadialPowerModel {
     pub fn coupling_temperatures(&self, cell: usize) -> (f64, f64) {
         match self {
             Self::HeatedPin(_) | Self::InterpolatedNuclearFuelPin(_) => (0.0, 0.0),
+            // upstream leaves `TFuelAv`/`TCladAv` unset (the assignment is commented out, `nuclearSteadyStatePebble.C:477-481`)
+            Self::NuclearSteadyStatePebble(_) => (0.0, 0.0),
             Self::NuclearFuelPin(m) | Self::NuclearFuelPinTest(m) => m.averages(cell),
             Self::LumpedNuclearStructure(m) => m.coupling_temperatures(cell),
         }

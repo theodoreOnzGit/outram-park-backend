@@ -121,11 +121,18 @@ mod reader {
     };
     use crate::genfoam::thermal_hydraulics::structure::lumped_nuclear_structure::{LumpedNuclearStructure, LumpedRegion};
     use crate::genfoam::thermal_hydraulics::structure::nuclear_fuel_pin::{GapConductance, NuclearFuelPin, NuclearFuelPinRegion};
+    use crate::genfoam::thermal_hydraulics::structure::nuclear_steady_state_pebble::coupled::{NuclearSteadyStatePebble, PebbleRegion};
     use crate::genfoam::thermal_hydraulics::structure::radial_power_model::RadialPowerModel;
 
     /// The radial power-model type names this reader builds.
-    pub const RADIAL_TYPES: [&str; 5] =
-        ["heatedPin", "nuclearFuelPin", "nuclearFuelPinTest", "lumpedNuclearStructure", "interpolatedNuclearFuelPin"];
+    pub const RADIAL_TYPES: [&str; 6] = [
+        "heatedPin",
+        "nuclearFuelPin",
+        "nuclearFuelPinTest",
+        "lumpedNuclearStructure",
+        "interpolatedNuclearFuelPin",
+        "nuclearSteadyStatePebble",
+    ];
 
     /// The models of a case and the structure's initial `powerDensityNeutronics`.
     #[derive(Debug, Clone, PartialEq)]
@@ -202,6 +209,82 @@ mod reader {
         Ok(GapConductance::TableOfPowerDensity(t))
     }
 
+    /// One `nuclearSteadyStatePebble` region's dictionary (`nuclearSteadyStatePebble.C:340-371`): `get` keys required,
+    /// `fractionOfPowerFromNeutronics` (1) and `pebbleSurfaceTemperatureGuess` (900) optional, `nTRISO` a `label`.
+    fn pebble_region(ctx: &Ctx, cells: Vec<usize>, pm: &FoamDict) -> Result<PebbleRegion, AppBuilderError> {
+        let f = |k: &str| -> Result<f64, AppBuilderError> { ctx.f64(pm, k) };
+        let p = |k: &str| -> Result<[f64; 8], AppBuilderError> { ctx.list8(pm, k) };
+        let mut r = [0.0; 8];
+        for (i, k) in [
+            "pebbleCoreRadius",
+            "pebbleMatrixRadius",
+            "pebbleShellRadius",
+            "trisoFuelRadius",
+            "trisoBufferRadius",
+            "trisoInnerPyCRadius",
+            "trisoSiCRadius",
+            "trisoOuterPyCRadius",
+        ]
+        .iter()
+        .enumerate()
+        {
+            r[i] = match f(k) {
+                Ok(v) => v,
+                Err(e) => return Err(e),
+            };
+        }
+        let n_triso = match f("nTRISO") {
+            Ok(v) if v.fract() == 0.0 => v as i64,
+            Ok(_) => return Err(ctx.e("nuclearSteadyStatePebble: `nTRISO` must be an integer (a label)")),
+            Err(e) => return Err(e),
+        };
+        let mut polys = Vec::new();
+        for k in [
+            "trisoFuelKCoeffs",
+            "trisoBufferKCoeffs",
+            "trisoSiCKCoeffs",
+            "trisoPyCKCoeffs",
+            "pebbleGraphiteKCoeffs",
+            "trisoFuelDensityCoeffs",
+            "trisoBufferDensityCoeffs",
+            "trisoSiCDensityCoeffs",
+            "trisoPyCDensityCoeffs",
+            "pebbleGraphiteDensityCoeffs",
+            "coolantDensityCoeffs",
+        ] {
+            match p(k) {
+                Ok(v) => polys.push(v),
+                Err(e) => return Err(e),
+            }
+        }
+        Ok(PebbleRegion {
+            cells,
+            volume_fraction: scalar(pm, "volumeFraction"),
+            fraction_of_power_from_neutronics: scalar(pm, "fractionOfPowerFromNeutronics").unwrap_or(1.0),
+            tps_guess: scalar(pm, "pebbleSurfaceTemperatureGuess").unwrap_or(900.0),
+            r_core: r[0],
+            r_matrix: r[1],
+            r_shell: r[2],
+            r_fuel: r[3],
+            r_buffer: r[4],
+            r_pyc_in: r[5],
+            r_sic: r[6],
+            r_pyc_out: r[7],
+            n_triso,
+            k_fuel: polys[0],
+            k_buffer: polys[1],
+            k_sic: polys[2],
+            k_pyc: polys[3],
+            k_graphite: polys[4],
+            rho_fuel: polys[5],
+            rho_buffer: polys[6],
+            rho_sic: polys[7],
+            rho_pyc: polys[8],
+            rho_graphite: polys[9],
+            rho_coolant: polys[10],
+        })
+    }
+
     fn model_err(ctx: &Ctx, ty: &str, e: crate::genfoam::thermal_hydraulics::structure::radial_solve::RadialError) -> AppBuilderError {
         ctx.e(format!("{ty}: {e}"))
     }
@@ -258,6 +341,8 @@ mod reader {
                 "nuclearFuelPin" => &["Trad.nuclearFuelPin", "Tfi.nuclearFuelPin", "Tfo.nuclearFuelPin", "Tci.nuclearFuelPin", "Tco.nuclearFuelPin"],
                 "nuclearFuelPinTest" => &["Trad.nuclearFuelPinTest", "Tfi.nuclearFuelPinTest", "Tfo.nuclearFuelPinTest", "Tci.nuclearFuelPinTest", "Tco.nuclearFuelPinTest"],
                 "lumpedNuclearStructure" => &["T.lumpedNuclearStructure", "Tmatrix.lumpedNuclearStructure", "Tsurface.lumpedNuclearStructure"],
+                // gh:#1876: the constructor overwrites every `READ_IF_PRESENT` field of its own cells and reads them nowhere else
+                "nuclearSteadyStatePebble" => &[],
                 _ => &["T.interpolatedNuclearFuelPin"],
             };
             // `nuclearFuelPin`: `Trad.nuclearFuelPin` is READ (`foundTrad`, `nuclearFuelPin.C:212-215`) and then wins over `Tfi`, `Tfo`, `Tci`,
@@ -416,6 +501,32 @@ mod reader {
                     };
                     models.push(RadialPowerModel::LumpedNuclearStructure(m));
                 }
+                "nuclearSteadyStatePebble" => {
+                    // gh:#1876 (README round 87): `setRegionField(*this, powerDensityNeutronics, "powerDensityNeutronics")` (the key
+                    // differs from the pin models'), then the constructor reads the regions in `toc()` order
+                    let mut rs = Vec::new();
+                    for (zone, pm) in regs {
+                        let cells = match zone_cells(zone) {
+                            Ok(c) => c,
+                            Err(e) => return Err(e),
+                        };
+                        if q_file.is_none() {
+                            match ctx.f64(pm, "powerDensityNeutronics") {
+                                Ok(v) => {
+                                    for &c in &cells {
+                                        q[c] = v;
+                                    }
+                                }
+                                Err(e) => return Err(e),
+                            }
+                        }
+                        match pebble_region(ctx, cells, pm) {
+                            Ok(r) => rs.push(r),
+                            Err(e) => return Err(e),
+                        }
+                    }
+                    models.push(RadialPowerModel::NuclearSteadyStatePebble(NuclearSteadyStatePebble::new(rs, alpha_structure, &q, volumes)));
+                }
                 _ => {
                     let mut rs = Vec::new();
                     for (zone, pm) in regs {
@@ -442,7 +553,7 @@ mod reader {
     pub fn refusal_reason(ty: &str) -> String {
         match ty {
             "nuclearFuelFMU" | "fixedPowerFMU" | "fixedTemperatureFMU" => format!("the FMU powerModel `{ty}` is not ported (needs FMU4FOAM, gh:#1786)"),
-            "fixedPower" | "nuclearSteadyStatePebble" => format!("the `{ty}` powerModel is not ported in the one-phase cell-centred region"),
+            "fixedPower" => format!("the `{ty}` powerModel is not ported in the one-phase cell-centred region"),
             other => format!("the `{other}` powerModel is not ported here"),
         }
     }

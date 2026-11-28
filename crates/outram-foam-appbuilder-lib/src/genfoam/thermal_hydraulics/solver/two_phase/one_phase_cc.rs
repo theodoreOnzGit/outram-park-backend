@@ -859,7 +859,16 @@ impl OnePhaseCcCase {
         // ---- thermo
         let th = ctx.read(&format!("constant/{region}/thermophysicalProperties"))?;
         let tt = ctx.sub(&th, "thermoType")?;
-        let thermo = if word(tt, "equationOfState").as_deref() == Some("icoPolynomial") {
+        let eos_word = word(tt, "equationOfState");
+        let thermo = if eos_word.as_deref() == Some("perfectGas") && word(tt, "thermo").as_deref() == Some("hPolynomial") {
+            // `perfectGas` + `hPolynomial` + `polynomial` (`3D_HTR-10`'s helium, gh:#1876 round 87): `psi = 1/(R T) > 0`
+            for (k, want) in [("type", "heRhoThermo"), ("mixture", "pureMixture"), ("transport", "polynomial"), ("energy", "sensibleEnthalpy")] {
+                if word(tt, k).as_deref() != Some(want) {
+                    return Err(ctx.e(format!("thermoType.{k} must be {want} with perfectGas/hPolynomial")));
+                }
+            }
+            super::case::read_thermo(&ctx, &format!("constant/{region}/thermophysicalProperties"))?
+        } else if eos_word.as_deref() == Some("icoPolynomial") {
             // `icoPolynomial` + `hPolynomial` + `polynomial` (the 2D_fullCoupling sodium): the stack of `two_phase::thermo`, `psi = 0`
             for (k, want) in [("type", "heRhoThermo"), ("mixture", "pureMixture"), ("transport", "polynomial"), ("thermo", "hPolynomial"), ("energy", "sensibleEnthalpy")] {
                 if word(tt, k).as_deref() != Some(want) {
@@ -1229,7 +1238,13 @@ impl OnePhaseCcCase {
             }
         }
         let t = match hand { Some(h) => h.t.clone(), None => sfield("T")? };
-        let p = match hand { Some(h) => h.p.clone(), None => sfield("p")? };
+        // `p` is `READ_IF_PRESENT`, else constructed as a copy of `p_rgh` (`thermalHydraulicsModel.C:159-170`; `3D_HTR-10` ships no `p`,
+        // gh:#1876 round 87)
+        let p = match hand {
+            Some(h) => h.p.clone(),
+            None if fdir.join("p").exists() => sfield("p")?,
+            None => sfield("p_rgh")?,
+        };
         let alphat = match hand { Some(h) => h.alphat.clone(), None if laminar => vec![0.0; n], None => sfield("alphat")? };
         // upstream creates what a ROOT case lacks: `T.fixedTemperature` (`T` of the power-model dictionary in its zone,
         // 0 elsewhere), zero `htc` and `powerDensityNeutronicsToLiquid`; only a case that solves the flow may start
@@ -1335,6 +1350,11 @@ impl OnePhaseCcCase {
                 }
                 tc
             };
+            // gh:#1876 (round 87): a compressible fluid (`psi > 0`, `perfectGas`) needs `pEqnComp`'s `(alpha psi/rho) correction(fvm::ddt(p_rgh))`
+            // and `rho += psi (p_rgh - p_rgh_0)` (`calcrAUfSetSnGradCalcComp_1p.H`, `updatePP_rghRho_1p.H`), which neither momentum branch has
+            if matches!(thermo, PhaseThermo::PerfectGasPolynomial(_) | PhaseThermo::PerfectGasConst(_)) {
+                return Err(ctx.e("a compressible (psi > 0, perfectGas) fluid with solveFluidMechanics true is not ported (pEqnComp's correction(fvm::ddt(p_rgh)), rho += psi dp_rgh)"));
+            }
             Some(fc)
         } else {
             None
