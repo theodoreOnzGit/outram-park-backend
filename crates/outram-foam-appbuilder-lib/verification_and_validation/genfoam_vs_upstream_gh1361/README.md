@@ -10344,3 +10344,15 @@ Case: round 65's `cases/fftf_turb_variants/w8_zg` (porousKEpsilon, FFTF numbers,
 | B4 | no earlier pin moves (the change only adds a selection that was refused) | 95 % |
 
 ### Part C (gh:#1987): if time allows; predictions will be committed in an addendum BEFORE any run.
+
+### Round 85 addendum C (gh:#1987; written and committed BEFORE any run of Part C, real binary or port)
+
+* **Variant `f12_cc_recon`:** `cases/fullcoupling_fluid` (round 55's tight cell-centred fluid region of `2D_fullCoupling`) with the ONE edit `momentumMode cellCenteredFaceReconstruction; porousInterfaceSharpness 0.5;` in `PIMPLE` (the shipped 2D_FFTF values; round 62's `w2_recon05` edit), 20 steps, `writePrecision 17`, every step written; the real fields extracted with `FIELDS` including `alphaRhoMagU` (`extract_fullcoupling_fluid.sh`).
+* **Criteria:** round 73's gate (every gated field `<= 1e-12` of its max, `T` lines and `dt` `<= 1e-12`, no first diverging step) AND `alphaRhoMagU` (cells) `<= 1e-12` of its max at every compared step.
+* **Control:** the same port run against round 55's/73's default-mode reference is NOT a valid control (another case); instead `alphaRhoMagU` of the real `f12` against the real default-mode `alphaRhoMagU` of the same step must differ (`> 1e-9`), showing the mode reaches the written field.
+
+| # | prediction | p |
+|---|---|---|
+| C1 | `f12` fields within round 73's gate | 75 % |
+| C2 | `alphaRhoMagU` `<= 1e-12` at every compared step | 70 % |
+| C3 | the control differs | 80 % |
