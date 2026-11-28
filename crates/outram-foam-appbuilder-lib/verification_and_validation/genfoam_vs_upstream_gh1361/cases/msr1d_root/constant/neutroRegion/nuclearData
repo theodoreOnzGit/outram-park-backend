@@ -1,0 +1,95 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      nuclearData;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+fastNeutrons            true; // if true interpolates cross section with logarithmic temp for fuel (otherwise, square root)
+
+adjustDiscFactors       false;
+
+useGivenDiscFactors     false;
+
+energyGroups    6;
+
+precGroups      8;
+
+xsVariables
+{}
+
+states
+(
+    reference // Mandatory state
+    {
+        zones
+        ();
+    }
+);
+
+
+//- Relevant only for pointKinetics
+
+promptGenerationTime  1.26e-6;//1.25859e-05;
+
+Beta  (2.114580e-04 4.231390e-04 3.737000e-04 5.789020e-04 8.929690e-04 1.426090e-04 1.926010e-04 3.738980e-05  );
+
+lambda  (1.246670e-02 2.829170e-02 4.252440e-02 1.330420e-01 2.924670e-01 6.664880e-01 1.634780e+00 3.099610e+00  );
+
+feedbackCoeffDoppler 0;
+
+feedbackCoeffTFuel -3.54253e-05;
+
+feedbackCoeffTClad 0;
+
+feedbackCoeffTCool 0;
+
+feedbackCoeffRhoCool 0;
+
+feedbackCoeffTStruct 0;
+
+feedbackCoeffTStructMech 0;
+
+absoluteDrivelineExpansionCoeff 0;
+
+controlRodReactivityMap ( ( 0.1 -0.01 ) ( 0 0 ) ( -0.1 0.01 ) );
+
+/*
+externalReactivityTimeProfile
+{
+    type        table;
+    table       table
+    (
+        (   0   0.000285277    ) //- i.e. 28.5277 pcm, == 0.1$
+    );
+}
+*/
+
+initPrecursorsLiquidFuel true;
+
+initialOneGroupFluxByZone
+{
+    "core"      1.0;
+}
+
+fuelFeedbackZones
+(
+    "core"
+);
+
+coolantFeedbackZones
+(
+    "core"
+);
+
+// ************************************************************************* //

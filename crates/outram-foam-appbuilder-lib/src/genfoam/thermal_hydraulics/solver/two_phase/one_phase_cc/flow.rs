@@ -73,7 +73,7 @@ use super::super::{dev2_div, dev2_div_tortuous, tensor_laplacian, PRghPcg};
 use super::OnePhaseCcSolver;
 use super::super::thermo::PhaseThermo;
 #[cfg(feature = "std")]
-use super::super::case::{bool_entry, read_field, read_field_bcs_only, scalar, word, Ctx, FieldFile};
+use super::super::case::{bool_entry, read_field_bcs_only, scalar, word, Ctx, FieldFile};
 #[cfg(feature = "std")]
 use super::last_match;
 #[cfg(feature = "std")]
@@ -279,6 +279,16 @@ impl UEqnCc {
             if !g.active[f] {
                 continue;
             }
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                // a coupled patch (gh:#1905): `valueInternalCoeffs(w) = one w`, `valueBoundaryCoeffs(w) = one (1 - w)`, `w = pos0(phi)`
+                // (the `Gauss upwind` weights of `div(alphaRhoPhi,U)`)
+                let w = if phi[f] >= 0.0 { 1.0 } else { 0.0 };
+                for k in 0..3 {
+                    self.ic[f - ni][k] += phi[f] * w;
+                    self.bcoef[f - ni][k] += -phi[f] * (1.0 - w);
+                }
+                continue;
+            }
             let c = u.patch_coeffs(g, f, [&[], &[]]);
             for k in 0..3 {
                 self.ic[f - ni][k] += phi[f] * c.value_internal[k];
@@ -293,6 +303,16 @@ impl UEqnCc {
         let ni = g.n_internal();
         for f in ni..g.n_faces() {
             if !g.active[f] {
+                continue;
+            }
+            if g.cyclic_nbr[f - ni] != usize::MAX {
+                // a coupled patch (gh:#1905): `gradientInternalCoeffs = -one deltaCoeffs`, `gradientBoundaryCoeffs = one deltaCoeffs`
+                let pg = gamma[f] * g.mesh.face_areas[f];
+                let d = g.delta[f];
+                for k in 0..3 {
+                    self.ic[f - ni][k] += -(pg * (-d));
+                    self.bcoef[f - ni][k] += pg * d;
+                }
                 continue;
             }
             let c = u.patch_coeffs(g, f, [&[], &[]]);
@@ -378,7 +398,13 @@ impl UEqnCc {
         for f in ni..g.n_faces() {
             if g.active[f] {
                 let ic = self.ic[f - ni];
-                d[g.mesh.owner[f]] += ic[0].abs().max(ic[1].abs()).max(ic[2].abs());
+                if g.cyclic_nbr[f - ni] != usize::MAX {
+                    // a coupled patch (`fvMatrix.C:1130-1140`, gh:#1905): `component(ic, 0)` in, `mag(component(bc, 0))` to `sumOff`
+                    d[g.mesh.owner[f]] += ic[0];
+                    sum_off[g.mesh.owner[f]] += self.bcoef[f - ni][0].abs();
+                } else {
+                    d[g.mesh.owner[f]] += ic[0].abs().max(ic[1].abs()).max(ic[2].abs());
+                }
             }
         }
         for c in 0..n {
@@ -390,7 +416,7 @@ impl UEqnCc {
         for f in ni..g.n_faces() {
             if g.active[f] {
                 let ic = self.ic[f - ni];
-                d[g.mesh.owner[f]] -= ic[0].min(ic[1]).min(ic[2]);
+                d[g.mesh.owner[f]] -= if g.cyclic_nbr[f - ni] != usize::MAX { ic[0] } else { ic[0].min(ic[1]).min(ic[2]) };
             }
         }
         for c in 0..n {
@@ -451,7 +477,11 @@ impl UEqnCc {
             }
             for f in ni..g.n_faces() {
                 if g.active[f] {
-                    h[m.owner[f]] += self.bcoef[f - ni][k];
+                    // `addBoundarySource(Hphi)`: a coupled patch adds `cmptMultiply(boundaryCoeffs, patchNeighbourField)` (gh:#1905)
+                    match g.cyclic_nbr(f) {
+                        Some(nbc) => h[m.owner[f]] += self.bcoef[f - ni][k] * x[nbc],
+                        None => h[m.owner[f]] += self.bcoef[f - ni][k],
+                    }
                 }
             }
             for c in 0..n {
@@ -594,11 +624,15 @@ pub(super) fn read_flow_case(
     let p_rgh_final = pcg_entry("p_rghFinal", Some(p_rgh)).unwrap_or(p_rgh);
     let patch_bc = |ff: &FieldFile, pi: usize| -> Result<(String, Option<FoamValue>), AppBuilderError> {
         let name = &g.mesh.patches[pi].name;
-        let (_, ty, v) = ff
-            .bcs
-            .iter()
-            .find(|(nm, _, _)| nm == name)
-            .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{name}`", ff.name)))?;
+        let Some((_, ty, v)) = ff.bcs.iter().find(|(nm, _, _)| nm == name) else {
+            // `GeometricBoundaryField::readField`: a CONSTRAINT patch (`empty`, `cyclic`) the file does not list gets its constraint
+            // patch field (the shipped 1D_MSR files list no `defaultFaces`; gh:#1905)
+            return match g.mesh.patches[pi].kind {
+                PatchKind::Empty => Ok(("empty".to_string(), None)),
+                PatchKind::Cyclic => Ok(("cyclic".to_string(), None)),
+                _ => Err(ctx.e(format!("{}: no BC for patch `{name}`", ff.name))),
+            };
+        };
         Ok((ty.clone(), v.clone()))
     };
     // `U` and `p_rgh` of a WRITTEN start directory are lists (gh:#1926): only their boundary conditions come from these files
@@ -612,6 +646,8 @@ pub(super) fn read_flow_case(
         let (ty, v) = patch_bc(&uf, pi)?;
         u_bc.push(match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) => fv::wedge_velocity_bc(g, pi),
+            // a `cyclic` patch is coupled: `fv` evaluates it from the cells whatever variant it carries (gh:#1905, README round 80)
+            ("cyclic", PatchKind::Cyclic) if g.cyclic_nbr.get(p.start - ni).is_some_and(|&c| c != usize::MAX) => VectorBc::ZeroGradient,
             ("zeroGradient", _) => VectorBc::ZeroGradient,
             ("slip", _) => VectorBc::Slip,
             ("fixedValue", _) => {
@@ -641,6 +677,7 @@ pub(super) fn read_flow_case(
         p_rgh_extrapolated[pi] = ty == "fixedFluxExtrapolatedPressure";
         p_rgh_bc.push(match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) => Bc::ZeroGradient,
+            ("cyclic", PatchKind::Cyclic) if g.cyclic_nbr.get(p.start - ni).is_some_and(|&c| c != usize::MAX) => Bc::ZeroGradient,
             // `fixedFluxExtrapolatedPressureFvPatchScalarField` (ESI v2506) is a constructor-only subclass of `fixedFluxPressure`
             // (no override; `setSnGrad<fixedFluxPressure>` matches it by `isA`): the same boundary condition (gh:#1939, README round 73)
             ("fixedFluxPressure" | "fixedFluxExtrapolatedPressure", _) => Bc::FixedGradient(vec![0.0; p.size]),
@@ -663,6 +700,7 @@ pub(super) fn read_flow_case(
         let (ty, tv) = patch_bc(&tf, pi)?;
         t_bc.push(match (ty.as_str(), p.kind) {
             ("wedge", PatchKind::Wedge) | ("zeroGradient", _) => Bc::ZeroGradient,
+            ("cyclic", PatchKind::Cyclic) if g.cyclic_nbr.get(p.start - ni).is_some_and(|&c| c != usize::MAX) => Bc::ZeroGradient,
             ("fixedValue", _) => {
                 let v = tv.as_ref().and_then(FoamValue::as_scalar).ok_or_else(|| ctx.e(format!("T.{}: fixedValue needs a uniform value", p.name)))?;
                 Bc::Fixed(vec![v; p.size])
@@ -671,20 +709,58 @@ pub(super) fn read_flow_case(
         });
     }
     // `laminar` (`Stokes`): `nut()` is a zero field and there is no `nut` file (gh:#1913 round 55)
-    let (nut0, nf) = if laminar {
+    let (_nut0, nf) = if laminar {
         (0.0, None)
     } else {
-        let nf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
-        (nf.internal.as_scalar().ok_or_else(|| ctx.e("nut internalField must be a uniform scalar"))?, Some(nf))
+        // the patch types from the file, the cells and the patch values through the field-text parser, which reads a written
+        // (`nonuniform`) field as well as a uniform one (gh:#1905, README round 80)
+        let nf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
+        (0.0, Some(nf))
     };
+    let nut_text: Option<(Vec<f64>, Vec<Vec<f64>>)> = if laminar {
+        None
+    } else {
+        let path = ctx.root.join(alloc::format!("{tdir}/fluidRegion/nut"));
+        let text = std::fs::read_to_string(&path).map_err(|e| AppBuilderError::Io { path: path.clone(), source: e })?;
+        // the constraint patches (`empty`, `wedge`, `cyclic`) may be unlisted in the file (`GeometricBoundaryField::readField` gives them their
+        // constraint field) and no value of theirs is read: only the other patches are parsed (an empty list stands for each constraint patch)
+        let constraint = |q: &outram_foam_basic_lib::mesh::BoundaryPatch| matches!(q.kind, PatchKind::Empty | PatchKind::Wedge | PatchKind::Cyclic);
+        let patches: Vec<(String, usize)> = g.mesh.patches.iter().filter(|q| !constraint(q)).map(|q| (q.name.clone(), q.size)).collect();
+        let (cells, mut parsed) = super::parse_scalar_field_text(&text, n, &patches).map_err(|m| ctx.e(format!("nut: {m}")))?;
+        parsed.reverse();
+        let per_patch: Vec<Vec<f64>> = g.mesh.patches.iter().map(|q| if constraint(q) { Vec::new() } else { parsed.pop().unwrap_or_default() }).collect();
+        Some((cells, per_patch))
+    };
+    let nut_cells = nut_text.as_ref().map_or_else(|| vec![0.0; n], |(c, _)| c.clone());
     let mut nut_boundary = vec![0.0; g.n_faces() - ni];
     for (pi, p) in g.mesh.patches.iter().enumerate() {
         let Some(nf) = nf.as_ref() else { break };
         let (ty, v) = patch_bc(&nf, pi)?;
+        // a WRITTEN wall patch value (`nutkWallFunction`/`calculated` with `value nonuniform List<scalar>`): the parsed per-face values
+        if matches!(ty.as_str(), "nutkWallFunction" | "calculated") && v.is_none() {
+            if let Some((_, per_patch)) = nut_text.as_ref() {
+                for k in 0..p.size {
+                    nut_boundary[p.start + k - ni] = per_patch[pi][k];
+                }
+                continue;
+            }
+        }
+        // `wedge`, `empty`, a coupled `cyclic` (its value is never read: every operator evaluates a cyclic face from the cells, gh:#1905) and
+        // `zeroGradient` (evaluated at construction, gh:#1929) take the value of EACH face's owner cell. ~~`nut0`, the owner of the patch's
+        // first face, for every face~~ **CORRECTED 2026-11-28 (gh:#1905, README round 80):** that was the owner value only for a uniform
+        // internal field; a written (`nonuniform`) start gives each face its own owner (unchanged bits for a uniform start).
+        let owner_valued = match (ty.as_str(), p.kind) {
+            ("wedge", PatchKind::Wedge) | ("empty", PatchKind::Empty) | ("zeroGradient", _) => true,
+            ("cyclic", PatchKind::Cyclic) => g.cyclic_nbr.get(p.start - ni).is_some_and(|&c| c != usize::MAX),
+            _ => false,
+        };
+        if owner_valued {
+            for k in 0..p.size {
+                nut_boundary[p.start + k - ni] = nut_cells[g.mesh.owner[p.start + k]];
+            }
+            continue;
+        }
         let val = match (ty.as_str(), p.kind) {
-            ("wedge", PatchKind::Wedge) | ("empty", PatchKind::Empty) => nut0,
-            // a `zeroGradient` patch is evaluated at construction: the owner value, the uniform internal field (gh:#1929)
-            ("zeroGradient", _) => nut0,
             // with `turbulence false` no wall function ever runs: the patch keeps the value it was read with
             ("nutkWallFunction" | "calculated", _) => v
                 .as_ref()
@@ -718,7 +794,7 @@ pub(super) fn read_flow_case(
         p_rgh_bc,
         p_rgh_extrapolated,
         p_rgh0: p_rgh_cells,
-        nut: vec![nut0; n],
+        nut: nut_cells,
         nut_boundary,
         momentum_source,
         reconstruct_u: mode == "cellCenteredFaceReconstruction" || mode == "faceCentered",

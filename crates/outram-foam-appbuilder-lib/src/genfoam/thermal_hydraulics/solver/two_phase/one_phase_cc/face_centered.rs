@@ -45,7 +45,7 @@ use crate::nostd_prelude::*;
 use outram_foam_basic_lib::primitives::Vector3;
 
 use super::super::fv::{self, Bc, Eqn, Scalar, Vector};
-use super::super::pcg::pcg_dic;
+use super::super::pcg::pcg_dic_if;
 use super::super::tensor_laplacian;
 use super::super::thermo::PhaseThermo;
 use super::flow::{reconstruct_u_1p, FlowState, OnePhaseFlowCase, PressureSolve, UEqnCc};
@@ -100,7 +100,12 @@ impl OnePhaseCcSolver {
         } else {
             lap.eqn.neg_laplacian(&g, gamma, &zg);
             lap.boundary_laplacian(&g, gamma, &self.u);
-            super::super::dev2_div(&g, &self.u, arn)
+            // `fvc::div` = `dotInterpolate` (`lambda (P - N) + N`), and so is the face velocity of `fvc::grad(U)` (gh:#1905 round 80)
+            if self.ctl_weighted_dev2 {
+                super::super::dev2_div(&g, &self.u, arn)
+            } else {
+                super::super::dev2_div_openfoam(&g, &self.u, arn)
+            }
         };
         lap.sub_field(&g, &dev2);
         e.add(&lap);
@@ -266,9 +271,13 @@ impl OnePhaseCcSolver {
             for f in ni..nf {
                 if g.active[f] {
                     folded.ldu.diag[m.owner[f]] += pic[f - ni];
-                    folded.source[m.owner[f]] += pbc[f - ni];
+                    // a coupled (cyclic) patch: its `boundaryCoeffs` are the `interfaceBouCoeffs` of the solve (gh:#1905)
+                    if g.cyclic_nbr[f - ni] == usize::MAX {
+                        folded.source[m.owner[f]] += pbc[f - ni];
+                    }
                 }
             }
+            let ifs = g.interfaces(&pbc);
             let n_pass = fc.n_non_orth_correctors + 1;
             for pass in 1..=n_pass {
                 let last = self.pimple.final_inner_iter(corr_piso, pass, &self.case.controls.pimple);
@@ -277,10 +286,10 @@ impl OnePhaseCcSolver {
                 let mut x = fs.p_rgh.c.clone();
                 let perf = match gamg_ctl {
                     Some(ctl) => {
-                        let p = fs.gamg.solve(&g, &folded.ldu, &folded.source, &mut x, &ctl);
+                        let p = fs.gamg.solve_if(&g, &folded.ldu, &ifs, &folded.source, &mut x, &ctl);
                         crate::genfoam::common::pcg::PcgPerformance { iterations: p.iterations, initial_residual: p.initial_residual, final_residual: p.final_residual }
                     }
-                    None => pcg_dic(&folded.ldu, &folded.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter),
+                    None => pcg_dic_if(&folded.ldu, &ifs, &folded.source, &mut x, solver.tolerance, solver.rel_tol, solver.max_iter, solver.min_iter),
                 };
                 fs.solves.push(PressureSolve { outer, corrector: corr_piso, non_orth: pass, initial_residual: perf.initial_residual, iterations: perf.iterations });
                 if pass == 1 {

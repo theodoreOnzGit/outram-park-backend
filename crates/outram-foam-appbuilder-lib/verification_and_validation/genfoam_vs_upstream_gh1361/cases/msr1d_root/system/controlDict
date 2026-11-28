@@ -1,0 +1,69 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version         2;
+    format          ascii;
+    class           dictionary;
+    object          controlDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     GeN-Foam;
+
+startFrom       latestTime;
+
+// startTime       0;
+
+stopAt          endTime;
+
+endTime         1000;
+
+deltaT          0.001;
+
+writeControl    adjustableRunTime;
+
+writeInterval   1000;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+
+writePrecision  6;
+
+writeCompression off;
+
+timeFormat      general;
+
+timePrecision   6;
+
+runTimeModifiable true;
+
+regionSolvers
+{
+    fluidRegion     onePhase;
+}
+
+removeBaffles
+{
+    fluidRegion     false;
+}
+
+liquidFuel      true;
+
+adjustTimeStep  true;
+
+maxDeltaT       1;
+
+maxCo           1;
+
+maxPowerVariation 0.025;
+
+
+// ************************************************************************* //

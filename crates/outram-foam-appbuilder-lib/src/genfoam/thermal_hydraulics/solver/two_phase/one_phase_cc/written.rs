@@ -23,6 +23,7 @@ use crate::genfoam::multi_region::written_state::{boundary_slice, face_slice, fi
 use crate::genfoam::thermal_hydraulics::solver::two_phase::fv::VectorBc;
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::RadialPowerModel;
 use crate::io::foam_ascii::{Data, FieldFile, FoamWriteError, PatchOut};
+use super::turbulence::WallFunctionBlending;
 
 impl OnePhaseCcSolver {
     /// Every field object of the fluid region the solver holds, as files of time directory `time_name`.
@@ -190,6 +191,127 @@ impl OnePhaseCcSolver {
         }
         let _ = (face_slice, value_patches);
         Ok((out, trad_objects))
+    }
+}
+
+/// A field file with the WORD entries of its patches (`(patch, keyword, word)`, for `write_field_file_with_words`).
+pub type FieldFileWithWords = (FieldFile, Vec<(String, String, String)>);
+
+impl OnePhaseCcSolver {
+    /// The `RAS` fields `k`, `epsilon`, `nut`, `alphat` and, with a `fixedTemperature` power model, `T.fixedTemperature`, as `runTime.write()`
+    /// writes them (gh:#1961, README round 81; the real `1D_MSR_pointKinetics` `steadyState` `100`): the wall patches `kqRWallFunction` /
+    /// `epsilonWallFunction` / `nutkWallFunction` with their `value` (the boundary values the solver holds) and `blending` (`stepwise`, the
+    /// only blending written here), `alphat` `zeroGradient` (or `calculated` with its values where the case reads `calculated`); `empty` on
+    /// empty patches. A cyclic patch is written by the caller's constraint pass ([`cyclic_constraint_patches`]). Empty without turbulence.
+    ///
+    /// # Errors
+    /// [`FoamWriteError::PatchType`], by name, for a wall blending other than `stepwise`, `lowReCorrection true`, or a `k`/`epsilon`/`nut`
+    /// patch that is neither a wall, `empty` nor `cyclic` (their types are not held).
+    pub fn written_turbulence_fields(&self, time_name: &str) -> Result<Vec<FieldFileWithWords>, FoamWriteError> {
+        let mesh = &self.case.mesh;
+        let mut out = Vec::new();
+        if self.case.t_fixed.iter().any(|&v| v != 0.0) {
+            // `T.fixedTemperature` (`fixedTemperature.C`: AUTO_WRITE, `zeroGradient`): the power model's `T` in its zone, 0 elsewhere
+            let f = FieldFile {
+                class: "volScalarField".to_string(),
+                location: format!("{time_name}/fluidRegion"),
+                object: "T.fixedTemperature".to_string(),
+                dimensions: [0, 0, 0, 1, 0, 0, 0],
+                oriented: false,
+                internal: Data::scalar(self.case.t_fixed.clone()),
+                patches: plain_patches(mesh, "zeroGradient"),
+            };
+            out.push((f, Vec::new()));
+        }
+        let Some(ts) = &self.turb else { return Ok(out) };
+        let c = &ts.case;
+        let wall_or = |name: &str, ptype: &str, b: &[f64], words: bool| -> Result<(Vec<PatchOut>, Vec<(String, String, String)>), FoamWriteError> {
+            let mut patches = Vec::new();
+            let mut w = Vec::new();
+            for (pi, p) in mesh.patches.iter().enumerate() {
+                if p.kind == PatchKind::Empty {
+                    patches.push(PatchOut::plain(&p.name, "empty"));
+                } else if p.kind == PatchKind::Cyclic {
+                    patches.push(PatchOut::plain(&p.name, "cyclic"));
+                } else if c.wall_patch[pi] {
+                    if words {
+                        let blender = if ptype == "nutkWallFunction" { &c.nut_wall[pi].blender } else { &c.epsilon_wall[pi].blender };
+                        if blender.blending != WallFunctionBlending::Stepwise {
+                            return Err(FoamWriteError::PatchType(format!("{name} {}: blending other than stepwise (not written)", p.name)));
+                        }
+                        if ptype == "epsilonWallFunction" && c.epsilon_wall[pi].low_re_correction {
+                            return Err(FoamWriteError::PatchType(format!("{name} {}: lowReCorrection true (not written)", p.name)));
+                        }
+                        w.push((p.name.clone(), "blending".to_string(), "stepwise".to_string()));
+                    }
+                    patches.push(PatchOut::with_value(&p.name, ptype, Data::scalar(boundary_slice(b, mesh, p))));
+                } else {
+                    return Err(FoamWriteError::PatchType(format!("{name} {}: a non-wall, non-constraint patch of the RAS fields (its type is not held)", p.name)));
+                }
+            }
+            Ok((patches, w))
+        };
+        for (name, ptype, field, words) in [
+            ("k", "kqRWallFunction", &ts.k, false),
+            ("epsilon", "epsilonWallFunction", &ts.epsilon, true),
+            ("nut", "nutkWallFunction", &ts.nut, true),
+        ] {
+            let (patches, w) = wall_or(name, ptype, &field.b, words)?;
+            let f = FieldFile {
+                class: "volScalarField".to_string(),
+                location: format!("{time_name}/fluidRegion"),
+                object: name.to_string(),
+                dimensions: if name == "k" { [0, 2, -2, 0, 0, 0, 0] } else if name == "epsilon" { [0, 2, -3, 0, 0, 0, 0] } else { [0, 2, -1, 0, 0, 0, 0] },
+                oriented: false,
+                internal: Data::scalar(field.c.clone()),
+                patches,
+            };
+            out.push((f, w));
+        }
+        let patches = mesh
+            .patches
+            .iter()
+            .enumerate()
+            .map(|(pi, p)| {
+                if p.kind == PatchKind::Empty {
+                    PatchOut::plain(&p.name, "empty")
+                } else if p.kind == PatchKind::Cyclic {
+                    PatchOut::plain(&p.name, "cyclic")
+                } else if c.alphat_calculated[pi] {
+                    PatchOut::with_value(&p.name, "calculated", Data::scalar(boundary_slice(&ts.alphat.b, mesh, p)))
+                } else {
+                    PatchOut::plain(&p.name, "zeroGradient")
+                }
+            })
+            .collect();
+        out.push((
+            FieldFile {
+                class: "volScalarField".to_string(),
+                location: format!("{time_name}/fluidRegion"),
+                object: "alphat".to_string(),
+                dimensions: [1, -1, -1, 0, 0, 0, 0],
+                oriented: false,
+                internal: Data::scalar(ts.alphat.c.clone()),
+                patches,
+            },
+            Vec::new(),
+        ));
+        Ok(out)
+    }
+}
+
+/// The constraint pass of `GeometricBoundaryField` on a cyclic mesh (gh:#1961, README round 81): every patch of a field on a `cyclic`
+/// mesh patch is written `type cyclic;` (a volume field: nothing else, `cyclicFvPatchField::write`; a surface field: its `value` too,
+/// `fvsPatchField::write`), whatever patch type the field was laid out with.
+pub fn cyclic_constraint_patches(f: &mut FieldFile, mesh: &outram_foam_basic_lib::mesh::FvMesh) {
+    let surface = f.class.starts_with("surface");
+    for p in &mut f.patches {
+        if mesh.patches.iter().any(|q| q.name == p.name && q.kind == PatchKind::Cyclic) {
+            p.ptype = "cyclic".to_string();
+            if !surface {
+                p.entries.clear();
+            }
+        }
     }
 }
 

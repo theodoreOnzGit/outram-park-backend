@@ -1,0 +1,77 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      topoSetDict;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+actions
+(
+    {
+        name    core;
+        type    cellZoneSet;
+        action  new;
+        source  boxToCell;
+        sourceInfo
+        {
+            box (0 0 2) (1 1 5);
+        }
+    }
+    {
+        name    HotLeg;
+        type    cellZoneSet;
+        action  new;
+        source  boxToCell;
+        sourceInfo
+        {
+            box (0 0 5) (1 1 8);
+        }
+    }
+    {
+        name    pump;
+        type    cellZoneSet;
+        action  new;
+        source  boxToCell;
+        sourceInfo
+        {
+            box (0 0 8) (1  1 9);
+        }
+    }
+
+    {
+        name    hx;
+        type    cellZoneSet;
+        action  new;
+        source  boxToCell;
+        sourceInfo
+        {
+            box (0 0 9) (1 1 11);
+        }
+    }
+    {
+        name    ColdLeg;
+        type    cellZoneSet;
+        action  new;
+        source  boxToCell;
+        sourceInfo
+        {
+            boxes 
+            (
+                (0 0 0) (1 1 2)
+                (0 0 11) (1 1 12)
+            );
+        }
+    }
+
+);
+

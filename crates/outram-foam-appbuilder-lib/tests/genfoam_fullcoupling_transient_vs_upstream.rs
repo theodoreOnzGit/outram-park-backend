@@ -624,7 +624,10 @@ fn the_transient_restarted_from_the_written_fluid_state_meets_the_solve_criterio
     // one `h` solve (step 260, 15 against 10 iterations, initial residuals 5.77e-7 equal to 4e-15), a stopping-point flip at the `1e-14` absolute floor of the
     // enthalpy solve, not a difference of the matrix; the pin below is the measured post-run value (README round 61), the criterion text is unchanged.
     assert!(w.fluid_res_abs <= 1e-11, "fluid solve residuals {:e} ({})", w.fluid_res_abs, w.fluid_worst_solve);
-    assert!(w.fluid_it <= 5, "fluid solve iterations {} ({})", w.fluid_it, w.fluid_worst_iteration_solve);
+    // RE-PINNED 2026-11-28 (gh:#1905, README round 80): ~~<= 5~~ <= 6. After round 80's new defaults (fvMatrix operator order of the energy and k/epsilon
+    // matrices, OpenFOAM face centre in nearWallDist, dotInterpolate dev2; which one moves it is not isolated) the worst stopping-point flip is the `h` solve of step 329: 16 against 10
+    // iterations, initial residuals 3.2274328515e-7 against 3.2274328554e-7 (4e-16 absolute). A noise-floor iteration count, reported, not physics.
+    assert!(w.fluid_it <= 6, "fluid solve iterations {} ({})", w.fluid_it, w.fluid_worst_iteration_solve);
     assert!(w.tm_res_abs <= 1e-11, "tm solves {:e}", w.tm_res_abs);
     assert_eq!(w.solve_count_mismatch, 0);
 }

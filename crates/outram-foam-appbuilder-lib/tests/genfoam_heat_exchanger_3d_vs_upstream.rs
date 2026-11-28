@@ -319,7 +319,11 @@ fn esfr_hx_matches_the_real_binary() {
     let o = run(&mut solver, &reference, &cells, n_a);
     print("port", &o);
     assert!(o.counts_equal(), "outer iterations {:?} against {:?}", o.outer, o.outer_ref);
-    assert!(o.worst_iter_diff <= 1, "worst iteration difference {}", o.worst_iter_diff);
+    // RE-PINNED 2026-11-28 (gh:#1905, README round 80): ~~<= 1~~ <= 3. Round 80 assembles the energy matrix in fvMatrix operator order
+    // (`fvm::div`, `fvm::laplacian` as separate matrices, as `EEqn_1p.H` writes them; `with_folded_energy_assembly` keeps the earlier form).
+    // Measured on this case: bit-equal values 13840/43035 (folded: 8494), worst relative initial residual 2.5e-10 (folded 4.8e-10), worst field
+    // 7.87e-11 (folded 7.12e-11), worst iteration difference 3 (folded 1). A stopping-point iteration count, reported; the fields stay gated.
+    assert!(o.worst_iter_diff <= 3, "worst iteration difference {}", o.worst_iter_diff);
     assert!(o.worst_field <= GATE, "field {:e}, first diverging step {:?}", o.worst_field, o.first_diverging_step);
 }
 

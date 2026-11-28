@@ -1,0 +1,28 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+|       ______          _   __           ______                               |
+|      / ____/  ___    / | / /          / ____/  ____   ____ _   ____ ___     |
+|     / / __   / _ \  /  |/ /  ______  / /_     / __ \ / __ `/  / __ `__ \    |
+|    / /_/ /  /  __/ / /|  /  /_____/ / __/    / /_/ // /_/ /  / / / / / /    |
+|    \____/   \___/ /_/ |_/          /_/       \____/ \__,_/  /_/ /_/ /_/     |
+|    Copyright (C) 2015 - 2022 EPFL                                           |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    object      reactorState;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+keff            1.06905;
+
+pTarget         9.9e+08;//6.13665e+08;//9.9e+08;//pTarget MUST be the same as
+    // the one used for reaching the steady-state.
+    // As power, GeN-Foam uses what it finds under powerDensity, or under the
+    // powerDensity of the fluidRegion if it does not find a powerDensity in the
+    // neutroRegion. pTarget does not enter the calculation, it is used simply to
+    // plot the results
+    
+
+// ************************************************************************* //

@@ -20,8 +20,10 @@ use crate::error::AppBuilderError;
 use crate::genfoam::multi_region::written_state::{field_file, plain_patches, surface_field, value_patches, vector_data};
 use crate::io::foam_ascii_mesh::write_poly_mesh;
 use crate::io::foam_ascii::{
-    format_g, time_name, write_dictionary_file, write_field_file, write_list_file, write_time_dict, Data, FoamWriteError, ListObject, WriteOptions,
+    format_g, time_name, write_dictionary_file, write_field_file, write_field_file_with_words, write_list_file, write_time_dict, Data, FoamWriteError,
+    ListObject, WriteOptions,
 };
+use crate::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::cyclic_constraint_patches;
 
 /// The text of a written time directory.
 #[derive(Debug, Clone, Default)]
@@ -66,6 +68,11 @@ impl RegionSolvers {
                 RegionSolver::OnePhase(f) => {
                     let (fl, trad) = f.solver.written_fields(&tn)?;
                     fields.extend(fl);
+                    // gh:#1961 (README round 81): the `RAS` fields (with their wall functions' word entries) and `T.fixedTemperature`
+                    for (mut ff, words) in f.solver.written_turbulence_fields(&tn)? {
+                        cyclic_constraint_patches(&mut ff, &r.fv);
+                        add(format!("{name}/{}", ff.object), write_field_file_with_words(&ff, opts, &words)?);
+                    }
                     for (path, per_cell) in trad {
                         let (class, location, object) = ("scalarFieldField", format!("{tn}/{name}"), path.split_once('/').map_or(path.as_str(), |(_, o)| o).to_string());
                         add(path.clone(), write_list_file(class, &location, &object, &ListObject::FieldField(per_cell), opts));
@@ -189,7 +196,9 @@ impl RegionSolvers {
                     fields.extend(t.solver.written_fields(&tn, &r.fv)?);
                 }
             }
-            for f in fields {
+            for mut f in fields {
+                // gh:#1961 (README round 81): a field on a cyclic mesh patch is written with the constraint type
+                cyclic_constraint_patches(&mut f, &r.fv);
                 let path = format!("{name}/{}", f.object);
                 add(path, write_field_file(&f, opts)?);
             }

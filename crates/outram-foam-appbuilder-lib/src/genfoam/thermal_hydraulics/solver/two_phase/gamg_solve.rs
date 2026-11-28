@@ -14,8 +14,9 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use super::fv::Geometry;
-use crate::genfoam::common::gamg::{GamgSmoother, face_area_pair_weights, gamg_dic_solve, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
+use crate::genfoam::common::gamg::{GamgSmoother, face_area_pair_weights, gamg_dic_solve, gamg_dic_solve_if, gamg_dic_solve_without_coarse_interfaces, pair_agglomerate, GamgAgglomeration, GamgControls, GamgPerformance};
 use outram_foam_basic_lib::prelude::LduMatrix;
+use crate::genfoam::common::ldu_interfaces::LduInterfaces;
 
 /// The cached agglomeration of one mesh and the `forward_` toggle.
 #[derive(Debug, Clone)]
@@ -24,11 +25,13 @@ pub struct GamgSolveState {
     forward: bool,
     /// Every solve since the last [`Self::take_log`]: `(initial residual, residual after each V-cycle)`.
     log: Vec<(f64, Vec<f64>)>,
+    /// `false` only for the CONTROL [`Self::without_coarse_interfaces`] (gh:#1905 round 80, Q9).
+    coarse_interfaces: bool,
 }
 
 impl Default for GamgSolveState {
     fn default() -> Self {
-        Self { agg: None, forward: true, log: Vec::new() }
+        Self { agg: None, forward: true, log: Vec::new(), coarse_interfaces: true }
     }
 }
 
@@ -50,6 +53,23 @@ impl GamgSolveState {
     /// # Panics
     /// On an asymmetric matrix or an unsupported control (the reader refuses those by name before a run).
     pub fn solve(&mut self, g: &Geometry, ldu: &LduMatrix, source: &[f64], x: &mut [f64], ctl: &GamgControls) -> GamgPerformance {
+        self.solve_if(g, ldu, &LduInterfaces::none(), source, x, ctl)
+    }
+
+    /// CONTROL, NOT upstream (gh:#1905, README "Round 80", prediction Q9): later solves keep the coupled interfaces on the finest level
+    /// only ([`crate::genfoam::common::gamg::gamg_dic_solve_without_coarse_interfaces`]).
+    #[must_use]
+    pub fn without_coarse_interfaces(mut self) -> Self {
+        self.coarse_interfaces = false;
+        self
+    }
+
+    /// [`Self::solve`] of a matrix with coupled (`cyclic`) interfaces `ifs` (gh:#1905 round 80): the agglomeration is that of the internal
+    /// faces (as upstream's), the interfaces are carried on every level ([`gamg_dic_solve_if`]).
+    ///
+    /// # Panics
+    /// As [`Self::solve`].
+    pub fn solve_if(&mut self, g: &Geometry, ldu: &LduMatrix, ifs: &LduInterfaces, source: &[f64], x: &mut [f64], ctl: &GamgControls) -> GamgPerformance {
         if self.agg.is_none() {
             let ni = g.n_internal();
             let sf: Vec<[f64; 3]> = g.mesh.face_area_vectors[..ni].iter().map(|v| [v.x, v.y, v.z]).collect();
@@ -58,7 +78,12 @@ impl GamgSolveState {
             self.agg = Some(agg);
         }
         let agg = self.agg.as_ref().expect("built above");
-        let perf = gamg_dic_solve(ldu, agg, ctl, source, x).unwrap_or_else(|e| panic!("{e}"));
+        let perf = if self.coarse_interfaces {
+            gamg_dic_solve_if(ldu, ifs, agg, ctl, source, x)
+        } else {
+            gamg_dic_solve_without_coarse_interfaces(ldu, ifs, agg, ctl, source, x)
+        }
+        .unwrap_or_else(|e| panic!("{e}"));
         self.log.push((perf.initial_residual, perf.cycles.clone()));
         perf
     }

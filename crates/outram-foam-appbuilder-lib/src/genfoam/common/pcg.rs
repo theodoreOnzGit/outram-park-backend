@@ -31,6 +31,7 @@
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
 use outram_foam_basic_lib::prelude::LduMatrix;
+use super::ldu_interfaces::{amul, LduInterfaces};
 
 /// `SolverPerformance::small_`.
 const SMALL: f64 = 1e-20;
@@ -71,12 +72,19 @@ pub(crate) fn converged(final_residual: f64, initial_residual: f64, tolerance: f
 
 /// `lduMatrix::solver::normFactor(psi, source, Apsi, tmpField)`.
 pub(crate) fn norm_factor(a: &LduMatrix, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 {
+    norm_factor_if(a, &LduInterfaces::none(), psi, source, apsi)
+}
+
+/// [`norm_factor`] with coupled interfaces: `sumA` subtracts the `interfaceBouCoeffs` after the face loop (`lduMatrix::sumA`,
+/// gh:#1905 round 80).
+pub(crate) fn norm_factor_if(a: &LduMatrix, ifs: &LduInterfaces, psi: &[f64], source: &[f64], apsi: &[f64]) -> f64 {
     let n = psi.len();
     let mut sum_a = a.diag.clone();
     for f in 0..a.n_internal_faces {
         sum_a[a.neighbour[f]] += a.lower[f];
         sum_a[a.owner[f]] += a.upper[f];
     }
+    ifs.sum_a_update(&mut sum_a);
     let mut avg = 0.0;
     for x in psi {
         avg += x;
@@ -133,10 +141,26 @@ pub(crate) fn pcg_dic(
     max_iter: usize,
     min_iter: usize,
 ) -> PcgPerformance {
+    pcg_dic_if(a, &LduInterfaces::none(), source, psi, tolerance, rel_tol, max_iter, min_iter)
+}
+
+/// [`pcg_dic`] with coupled interfaces (gh:#1905 round 80): `Amul` and `normFactor` carry them, the `DIC` preconditioner does not
+/// (`PCG.C`, `DICPreconditioner.C`). With [`LduInterfaces::none`] the arithmetic is that of [`pcg_dic`].
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn pcg_dic_if(
+    a: &LduMatrix,
+    ifs: &LduInterfaces,
+    source: &[f64],
+    psi: &mut [f64],
+    tolerance: f64,
+    rel_tol: f64,
+    max_iter: usize,
+    min_iter: usize,
+) -> PcgPerformance {
     let n = psi.len();
-    let wa0 = a.multiply(psi);
+    let wa0 = amul(a, ifs, psi);
     let mut r_a: Vec<f64> = (0..n).map(|c| source[c] - wa0[c]).collect();
-    let norm = norm_factor(a, psi, source, &wa0);
+    let norm = norm_factor_if(a, ifs, psi, source, &wa0);
     let initial = g_sum_mag(&r_a) / norm;
     let mut perf = PcgPerformance { iterations: 0, initial_residual: initial, final_residual: initial };
     if min_iter == 0 && converged(perf.final_residual, initial, tolerance, rel_tol) {
@@ -158,7 +182,7 @@ pub(crate) fn pcg_dic(
                 p_a[c] = w_a[c] + beta * p_a[c];
             }
         }
-        w_a = a.multiply(&p_a);
+        w_a = amul(a, ifs, &p_a);
         let w_ap_a = g_sum_prod(&w_a, &p_a);
         if w_ap_a.abs() / norm < VSMALL {
             break;

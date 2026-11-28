@@ -92,11 +92,12 @@ use outram_foam_basic_lib::primitives::Vector3;
 use petir::mathf::RealMath;
 
 use super::super::fv::{self, Bc, Eqn, Geometry, Scalar};
-use super::super::pbicgstab::{pbicgstab_diagonal, DEFAULT_MAX_ITER};
+use super::super::pbicgstab::{pbicgstab_diagonal_if, DEFAULT_MAX_ITER};
+use crate::genfoam::common::ldu_interfaces::LduInterfaces;
 use super::super::turbulence::{bound, convective_inflow2, production_invariant, relax_equation, velocity_gradient, SMALL};
 use super::OnePhaseCcSolver;
 #[cfg(feature = "std")]
-use super::super::case::{read_field, scalar, word, Ctx, FieldFile};
+use super::super::case::{read_field_bcs_only, scalar, word, Ctx, FieldFile};
 #[cfg(feature = "std")]
 use super::last_match;
 #[cfg(feature = "std")]
@@ -323,11 +324,21 @@ pub struct DiagonalBicgstab {
 impl DiagonalBicgstab {
     /// Solve `ldu x = source` from the guess in `x` with the selected solver; returns `(initial residual, iterations)`.
     pub fn solve(&self, ldu: &outram_foam_basic_lib::prelude::LduMatrix, source: &[f64], x: &mut [f64]) -> (f64, usize) {
+        self.solve_if(ldu, &LduInterfaces::none(), source, x)
+    }
+
+    /// [`Self::solve`] with coupled (`cyclic`) interfaces (gh:#1905 round 80; `PBiCGStab` only: the reader refuses `PBiCG`/`DILU` on a mesh
+    /// with a cyclic patch).
+    ///
+    /// # Panics
+    /// `PBiCG`/`DILU` with interfaces (refused by the reader before a run).
+    pub fn solve_if(&self, ldu: &outram_foam_basic_lib::prelude::LduMatrix, ifs: &LduInterfaces, source: &[f64], x: &mut [f64]) -> (f64, usize) {
         if self.dilu {
+            assert!(ifs.is_empty(), "PBiCG/DILU with cyclic interfaces is not ported (refused when the case is read)");
             let perf = crate::genfoam::thermo_mechanics::legacy_fvm::pbicg::pbicg_dilu(ldu, source, x, self.tolerance, self.rel_tol, self.max_iter, self.min_iter);
             (perf.initial_residual, perf.iterations)
         } else {
-            let perf = pbicgstab_diagonal(ldu, source, x, self.tolerance, self.rel_tol, self.max_iter, self.min_iter);
+            let perf = pbicgstab_diagonal_if(ldu, ifs, source, x, self.tolerance, self.rel_tol, self.max_iter, self.min_iter);
             (perf.initial_residual, perf.iterations)
         }
     }
@@ -408,6 +419,9 @@ pub(super) struct TurbState {
     pub cell_weight: Vec<f64>,
     /// Apply the wall functions (default true; the ablation switches them off).
     pub wall_functions: bool,
+    /// `false` only for the ablation [`OnePhaseCcSolver::with_folded_k_epsilon_assembly`]: the `k`/`epsilon` matrices accumulated term
+    /// by term into one running diagonal and source (the form before gh:#1905 round 80) instead of `fvMatrix`'s operator order.
+    pub operator_order: bool,
     /// `G` of the last `correct()` (diagnostic).
     pub production: Vec<f64>,
     /// `bound` actions on `k` and `epsilon`.
@@ -477,8 +491,58 @@ fn point_face_distance(p: Vector3, pts: &[Vector3], centre: Vector3) -> f64 {
 
 /// ESI `nearWallDist` (`useCombinedWallPatch true`): for each wall face, the smallest distance from the centre of its cell to
 /// any wall face that shares a point with it (itself included). Returns one value per boundary face, 0 off the walls.
+///
+/// The fan centre of each wall face is `face::centre` (`face.C:513-573`, what `face::nearestPointClassify` uses), not the mesh's face
+/// centre (`primitiveMeshFaceCentresAndAreas.C`): the two differ in the last bit, and so did `y` (README round 80, gh:#1905: 3 of 640
+/// `epsilon` cells of `1D_MSR_pointKinetics` by 1 ulp). The mesh-centre form is [`near_wall_dist_with_mesh_face_centres`].
 #[must_use]
 pub fn near_wall_dist(mesh: &FvMesh, points: &[[f64; 3]], faces: &[Vec<usize>]) -> Vec<f64> {
+    near_wall_dist_impl(mesh, points, faces, true)
+}
+
+/// ABLATION (gh:#1905, README round 80): [`near_wall_dist`] with the fan centre taken from the mesh's face centres (the form before round 80).
+#[must_use]
+pub fn near_wall_dist_with_mesh_face_centres(mesh: &FvMesh, points: &[[f64; 3]], faces: &[Vec<usize>]) -> Vec<f64> {
+    near_wall_dist_impl(mesh, points, faces, false)
+}
+
+/// `face::centre(points)` (ESI v2506 `face.C:513-573`): a triangle's centroid directly; otherwise the point average `centrePoint`, then the
+/// area-weighted centres of the fan triangles `(p_i, p_i+1, centrePoint)`, `sumAc/(3 sumA)` (`centrePoint` when `sumA <= VSMALL`).
+#[must_use]
+pub fn face_centre_openfoam(pts: &[Vector3]) -> Vector3 {
+    let n = pts.len();
+    if n == 3 {
+        // `triPointRef::centre`: `(1.0/3.0)*(a + b + c)`
+        let s = pts[0] + pts[1] + pts[2];
+        return s * (1.0 / 3.0);
+    }
+    let mut cp = Vector3::new(0.0, 0.0, 0.0);
+    for q in pts {
+        cp = cp + *q;
+    }
+    let nf = n as f64;
+    cp = Vector3::new(cp.x / nf, cp.y / nf, cp.z / nf);
+    let mut sum_a = 0.0;
+    let mut sum_ac = Vector3::new(0.0, 0.0, 0.0);
+    for i in 0..n {
+        let next = pts[(i + 1) % n];
+        let ttc = pts[i] + next + cp;
+        let a = pts[i] - cp;
+        let b = next - cp;
+        let cr = Vector3::new(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x);
+        let ta = (cr.x * cr.x + cr.y * cr.y + cr.z * cr.z).sqrt();
+        sum_a += ta;
+        sum_ac = sum_ac + ttc * ta;
+    }
+    if sum_a > 1e-300 {
+        let d = 3.0 * sum_a;
+        Vector3::new(sum_ac.x / d, sum_ac.y / d, sum_ac.z / d)
+    } else {
+        cp
+    }
+}
+
+fn near_wall_dist_impl(mesh: &FvMesh, points: &[[f64; 3]], faces: &[Vec<usize>], openfoam_centre: bool) -> Vec<f64> {
     let ni = mesh.n_internal_faces;
     let mut out = vec![0.0; mesh.n_faces - ni];
     let mut wall_faces: Vec<usize> = Vec::new();
@@ -508,7 +572,8 @@ pub fn near_wall_dist(mesh: &FvMesh, points: &[[f64; 3]], faces: &[Vec<usize>]) 
         for &i in &neighbours {
             let nf = wall_faces[i];
             let pts: Vec<Vector3> = faces[nf].iter().map(|&q| to_v(q)).collect();
-            let d = point_face_distance(cc, &pts, mesh.face_centres[nf]);
+            let ctr = if openfoam_centre && pts.len() != 3 { face_centre_openfoam(&pts) } else { mesh.face_centres[nf] };
+            let d = point_face_distance(cc, &pts, ctr);
             if d < best {
                 best = d;
             }
@@ -585,6 +650,7 @@ impl TurbState {
             epsilon_old: case.epsilon.clone(),
             cell_weight,
             wall_functions: true,
+            operator_order: true,
             production: vec![0.0; n],
             bound_count: 0,
             step_solves: Vec::new(),
@@ -598,6 +664,10 @@ fn boundary_internal_coeffs(g: &Geometry, phi: &[f64], gamma: &[f64], psi: &Scal
     let mut out = vec![0.0; g.n_cells()];
     for f in g.n_internal()..g.n_faces() {
         if !g.active[f] {
+            continue;
+        }
+        if g.cyclic_nbr[f - g.n_internal()] != usize::MAX {
+            // a coupled face's coefficients are kept apart (`Eqn::cyc_int`), not folded into the diagonal (gh:#1905)
             continue;
         }
         let o = g.mesh.owner[f];
@@ -636,9 +706,85 @@ pub fn set_values(g: &Geometry, e: &mut Eqn, cells: &[usize], values: &[f64], un
         e.ldu.diag[c] = unfolded_diag[c];
         e.source[c] = values[i] * unfolded_diag[c];
     }
+    // `fvMatrix::setValuesFromList`: `internalCoeffs_` and `boundaryCoeffs_` of every boundary face of a set cell become zero (the cyclic
+    // ones are kept apart in `Eqn::cyc_int`/`cyc_bou`; gh:#1905)
+    if g.has_cyclic() {
+        let mut set = vec![false; g.n_cells()];
+        for &c in cells {
+            set[c] = true;
+        }
+        let ni = g.n_internal();
+        for f in ni..g.n_faces() {
+            if set[m.owner[f]] {
+                e.cyc_int[f - ni] = 0.0;
+                e.cyc_bou[f - ni] = 0.0;
+            }
+        }
+    }
+}
+
+/// The cell terms of one `porousKEpsilon` transport equation (`porousKEpsilon.C:607-647`): `S1 - SuSp(susp) - Sp(sp) + source() - Sp(conv)
+/// + conv eq`, every array per cell.
+struct PorousKEpsilonTerms {
+    s1: Vec<f64>,
+    susp: Vec<f64>,
+    sp: Vec<f64>,
+    conv: Vec<f64>,
+    s2: Vec<f64>,
+}
+
+/// `fvm::ddt(alpha, rho, psi) + fvm::div(alphaRhoPhi, psi) - fvm::laplacian(gamma, psi) == S1 - fvm::SuSp(susp, psi) - fvm::Sp(sp, psi)
+/// + psiSource() - fvm::Sp(conv, psi) + conv eq + fvOptions` in `fvMatrix`'s operator order (gh:#1905, README round 80): each `fvm` term is
+/// its own matrix, `A + B` adds a whole matrix (`lduMatrix::operator+=`, `source_ +=`), `field - M` is `-M` with `source -= V field`,
+/// `M + field` is `source -= V field`, `A == B` is `A - B`; `psiSource()` and `fvOptions` are zero matrices. The first form
+/// (one running diagonal) is the ablation [`OnePhaseCcSolver::with_folded_k_epsilon_assembly`].
+fn porous_k_epsilon_matrix(g: &Geometry, ddt: (&[f64], &[f64]), phi: &[f64], gamma: &[f64], psi: &Scalar, t: &PorousKEpsilonTerms) -> Eqn {
+    let n = g.n_cells();
+    let vol = &g.mesh.cell_volumes;
+    // LHS = (ddt + div) - laplacian
+    let mut lhs = Eqn::new(g);
+    lhs.ldu.diag.copy_from_slice(ddt.0);
+    lhs.source.copy_from_slice(ddt.1);
+    let mut dv = Eqn::new(g);
+    dv.div_upwind(g, phi, psi);
+    lhs.add(&dv);
+    let mut lp = Eqn::new(g);
+    lp.neg_laplacian(g, gamma, psi);
+    lhs.add(&lp);
+    // RHS B: C = -SuSp; C.source -= V S1; C -= Sp(sp); C += 0; C -= Sp(conv); C.source -= V S2
+    let mut b_diag = vec![0.0; n];
+    let mut b_src = vec![0.0; n];
+    for c in 0..n {
+        let v = vol[c];
+        let susp_d = v * t.susp[c].max(0.0);
+        let susp_s = -(v * t.susp[c].min(0.0) * psi.c[c]);
+        b_diag[c] = -susp_d;
+        b_src[c] = -susp_s;
+        b_src[c] -= v * t.s1[c];
+        b_diag[c] -= v * t.sp[c];
+        b_diag[c] -= v * t.conv[c];
+        b_src[c] -= v * t.s2[c];
+    }
+    // kEqn = LHS - B
+    for c in 0..n {
+        lhs.ldu.diag[c] -= b_diag[c];
+        lhs.source[c] -= b_src[c];
+    }
+    lhs
 }
 
 impl OnePhaseCcSolver {
+    /// ABLATION (gh:#1905, README round 80): assemble the `k` and `epsilon` matrices as the port did before round 80, every term
+    /// accumulated into ONE running diagonal and source (`ddt`, `div`, `laplacian`, `Su`, `SuSp`, `Sp`, `Sp`, `Su` in that order). The
+    /// default is `fvMatrix`'s operator order ([`porous_k_epsilon_matrix`]); the two differ in the last bit of the diagonal.
+    #[must_use]
+    pub fn with_folded_k_epsilon_assembly(mut self) -> Self {
+        if let Some(t) = self.turb.as_mut() {
+            t.operator_order = false;
+        }
+        self
+    }
+
     /// DEPRECATED ablation (gh:#1838): no wall functions. `epsilon` has `zeroGradient` wall patches, `G` is not overwritten,
     /// no cell is set, and `nut` keeps its wall values as read (what `turbulence false` leaves). The default applies them.
     #[must_use]
@@ -850,10 +996,6 @@ impl OnePhaseCcSolver {
         // ---- epsilon equation ----
         let use_final = self.pimple.final_iteration;
         let gamma_e = gamma_of(c.sigma_eps, &ts.nut);
-        let mut e = Eqn::new(&g);
-        ddt(&mut e, &eps_old);
-        e.div_upwind(&g, phi, &ts.epsilon);
-        e.neg_laplacian(&g, &gamma_e, &ts.epsilon);
         let susp_scale = (2.0 / 3.0) * c.c1 - c.c3;
         let mut su = vec![0.0; n];
         let mut susp = vec![0.0; n];
@@ -865,11 +1007,22 @@ impl OnePhaseCcSolver {
             sp[i] = c.c2 * alpha[i] * rho0 * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
             su_conv[i] = conv[i] * eq_eps[i];
         }
-        e.su(&g, &su);
-        e.su_sp(&g, &susp, &ts.epsilon.c);
-        e.sp(&g, &sp);
-        e.sp(&g, &conv);
-        e.su(&g, &su_conv);
+        let mut e = Eqn::new(&g);
+        if ts.operator_order {
+            let mut dd = Eqn::new(&g);
+            ddt(&mut dd, &eps_old);
+            let terms = PorousKEpsilonTerms { s1: su.clone(), susp: susp.clone(), sp: sp.clone(), conv: conv.clone(), s2: su_conv.clone() };
+            e = porous_k_epsilon_matrix(&g, (&dd.ldu.diag, &dd.source), phi, &gamma_e, &ts.epsilon, &terms);
+        } else {
+            ddt(&mut e, &eps_old);
+            e.div_upwind(&g, phi, &ts.epsilon);
+            e.neg_laplacian(&g, &gamma_e, &ts.epsilon);
+            e.su(&g, &su);
+            e.su_sp(&g, &susp, &ts.epsilon.c);
+            e.sp(&g, &sp);
+            e.sp(&g, &conv);
+            e.su(&g, &su_conv);
+        }
         let bdiag = boundary_internal_coeffs(&g, phi, &gamma_e, &ts.epsilon);
         if let Some(a) = self.case.controls.relax.equation("epsilon", use_final).filter(|a| *a > 0.0) {
             let inflow2 = convective_inflow2(&g, phi, &ts.epsilon);
@@ -883,7 +1036,8 @@ impl OnePhaseCcSolver {
         }
         let mut x = ts.epsilon.c.clone();
         let sv = if use_final { c.epsilon_solver_final } else { c.epsilon_solver };
-        let perf = sv.solve(&e.ldu, &e.source, &mut x);
+        let (ldu_e, ifs_e) = e.with_cyclic_folded(&g);
+        let perf = sv.solve_if(&ldu_e, &ifs_e, &e.source, &mut x);
         let eps_solve = (perf.0, perf.1);
         self.pimple.record("epsilon", perf.0);
         ts.epsilon.c = x;
@@ -894,10 +1048,6 @@ impl OnePhaseCcSolver {
 
         // ---- k equation ----
         let gamma_k = gamma_of(c.sigmak, &ts.nut);
-        let mut e = Eqn::new(&g);
-        ddt(&mut e, &ts.k_old);
-        e.div_upwind(&g, phi, &ts.k);
-        e.neg_laplacian(&g, &gamma_k, &ts.k);
         let mut su = vec![0.0; n];
         let mut susp = vec![0.0; n];
         let mut sp = vec![0.0; n];
@@ -908,18 +1058,30 @@ impl OnePhaseCcSolver {
             sp[i] = alpha[i] * rho0 * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
             su_conv[i] = conv[i] * eq_k[i];
         }
-        e.su(&g, &su);
-        e.su_sp(&g, &susp, &ts.k.c);
-        e.sp(&g, &sp);
-        e.sp(&g, &conv);
-        e.su(&g, &su_conv);
+        let mut e = Eqn::new(&g);
+        if ts.operator_order {
+            let mut dd = Eqn::new(&g);
+            ddt(&mut dd, &ts.k_old);
+            let terms = PorousKEpsilonTerms { s1: su.clone(), susp: susp.clone(), sp: sp.clone(), conv: conv.clone(), s2: su_conv.clone() };
+            e = porous_k_epsilon_matrix(&g, (&dd.ldu.diag, &dd.source), phi, &gamma_k, &ts.k, &terms);
+        } else {
+            ddt(&mut e, &ts.k_old);
+            e.div_upwind(&g, phi, &ts.k);
+            e.neg_laplacian(&g, &gamma_k, &ts.k);
+            e.su(&g, &su);
+            e.su_sp(&g, &susp, &ts.k.c);
+            e.sp(&g, &sp);
+            e.sp(&g, &conv);
+            e.su(&g, &su_conv);
+        }
         if let Some(a) = self.case.controls.relax.equation("k", use_final).filter(|a| *a > 0.0) {
             let inflow2 = convective_inflow2(&g, phi, &ts.k);
             relax_equation(&g, &mut e, a, &inflow2, &ts.k.c);
         }
         let mut x = ts.k.c.clone();
         let sv = if use_final { c.k_solver_final } else { c.k_solver };
-        let perf = sv.solve(&e.ldu, &e.source, &mut x);
+        let (ldu_k, ifs_k) = e.with_cyclic_folded(&g);
+        let perf = sv.solve_if(&ldu_k, &ifs_k, &e.source, &mut x);
         self.pimple.record("k", perf.0);
         ts.step_solves.push([eps_solve, (perf.0, perf.1)]);
         ts.k.c = x;
@@ -1114,22 +1276,32 @@ pub(super) fn read_turbulence_case(
     }
 
     // fields
-    let kf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/k"))?;
-    let ef = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/epsilon"))?;
-    let nf = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
-    let af = read_field(ctx, &alloc::format!("{tdir}/fluidRegion/alphat"))?;
+    // the patch types and dictionaries from the files; the CELL values through `read_vol_scalar_field`, which reads a uniform and a written
+    // (`nonuniform List<scalar>`) internal field alike (gh:#1905, README round 80: the shipped 1D_MSR transient starts from the written
+    // steady state)
+    let kf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/k"))?;
+    let ef = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/epsilon"))?;
+    let nf = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/nut"))?;
+    let af = read_field_bcs_only(ctx, &alloc::format!("{tdir}/fluidRegion/alphat"))?;
+    let k_cells = crate::io::field_reader::read_vol_scalar_field(&ctx.root.join(alloc::format!("{tdir}/fluidRegion/k")), n)?;
+    let e_cells = crate::io::field_reader::read_vol_scalar_field(&ctx.root.join(alloc::format!("{tdir}/fluidRegion/epsilon")), n)?;
     let check = |ff: &FieldFile, wall_ty: &str, other: &[&str], extra_keys: &[&str]| -> Result<Vec<bool>, AppBuilderError> {
         let mut out = Vec::new();
         for p in &g.mesh.patches {
-            let (_, ty, _) = ff
-                .bcs
-                .iter()
-                .find(|(nm, _, _)| nm == &p.name)
-                .ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", ff.name, p.name)))?;
+            // a constraint patch the file does not list gets its constraint patch field (`readField`; gh:#1905)
+            let implicit = match p.kind {
+                PatchKind::Empty => Some("empty".to_string()),
+                PatchKind::Cyclic => Some("cyclic".to_string()),
+                _ => None,
+            };
+            let found = ff.bcs.iter().find(|(nm, _, _)| nm == &p.name).map(|(_, t, _)| t.clone());
+            let ty = found.or(implicit).ok_or_else(|| ctx.e(format!("{}: no BC for patch `{}`", ff.name, p.name)))?;
+            let ty = &ty;
             let is_wall = p.kind == PatchKind::Wall && ty == wall_ty;
             // `porousKEpsilon::correct` has no wall-function code of its own: the patch TYPES of the field files decide (gh:#1929)
             let allowed = is_wall
                 || (p.kind == PatchKind::Wedge && ty == "wedge")
+                || (p.kind == PatchKind::Cyclic && ty == "cyclic" && g.cyclic_nbr.get(p.start - g.n_internal()).is_some_and(|&c| c != usize::MAX))
                 || (p.kind == PatchKind::Empty && ty == "empty")
                 || (!matches!(p.kind, PatchKind::Wedge | PatchKind::Empty) && other.contains(&ty.as_str()));
             if !allowed {
@@ -1158,8 +1330,15 @@ pub(super) fn read_turbulence_case(
     }
     let mut alphat_calculated = Vec::new();
     for (pi, p) in g.mesh.patches.iter().enumerate() {
-        let (_, ty, _) = af.bcs.iter().find(|(nm, _, _)| nm == &p.name).ok_or_else(|| ctx.e("alphat: no BC for a patch"))?;
-        if !matches!(ty.as_str(), "zeroGradient" | "wedge" | "calculated" | "empty") {
+        let implicit = match p.kind {
+            PatchKind::Empty => Some("empty".to_string()),
+            PatchKind::Cyclic => Some("cyclic".to_string()),
+            _ => None,
+        };
+        let ty = af.bcs.iter().find(|(nm, _, _)| nm == &p.name).map(|(_, t, _)| t.clone()).or(implicit).ok_or_else(|| ctx.e("alphat: no BC for a patch"))?;
+        let ty = &ty;
+        let coupled = p.kind == PatchKind::Cyclic && ty == "cyclic" && g.cyclic_nbr.get(p.start - g.n_internal()).is_some_and(|&c| c != usize::MAX);
+        if !coupled && !matches!(ty.as_str(), "zeroGradient" | "wedge" | "calculated" | "empty") {
             return Err(ctx.e(format!("alphat.{}: `{ty}` is not ported (zeroGradient, calculated, wedge)", p.name)));
         }
         if ty == "calculated" && wn[pi] {
@@ -1167,8 +1346,6 @@ pub(super) fn read_turbulence_case(
         }
         alphat_calculated.push(ty == "calculated");
     }
-    let k0 = kf.internal.as_scalar().ok_or_else(|| ctx.e("k internalField must be a uniform scalar"))?;
-    let e0 = ef.internal.as_scalar().ok_or_else(|| ctx.e("epsilon internalField must be a uniform scalar"))?;
 
     // the wall-function entries of every wall patch (`wallFunctionCoefficients(dict)`, `wallFunctionBlenders(dict, STEPWISE, n)`)
     let mut nut_wall = vec![NutWallSpec::standard(); g.mesh.patches.len()];
@@ -1233,8 +1410,8 @@ pub(super) fn read_turbulence_case(
         prt: cf("Prt", 1.0),
         k_min: scalar(ras, "kMin").unwrap_or(SMALL),
         epsilon_min: scalar(ras, "epsilonMin").unwrap_or(SMALL),
-        k: vec![k0; n],
-        epsilon: vec![e0; n],
+        k: k_cells,
+        epsilon: e_cells,
         convergence_length,
         turbulence_intensity_coeff: ic,
         turbulence_intensity_exp: ie,
@@ -1302,6 +1479,36 @@ mod tests {
         // beside the hypotenuse bc
         let d = point_triangle_distance(Vector3::new(1.0, 1.0, 0.0), a, b, c);
         assert!((d - 0.5 * 2.0_f64.sqrt()).abs() < 1e-15);
+    }
+
+    /// `face::centre` (gh:#1905 round 80): a square's centre is its middle, a triangle's its centroid, a degenerate (zero-area) face
+    /// falls back to the point average; on the 1-D column of `1D_MSR_pointKinetics` both wall-distance forms give 0.5 m to 1e-15.
+    #[test]
+    fn the_openfoam_face_centre_and_both_wall_distance_forms() {
+        let sq = [Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(1.0, 1.0, 0.0), Vector3::new(0.0, 1.0, 0.0)];
+        let c = face_centre_openfoam(&sq);
+        assert_eq!((c.x, c.y, c.z), (0.5, 0.5, 0.0));
+        let tri = [Vector3::new(0.0, 0.0, 0.0), Vector3::new(3.0, 0.0, 0.0), Vector3::new(0.0, 3.0, 0.0)];
+        let t = face_centre_openfoam(&tri);
+        assert!((t.x - 1.0).abs() < 1e-15 && (t.y - 1.0).abs() < 1e-15);
+        let line = [Vector3::new(0.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0), Vector3::new(2.0, 0.0, 0.0), Vector3::new(1.0, 0.0, 0.0)];
+        assert_eq!(face_centre_openfoam(&line).x, 1.0);
+        #[cfg(feature = "std")]
+        {
+            let dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("verification_and_validation/genfoam_vs_upstream_gh1361/cases/msr1d_root/constant/fluidRegion/polyMesh");
+            let mesh = crate::io::poly_mesh::read_poly_mesh(&dir).expect("mesh");
+            let rd = |name: &str| std::fs::read_to_string(dir.join(name)).expect("polyMesh file");
+            let points = crate::io::poly_mesh::parse_points(&rd("points"), "points").expect("points");
+            let faces = crate::io::poly_mesh::parse_faces(&rd("faces"), "faces").expect("faces");
+            let y = near_wall_dist(&mesh, &points, &faces);
+            let y0 = near_wall_dist_with_mesh_face_centres(&mesh, &points, &faces);
+            let walls = mesh.patches.iter().find(|p| p.name == "walls").expect("walls");
+            for f in walls.start..walls.start + walls.size {
+                let i = f - mesh.n_internal_faces;
+                assert!((y[i] - 0.5).abs() < 1e-15 && (y0[i] - 0.5).abs() < 1e-15, "{} {}", y[i], y0[i]);
+            }
+        }
     }
 
     #[test]

@@ -13,7 +13,7 @@
 //! | `nSweeps < 0`: `-nSweeps` sweeps, `nIterations -= nSweeps`, no residual | `smoothSolver.C:93-117` | [`smooth_solver_sym_gauss_seidel`] |
 //! | `Amul`, `normFactor`, initial residual `gSumMag(source - Apsi)/normFactor` | `smoothSolver.C:119-146`, `lduMatrixSolver.C` (`normFactor`) | `a.multiply`, `pcg::norm_factor`, `pcg::g_sum_mag` |
 //! | `if (minIter_ > 0 \|\| !checkConvergence(tolerance, relTol))` then `do { smooth(nSweeps); residual } while (((nIter += nSweeps) < maxIter && !converged) \|\| nIter < minIter)` | `smoothSolver.C:155-209`, `SolverPerformance.C:63-88` | the loop below, `pcg::converged` |
-//! | the smoother | `smoothers/symGaussSeidel/symGaussSeidelSmoother.C:74-199` (no interfaces) | `gamg::sym_gauss_seidel_smooth` (round 72, reused) |
+//! | the smoother | `smoothers/symGaussSeidel/symGaussSeidelSmoother.C:74-199` (~~no interfaces~~ cyclic interfaces since gh:#1905 round 80) | `gamg::sym_gauss_seidel_smooth` (round 72, reused) |
 //! | `matrix_.residual` | `lduMatrixATmul.C` (`source - diag psi`, then faces) | `gamg::ldu_residual` (reused) |
 //!
 //! The earlier `nSweeps 1`, `relTol 0` translation (`one_phase::smooth_solve_sym_gauss_seidel_openfoam`, round 46) is the special case
@@ -25,8 +25,9 @@
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
 use crate::nostd_prelude::*;
-use super::gamg::{ldu_residual, sym_gauss_seidel_smooth};
-use super::pcg::{converged, g_sum_mag, norm_factor};
+use super::gamg::{ldu_residual_if, sym_gauss_seidel_smooth_if};
+use super::ldu_interfaces::{amul, LduInterfaces};
+use super::pcg::{converged, g_sum_mag, norm_factor_if};
 use outram_foam_basic_lib::prelude::LduMatrix;
 
 /// The controls of a `smoothSolver` entry (`lduMatrix::solver::readControls` defaults and `nSweeps 1`).
@@ -77,23 +78,36 @@ pub struct SmoothSolverPerformance {
 /// `smoothSolver::solve` with the `symGaussSeidel` smoother on `a psi = source`; `psi` is the initial guess and receives the solution.
 #[must_use]
 pub fn smooth_solver_sym_gauss_seidel(a: &LduMatrix, source: &[f64], psi: &mut [f64], ctl: &SmoothSolverControls) -> SmoothSolverPerformance {
+    smooth_solver_sym_gauss_seidel_if(a, &LduInterfaces::none(), source, psi, ctl)
+}
+
+/// [`smooth_solver_sym_gauss_seidel`] with coupled (`cyclic`) interfaces (gh:#1905 round 80): `Amul`, `normFactor`, the smoother's
+/// `bPrime` and the residual carry them. With [`LduInterfaces::none`] it is [`smooth_solver_sym_gauss_seidel`].
+#[must_use]
+pub fn smooth_solver_sym_gauss_seidel_if(
+    a: &LduMatrix,
+    ifs: &LduInterfaces,
+    source: &[f64],
+    psi: &mut [f64],
+    ctl: &SmoothSolverControls,
+) -> SmoothSolverPerformance {
     let n_sweeps = ctl.sweeps.n_sweeps;
     if n_sweeps < 0 {
         // fixed number of sweeps: `solverPerf.nIterations() -= nSweeps_`, residuals left at 0
         let k = n_sweeps.unsigned_abs() as usize;
-        sym_gauss_seidel_smooth(a, psi, source, k);
+        sym_gauss_seidel_smooth_if(a, ifs, psi, source, k);
         return SmoothSolverPerformance { iterations: k, initial_residual: 0.0, final_residual: 0.0 };
     }
-    let apsi = a.multiply(psi);
-    let norm = norm_factor(a, psi, source, &apsi);
+    let apsi = amul(a, ifs, psi);
+    let norm = norm_factor_if(a, ifs, psi, source, &apsi);
     let r0: Vec<f64> = (0..psi.len()).map(|c| source[c] - apsi[c]).collect();
     let initial = g_sum_mag(&r0) / norm;
     let mut perf = SmoothSolverPerformance { iterations: 0, initial_residual: initial, final_residual: initial };
     if ctl.min_iter > 0 || !converged(perf.final_residual, initial, ctl.tolerance, ctl.rel_tol) {
         let step = n_sweeps as usize;
         loop {
-            sym_gauss_seidel_smooth(a, psi, source, step);
-            let r = ldu_residual(a, psi, source);
+            sym_gauss_seidel_smooth_if(a, ifs, psi, source, step);
+            let r = ldu_residual_if(a, ifs, psi, source);
             perf.final_residual = g_sum_mag(&r) / norm;
             perf.iterations += step;
             let go_on = (perf.iterations < ctl.sweeps.max_iter && !converged(perf.final_residual, initial, ctl.tolerance, ctl.rel_tol))

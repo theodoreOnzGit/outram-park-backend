@@ -3818,7 +3818,7 @@ fn dev2_div(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
 
 /// [`dev2_div`] with OpenFOAM's own linear interpolation, `lambda (P - N) + N` (`surfaceInterpolationScheme.C:270`) for the face
 /// velocity and the face tensor, instead of `w P + (1 - w) N` (gh:#1894 round 46; used by `one_phase_fc`).
-fn dev2_div_openfoam(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
+pub(crate) fn dev2_div_openfoam(g: &Geometry, u: &Vector, gamma: &Scalar) -> Vec<Vector3> {
     dev2_div_impl(g, u, gamma, true)
 }
 
@@ -3855,6 +3855,9 @@ fn dev2_div_impl_t(
             } else {
                 u.c[m.owner[f]] * w + u.c[m.neighbour[f]] * (1.0 - w)
             }
+        } else if g.cyclic_nbr[f - ni] != usize::MAX {
+            // a coupled patch: `lerp(U_N, U_P, w)` from the cells (`gaussGrad::gradf` through `interpolate`, gh:#1905)
+            g.cyclic_lerp_vector(f, &u.c, g.cyclic_w[f - ni])
         } else {
             u.b[f - ni]
         }
@@ -3914,6 +3917,26 @@ fn dev2_div_impl_t(
             for i in 0..3 {
                 for j in 0..3 {
                     r[i][j] = if openfoam { w * (a[i][j] - b[i][j]) + b[i][j] } else { w * a[i][j] + (1.0 - w) * b[i][j] };
+                }
+            }
+            r
+        } else if g.cyclic_nbr[f - ni] != usize::MAX {
+            // a coupled patch (gh:#1905): the face tensor is `lerp(X_N, X_P, w)` of the CELL expression `X = gamma dev2(T(grad U))`
+            // (`dotInterpolate` of the volTensorField; the gradient's own patch values are not used)
+            let nb = g.cyclic_nbr[f - ni];
+            let w = g.cyclic_w[f - ni];
+            let (a, b) = match tort {
+                None => (dev2t(&gr[nb], gamma.c[nb]), dev2t(&gr[o], gamma.c[o])),
+                Some((tc, _)) => (
+                    tensor_laplacian::tensor_and(&tensor_laplacian::scale(gamma.c[nb], &tc[nb]), &dev2t(&gr[nb], 1.0)),
+                    tensor_laplacian::tensor_and(&tensor_laplacian::scale(gamma.c[o], &tc[o]), &dev2t(&gr[o], 1.0)),
+                ),
+            };
+            let onet = 1.0 - w;
+            let mut r = [[0.0; 3]; 3];
+            for i in 0..3 {
+                for j in 0..3 {
+                    r[i][j] = onet * a[i][j] + w * b[i][j];
                 }
             }
             r
