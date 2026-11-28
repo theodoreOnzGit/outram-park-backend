@@ -10195,3 +10195,85 @@ The only default that changes on a shipped case is the twoPhase `k`/`epsilon` sm
 | Y9 | M2: ESFR `sets/duplicateFaces` byte-identical | 75 % |
 | Y10 | M2: the eight ESFR `210` files byte-identical | 60 % |
 | Y11 | R5 holds | 85 % |
+
+## Round 84 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first in `f2a582035`, BEFORE any port comparison run; real binary 652b3da on ESI v2506, serial; references in the refs submodule `8d1418b` (12 files, 1.3 MB at most); tests `tests/genfoam_fullcoupling_transient_vs_upstream.rs::r84_*` (2 tests, 13 s), `tests/genfoam_baffle_less_vs_upstream.rs::r84_*` (2 tests; the ESFR one driven by `ESFR_T_CASE`, 34 s with it); unit tests `io::foam_ascii_mesh::tests` (2 new, 1 changed), `region_solvers::time_name::tests` (2), `baffle_merge::tests` (1 changed); `--nocapture` prints every number below)
+
+> Research, education and V&V only. AI draft, not human-reviewed.
+
+### What was ported (upstream -> Rust)
+
+| upstream (OpenFOAM-ESI v2506 / GeN-Foam 652b3da) | Rust |
+|---|---|
+| `Time.C:304-306` (`timeIndex_ = startTimeIndex_`), `:1111-1112` (`timeStep` rule on `timeIndex_`) | `PseudoTimeClock::with_start_time_index`, given by `RegionSolvers::read` and both in-memory restarts (~~counted from 0~~) |
+| `Time.C:291-302`: `deltaT` (with `adjustTimeStep`) into `deltaT_`, `deltaTSave_`, `deltaT0_`; `deltaT0` into `deltaT0_` | `PseudoTimeClock::with_restart_time_dict`, `read_start_time_deltas` (found by this round's first port run: the written `deltaT0` of the first step after a restart, below) |
+| `TimeIO.C` `timePrecision` (default 6); `Time.C:193-255` (start-directory precision); `Time.C:1189-1225` (growth at a write time), `maxPrecision_ = 18` | `region_solvers::time_name::TimeName` (`no_std`), `RegionSolvers::{time_directory_name, time_precision}` (~~fixed 6~~) |
+| `meshHandler.C:483-527` `addZones` after `removeBaffles` (zones copied unrenumbered); `faceZone::writeDict` (`faceZone.C:694-704`); `ZoneMesh` `meta` names | `PolyMeshOut::face_zones`, `FaceZoneOut`, `parse_face_zones_out`, the `faceZones` writer; the one-cell-zone / no-face-zone refusals lifted |
+| `findBaffles` `faceSet duplicateFaces` (`mergeOrSplitBaffles.C:215-231`); ESI `HashTable` (`HashTable.C:380-410, 659-720`, `HashTableCore.C:45-80`, `Hash<int32_t>`), `HashTable::writeKeys` | `MergedFaces::duplicate_set_insertions`, `label_hash_set_order`, `face_set_text`, `PolyMeshOut::{duplicate_face_set, duplicate_faces_file}`, `RegionSolvers::baffle_less_start_files` |
+| `polyTopoChange::compact` with `orderPoints = false` keeps unused points (`polyTopoChange.C:983-995`) | the unused-point refusal of `check_unchanged_by_removal` removed (~~refused~~) |
+
+No kovan-reviewed function was touched (no `kind = "review"` block in this crate).
+
+### Results
+
+**L1 (every later write time), port from the real written `100`, 17 digits:**
+
+| stage | write times | step index port = real | files | byte-identical per directory | worst number (dgdt aside) | `dgdt` max real / port |
+|---|---|---|---|---|---|---|
+| SH | 120 ... 200 (9) | 9 of 9 (634 ... 1018) | 83 of 83 each, 0 skeleton differences | 38 each | 9.98e-13 (`190`, `neutroRegion/flux0`); per time 3.5e-13, 5.8e-13, 2.0e-13, 1.4e-13, 2.3e-13, 1.7e-13, 3.4e-13, 1.0e-12, 9.9e-13 | 4.1e-15 .. 5.5e-15 (noise gate 1e-12) |
+| PK | 120 ... 200 (9) | 9 of 9 (643 ... 1027) | 72 of 72 each, 0 skeleton differences | 28 each | 1.46e-13 (`120`, `alphaRhoPhi`); 9.4e-14 at `200` | 4.1e-15 .. 5.9e-15 |
+
+`|t - T| = 0` at every write time; `neutroRegion/meshPhi` equal to the real one (criterion as round 69).
+
+**L2 (`writeControl timeStep; writeInterval 9`):**
+
+| stage | directories | indices equal | names equal | first name difference | largest `|name_port - name_real|` | step sizes bit-identical | the four packed directories |
+|---|---|---|---|---|---|---|---|
+| SH | 62 | **62 of 62** | 12 of 62 | entry 9 (`102.21008372262722` against `102.21008372262719`, step 73) | 4.3e-13 | steps 2-65 (65 of 541); from step 66 within 2.5e-13 relative | `100.000001`, `100.000025959`, `100.00015474` named as real, 83 files, 0 skeleton differences, worst 1.2e-12 (`p_rgh`); the last (`199.71008356661491`, real `...466`, index 1017 both) compared after the name substitution of the test: worst 1.6e-12 |
+| PK | 63 | **63 of 63** | 10 of 63 | entry 10 (step 82) | 8.0e-13 | steps 2-74 (75 of 550); within 2.2e-13 relative | the first three as real, 72 files, worst 1.2e-12; the last (index 1026) worst 1.3e-13 |
+
+The precision growth `8 -> 9 -> 12 -> 15 -> 17` is reproduced (the first 8 / 9 names, which carry every step of it, are equal). **Why the later names differ (measured, not fixed):** from step 66 (SH) / 75 (PK) the step size is set by the power-variation limiter from the fields, which agree with the real ones to ~1e-13 (L1), so `deltaT` differs from the real one by up to 2.5e-13 relative (`refs/fc_{sh,pk}_ts9_deltaT_r84.txt`, the real log's `deltaT =` lines) and the sum of the steps by up to 8e-13 absolute; at 17 digits the name shows it. The names are bit-identical only where the state is: a consequence of the non-bit-identical state, not of the name rule.
+
+**First port run (development finding, recorded):** the first run of L2 found `uniform/time` `deltaT0` of the first written directory 2.1e-3 relative off: the real `100.000001` writes `deltaT0 0.20833333333333334` (the start directory's `deltaT`, read into `deltaTSave_` by `Time.C:291-302` since `adjustTimeStep` is on) where the port wrote the `controlDict` `1e-6`. Fixed (`with_restart_time_dict`); after it 3.2e-14 (`fluidRegion/p`). The same first run gated L2 directories by `|t - T|` against their 9-17-digit NAMES (3.2e-10 at `100.000025959`): an instrument error (the name is rounded; criterion L2 is per file, where `uniform/time` `value` carries 17 digits); the test now checks `|t - T|` only for L1's integer names.
+
+**L3 (control):** with the start `index` set to 0 the port writes first at step 9 (SH and PK), the real at step 1: differs, as it must.
+
+**M1 (2D_fullCoupling fluid mesh, one step):** `base`, `swap`, `unused`: **9 of 9 start files (8 `polyMesh` + `sets/duplicateFaces` `0()`) and 8 of 8 `1/fluidRegion.baffleLess` files byte-identical in each** (51 of 51). `swap`: the port's copy is renumbered back to the `base` order, as the real one; `unused`: 351 points kept, as the real one.
+
+**M2 (3D_SmallESFR_old):** `sets/duplicateFaces` **byte-identical** (21 252 labels in `labelHashSet` order: 65 536 ... 70 979, then 49 728 ... 65 535); the eight `210/fluidRegion.baffleLess/polyMesh` files with 7 cell zones and 2 face zones **8 of 8 byte-identical** (`cellZones` 130 514 bytes, `faceZones` 171 271 bytes). Round 78's start-time test passes unchanged on this round's loose case.
+
+### Predictions: held / missed
+
+| id | P | verdict |
+|---|---|---|
+| Y1 | 60 % | **held** |
+| Y2 | 55 % | **held** |
+| Y3 | 55 % | **held** (9.98e-13) |
+| Y4 | 80 % | **held** (62 / 63 of 62 / 63) |
+| Y5 | 70 % | **MISSED** (12 of 62 and 10 of 63 names; the growth itself held; cause above) |
+| Y6 | 60 % | **held for the first three of each**; the fourth only after the name substitution (its name is Y5's miss) |
+| Y7 | 95 % | **held** |
+| Y8 | 70 % | **held** (51 of 51) |
+| Y9 | 75 % | **held** |
+| Y10 | 60 % | **held** |
+| Y11 | 85 % | see below |
+
+Not predicted: the `deltaT0` restart defect (above), and that upstream's start-directory precision search keeps the LARGEST precision giving the directory's name (`Time.C:211-222` stops when the name stops changing), which the port's own unit test first got wrong (fixed in the test, not in the code).
+
+### Earlier numbers (R5, Y11: held)
+
+No pin moved and no earlier test changed its numbers. Why nothing could move: the start index enters only the `timeStep` rule (every earlier `timeStep` case had `writeInterval 1`); `deltaTSave_`/`deltaT0_` enter only the written `deltaT0` (no solver reads `PseudoTimeClock::delta_t0`); the time name only names directories (integer names, and the 2D_fullCoupling `timePrecision 8` against the old fixed 6, give the same names wherever earlier rounds compared); the zones and the face set are written, never read back by a solver. Measured: the ESFR loose transient (`ESFR_T_CASE` = this round's real `tr` case, `ESFR_T_STEPS=500 ESFR_T_REF=loose`, 73 steps) prints the same numbers on the round 83 commit `091fa7059` and on this round's code, line for line (power worst 6.90e-10 at step 52, `dt` 0, every count equal; ~~round 78's 2.2e-10~~ moved before this round, in rounds 79-83, not re-attributed here: not re-checked which round).
+
+### Tests run (2026-11-28, release, `--no-fail-fast`, private target dir)
+
+12 integration targets: `genfoam_{baffle_less, esfr_coupled, esfr_fluid, esfr_transient, fullcoupling_fluid, fullcoupling_neutronics, fullcoupling_three_region, fullcoupling_transient, msr1d_coupled, msr1d_fluid, nusselt_baffle, written_state}_vs_upstream`: 114 passed, 4 ignored, 0 failed (the ESFR coupled/transient targets skip their env-driven tests without `ESFR_*`); with `ESFR_T_CASE`: `genfoam_baffle_less_vs_upstream` 3 of 3 and `esfr_transient_steps_against_the_real_binary` (above). `--lib` filters `foam_ascii baffle time_name pseudo_time multi_region region_solvers`: 86 passed. `cargo check --release -p outram-foam-appbuilder-lib --lib --no-default-features --target x86_64-unknown-none` clean. The workspace suite was not run.
+
+### Not done (filed)
+
+- gh:#1987: `alphaRhoMagU` (and the written fluid directory) under `cellCenteredFaceReconstruction` against the real binary (written since round 82; no compared case selects the mode).
+- gh:#1988: the 17-digit names of the `writeInterval 9` restart after step 66 (needs a bit-identical transient state).
+- `latticeMap` (315 lines, not used by `removeBaffles` or any ported path): stays open on gh:#1954.
+- The generated `docs/outram-foam-appbuilder-lib-api.md` was not regenerated (`kovan-cli api-docs` not built; gh:#1938 item 5).
+
+### Reproduction
+
+Real: `bash scripts/run_fc_later_writes_r84.sh <d>` (steady 4 s, each transient 4-5 s), `bash scripts/run_fc_mesh_variants_r84.sh <d>` (1-2 s each), `bash scripts/run_esfr_baffle_less_r84.sh <d>` (steady 242 s, transient 137 s); packed with `scripts/pack_start_dir_r66.py` from staging directories holding the listed time directories (`gzip -9 -n`); the `deltaT` lists are the `deltaT = ` lines of the `*_ts9` logs. Port: `cargo test --release -p outram-foam-appbuilder-lib --test genfoam_fullcoupling_transient_vs_upstream r84 -- --nocapture`; `ESFR_T_CASE=<inflated tr case> cargo test --release -p outram-foam-appbuilder-lib --test genfoam_baffle_less_vs_upstream -- --nocapture`.
