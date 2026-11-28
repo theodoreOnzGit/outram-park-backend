@@ -42,7 +42,7 @@
 //! ## Refused by name
 //! ~~`nuclearFuelPinTest` (gh:#1787)~~ **CORRECTED 2026-11-27 (gh:#1911, README round 71): ported as `RadialPowerModel::NuclearFuelPinTest`**, `nuclearFuelFMU`, `fixedPower` here (the two-phase solver owns it) and any other
 //! type; a start directory that already holds a model's own written fields (`Trad.<model>`, `Ti/To.heatedPin`,
-//! `Tfi/Tfo/Tci/Tco.nuclearFuelPin`, `T.`/`Tmatrix.`/`Tsurface.lumpedNuclearStructure`, `powerDensity.heatedPin`,
+//! `Tfi/Tfo/Tci/Tco.nuclearFuelPin`, ~~`T.`/`Tmatrix.`/`Tsurface.lumpedNuclearStructure`~~ (**CHANGED 2026-11-28, gh:#1962: read**), `powerDensity.heatedPin`,
 //! `T.interpolatedNuclearFuelPin`): upstream restarts from them, the port does not read them.
 //! `laplacianSchemes` other than `Gauss linear uncorrected` for a `lumpedNuclearStructure` with `kappaMatrix != 0`.
 
@@ -67,6 +67,36 @@ pub fn fvc_laplacian_uncorrected(g: &Geometry, vf: &[f64]) -> Vec<f64> {
         let flux = (vf[m.neighbour[f]] - vf[m.owner[f]]) * g.delta[f] * m.face_areas[f];
         out[m.owner[f]] += flux;
         out[m.neighbour[f]] -= flux;
+    }
+    for (c, v) in out.iter_mut().enumerate() {
+        *v /= m.cell_volumes[c];
+    }
+    out
+}
+
+/// [`fvc_laplacian_uncorrected`] on a mesh with COUPLED (`cyclic`) patches (gh:#1962, README round 81): the same internal faces, then
+/// every coupled boundary face, in face (= patch) order, adds `nonOrthDeltaCoeffs (vf_N - vf_P) |Sf|` to its owner (`surfaceIntegrate`),
+/// then the division by the cell volume.
+///
+/// Upstream (ESI v2506): `snGradScheme::snGrad` (`snGradScheme.C:137-149`) takes a coupled patch's value from
+/// `coupledFvPatchField::snGrad(deltaCoeffs)` = `deltaCoeffs (patchNeighbourField - patchInternalField)` (`coupledFvPatchField.C:112-120`),
+/// with `uncorrectedSnGrad::deltaCoeffs` = `nonOrthDeltaCoeffs` ([`Geometry::delta`] of a cyclic face, round 80); `surfaceIntegrate`
+/// (`fvcSurfaceIntegrate.C:58-77`) adds the boundary faces after the internal ones. A non-coupled boundary face contributes 0 as in
+/// [`fvc_laplacian_uncorrected`] (`Tmatrix` is `zeroGradient` there). On a mesh without a coupled patch the result is bit-identical to it.
+#[must_use]
+pub fn fvc_laplacian_uncorrected_coupled(g: &Geometry, vf: &[f64]) -> Vec<f64> {
+    let m = &g.mesh;
+    let mut out = vec![0.0; g.n_cells()];
+    for f in 0..g.n_internal() {
+        let flux = (vf[m.neighbour[f]] - vf[m.owner[f]]) * g.delta[f] * m.face_areas[f];
+        out[m.owner[f]] += flux;
+        out[m.neighbour[f]] -= flux;
+    }
+    for f in g.n_internal()..g.n_faces() {
+        if let Some(nb) = g.cyclic_nbr(f) {
+            // `ssf = deltaCoeffs*(N - P)`, then `* magSf`
+            out[m.owner[f]] += g.delta[f] * (vf[nb] - vf[m.owner[f]]) * m.face_areas[f];
+        }
     }
     for (c, v) in out.iter_mut().enumerate() {
         *v /= m.cell_volumes[c];
@@ -246,6 +276,10 @@ mod reader {
                 if trad_file.is_some() && is_pin {
                     continue;
                 }
+                // gh:#1962 (README round 81): `lumpedNuclearStructure` READS its own fields (`READ_IF_PRESENT`, below)
+                if ty == "lumpedNuclearStructure" {
+                    continue;
+                }
                 if fdir.join(f).exists() {
                     return Err(ctx.e(format!("{ty}: the start directory holds `{f}` (a restart from the model's own state is not ported)")));
                 }
@@ -357,6 +391,29 @@ mod reader {
                         });
                     }
                     let m = LumpedNuclearStructure::new(n, rs, alpha_structure, 0).map_err(|e| model_err(ctx, ty, e))?;
+                    // gh:#1962 (README round 81): the `READ_IF_PRESENT` fields of the constructor (`lumpedNuclearStructure.C:76-125`):
+                    // `T` (`IOFieldField`, `foundT`) and the three `volScalarField`s
+                    let t_path = fdir.join("T.lumpedNuclearStructure");
+                    let t_read = if t_path.exists() {
+                        Some(read_scalar_field_field(&t_path).map_err(|e| ctx.e(format!("{}: {e}", t_path.display())))?)
+                    } else {
+                        None
+                    };
+                    let vol = |name: &str| -> Result<Option<Vec<f64>>, AppBuilderError> {
+                        let p = fdir.join(name);
+                        if p.exists() {
+                            crate::io::field_reader::read_vol_scalar_field(&p, n).map(Some)
+                        } else {
+                            Ok(None)
+                        }
+                    };
+                    let (tmax, tmatrix, tsurface) =
+                        (vol("Tmax.lumpedNuclearStructure")?, vol("Tmatrix.lumpedNuclearStructure")?, vol("Tsurface.lumpedNuclearStructure")?);
+                    let m = if t_read.is_some() || tmax.is_some() || tmatrix.is_some() || tsurface.is_some() {
+                        m.with_read_state(t_read, tmax, tmatrix, tsurface).map_err(|e| model_err(ctx, ty, e))?
+                    } else {
+                        m
+                    };
                     models.push(RadialPowerModel::LumpedNuclearStructure(m));
                 }
                 _ => {

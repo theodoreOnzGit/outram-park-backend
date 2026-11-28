@@ -106,7 +106,7 @@ pub use turbulence::{
     WallFunctionCoeffs,
 };
 use turbulence::TurbState;
-pub use super::radial_power::fvc_laplacian_uncorrected;
+pub use super::radial_power::{fvc_laplacian_uncorrected, fvc_laplacian_uncorrected_coupled};
 use crate::genfoam::thermal_hydraulics::structure::heat_exchanger::HeatExchangerSet;
 use crate::genfoam::thermal_hydraulics::structure::radial_power_model::{RadialPowerModel, StepInputs};
 
@@ -1235,9 +1235,8 @@ impl OnePhaseCcCase {
             if tortuosity.is_some() {
                 return Err(ctx.e("localTortuosity on a mesh with a cyclic patch is not ported (the tensor-diffusivity Laplacian has no coupled-patch form)"));
             }
-            if radial.needs_laplacian {
-                return Err(ctx.e("lumpedNuclearStructure with kappaMatrix != 0 on a mesh with a cyclic patch is not ported (fvc::laplacian has no coupled-patch form here)"));
-            }
+            // ~~`lumpedNuclearStructure` with `kappaMatrix != 0` refused here (no coupled-patch `fvc::laplacian`)~~ **CHANGED 2026-11-28
+            // (gh:#1962, README round 81):** ported, `fvc_laplacian_uncorrected_coupled`
             if heat_exchangers.is_present() {
                 return Err(ctx.e("heatExchangers on a mesh with a cyclic patch are not ported"));
             }
@@ -1415,6 +1414,8 @@ pub struct OnePhaseCcSolver {
     ctl_ht_post_solve: bool,
     /// CONTROL (gh:#1879): evaluate `fvc::laplacian(Tmatrix)` as 0.
     ctl_no_laplacian: bool,
+    /// CONTROL, NOT upstream (gh:#1962, README round 81): `fvc::laplacian(Tmatrix)` without its coupled (cyclic) faces.
+    ctl_no_coupled_laplacian: bool,
     /// CONTROLS, NOT upstream (gh:#1229): the tortuosity left out of the momentum / the energy Laplacian (scalar-gamma form).
     ctl_no_tort_momentum: bool,
     ctl_no_tort_energy: bool,
@@ -1616,6 +1617,7 @@ impl OnePhaseCcSolver {
             structure_heat_flux: vec![0.0; n],
             ctl_ht_post_solve: false,
             ctl_no_laplacian: false,
+            ctl_no_coupled_laplacian: false,
             ctl_no_tort_momentum: false,
             ctl_no_tort_energy: false,
             ctl_no_alphat_patch: false,
@@ -2010,6 +2012,8 @@ impl OnePhaseCcSolver {
         let time_index = self.steps_begun as i64;
         for i in 0..self.radial.len() {
             let lap = match (self.radial[i].tmatrix(), self.ctl_no_laplacian) {
+                // gh:#1962 (README round 81): on a mesh with a cyclic seam the coupled faces' `snGrad` enters (`snGradScheme.C:137-149`)
+                (Some(tm), false) if self.geom.has_cyclic() && !self.ctl_no_coupled_laplacian => fvc_laplacian_uncorrected_coupled(&self.geom, tm),
                 (Some(tm), false) => fvc_laplacian_uncorrected(&self.geom, tm),
                 _ => vec![0.0; n],
             };
@@ -2145,6 +2149,15 @@ impl OnePhaseCcSolver {
     #[must_use]
     pub fn without_lumped_laplacian(mut self) -> Self {
         self.ctl_no_laplacian = true;
+        self
+    }
+
+    /// CONTROL, NOT upstream (gh:#1962, README round 81): `fvc::laplacian(Tmatrix)` of the lumped model from the internal faces only
+    /// ([`fvc_laplacian_uncorrected`]): the coupled (`cyclic`) faces' `deltaCoeffs (N - P) |Sf|` left out. No effect on a mesh without a
+    /// cyclic patch.
+    #[must_use]
+    pub fn without_coupled_lumped_laplacian(mut self) -> Self {
+        self.ctl_no_coupled_laplacian = true;
         self
     }
 

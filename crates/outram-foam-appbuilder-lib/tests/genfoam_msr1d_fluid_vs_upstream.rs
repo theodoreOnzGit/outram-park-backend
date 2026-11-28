@@ -26,6 +26,7 @@ use std::path::{Path, PathBuf};
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::genfoam::multi_region::coupled_loop::adjust_delta_t;
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::structure::radial_power_model::RadialPowerModel;
 use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{
     CaseReadOptions, GamgPolicy, OnePhaseCcCase, OnePhaseCcSolver,
 };
@@ -200,16 +201,21 @@ fn rel_max(a: &[f64], b: &[f64]) -> f64 {
     }
 }
 
-const FIELDS: [&str; 9] = ["U", "p", "p_rgh", "T", "k", "epsilon", "nut", "alphat", "htc"];
+/// Round 81 (gh:#1962): the last five are the `lumpedNuclearStructure` fields of 1D_thermalMSR (absent from the 1D_MSR references), and a
+/// laminar case has no `k`/`epsilon`/`nut`/`alphat`: a field either side lacks is not compared.
+const FIELDS: [&str; 14] = [
+    "U", "p", "p_rgh", "T", "k", "epsilon", "nut", "alphat", "htc", "Tmax.lumpedNuclearStructure", "Tsurface.lumpedNuclearStructure",
+    "T.fuelAvForNeutronics", "T.cladAvForNeutronics", "Tmatrix.lumpedNuclearStructure",
+];
 const FLOOR: f64 = 1e-10;
 
 #[derive(Debug, Default)]
 struct Report {
     steps: usize,
     compared_steps: usize,
-    worst: [f64; 9],
-    identical: [usize; 9],
-    compared: [usize; 9],
+    worst: [f64; 14],
+    identical: [usize; 14],
+    compared: [usize; 14],
     first_over: Option<(usize, &'static str, f64)>,
     /// The first step and field that is not bit-identical.
     first_nonzero: Option<(usize, &'static str, f64)>,
@@ -232,10 +238,11 @@ struct Report {
     last_time: f64,
 }
 
-/// Run `n_steps` of the port and compare with `refs/msr1d_r80_<refname>`.
+/// Run `n_steps` of the port and compare with `refs/msr1d_r80_<refname>` (a `refname` starting `r81_`: `refs/msr1d_<refname>`, round 81).
 fn run(mut s: OnePhaseCcSolver, refname: &str, n_steps: Option<usize>) -> Report {
-    let rf = read_fields(&vv_dir().join(format!("refs/msr1d_r80_{refname}.ref.txt.gz")));
-    let lg = read_log(&vv_dir().join(format!("refs/msr1d_r80_{refname}_log.ref.txt.gz")));
+    let prefix = if refname.starts_with("r81_") { "msr1d_" } else { "msr1d_r80_" };
+    let rf = read_fields(&vv_dir().join(format!("refs/{prefix}{refname}.ref.txt.gz")));
+    let lg = read_log(&vv_dir().join(format!("refs/{prefix}{refname}_log.ref.txt.gz")));
     let n_steps = n_steps.unwrap_or(lg.step_time.len());
     let mut dt = s.case().delta_t;
     let mut rep = Report::default();
@@ -304,21 +311,29 @@ fn run(mut s: OnePhaseCcSolver, refname: &str, n_steps: Option<usize>) -> Report
         if rf.contains_key(&format!("U {time}")) {
             rep.compared_steps += 1;
             let u: Vec<f64> = s.velocity().iter().flat_map(|v| [v.x, v.y, v.z]).collect();
-            let port: [Vec<f64>; 9] = [
-                u,
-                s.pressure().to_vec(),
-                s.p_rgh().expect("flow").to_vec(),
-                s.temperature().to_vec(),
-                s.turbulent_kinetic_energy().expect("turbulence").to_vec(),
-                s.turbulent_dissipation().expect("turbulence").to_vec(),
-                s.turbulent_viscosity().expect("turbulence").to_vec(),
-                s.turbulent_thermal_diffusivity().expect("turbulence").to_vec(),
-                s.htc().to_vec(),
+            let (fuel_av, clad_av) = s.fuel_clad_temperatures();
+            let (tmax, tsurf, tmatrix) = lumped_fields(&s);
+            let port: [Option<Vec<f64>>; 14] = [
+                Some(u),
+                Some(s.pressure().to_vec()),
+                Some(s.p_rgh().expect("flow").to_vec()),
+                Some(s.temperature().to_vec()),
+                s.turbulent_kinetic_energy().map(<[f64]>::to_vec),
+                s.turbulent_dissipation().map(<[f64]>::to_vec),
+                s.turbulent_viscosity().map(<[f64]>::to_vec),
+                s.turbulent_thermal_diffusivity().map(<[f64]>::to_vec),
+                Some(s.htc().to_vec()),
+                tmax,
+                tsurf,
+                Some(fuel_av),
+                Some(clad_av),
+                tmatrix,
             ];
             rep.last_state.clear();
             for (i, name) in FIELDS.iter().enumerate() {
                 let Some(up) = rf.get(&format!("{name} {time}")) else { continue };
-                let d = rel_max(&port[i], up);
+                let Some(mine) = &port[i] else { continue };
+                let d = rel_max(mine, up);
                 rep.compared[i] += 1;
                 if d == 0.0 {
                     rep.identical[i] += 1;
@@ -341,6 +356,21 @@ fn run(mut s: OnePhaseCcSolver, refname: &str, n_steps: Option<usize>) -> Report
     rep.final_time = s.time();
     rep.last_time = lg.step_time.get(&n_steps).map_or(0.0, |t| t.parse().expect("time"));
     rep
+}
+
+/// `(Tmax, Tsurface, Tmatrix)` of the case's `lumpedNuclearStructure` model, per cell (0 outside it); `None` without one.
+fn lumped_fields(s: &OnePhaseCcSolver) -> (Option<Vec<f64>>, Option<Vec<f64>>, Option<Vec<f64>>) {
+    for m in s.radial_power_models() {
+        if let RadialPowerModel::LumpedNuclearStructure(l) = m {
+            let n = s.temperature().len();
+            let mut tmax = vec![0.0; n];
+            for &c in l.cells() {
+                tmax[c] = l.tmax(c);
+            }
+            return (Some(tmax), Some(l.tsurface().to_vec()), Some(l.tmatrix().to_vec()));
+        }
+    }
+    (None, None, None)
 }
 
 fn print(name: &str, r: &Report) {
@@ -616,11 +646,187 @@ fn first_epsilon_difference_is_the_pow_of_the_wall_function() {
     println!("differing epsilon cells {}: upstream equals the platform-pow value in {}, the port equals the PETIR-pow value in {}", tally.0, tally.1, tally.2);
 }
 
-/// Round 81 (gh:#1962): the shipped `1D_thermalMSR_pointKinetics` fluid region reads (probe of the reader, no comparison).
+/// Round 81 (gh:#1962): the shipped `1D_thermalMSR_pointKinetics` fluid region reads (probe of the reader, no comparison): it was never
+/// refused (no `kappaMatrix` key, so `kappaMatrix = 0`); `initialPowerDensity` 3e8 in the 160 core cells.
 #[test]
 fn thermal_msr_case_reads() {
     let (root, poly) = stage_case("msr1d_thermal_root", "thermal_read", false, false);
     let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
     let c = OnePhaseCcCase::read_with_options(&root, &poly, &opts).unwrap_or_else(|e| panic!("thermal: {e}"));
     assert_eq!(c.t.len(), 640);
+    assert_eq!(c.power_density.iter().filter(|&&q| q == 3e8).count(), 160);
+}
+
+/// `scripts/make_msr1d_thermal_kappa_r81.py` as text edits of the staged `phaseProperties` (README round 81): `core` adds
+/// `nodeMatrix 0; kappaMatrix 30;` to the core's model; `seam` also a `ColdLeg` `lumpedNuclearStructure` region (both seam cells) with
+/// `kappaMatrix 30` and a `constant` htc of 1e4.
+fn kappa_variant(root: &Path, kind: &str) {
+    edit_file(root, "constant/fluidRegion/phaseProperties", |t| {
+        let anchor = "            nodeClad            0;";
+        let i = t.find(anchor).expect("nodeClad");
+        let j = i + t[i..].find('\n').expect("eol");
+        let mut s = format!("{}\n            nodeMatrix          0;\n            kappaMatrix         30;\n{}", &t[..j], &t[j + 1..]);
+        if kind == "seam" {
+            let hx = "    \"hx\"\n    {\n        volumeFraction      0.6;";
+            assert_eq!(s.matches(hx).count(), 1);
+            let cold = concat!(
+                "    \"ColdLeg\"\n    {\n        volumeFraction      0.1;\n        Dh                  0.02;\n\n        powerModel\n        {\n",
+                "            type                lumpedNuclearStructure;\n            volumetricArea      40;\n            powerDensity        1e6;\n",
+                "            nodesNumber         1;\n            nodeFuel            0;\n            nodeClad            0;\n            nodeMatrix          0;\n",
+                "            kappaMatrix         30;\n            heatConductances    (450000 225000);\n            rhoCp               (5357692);\n",
+                "            volumeFractions     (1);\n            powerFractions      (1);\n            T0                  900;\n        }\n    }\n",
+            );
+            s = s.replacen(hx, &format!("{cold}{hx}"), 1);
+            let ht = "        \"hx\"\n        {\n            type    constant;";
+            assert_eq!(s.matches(ht).count(), 1);
+            s = s.replacen(ht, &format!("        \"ColdLeg\"\n        {{\n            type    constant;\n            value   1e+4;\n        }}\n{ht}"), 1);
+        } else {
+            assert_eq!(kind, "core");
+        }
+        s
+    });
+}
+
+/// The thermal case's solver: `cases/msr1d_thermal_root`, Allrun's `steadyState` edits, the protocol edits, and a `kappaMatrix` variant.
+fn thermal_solver(tag: &str, tight: bool, pcg: bool, variant: Option<&str>) -> OnePhaseCcSolver {
+    let (root, poly) = stage_case("msr1d_thermal_root", tag, tight, pcg);
+    if let Some(v) = variant {
+        kappa_variant(&root, v);
+    }
+    let opts = CaseReadOptions { gamg: GamgPolicy::Native, ..CaseReadOptions::default() };
+    OnePhaseCcSolver::new(OnePhaseCcCase::read_with_options(&root, &poly, &opts).unwrap_or_else(|e| panic!("{tag}: {e}")))
+}
+
+/// Prediction R1, R4-R6 (README round 81): the thermal case, `tight` + `pcg`, the first 60 steps.
+///
+/// Results (measured 2026-11-28): `U`, `p`, `p_rgh`, `T`, `Tmax`, `T.fuelAvForNeutronics`, `T.cladAvForNeutronics` **bit-identical at
+/// all 60 steps**; the first difference is `htc` at step 17 (2.5e-17 of its max-norm: the `NusseltReynoldsPrandtlPower` `pow`, PETIR
+/// against the platform), worst `htc` 9.8e-17, `Tsurface` 2.5e-16 (2 of 60 steps); `deltaT`, every `p_rgh`/`h` initial residual and
+/// iteration count, the `T` lines: equal (R1, R4, R5, R6 HELD).
+#[test]
+fn thermal_tight_pcg_first_60_steps_against_the_real_binary() {
+    let r = run(thermal_solver("th_tight_pcg", true, true, None), "r81_th_first_tight_pcg", Some(60));
+    print("th_tight_pcg", &r);
+    assert_eq!(r.compared_steps, 60);
+    assert!(r.first_over.is_none(), "K1: {:?}", r.first_over);
+    assert!(r.worst[..4].iter().all(|&d| d == 0.0), "U p p_rgh T bit-identical: {:?}", &r.worst[..4]);
+    assert!(r.first_nonzero.is_some_and(|(step, _, _)| step >= 17), "{:?}", r.first_nonzero);
+    assert_eq!((r.dt_worst, r.res_worst, r.it_worst, r.t_line_worst), (0.0, 0.0, 0, 0.0));
+}
+
+/// The thermal case as shipped (`loose`, `gamg`), the first 60 steps (reported).
+#[test]
+fn thermal_loose_gamg_first_60_steps_against_the_real_binary() {
+    let r = run(thermal_solver("th_loose_gamg", false, false, None), "r81_th_first_loose_gamg", Some(60));
+    print("th_loose_gamg", &r);
+    // measured 2026-11-28: every compared field bit-identical at every one of the 60 steps, every solve equal
+    assert_eq!(r.compared_steps, 60);
+    assert!(r.first_nonzero.is_none(), "{:?}", r.first_nonzero);
+    assert_eq!(r.it_worst, 0);
+}
+
+/// Prediction R2: the thermal case, `tight` + `pcg`, to `t = 100`.
+///
+/// Results (2026-11-28): 7637 steps, the binary's count, final time equal to round-off; every 100th step (76) compared: K1 HELD, worst
+/// `p` 3.3e-12, `U` 1.2e-13, `T` 5.4e-13, `Tsurface` 3.8e-13 (the first non-identical written step is 300); `deltaT` 1.2e-13; `T` lines
+/// 7.4e-15; 8447 gated solves: initial residual within 3.9e-4 relative (K3 residual MISSED at 1e-6: tight `h` solves whose initial
+/// residual is ~1e-3 after 200 steps of propagated round-off), iterations up to 3 apart (the tight `h` PBiCGStab, 11-17 iterations).
+#[test]
+fn thermal_tight_pcg_full_steady_state_against_the_real_binary() {
+    let r = run(thermal_solver("th_tight_pcg_full", true, true, None), "r81_th_full_tight_pcg", None);
+    print("th_tight_pcg_full", &r);
+    println!("th_tight_pcg_full: final time {} upstream {}", r.final_time, r.last_time);
+    assert!(r.compared_steps >= 76);
+    assert!((r.final_time - r.last_time).abs() <= 1e-9 * r.last_time);
+    assert!(r.first_over.is_none(), "K1: {:?}", r.first_over);
+    assert!(r.dt_worst <= 1e-11 && r.t_line_worst <= 1e-9 && r.it_worst <= 3, "{} {} {}", r.dt_worst, r.t_line_worst, r.it_worst);
+}
+
+/// Prediction R3: the shipped thermal stage (`loose`, `gamg`) to `t = 100`.
+#[test]
+fn thermal_loose_gamg_full_steady_state_against_the_real_binary() {
+    let r = run(thermal_solver("th_loose_gamg_full", false, false, None), "r81_th_full_loose_gamg", None);
+    print("th_loose_gamg_full", &r);
+    println!("th_loose_gamg_full: final time {} upstream {}", r.final_time, r.last_time);
+    // Results (2026-11-28): 7637 steps (R3 HELD), the first written step not bit-identical is 2400 (`U` 1.7e-15); worst over the run
+    // `T.fuelAvForNeutronics` 3.5e-13, `T` 2.8e-14, `U` 1.9e-14, `p` and `p_rgh` bit-identical at all 76 written steps; 15 274 gated solves,
+    // every iteration count equal, initial residuals within 1.6e-7 relative
+    assert!(r.compared_steps >= 76);
+    assert!((r.final_time - r.last_time).abs() <= 1e-9 * r.last_time);
+    assert!(r.last_state.iter().all(|(_, d)| *d <= 1e-6), "{:?}", r.last_state);
+    assert!(r.first_over.is_none() && r.it_worst == 0);
+}
+
+/// Predictions V1-V3: the `kappaMatrix` variants (`kcore`: the seam term is 0; `kseam`: it is not), `tight` + `pcg`, first 60 steps, and
+/// the control without the coupled faces of `fvc::laplacian(Tmatrix)`.
+#[test]
+fn thermal_kappa_matrix_variants_first_60_steps_against_the_real_binary() {
+    let rc = run(thermal_solver("th_kcore", true, true, Some("core")), "r81_th_kcore_first_tight_pcg", Some(60));
+    print("th_kcore", &rc);
+    let rs = run(thermal_solver("th_kseam", true, true, Some("seam")), "r81_th_kseam_first_tight_pcg", Some(60));
+    print("th_kseam", &rs);
+    let rx = run(thermal_solver("th_kseam_ctl", true, true, Some("seam")).without_coupled_lumped_laplacian(), "r81_th_kseam_first_tight_pcg", Some(60));
+    print("th_kseam_ctl", &rx);
+    let rk = run(thermal_solver("th_kcore_ctl", true, true, Some("core")).without_coupled_lumped_laplacian(), "r81_th_kcore_first_tight_pcg", Some(60));
+    print("th_kcore_ctl", &rk);
+    // the kappaMatrix term itself (gh:#1879's control): no Laplacian at all
+    let rl = run(thermal_solver("th_kcore_nolap", true, true, Some("core")).without_lumped_laplacian(), "r81_th_kcore_first_tight_pcg", Some(60));
+    print("th_kcore_nolap", &rl);
+    // and the variant against the SHIPPED reference: what kappaMatrix 30 moves in the real binary
+    let rv = run(thermal_solver("th_shipped_vs_kcore", true, true, None), "r81_th_kcore_first_tight_pcg", Some(60));
+    print("th_shipped_vs_kcore", &rv);
+    // Results (2026-11-28): V1 `kcore` HELD, the same as the shipped case (U p p_rgh T Tmax Tmatrix bit-identical at 60 steps, first
+    // difference `htc` step 17); V2 `kseam` HELD and BETTER: every field bit-identical at all 60 steps; V3 the control without the seam
+    // faces differs from step 17 (`Tmax` 1.2e-16), but only to 7.8e-13 (`T.fuelAvForNeutronics`) by step 60: V3 MISSED (predicted > 1e-9);
+    // without the coupled faces `kcore` is unchanged (its seam term is 0); without any Laplacian `kcore` is off by 1.7e-2 in `Tmax` from step 1
+    assert!(rc.first_over.is_none() && rc.worst[..4].iter().all(|&d| d == 0.0), "V1 {:?}", rc.first_over);
+    assert!(rs.first_nonzero.is_none(), "V2 bit-identical {:?}", rs.first_nonzero);
+    assert!(rx.first_nonzero.is_some(), "V3 the control differs");
+    assert_eq!(format!("{:?}", rk.worst), format!("{:?}", rc.worst), "no seam term in kcore");
+    assert!(rl.first_over.is_some_and(|(step, _, d)| step == 1 && d > 1e-6), "{:?}", rl.first_over);
+    assert!(rv.first_over.is_some(), "kappaMatrix 30 changes the real answer");
+}
+
+/// The coupled `fvc::laplacian` on the 1-D cyclic column itself (gh:#1962): a field that is 1 in cell 0 and 0 elsewhere has, in cell 639
+/// (its partner across the seam), `nonOrthDeltaCoeffs |Sf| / V` from the seam face alone, where the internal-face form gives 0; a field
+/// equal on both sides of the seam gives the internal-face form bit for bit.
+#[test]
+fn coupled_laplacian_on_the_cyclic_column() {
+    use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::fv::Geometry;
+    use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::{fvc_laplacian_uncorrected, fvc_laplacian_uncorrected_coupled};
+    let s = thermal_solver("lap_unit", false, false, None);
+    let g = Geometry::new_openfoam(s.case().mesh.clone());
+    assert!(g.has_cyclic());
+    let mut vf = vec![0.0; 640];
+    vf[0] = 1.0;
+    let (a, b) = (fvc_laplacian_uncorrected_coupled(&g, &vf), fvc_laplacian_uncorrected(&g, &vf));
+    let seam = (0..g.n_faces()).find(|&f| g.cyclic_nbr(f) == Some(0)).expect("the seam face of cell 639");
+    let m = &g.mesh;
+    assert_eq!(m.owner[seam], 639);
+    assert_eq!(b[639], 0.0);
+    assert_eq!(a[639], g.delta[seam] * 1.0 * m.face_areas[seam] / m.cell_volumes[639]);
+    assert!(a[0] < b[0], "cell 0 loses through the seam too: {} {}", a[0], b[0]);
+    let lin: Vec<f64> = (0..640).map(|c| if c == 0 || c == 639 { 900.0 } else { 900.0 + (c as f64) * 1e-3 }).collect();
+    assert_eq!(fvc_laplacian_uncorrected_coupled(&g, &lin), fvc_laplacian_uncorrected(&g, &lin));
+}
+
+/// Prediction V4: the variants to `t = 100`.
+#[test]
+fn thermal_kappa_matrix_variants_full_steady_state_against_the_real_binary() {
+    for (v, refname) in [("core", "r81_th_kcore_full_tight_pcg"), ("seam", "r81_th_kseam_full_tight_pcg")] {
+        let r = run(thermal_solver(&format!("th_k{v}_full"), true, true, Some(v)), refname, None);
+        print(&format!("th_k{v}_full"), &r);
+        println!("th_k{v}_full: final time {} upstream {}", r.final_time, r.last_time);
+        // Results (2026-11-28): V4 HELD: `kcore` 7637 steps, worst `p` 3.3e-12, `T` 4.0e-13; `kseam` 7653 steps (the binary's), worst `p`
+        // 3.7e-12, `T` 4.4e-13, `Tmatrix` 1.3e-14; final times equal to round-off
+        assert!(r.first_over.is_none(), "V4 {v}: {:?}", r.first_over);
+        assert!((r.final_time - r.last_time).abs() <= 1e-9 * r.last_time);
+    }
+    // the seam control over the whole stage
+    let rx = run(thermal_solver("th_kseam_full_ctl", true, true, Some("seam")).without_coupled_lumped_laplacian(), "r81_th_kseam_full_tight_pcg", None);
+    print("th_kseam_full_ctl", &rx);
+    // Results (2026-11-28): the control leaves K1 at step 300 (`Tmax` 1.1e-9) and reaches 5.3e-7 (`T.fuelAvForNeutronics`, `Tmatrix`),
+    // `Tsurface` 2.8e-8, `T` 1.3e-10, against 1.3e-14 / 2.7e-13 / 4.4e-13 with the coupled faces: over the whole stage the seam term is
+    // what holds `kseam` inside 1e-9
+    assert!(rx.first_over.is_some(), "the control leaves 1e-9 over the stage");
 }

@@ -23,6 +23,8 @@ use std::path::{Path, PathBuf};
 
 use miniz_oxide::inflate::decompress_to_vec;
 use outram_foam_appbuilder_lib::genfoam::multi_region::region_solvers::{CouplingSwitches, RegionSolver, RegionSolvers};
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::solver::two_phase::one_phase_cc::OnePhaseCcSolver;
+use outram_foam_appbuilder_lib::genfoam::thermal_hydraulics::structure::radial_power_model::RadialPowerModel;
 
 fn vv_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("verification_and_validation/genfoam_vs_upstream_gh1361")
@@ -74,9 +76,27 @@ fn unpack(packed: &[u8], dir: &Path) {
 /// `every_step`: the `first` protocol of `run_msr1d_transient_r80.sh` (`writeControl timeStep; writeInterval 1`), under which `setDeltaT` does
 /// NOT align the step to a write time; otherwise Allrun's `adjustableRunTime` every 10 s, which does (`Time::adjustDeltaT`).
 fn stage(tag: &str, every_step: bool) -> PathBuf {
-    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1905_tr_{tag}"));
+    stage_case(&MSR, tag, every_step)
+}
+
+/// A shipped 1-D MSR tutorial (round 81, gh:#1962: the transient harness serves `1D_MSR` and `1D_thermalMSR`).
+struct Case {
+    /// `cases/<dir>`: the shipped `rootCase`.
+    dir: &'static str,
+    /// The references' prefix in `refs/` (`<prefix>tr_first`, `<prefix>tr_full`, `<prefix>tr_start100.txt.gz`).
+    refs: &'static str,
+    /// Allrun's `setTransient` also sets `startFrom startTime; startTime 100` (1D_thermalMSR, whose rootCase reads `startTime 0`).
+    start_time_edit: bool,
+}
+
+const MSR: Case = Case { dir: "msr1d_root", refs: "msr1d_r80_", start_time_edit: false };
+const THERMAL: Case = Case { dir: "msr1d_thermal_root", refs: "msr1d_r81_th_", start_time_edit: true };
+
+/// [`stage`] of any [`Case`].
+fn stage_case(c: &Case, tag: &str, every_step: bool) -> PathBuf {
+    let root = Path::new(env!("CARGO_TARGET_TMPDIR")).join(format!("gh1905_tr_{}{tag}", c.refs));
     let _ = std::fs::remove_dir_all(&root);
-    copy_dir(&vv_dir().join("cases/msr1d_root"), &root);
+    copy_dir(&vv_dir().join(format!("cases/{}", c.dir)), &root);
     std::fs::copy(root.join("constant/multiRegionCouplingDict_Coupled"), root.join("constant/multiRegionCouplingDict")).expect("coupling dict");
     let cd = root.join("system/controlDict");
     let t = std::fs::read_to_string(&cd).expect("controlDict");
@@ -86,6 +106,12 @@ fn stage(tag: &str, every_step: bool) -> PathBuf {
         .replacen("    fluidRegion     onePhase;\n", "    fluidRegion     onePhase;\n    neutroRegion    pointKinetics;\n", 1)
         .replacen("    fluidRegion     false;\n", "    fluidRegion     false;\n    neutroRegion    false;\n", 1);
     assert!(t.contains("neutroRegion    pointKinetics;") && t.contains("neutroRegion    false;"), "controlDict edits");
+    let t = if c.start_time_edit {
+        assert!(t.contains("startFrom       startTime;") && t.contains("startTime       0;"), "startTime edit");
+        t.replacen("startTime       0;", "startTime       100;", 1)
+    } else {
+        t
+    };
     let t = if every_step {
         let t = t.replacen("writeControl    adjustableRunTime;", "writeControl    timeStep;", 1).replacen("writeInterval   10;", "writeInterval   1;", 1);
         assert!(t.contains("writeControl    timeStep;") && t.contains("writeInterval   1;"), "first-protocol edits");
@@ -94,7 +120,7 @@ fn stage(tag: &str, every_step: bool) -> PathBuf {
         t
     };
     std::fs::write(&cd, t).expect("write controlDict");
-    unpack(&gunzip(&vv_dir().join("refs/msr1d_r80_tr_start100.txt.gz")), &root.join("100"));
+    unpack(&gunzip(&vv_dir().join(format!("refs/{}tr_start100.txt.gz", c.refs))), &root.join("100"));
     root
 }
 
@@ -223,9 +249,14 @@ fn note(rep: &mut Report, step: usize, what: &str, d: f64) {
 
 /// `zero_prec`: the control, the precursors started from 0 (the port before round 80) instead of `defaultPrec` (upstream).
 fn run(tag: &str, refname: &str, n_steps: usize, every_step: bool, zero_prec: bool) -> Report {
-    let lg = read_log(&format!("msr1d_r80_{refname}_log.ref.txt.gz"));
-    let rf = read_fields(&format!("msr1d_r80_{refname}.ref.txt.gz"));
-    let root = stage(tag, every_step);
+    run_case(&MSR, tag, refname, n_steps, every_step, zero_prec)
+}
+
+/// [`run`] of any [`Case`].
+fn run_case(c: &Case, tag: &str, refname: &str, n_steps: usize, every_step: bool, zero_prec: bool) -> Report {
+    let lg = read_log(&format!("{}{refname}_log.ref.txt.gz", c.refs));
+    let rf = read_fields(&format!("{}{refname}.ref.txt.gz", c.refs));
+    let root = stage_case(c, tag, every_step);
     let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap_or_else(|e| panic!("the staged transient is not readable: {e}"));
     if zero_prec {
         for r in run.regions.iter_mut() {
@@ -285,6 +316,7 @@ fn run(tag: &str, refname: &str, n_steps: usize, every_step: bool, zero_prec: bo
                     if let Some(kk) = s.turbulent_kinetic_energy() {
                         fl_fields.push(("fluidRegion/k".to_string(), kk.to_vec()));
                     }
+                    fl_fields.extend(structure_fields(s));
                     prgh = s.pressure_solves().iter().map(|x| (x.initial_residual, x.iterations)).collect();
                     let _ = &mut tline;
                     rep.final_time = s.time();
@@ -341,6 +373,24 @@ fn run(tag: &str, refname: &str, n_steps: usize, every_step: bool, zero_prec: bo
         }
     }
     rep
+}
+
+/// Round 81: the `lumpedNuclearStructure` fields of 1D_thermalMSR (`T.fuelAvForNeutronics`, `Tmax`, `Tsurface`); none for 1D_MSR.
+fn structure_fields(s: &OnePhaseCcSolver) -> Vec<(String, Vec<f64>)> {
+    let mut out = Vec::new();
+    for m in s.radial_power_models() {
+        if let RadialPowerModel::LumpedNuclearStructure(l) = m {
+            let n = s.temperature().len();
+            let mut tmax = vec![0.0; n];
+            for &c in l.cells() {
+                tmax[c] = l.tmax(c);
+            }
+            out.push(("fluidRegion/T.fuelAvForNeutronics".to_string(), s.fuel_clad_temperatures().0));
+            out.push(("fluidRegion/Tmax.lumpedNuclearStructure".to_string(), tmax));
+            out.push(("fluidRegion/Tsurface.lumpedNuclearStructure".to_string(), l.tsurface().to_vec()));
+        }
+    }
+    out
 }
 
 fn print(name: &str, r: &Report) {
@@ -407,10 +457,15 @@ struct FullReport {
 /// The whole shipped `transient` stage (`adjustableRunTime`, written every 10 s) against `tr_full`: the step count, and at every written
 /// time the power and the fields.
 fn run_full() -> FullReport {
-    let lg = read_log("msr1d_r80_tr_full_log.ref.txt.gz");
-    let rf = read_fields("msr1d_r80_tr_full.ref.txt.gz");
+    run_full_case(&MSR, None)
+}
+
+/// [`run_full`] of any [`Case`]; `start`: a case directory staged elsewhere (the chain of gh:#1961) instead of [`stage_case`].
+fn run_full_case(c: &Case, start: Option<PathBuf>) -> FullReport {
+    let lg = read_log(&format!("{}tr_full_log.ref.txt.gz", c.refs));
+    let rf = read_fields(&format!("{}tr_full.ref.txt.gz", c.refs));
     let up_step_of: HashMap<String, usize> = lg.step_time.iter().map(|(k, t)| (t.clone(), *k)).collect();
-    let root = stage("full", false);
+    let root = start.unwrap_or_else(|| stage_case(c, "full", false));
     let mut run = RegionSolvers::read(&root, CouplingSwitches::default()).unwrap_or_else(|e| panic!("the staged transient is not readable: {e}"));
     let mut rep = FullReport { up_steps: lg.step_time.len(), up_final_power: lg.power.get(&lg.step_time.len()).copied().unwrap_or(f64::NAN), ..FullReport::default() };
     for k in 1..=30_000 {
@@ -438,6 +493,7 @@ fn run_full() -> FullReport {
                     if let Some(kk) = s.turbulent_kinetic_energy() {
                         fields.push(("fluidRegion/k".to_string(), kk.to_vec()));
                     }
+                    fields.extend(structure_fields(s));
                 }
                 _ => {}
             }
@@ -528,4 +584,41 @@ fn step_one_mapped_neutronics_inputs_against_the_real_mapping() {
             None => panic!("mapped {nm}: absent"),
         }
     }
+}
+
+/// Round 81 (gh:#1962), predictions P5t: the shipped `1D_thermalMSR_pointKinetics` `transient`, the first 60 steps (every step written).
+#[test]
+fn thermal_coupled_transient_first_60_steps_against_the_real_binary() {
+    let r = run_case(&THERMAL, "first60", "tr_first", 60, true, false);
+    print("th_tr_first", &r);
+    // Results (2026-11-28): every compared quantity of both regions bit-identical through step 38 (power, reactivity, `liquidFuelBeta`,
+    // `precEq`, `deltaT`, `precPKStar0..7`, `powerDensity`, `TFuel`, `TCool`, fluid `U`, `p`, `T`, the structure's `Tmax`,
+    // `T.fuelAvForNeutronics`), every iteration count equal; the only non-identical quantity over 60 steps is `Tsurface` (from step 39,
+    // 3.4e-16); P5t HELD (both parts)
+    assert_eq!(r.steps, 60);
+    assert!(r.first_over.is_none(), "{:?}", r.first_over);
+    assert!(r.fields.iter().all(|(n, d)| *d == 0.0 || n.contains("Tsurface")), "{:?}", r.fields);
+    assert_eq!((r.nres_count_diff, r.prec_its_diff, r.prgh_its_diff), (0, 0, 0));
+    assert_eq!(r.dt, 0.0);
+}
+
+/// Round 81 (gh:#1962), predictions P1t-P4t: the whole shipped thermal `transient` (400 s, written every 10 s).
+#[test]
+fn thermal_coupled_transient_full_400_s_against_the_real_binary() {
+    let r = run_full_case(&THERMAL, None);
+    println!("th_tr_full: {} steps (upstream {}), final time {}, final power {:e} up {:e} (rel {:.3e})", r.steps, r.up_steps, r.final_time, r.final_power, r.up_final_power, rel(r.final_power, r.up_final_power));
+    for w in &r.writes {
+        println!("th_tr_full: t = {} power {:.3e} worst {} {:.3e} T {:.3e} U {:.3e}", w.0, w.1, w.2, w.3, w.4, w.5);
+    }
+    // Results (2026-11-28, 14 s): T1 runs; T2 7712 steps, the binary's count; T3 at the 30 written times power <= 4.0e-10, fluid `T`
+    // <= 9.5e-12, `U` <= 2.3e-10, any field <= 1.5e-9 (`precPKStar0`, t = 180); T4 final power 4.15250720e8 W, 1.7e-10. P1t-P4t HELD,
+    // five orders of magnitude inside T3 (1D_MSR, round 80: 4.0e-5; see gh:#1960). Pinned at 1e-8 for any field (measured 1.5e-9).
+    assert!((r.final_time - 400.0).abs() < 1e-9);
+    assert_eq!(r.steps, r.up_steps);
+    assert_eq!(r.writes.len(), 30);
+    for w in &r.writes {
+        assert!(w.1 <= 1e-3 && w.4 <= 1e-3 && w.5 <= 1e-3, "T3 t = {}", w.0);
+        assert!(w.3 <= 1e-8, "pin: t = {} {} {:e}", w.0, w.2, w.3);
+    }
+    assert!(rel(r.final_power, r.up_final_power) <= 1e-3);
 }

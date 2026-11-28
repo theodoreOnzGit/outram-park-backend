@@ -27,8 +27,9 @@
 //! Laplacian the caller computed from it. The differential test feeds the value the real binary used.
 //!
 //! One node (`nodesNumber 1`) takes upstream's scalar branch (`T = S/M`), more than one the matrix branch
-//! solved with `Foam::solve`. `T0` (the initial temperature) is read from the dictionary; the
-//! `T.lumpedNuclearStructure` time-directory read is not ported.
+//! solved with `Foam::solve`. `T0` (the initial temperature) is read from the dictionary; ~~the
+//! `T.lumpedNuclearStructure` time-directory read is not ported~~ **CHANGED 2026-11-28 (gh:#1962, README round 81):** a start
+//! directory's `T`/`Tmax`/`Tmatrix`/`Tsurface.lumpedNuclearStructure` are read ([`LumpedNuclearStructure::with_read_state`]).
 
 #[cfg(not(any(feature = "std", test)))]
 #[allow(unused_imports)]
@@ -146,6 +147,61 @@ impl LumpedNuclearStructure {
             }
         }
         Ok(me)
+    }
+
+    /// The constructor's `READ_IF_PRESENT` branch (gh:#1962, README round 81; `lumpedNuclearStructure.C:76-125, 163-167, 238-277`): a start
+    /// directory that holds `T.lumpedNuclearStructure` (`foundT`; `None`: the `T0` of [`Self::new`]) gives the node temperatures (one list per cell, `0()` outside the model),
+    /// and `Tmax`/`Tmatrix`/`Tsurface.lumpedNuclearStructure`, when present, their cell values. Then, as the constructor does after either
+    /// branch, `TFuelAv`/`TCladAv` from the nodes and, where `kappaMatrix != 0`, `Tmatrix` from the node `nodeMatrix`. `Tsurface` is what
+    /// `structure` hands to `Tact_` through `correctT` before the first step (`structure.C:828-840`). The old-time bookkeeping is the
+    /// constructor's (no old time stored yet), as upstream, where the field is read before any `oldTime()`.
+    ///
+    /// # Errors
+    /// [`RadialError::Invalid`] for a list per cell whose length is not the region's `nodesNumber`, or fields of the wrong size.
+    pub fn with_read_state(
+        mut self,
+        t: Option<Vec<Vec<f64>>>,
+        tmax: Option<Vec<f64>>,
+        tmatrix: Option<Vec<f64>>,
+        tsurface: Option<Vec<f64>>,
+    ) -> Result<Self, RadialError> {
+        let n = self.cell_to_region.len();
+        if t.as_ref().is_some_and(|t| t.len() != n) || [&tmax, &tmatrix, &tsurface].iter().any(|f| f.as_ref().is_some_and(|v| v.len() != n)) {
+            return Err(RadialError::Invalid("lumpedNuclearStructure: a read field is not one value (or list) per cell"));
+        }
+        if let Some(t) = t {
+            for &c in &self.cell_list {
+                if t[c].len() != self.regions[self.cell_to_region[c]].nodes_number {
+                    return Err(RadialError::Invalid("T.lumpedNuclearStructure: a cell list is not nodesNumber long"));
+                }
+            }
+            self.t.current = t;
+        }
+        if let Some(v) = tmax {
+            self.tmax = v;
+        }
+        if let Some(v) = tmatrix {
+            self.tmatrix = v;
+        }
+        if let Some(v) = tsurface {
+            self.tsurface = v;
+        }
+        for &celli in &self.cell_list.clone() {
+            let reg = &self.regions[self.cell_to_region[celli]];
+            let tc = &self.t.current[celli];
+            self.t_fuel_av[celli] = tc[reg.node_fuel];
+            self.t_clad_av[celli] = tc[reg.node_clad];
+            if reg.kappa_matrix != 0.0 {
+                self.tmatrix[celli] = tc[reg.node_matrix];
+            }
+        }
+        Ok(self)
+    }
+
+    /// `Tsurface` of every cell (0 outside the model).
+    #[must_use]
+    pub fn tsurface(&self) -> &[f64] {
+        &self.tsurface
     }
 
     /// Select the old-time policy of `T`.
