@@ -124,8 +124,10 @@ A real particle is not a static vessel with a fixed pressure on the inside.
 
 - **The PyC layers shrink under neutron irradiation, then swell, and creep.**
   Irradiation-induced dimensional change and creep of PyC change how much of
-  the pressure load the PyC takes and how much reaches the SiC. The laws and
-  their parameters [citation needed: maintainer to supply].
+  the pressure load the PyC takes and how much reaches the SiC. ~~The laws and
+  their parameters [citation needed: maintainer to supply].~~ **CORRECTED
+  2026-11-28:** the BISON Theory Manual, Section 10.1, Eqs (10.1)–(10.6), now
+  implemented in `triso_particle_mechanics::material`.
 - **The kernel swells.** Solid fission products and the gas bubbles inside
   the kernel push on the buffer. The buffer is porous so that it can take
   this, and also gives the gas somewhere to go.
@@ -153,9 +155,12 @@ The repo's bibliography also lists a BISON TRISO modelling and validation
 report (Hales et al., 2020: *BISON TRISO modeling advancements and validation
 to AGR-1 data*, Idaho National Laboratory;
 [`references.bib`](https://github.com/theodoreOnzGit/outram-park-backend/blob/@@COMMIT@@/docs/site/references.bib),
-key `hales2020bison`). What BISON's mechanical model contains is not
+key `hales2020bison`). ~~What BISON's mechanical model contains is not
 described in this repo, so this page does not say [citation needed:
-maintainer to supply].
+maintainer to supply].~~ **CORRECTED 2026-11-28:** the BISON Theory Manual
+(Hales et al. 2013, INL/EXT-13-29930, maintainer's private corpus) prints the
+equations, and `boon_lay::triso_particle_mechanics` implements them from
+scratch in 1D; its module docs list them by equation number.
 
 **The cost.** A mesh, a nonlinear solve at every time step, a history of
 irradiation for every layer. It is the right way to ask "does this particle
@@ -215,8 +220,15 @@ This is a list of requirements read from the table above. It is not a plan.
 7. **Verification** against closed-form shell solutions first, then against
    published particle results.
 
-Until then, the only particle-scale stress in this workspace is the thin-shell
-formula of [Step 7](./09-panama.md).
+~~Until then, the only particle-scale stress in this workspace is the thin-shell
+formula of [Step 7](./09-panama.md).~~ **CORRECTED 2026-11-28:** items 1 to 3,
+5 and 6 of this list now exist in `boon-lay`, not `farrer-park`:
+`boon_lay::triso_particle_mechanics` uses a 1D spherical element on
+farrer-park's matrix and quadrature. It uses layered materials with the BISON
+2013 PyC laws (the elastic constants are inputs, with no cited values yet). It
+covers irradiation creep and dimensional change, an internal pressure that
+varies with fluence, and a Weibull criterion. It is verified against closed
+forms. Item 4 (contact or debonding) is still absent.
 
 ## Why each simplification is allowed
 
@@ -228,7 +240,7 @@ formula of [Step 7](./09-panama.md).
 | Free volume is 50 % of the buffer | (d) | The value is the report's, taken as printed |
 | Single temperature over the free volume | **Open** | No estimate of temperature variation across the buffer in the repo |
 | FEM replaced by a thin shell (Step 7) | (b), partly | Per-particle FEM times the number of particles in a core is too costly to run by default (about $2 \times 10^{8}$ particles for HTR-10, from the repo's counts above). Its accuracy against FEM is **not measured**, as `farrer-park` has no TRISO model |
-| PyC creep and swelling omitted from the failure chain | (d) | The laws and parameters are not in the repo |
+| PyC creep and swelling omitted from the failure chain | (d) | ~~The laws and parameters are not in the repo~~ **CORRECTED 2026-11-28:** the BISON 2013 laws are in `triso_particle_mechanics`; the elastic parameters are still not. The PANAMA-style chain still omits them |
 
 ## What we assumed
 

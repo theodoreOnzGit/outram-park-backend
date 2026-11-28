@@ -67,6 +67,11 @@ kembangan       = { workspace = true }
 # petir: the libm-backed `real::Real` float shim and `petir::rng`, used by
 # boon-lay's own code (it came in with RustBCA, gh:#876 item 7, #995).
 petir           = { workspace = true }
+# farrer-park: the FEM layer (CSR matrix, sparsity pattern, Krylov solve, the
+# 1D Gauss rule) under `triso_particle_mechanics`, the spherically symmetric
+# TRISO particle thermomechanics (maintainer direction, 2026-11-28). Direction:
+# boon-lay -> farrer-park, never the reverse. no_std, like boon-lay.
+farrer-park     = { workspace = true }
 # `crate::sync::OnceLock` without std (gh:#1634).
 spin            = { workspace = true }
 # Data parallelism across independent Lagrangian histories. Pure-Rust and
@@ -133,6 +138,12 @@ name = "triso_cell_slice"
 [[example]]
 name = "layer_diffusion_table"
 
+# Draws the assembled radial mesh of triso_particle_mechanics and one stress
+# profile (the geometry-drawing rule, AGENTS.md); writes files.
+[[example]]
+name = "triso_particle_mechanics"
+required-features = ["std"]
+
 [features]
 # The std-only layer of the RustBCA copy, now kembangan's (2026-11-22,
 # gh:#1699): this feature forwards to `kembangan/rustbca-std`. TOML input
@@ -158,6 +169,7 @@ std = [
     "anyhow-nostd/std",
     "outram-mc-libs/std",
     "kembangan/std",
+    "farrer-park/std",
 ]
 
 # ~~Headless cost probe for RustBCA cascades~~ `rustbca_cascades` moved to

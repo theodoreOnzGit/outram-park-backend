@@ -14,8 +14,11 @@ assumptions, what would we have to solve?*
 resolves, what this workspace has of it (nothing yet), and what question that
 leaves for the next rung down.
 
-This page has **no Code Review link**, because no function in this workspace
-implements it. That is the honest state, not an omission.
+~~This page has **no Code Review link**, because no function in this workspace
+implements it. That is the honest state, not an omission.~~ **CORRECTED
+2026-11-28:** a first, 1D part of it now exists, `boon_lay::triso_particle_mechanics`
+(section 3 below). It has not been reviewed by a human, and this page has not
+yet been rewritten around it.
 
 ---
 
@@ -161,9 +164,21 @@ of what breaks particles is not symmetric.
 
 ## 3. What this workspace has
 
-- **No TRISO fuel performance model.** There is no BISON-style code here and
+- ~~**No TRISO fuel performance model.** There is no BISON-style code here and
   no port of one. A clean reimplementation is planned for 2027, tracked as
-  [gh:#1011](https://github.com/theodoreOnzGit/outram-park-backend/issues/1011).
+  [gh:#1011](https://github.com/theodoreOnzGit/outram-park-backend/issues/1011).~~
+  **CORRECTED 2026-11-28:** `boon_lay::triso_particle_mechanics` ("boon-lay
+  particle mechanics") is a spherically symmetric particle written from scratch
+  from the equations of the **BISON Theory Manual** (Hales et al. 2013,
+  INL/EXT-13-29930). It is not a port of BISON. It covers items 1 to 3 and 5 of the
+  list in section 2: steady conduction; equilibrium with elastic, thermal,
+  irradiation-strain (manual Eqs (10.1)–(10.3)) and irradiation-creep
+  (Eqs (10.4)–(10.7)) strains; the gas pressure as an input; and a Weibull
+  failure probability integrated over each layer's volume. Item 4 (interfaces
+  that come apart) and item 6 (multidimensional effects) are absent. The model
+  is verified against closed forms only, and the PyC and SiC elastic constants
+  are inputs the manual does not supply. Record:
+  `crates/boon-lay/verification_and_validation/triso_particle_mechanics/README.md`.
 - **BISON itself is not open source** (maintainer's statement, 2026-10-21),
   so it can be neither ported nor vendored here. ~~[citation needed]~~
   **Checked 2026-10-21, still unsourced:** none of the corpus texts that
@@ -174,7 +189,9 @@ of what breaks particles is not symmetric.
   `farrer-park` has 2D plane and 3D solid elements, but no TRISO model, no
   layered irradiation-creep or swelling laws, and no interface debonding; see
   [step 6](./08-pressure-stress.md), which lists what a first-principles
-  particle model would need.
+  particle model would need. (Still true of `farrer-park` itself, checked
+  2026-11-28: the TRISO model is in `boon-lay`, which uses farrer-park's
+  matrix, quadrature and factorisation.)
 
 So every particle-failure number on the following pages comes from a cheaper
 model, and none of those models has been compared against a finite-element
@@ -186,8 +203,8 @@ particle in this workspace.
 
 | What the following steps drop | Kind | Justification |
 |---|---|---|
-| The whole finite-element particle model | (d), and (b) | No model exists here (gh:#1011), and BISON is not open. A per-particle solve for every particle in a core is also costly (about $2 \times 10^{8}$ particles for HTR-10; step 6). What dropping it costs is **not measured** |
-| PyC shrinkage and creep, which put the SiC in compression early | (d) | The laws are not in the repo. Dropping a compressive term should err towards *more* SiC tension, so towards (c) high failure, but this is **not quantified** |
+| The whole finite-element particle model | (d), and (b) | ~~No model exists here (gh:#1011), and BISON is not open.~~ **CORRECTED 2026-11-28:** a 1D model now exists (`triso_particle_mechanics`), but the cheaper models below have not been compared with it, and BISON is not open. A per-particle solve for every particle in a core is also costly (about $2 \times 10^{8}$ particles for HTR-10; step 6). What dropping it costs is **not measured** |
+| PyC shrinkage and creep, which put the SiC in compression early | (d) | ~~The laws are not in the repo.~~ **CORRECTED 2026-11-28:** the BISON 2013 PyC laws are in `triso_particle_mechanics`; the cheaper models still drop them. Dropping a compressive term should err towards *more* SiC tension, so towards (c) high failure, but this is **not quantified** |
 | Debonding, cracked layers and asphericity | (d) | They need a 2D or 3D mechanics model. **Open** |
 
 ## What we assumed
