@@ -33,6 +33,7 @@
 //! | `nuclearFuelPin` | `fractionOfPowerFromNeutronics` (1), `fuel/cladInner/OuterRadius`, `fuel/cladMeshSize`, `fuelRho`+`fuelCp` or `fuelRhoCp`, same for clad, `fuelK`, `cladK`, `fuelT`, `cladT`, `gapH` XOR `gapHPowerDensity table (...)`, `powerDensity` |
 //! | `lumpedNuclearStructure` | `fractionOfPowerFromNeutronics` (1), `nodesNumber`, `nodeFuel`, `nodeClad`, `nodeMatrix` (0), `kappaMatrix` (0), `heatConductances`, `rhoCp`, `volumeFractions`, `powerFractions`, `T0`, `volumetricArea`, `powerDensity` |
 //! | `interpolatedNuclearFuelPin` | `fuelOuterRadius`, `T`, `powerDensity` |
+//! | `nuclearSteadyStatePebble` (gh:#1876, README round 87) | `fractionOfPowerFromNeutronics` (1), `pebbleSurfaceTemperatureGuess` (900), `pebbleCoreRadius`, `pebbleMatrixRadius`, `pebbleShellRadius`, `triso{Fuel,Buffer,InnerPyC,SiC,OuterPyC}Radius`, `nTRISO`, the five `*KCoeffs` and six `*DensityCoeffs` polynomials, `powerDensityNeutronics` (the `setRegionField` key) |
 //!
 //! `powerDensity` is `structure::setRegionField`'s key: for `nuclearFuelPin` and `lumpedNuclearStructure` it fills the
 //! structure's `powerDensityNeutronics` of the region's cells when that field is NOT in the start directory (when it is,

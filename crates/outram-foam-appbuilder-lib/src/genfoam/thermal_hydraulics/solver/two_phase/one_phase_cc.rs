@@ -59,6 +59,12 @@
 //!
 //! ## Not ported (refused by name in [`OnePhaseCcCase::read`])
 //!
+//! **ADDED 2026-11-28 (gh:#1876, README round 87):** ported for `3D_HTR-10`: the `perfectGas` + `hPolynomial` + `polynomial` thermo, a
+//! compressible fluid in the faceCentered branch (`psi > 0`; the cell-centred branch refuses it by name), `nuclearSteadyStatePebble`,
+//! `p` from `p_rgh` when absent, the `alpha.structure` FILE as the structure volume fraction (the zone's `volumeFraction` only without
+//! it; before round 87 the dictionary value was always taken, a defect), the `k`/`epsilon` inlet patches and a non-Boussinesq
+//! `porousKEpsilon`. Still refused: `corrected` Laplacian/snGrad schemes (gh:#1991).
+//!
 //! ~~`solveFluidMechanics true` (UEqn/pEqn, `porousKEpsilon` solving: gh:#1775)~~ **CORRECTED 2026-11-26 (gh:#1837, round 19):** `solveFluidMechanics true` with `turbulence false` is ported ([`flow`]); ~~`turbulence true` (wall functions, `porousKEpsilon::correct`: gh:#1838, gh:#1839) is still refused~~ **CORRECTED 2026-11-26 (round 20): `turbulence true` is ported ([`turbulence`])**; ~~heat exchangers~~ (**CORRECTED 2026-11-27, README round 44, gh:#1847: ported, same-region secondary zone only**), pumps (a `momentumSource` pump IS read when the flow is solved),
 //! passive structures, tortuosity, local frames; ~~power models other than `fixedTemperature`~~ **CORRECTED 2026-11-27 (gh:#1879, README round 37):**
 //! `heatedPin`, `nuclearFuelPin`, `lumpedNuclearStructure` and `interpolatedNuclearFuelPin` are read ([`radial_power`]) and run through
@@ -1159,6 +1165,13 @@ impl OnePhaseCcCase {
         // `passiveProperties.volumeFraction` if given, else the zone's `volumeFraction` when `alpha.structure` was NOT read. A handed-over
         // stage counts as one whose `alpha.structure` is present (it holds the dictionary's values).
         let alpha_header_ok = hand.is_some() || fdir.join("alpha.structure").exists();
+        // The structure's own volume fraction (`structure` IS the `volScalarField alpha.structure`, `READ_IF_PRESENT`; `structure.C:296-316`):
+        // the zone's `volumeFraction` is set ONLY `if (!alphaHeaderOk)`. ~~The dictionary value always~~ CORRECTED 2026-11-28 (gh:#1876, README
+        // round 87): with the file on disk its values hold in EVERY cell (`3D_HTR-10` ships the mapped packing fraction, 0.2-0.6 per cell,
+        // against the dictionary's 0.57; found when the pebble surface heat flux came out 2.5 times too small in a cell with alpha 0.228)
+        if hand.is_none() && fdir.join("alpha.structure").exists() {
+            alpha_structure = sfield("alpha.structure")?;
+        }
         let mut alpha_passive = if hand.is_none() && fdir.join("alpha.passiveStructure").exists() {
             sfield("alpha.passiveStructure")?
         } else if hand.is_none() && alpha_header_ok {
@@ -1344,16 +1357,15 @@ impl OnePhaseCcCase {
             fc.turbulence = if laminar {
                 None
             } else {
-                let tc = turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?;
-                if tc.is_some() && thermo.boussinesq_rho0().is_none() {
-                    return Err(ctx.e("RAS `turbulence true` is ported for the Boussinesq equation of state only (the model's `rho` is the constant `rho0`)"));
-                }
-                tc
+                // ~~`turbulence true` refused for every package but Boussinesq (the model's `rho` was the constant `rho0`)~~ CHANGED 2026-11-28
+                // (gh:#1876, README round 87): the model's `rho` is `fluid::rho()`, the thermo's field for a non-Boussinesq fluid
+                turbulence::read_turbulence_case(&ctx, &g, &tdir, &fs, &tp, sp, poly_mesh_dir, &zone_cells)?
             };
-            // gh:#1876 (round 87): a compressible fluid (`psi > 0`, `perfectGas`) needs `pEqnComp`'s `(alpha psi/rho) correction(fvm::ddt(p_rgh))`
-            // and `rho += psi (p_rgh - p_rgh_0)` (`calcrAUfSetSnGradCalcComp_1p.H`, `updatePP_rghRho_1p.H`), which neither momentum branch has
-            if matches!(thermo, PhaseThermo::PerfectGasPolynomial(_) | PhaseThermo::PerfectGasConst(_)) {
-                return Err(ctx.e("a compressible (psi > 0, perfectGas) fluid with solveFluidMechanics true is not ported (pEqnComp's correction(fvm::ddt(p_rgh)), rho += psi dp_rgh)"));
+            // ~~a compressible (`psi > 0`) fluid with the flow solved refused (round 87, first commit)~~ CHANGED 2026-11-28 (gh:#1876,
+            // README round 87): `pEqnComp`'s `correction(fvm::ddt(p_rgh))` and `rho += psi dp_rgh` are ported in the faceCentered branch;
+            // the cell-centred branch (`pEqn_1p.H`) still assumes `psi = 0`
+            if !fc.face_centered && matches!(thermo, PhaseThermo::PerfectGasPolynomial(_) | PhaseThermo::PerfectGasConst(_)) {
+                return Err(ctx.e("a compressible (psi > 0, perfectGas) fluid with momentumMode other than faceCentered is not ported (pEqn_1p.H's pEqnComp)"));
             }
             Some(fc)
         } else {
@@ -1552,6 +1564,15 @@ pub struct OnePhaseCcSolver {
     rho: Vec<f64>,
     /// `fluid::rho()` on every boundary face (index `face - n_internal`).
     rho_b: Vec<f64>,
+    /// `thermo.psi()` per cell as the last `thermo.correct()` left it (gh:#1876; 0 for the incompressible packages).
+    psi: Vec<f64>,
+    /// `thermo.psi()` on every boundary face.
+    psi_b: Vec<f64>,
+    /// The `p` patch values for a COMPRESSIBLE fluid (gh:#1876, `Some` for `perfectGas`): the copy of `p_rgh`'s at construction (here
+    /// the owner values, which equal them for a uniform start), then `max(p_rgh_b + rho_b gh_b, pMin)` on every patch whose `p_rgh` is
+    /// not `fixedValue` (a `fixedValue` patch ignores the assignment). The thermo evaluates `rho_b`, `psi_b` at them. `None`: the
+    /// owner values (an incompressible package does not depend on `p`).
+    p_b: Option<Vec<f64>>,
     /// `alphaRhoMagU_` (cells, boundary faces): set at construction (`fluid::initAlphaPhis`) or READ; `correctAlphaRhoMagU()` only runs with
     /// `momentumMode cellCenteredFaceReconstruction` (`reconstructU_1p.H:21`), which the writer refuses by name (gh:#1935).
     alpha_rho_mag_u: (Vec<f64>, Vec<f64>),
@@ -1669,6 +1690,11 @@ impl OnePhaseCcSolver {
                 (ni0..geom.n_faces()).map(|f| case.thermo.props(case.p[geom.mesh.owner[f]], ts0.b[f - ni0]).rho).collect(),
             ),
         };
+        // gh:#1876: `psi` with `rho` (`heRhoThermo::calculate`); the `p` patch values of a compressible fluid
+        let compressible = matches!(case.thermo, PhaseThermo::PerfectGasPolynomial(_) | PhaseThermo::PerfectGasConst(_));
+        let p_b: Option<Vec<f64>> = if compressible { Some((ni0..geom.n_faces()).map(|f| case.p[geom.mesh.owner[f]]).collect()) } else { None };
+        let psi: Vec<f64> = (0..n).map(|c| case.thermo.props(case.p[c], case.t[c]).psi).collect();
+        let psi_b: Vec<f64> = (ni0..geom.n_faces()).map(|f| case.thermo.props(case.p[geom.mesh.owner[f]], ts0.b[f - ni0]).psi).collect();
         // `fluid::initAlphaPhis`: `alphaRhoMagU_ = alpha*rho*magU_` unless the file was read; `magU_ = mag(U_)` of the constructed `U`
         let alpha_rho_mag_u = match case.alpha_rho_mag_u.clone() {
             Some(read) => read,
@@ -1731,6 +1757,9 @@ impl OnePhaseCcSolver {
             rho_old: rho.clone(),
             rho,
             rho_b,
+            psi,
+            psi_b,
+            p_b,
             alpha_rho_mag_u,
             dgdt: vec![0.0; n],
             cp_f: vec![0.0; n],
@@ -1840,6 +1869,10 @@ impl OnePhaseCcSolver {
             fs.u_old = uc;
             fs.phi_old = fs.phi.clone();
             fs.rho_b_old = rho_b_now;
+            // `p_rgh.oldTime()` once it exists (gh:#1876): stored at the first modification of the new step, i.e. the value now
+            if fs.p_rgh_old.is_some() {
+                fs.p_rgh_old = Some(fs.p_rgh.c.clone());
+            }
             fs.solves.clear();
         }
         // `p.oldTime()` is stored at the first non-const access of a new time step; in the FIRST step OpenFOAM has no
@@ -2008,7 +2041,8 @@ impl OnePhaseCcSolver {
         for c in 0..self.geom.n_cells() {
             // `fluid_.thermo().nu()` = `mu/rho` of the THERMO (`rho(T)` of a Boussinesq fluid, not `fluid::rho()` = `rho0`)
             let pp = self.case.thermo.props(self.p[c], self.t[c]);
-            let nu = pp.mu / pp.rho;
+            // the thermo's `rho` field for a non-Boussinesq fluid (gh:#1876: it carries `rho += psi dp_rgh`; bit-identical otherwise)
+            let nu = pp.mu / if self.case.thermo.boussinesq_rho0().is_some() { pp.rho } else { self.rho[c] };
             // normalized = alpha / (1 - structure)
             let norm = self.alpha[c] / (1.0 - self.case.alpha_structure[c]);
             let re = norm * self.u.c[c].mag() * self.case.dh[c] / nu;
@@ -2043,12 +2077,51 @@ impl OnePhaseCcSolver {
             let mut ts = Scalar { c: self.t.clone(), b: vec![0.0; self.geom.n_faces() - ni], bc: t_bc };
             ts.correct_bc(&self.geom);
             for c in 0..n {
-                self.rho[c] = th.props(self.p[c], self.t[c]).rho;
+                let pp = th.props(self.p[c], self.t[c]);
+                self.rho[c] = pp.rho;
+                self.psi[c] = pp.psi;
             }
             for f in ni..self.geom.n_faces() {
-                self.rho_b[f - ni] = th.props(self.p[self.geom.mesh.owner[f]], ts.b[f - ni]).rho;
+                // the `p` patch value of a compressible fluid (gh:#1876), the owner value otherwise
+                let pb = match &self.p_b {
+                    Some(v) => v[f - ni],
+                    None => self.p[self.geom.mesh.owner[f]],
+                };
+                let pp = th.props(pb, ts.b[f - ni]);
+                self.rho_b[f - ni] = pp.rho;
+                self.psi_b[f - ni] = pp.psi;
             }
         }
+    }
+
+    /// `thermo.nu() = mu/rho` of the THERMO on the cells and the boundary faces (gh:#1876, README round 87): `mu` at the cell (patch)
+    /// temperature, `rho` the thermo's `rho` FIELD (`self.rho`, `self.rho_b`: for a compressible fluid it carries `rho += psi dp_rgh`), or
+    /// `rho(T)` of a Boussinesq fluid (whose `fluid::rho()` is `rho0`). For a `zeroGradient` temperature patch the boundary value is the
+    /// owner's; for an incompressible package `self.rho` equals `rho(p, T)` bit for bit.
+    fn thermo_nu(&self) -> (Vec<f64>, Vec<f64>) {
+        let g = &self.geom;
+        let (n, ni) = (g.n_cells(), g.n_internal());
+        let th = &self.case.thermo;
+        let bous = th.boussinesq_rho0().is_some();
+        let mut ts = Scalar { c: self.t.clone(), b: vec![0.0; g.n_faces() - ni], bc: self.t_patch_bcs() };
+        ts.correct_bc(g);
+        let nu_c: Vec<f64> = (0..n)
+            .map(|c| {
+                let pp = th.props(self.p[c], self.t[c]);
+                pp.mu / if bous { pp.rho } else { self.rho[c] }
+            })
+            .collect();
+        let nu_b: Vec<f64> = (ni..g.n_faces())
+            .map(|f| {
+                let pb = match &self.p_b {
+                    Some(v) => v[f - ni],
+                    None => self.p[g.mesh.owner[f]],
+                };
+                let pp = th.props(pb, ts.b[f - ni]);
+                pp.mu / if bous { pp.rho } else { self.rho_b[f - ni] }
+            })
+            .collect();
+        (nu_c, nu_b)
     }
 
     /// The temperature patch conditions: the case's (`fixedValue`, `zeroGradient`, `empty`) with the flow, `zeroGradient` without.

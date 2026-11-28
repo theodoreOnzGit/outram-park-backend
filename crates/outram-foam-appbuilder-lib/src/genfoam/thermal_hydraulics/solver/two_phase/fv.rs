@@ -63,6 +63,17 @@ pub enum Bc {
         /// Which fluid's `phi` the patch names (`phi phi.<fluid>`).
         phi_index: usize,
     },
+    /// A `mixed` patch with `refGrad = 0` whose `refValue` and `valueFraction` the owner already set (`updateCoeffs` of ESI's
+    /// `inletOutlet`, `turbulentIntensityKineticEnergyInlet`, `turbulentMixingLengthDissipationRateInlet`; gh:#1876, README round 87):
+    /// face value `vf refValue + (1 - vf) (patchInternalField + 0/deltaCoeffs)` (`mixedFvPatchField::evaluate`). A face with `vf == 1`
+    /// is FIXED for the matrix ([`Scalar::is_fixed`]), a face with `vf == 0` is `zeroGradient`; other fractions are not produced by
+    /// these patches (`neg(phi)` is 0 or 1) and the matrix builders treat them as `zeroGradient` faces.
+    Mixed {
+        /// `refValue`, one per face.
+        ref_value: Vec<f64>,
+        /// `valueFraction`, one per face (0 or 1).
+        value_fraction: Vec<f64>,
+    },
 }
 
 /// Mesh geometry the operators need, precomputed once.
@@ -364,6 +375,13 @@ impl Scalar {
                             vf * inlet_value[k] + (1.0 - vf) * (self.c[g.mesh.owner[f]] + 0.0 / g.delta[f]);
                     }
                 }
+                Bc::Mixed { ref_value, value_fraction } => {
+                    for k in 0..p.size {
+                        let f = p.start + k;
+                        let vf = value_fraction[k];
+                        self.b[f - ni] = vf * ref_value[k] + (1.0 - vf) * (self.c[g.mesh.owner[f]] + 0.0 / g.delta[f]);
+                    }
+                }
                 Bc::Calculated | Bc::Empty => {}
             }
         }
@@ -396,6 +414,10 @@ impl Scalar {
                 let vf = if named[f] < 0.0 { 1.0 } else { 0.0 };
                 (1.0 - vf, vf * inlet_value[k] + (1.0 - vf) * 0.0 / g.delta[f])
             }
+            Bc::Mixed { ref_value, value_fraction } => {
+                let vf = value_fraction[k];
+                (1.0 - vf, vf * ref_value[k] + (1.0 - vf) * 0.0 / g.delta[f])
+            }
             Bc::ZeroGradient | Bc::Calculated | Bc::Empty => (1.0, 0.0),
         }
     }
@@ -416,7 +438,24 @@ impl Scalar {
     /// `true` when the patch of boundary face `f` is `fixedValue`.
     #[must_use]
     pub fn is_fixed(&self, g: &Geometry, f: usize) -> bool {
-        matches!(self.bc[g.patch_of[f - g.n_internal()]], Bc::Fixed(_))
+        let pi = g.patch_of[f - g.n_internal()];
+        match &self.bc[pi] {
+            Bc::Fixed(_) => true,
+            // a `mixed` face with `valueFraction 1` (gh:#1876): `valueInternalCoeffs = 0`, `valueBoundaryCoeffs = refValue`
+            Bc::Mixed { value_fraction, .. } => value_fraction[f - g.mesh.patches[pi].start] == 1.0,
+            _ => false,
+        }
+    }
+
+    /// `true` when boundary face `f` is a [`Bc::Mixed`] face with `valueFraction 1`; its `refValue` is then [`Self::face`] once
+    /// the owner has written it into the face value (gh:#1876).
+    #[must_use]
+    pub fn is_mixed_fixed(&self, g: &Geometry, f: usize) -> bool {
+        let pi = g.patch_of[f - g.n_internal()];
+        match &self.bc[pi] {
+            Bc::Mixed { value_fraction, .. } => value_fraction[f - g.mesh.patches[pi].start] == 1.0,
+            _ => false,
+        }
     }
 
     /// Cell-and-face map `self = op(self)`, BCs kept.
@@ -1322,6 +1361,12 @@ impl Eqn {
                 let pg = gamma[f] * m.face_areas[f];
                 self.cyc_int[f - g.n_internal()] += -(pg * (-g.delta[f]));
                 self.cyc_bou[f - g.n_internal()] += pg * g.delta[f];
+            } else if psi.is_mixed_fixed(g, f) {
+                // `mixed` (gh:#1876): `internalCoeffs = -pGamma (-vf deltaCoeffs)`, `boundaryCoeffs = -pGamma (vf deltaCoeffs refValue +
+                // (1 - vf) refGrad)` with `pGamma = gamma |Sf|`, negated for `-laplacian`; `vf = 1`, `refGrad = 0`
+                let pg = gamma[f] * m.face_areas[f];
+                self.ldu.diag[m.owner[f]] += pg * g.delta[f];
+                self.source[m.owner[f]] += pg * (g.delta[f] * psi.face(g, f));
             } else if psi.is_fixed(g, f) {
                 let c = gamma[f] * m.face_areas[f] * g.delta[f];
                 self.ldu.diag[m.owner[f]] += c;

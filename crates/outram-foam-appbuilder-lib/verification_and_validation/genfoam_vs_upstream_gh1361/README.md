@@ -10644,3 +10644,77 @@ No pin moved. The flux-log change is the same arithmetic: on `tr_plain` and `tr_
 | H6 | if items 3-4 complete: step-1 `T`, `p_rgh`, `U`, `k`, `epsilon` agree with the real binary to <= 1e-9 relative (gate: 1e-9 with the cause of any difference explained) | 35 % |
 
 The coupled-chain translation is checked by unit tests against the round-2df1 physics reading (`PebbleGeometry::steady_temperatures`, itself verified against the real class on gFHR data to 7.2e-6, the write precision), to 1e-12 relative: it is a reordering of the same formulas, so the two must agree to round-off.
+
+## Round 87 results (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; inventory and predictions committed first in `551228957`, BEFORE any comparison run; real binary 652b3da on ESI v2506, serial, `libThermoMechanicsSolvers.so` on `LD_LIBRARY_PATH`; references in the refs submodule `1007f5e` (`htr10_r87/`: the staged case, 13 files gzipped, and the logs and every-7th-cell samples of `ut2`, `vlam`, `ut3`; 25 MB, each file under 5.1 MB; written by `scripts/make_htr10_r87_refs.py`); tests `tests/genfoam_htr10_vs_upstream.rs` (4 tests, 231 s; `--nocapture` prints every number below); unit tests `structure::nuclear_steady_state_pebble::coupled::tests` (3), `two_phase::tests::mixed_patch_is_fixed_or_zero_gradient_by_its_value_fraction`, `one_phase_cc::turbulence::tests::inlet_patches_update_their_coefficients_from_the_flux`)
+
+### What was ported (upstream's order: thermo, structure, turbulence, equations)
+
+1. **`perfectGas` + `hPolynomial` + `polynomial`** (`PhaseThermo::PerfectGasPolynomial`, basic-lib's stacks reused, ESI v2506 gas constant), and `psi` kept with `rho` at every `thermo.correct()` (`heRhoThermo::calculate`).
+2. **`nuclearSteadyStatePebble` as the structure's power model** (`structure/nuclear_steady_state_pebble/coupled.rs`, `RadialPowerModel::NuclearSteadyStatePebble`): constructor at `pebbleSurfaceTemperatureGuess`, `correct(HT, H)` with the previous call's temperatures in the conductivities, densities, the six `(avg min max)` reports, `correctT`, `iA = 3 alpha/r_shell`; `pebbleCoreRadius 0` allowed. `setRegionField` with the key `powerDensityNeutronics`.
+3. **`p` from `p_rgh`** when the start directory has no `p` (`thermalHydraulicsModel.C:159-170`).
+4. **The `k`/`epsilon` inlet patches**: `inletOutlet`, `turbulentIntensityKineticEnergyInlet`, `turbulentMixingLengthDissipationRateInlet` as a new `fv::Bc::Mixed` (`refGrad 0`, `valueFraction = neg(phi_b)` of the registered `phi` = `thermalHydraulicsModel::phi_`); `updateCoeffs` where upstream calls it (epsilon: `epsilon_.boundaryFieldRef().updateCoeffs()` at the start of `correct()`; k: the first `fvMatrix(k_)`).
+5. **`porousKEpsilon` with a variable `rho`** (`fluid::rho()` is the thermo's field for a non-Boussinesq fluid: cells, patch values, `rho.oldTime()`; the Boussinesq path is the constant as before).
+6. **`thermo.nu()` = `mu/rho` with the thermo's `rho` FIELD and, on the boundary, the patch temperature** (`OnePhaseCcSolver::thermo_nu`): used by `UEqn_1p`'s `nuEff`, `porousKEpsilon` and `FSPair::Re`. ~~`nu_b` the owner's `nu` in `porousKEpsilon`~~: wrong at a `fixedValue` temperature patch (HTR-10's inlets); identical with a `zeroGradient` one.
+7. **The compressible `pEqnf_1p.H`** (`one_phase_cc/face_centered.rs`): `(alpha psi/rho) correction(fvm::ddt(p_rgh))` with the lazy first `p_rgh.oldTime()`, `dgdt = -pEqnComp & p_rgh`, the `p` patch values (`max(p_rgh_b + rho_b gh_b, pMin)` where `p_rgh` is not `fixedValue`), `rho += psi (p_rgh - p_rgh_0)` (cells and patches, `p_rgh_0` copied with the patch values the assignment `p_rgh = p - rho gh` wrote). The cell-centred `pEqn_1p.H` with `psi > 0` is refused by name.
+8. **A DEFECT of the port, found by H5's first run and fixed:** `OnePhaseCcCase::read` set the structure volume fraction from the zone's `volumeFraction` ALWAYS. Upstream sets it only `if (!alphaHeaderOk)` (`structure.C:296-316`): with `alpha.structure` on disk its values hold. HTR-10 ships the mapped packing fraction (0.23-0.60 per cell) against the dictionary's 0.57; the pebble surface heat flux came out 2.5 times too small in a cell with `alpha = 0.228` (port 1.96e4, real 4.91e4 W/m^2), and `T` missed by 65 K at step 1. Every earlier case's `alpha.structure` file holds the dictionary value, so their results do not move (the regression targets below pass unchanged).
+
+### Real binary (the case as shipped, and the variants)
+
+| run | what | real time |
+|---|---|---|
+| `shipped` (unedited `rootCase`) | `endTime 10`, `adjustTimeStep`, `maxCo 10`: `deltaT` 0.5 for step 1 (Co 614), then 0.0055-0.009 | see "Shipped runtime" below |
+| `ut1` | tight, `uncorrected`, `p_rgh` GAMG 1e-14 | 270 s for one step: **every GAMG solve hits `maxIter 1000` at ~1e-10** (the real binary cannot reach the tight tolerance with GAMG on this mesh) |
+| `ut2` | as `ut1` with `p_rgh` `PCG`/`DIC`, `maxIter 5000` | 55 s, one step: 500, 243, 477, 240 iterations |
+| `vlam` | `ut2` + `simulationType laminar` | one step |
+| `ut3` | `ut2` to `endTime 0.55` (7 steps), `purgeWrite 1` | 176 s |
+
+### The port against the real binary (tight `uncorrected` variant; max-norm over every 7th cell, relative to the field's max)
+
+| quantity | `vlam` step 1 | `ut2` step 1 | `ut3` step 7 |
+|---|---|---|---|
+| `T` | 5.0e-15 | 6.5e-16 | 1.2e-11 |
+| `p`, `p_rgh` | 9.6e-15 | 2.5e-14 | 5.1e-14 |
+| `U` | 1.5e-10 | 3.2e-11 | 4.4e-11 |
+| `k`, `epsilon`, `nut`, `alphat` | - | 7.4e-16, 3.1e-16, 1.7e-15, - | 4.9e-11, 4.8e-11, 1.4e-11, 6.8e-12 |
+| `htc` | 0 | 0 | 8.7e-11 |
+| `TpS`, `Tfmax` (pebble) | 0, 0 | 0, 0 | 3.3e-11, 3.1e-11 |
+| pebble log numbers (6 lines x avg/min/max) | 18 of 18 bit-identical | 18 of 18 bit-identical | 24 of 126 bit-identical, worst 6.3e-11 |
+| `deltaT` | 2.4e-11 | 5.1e-12 | <= 2.0e-11 at every step |
+| first `p_rgh` initial residual | 1.5e-14 | 2.1e-12 | <= 3.9e-10 (first passes); second passes ~1e-9 absolute, up to 3.7e-3 relative |
+| `epsilon`, `k` initial residuals, step 1 | - | the same 17 digits, 25 and 25 iterations | - |
+
+**Worst over everything: 8.7e-11 (gate 1e-9: held).** Not bit-identical. Cause, as far as it is known: step 1 laminar agrees to 1.5e-14 at the first pressure solve; with `porousKEpsilon` the first `p_rgh` residual moves 2.1e-12 although `k`, `epsilon`, `nut` agree to 1.7e-15, so a ~1e-12 difference enters the turbulent momentum path before the first solve (NOT located: gh:#1992). The second non-orthogonal passes start at ~1e-9 (they are solved from the converged first pass, near the 1e-14 CG floor) and differ by up to 17 CG iterations; that is the converged solution's round-off, and it is what the later steps carry (1e-11 at step 7). This 8.7e-11 is flagged for the maintainer: it is under 1e-9 but its first seed is not explained.
+
+### The case as shipped
+
+The port refuses it by name for the `corrected` Laplacian/snGrad and for nothing else (`r87_the_shipped_schemes_are_refused_by_name`): gh:#1991. **No step of the shipped case has been compared.**
+
+### Predictions
+
+| id | prediction | probability | outcome |
+|---|---|---|---|
+| H1 | (observed before the commit, not a prediction) | - | the shipped case's first refusal after items 1-2 is `corrected` |
+| H2 | after the `k`/`epsilon` patches: the non-Boussinesq turbulence, then `psi > 0`, no third | 60 % | **held** (the `psi > 0` refusal was this round's own, added when item 1 made it reachable); after items 4-7 the `uncorrected` variant reads |
+| H3 | the real shipped run takes 1-4 h serial | 55 % | see "Shipped runtime" |
+| H4 | the real shipped run reproduces `Alltest`'s `Tfmax` to 0.1 % | 70 % | see "Shipped runtime" |
+| H5 | step-1 pebble log lines equal at 6 digits | 60 % | **MISSED at the first run** (port `Tfmax max` 967.64 against 949.57: the `alpha.structure` defect, item 8); **held after the fix**: 18 of 18 numbers bit-identical at 17 digits on `ut2` and on `vlam` |
+| H6 | step-1 fields <= 1e-9 | 35 % | **held** (<= 3.2e-11, `U`); also over 7 steps (8.7e-11) |
+
+### Earlier numbers (moved: none)
+
+No pin moved. The regression targets run below pass with their pins unchanged; the `alpha.structure` and `nu_b` changes are bit-identical for every earlier case (their `alpha.structure` files hold the dictionary values; their `porousKEpsilon` temperature patches are `zeroGradient`).
+
+### Tests run
+
+2026-11-28, release, `--no-fail-fast`, private target dir: the new `genfoam_htr10_vs_upstream` (5 tests incl. the env-only probe; 231 s) and the 12 requested targets `genfoam_{esfr_coupled, esfr_fluid, esfr_transient, fullcoupling_fluid, fullcoupling_neutronics, fullcoupling_three_region, fullcoupling_transient, gfhr_pebble, msr1d_coupled, msr1d_fluid, one_phase_fc, one_phase}_vs_upstream`: all pass (the three ESFR targets run their env-gated tests only, as before); also the ten `one_phase_cc`/radial targets `genfoam_{fftf_pieces, msfr_th, msfr_th_options, msfr_th_pimple, msfr_th_nonorth, heat_exchanger_cc, heat_exchanger_3d, radial_power_wired, two_phase_radial_power, radial_power_models}_vs_upstream`: all pass, pins unchanged (two of them needed the new `RadialPowerModel` arm in their exhaustive `match`). `--lib genfoam::thermal_hydraulics`: 303 pass. `cargo check --release --no-default-features --target x86_64-unknown-none` (no_std): clean. The workspace suite was not run.
+
+### Not done (filed)
+
+- gh:#1991: the `corrected` Laplacian and snGrad (the shipped HTR-10's one remaining refusal), and the real binary's GAMG stall at the tight tolerance.
+- gh:#1992: the 2e-12 first difference of the turbulent `p_rgh` solve.
+- `3D_gFHR` (gh:#1876): not run. Read from its files (2026-11-28) and probed: an `icoPolynomial` + `hPolynomial` + `polynomial` coolant, `faceCentered`, `porousKEpsilon` with the `inletOutlet`/`turbulentIntensityKineticEnergyInlet` patches (ported this round), `uncorrected` schemes, `nNonOrthogonalCorrectors 0`; the port's FIRST refusal is `missing scalar endTime`: the shipped `controlDict` has `startFrom latestTime`, `stopAt nextWrite` and no `endTime`, and `Allrun` runs `GeN-Foam -initializeMappedFields` before the run. The `steadyStateLPS` variant copies `phaseProperties_lumpedParam` (`lumpedNuclearStructure`, rounds 80-81). `3D_NTPfuelAssembly`: H2 (gh:#1872) and `lumpedNuclearStructure`.
+- The model's own written fields (`TpS.nuclearSteadyStatePebble`, ...) are not in the port's written time directory (`WrittenState`); not filed separately (part of gh:#1876).
+
+### Reproduction
+
+`bash crates/outram-foam-appbuilder-lib/verification_and_validation/genfoam_vs_upstream_gh1361/scripts/...` is not needed: copy the staged case (`refs/htr10_r87/case`, inflate the `.gz`), run `GeN-Foam -case <dir>` through `with-of.sh` (for `vlam` replace `turbulenceProperties` with `simulationType laminar;`, for `ut2`/`vlam` set `endTime 0.5`), then `make_htr10_r87_refs.py <rootCase> <ut3> <ut2> <vlam> refs/htr10_r87`.

@@ -58,6 +58,7 @@ impl OnePhaseCcSolver {
                     Bc::Calculated => Ok(PatchOut::plain(&p.name, "calculated")),
                     Bc::FixedGradient(_) => Err(FoamWriteError::PatchType("fixedGradient (T)".to_string())),
                     Bc::InletOutlet { .. } => Err(FoamWriteError::PatchType("inletOutlet".to_string())),
+                    Bc::Mixed { .. } => Err(FoamWriteError::PatchType("mixed (T)".to_string())),
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             push(field_file("fluidRegion/T", time_name, Data::scalar(self.t.clone()), t_patches));

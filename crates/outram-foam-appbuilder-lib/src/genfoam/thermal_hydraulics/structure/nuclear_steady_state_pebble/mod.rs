@@ -107,10 +107,15 @@
 //!
 //! ## What is not ported here
 //!
-//! - **The convective coupling.** Upstream computes the pebble surface
+//! - ~~**The convective coupling.** Upstream computes the pebble surface
 //!   temperature as `T_surf = (q_surf + sum h T)/sum h` from the fluid solve;
 //!   here it is an input, because this crate has no coupled porous
-//!   thermal-hydraulic driver to produce it.
+//!   thermal-hydraulic driver to produce it.~~ **CORRECTED 2026-11-28 (gh:#1876,
+//!   README round 87):** the coupled `onePhase` region exists and runs the model
+//!   as its power model through [`coupled::NuclearSteadyStatePebble`] (upstream's
+//!   statement order, temperature-dependent conductivities and densities, a
+//!   coreless pebble); THIS physics reading still takes the surface temperature
+//!   and the conductivities as inputs, and still requires a central core.
 //! - **Temperature-dependent conductivities.** Upstream evaluates each `k` from a
 //!   polynomial in the local temperature. This port takes the conductivities as
 //!   values, which the caller may evaluate however it likes; the gFHR tutorial's

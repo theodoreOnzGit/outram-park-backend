@@ -201,6 +201,8 @@ fn pin_fields(s: &TwoPhaseSolver) -> Vec<(String, Vec<f64>)> {
             // Added 2026-11-27 (round 71's variant): no twoPhase case compared here selects `nuclearFuelPinTest`,
             // and the writer refuses its written fields by name (README round 71), so it contributes no fields.
             RadialPowerModel::NuclearFuelPinTest(_) => {}
+            // Added 2026-11-28 (gh:#1876, round 87): no twoPhase case compared here selects `nuclearSteadyStatePebble`.
+            RadialPowerModel::NuclearSteadyStatePebble(_) => {}
         }
     }
     out

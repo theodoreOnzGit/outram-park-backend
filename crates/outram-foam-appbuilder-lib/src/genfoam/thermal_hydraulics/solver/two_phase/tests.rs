@@ -713,3 +713,40 @@ fn folded_laplacian_equals_neg_laplacian_and_relax_scalar_follows_fvmatrix_relax
     }
     assert_eq!(apart.ldu.upper, before.ldu.upper);
 }
+
+/// gh:#1876 (round 87): a `mixed` face with `valueFraction 1` is fixed for the matrix (`-laplacian`: `pGamma deltaCoeffs` on the
+/// diagonal, `pGamma (deltaCoeffs refValue)` in the source; `div`: `-phi refValue`), with `valueFraction 0` it is `zeroGradient`;
+/// the evaluation is `vf refValue + (1 - vf) owner`.
+#[test]
+fn mixed_patch_is_fixed_or_zero_gradient_by_its_value_fraction() {
+    let g = line(4);
+    let (inlet, _) = end_patches(&g);
+    let f = g.mesh.patches[inlet].start;
+    let fb = f - g.n_internal();
+    let mut bc = g.default_bcs();
+    bc[inlet] = Bc::Mixed { ref_value: vec![0.25], value_fraction: vec![1.0] };
+    let mut a = Scalar { c: vec![0.5; 4], b: vec![0.0; g.n_faces() - g.n_internal()], bc };
+    a.correct_bc(&g);
+    assert_eq!(a.b[fb], 0.25);
+    assert!(a.is_fixed(&g, f) && a.is_mixed_fixed(&g, f));
+    assert_eq!(a.convection_coeffs(&g, f, [&[], &[]]), (0.0, 0.25));
+    let gamma = vec![3.0; g.n_faces()];
+    let mut e = Eqn::new(&g);
+    e.neg_laplacian(&g, &gamma, &a);
+    let o = g.mesh.owner[f];
+    let mut e_int = Eqn::new(&g);
+    e_int.neg_laplacian_internal(&g, &gamma);
+    let pg = 3.0 * g.mesh.face_areas[f];
+    assert_eq!(e.ldu.diag[o], e_int.ldu.diag[o] + pg * g.delta[f]);
+    assert_eq!(e.source[o], pg * (g.delta[f] * 0.25));
+    let mut phi = vec![0.0; g.n_faces()];
+    phi[f] = -2.0;
+    let mut d = Eqn::new(&g);
+    d.div_upwind(&g, &phi, &a);
+    assert_eq!(d.source[o], -(-2.0 * 0.25));
+    a.bc[inlet] = Bc::Mixed { ref_value: vec![0.25], value_fraction: vec![0.0] };
+    a.correct_bc(&g);
+    assert_eq!(a.b[fb], 0.5);
+    assert!(!a.is_fixed(&g, f) && !a.is_mixed_fixed(&g, f));
+    assert_eq!(a.convection_coeffs(&g, f, [&[], &[]]), (1.0, 0.0));
+}

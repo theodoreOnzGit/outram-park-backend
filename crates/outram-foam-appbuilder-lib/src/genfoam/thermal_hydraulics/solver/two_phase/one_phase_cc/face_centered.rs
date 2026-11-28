@@ -31,8 +31,12 @@
 //!    + alphaf phiSbyA`, the compressible `p_rgh` equation, `phi = phi_/alphaf`, `U = reconstruct(...)` through `reconstructU_1p.H`.
 //!
 //! The pressure matrix is assembled as `fvMatrix` holds it (`pEqnComp + pEqnIncomp`, boundary coefficients apart until the solve), as
-//! [`super::super::one_phase_fc`] does (rounds 38, 45, 46). `psi = 0` is assumed (`Boussinesq`, `icoPolynomial`): a compressible closed volume
-//! is not reachable from the readers that feed this solver.
+//! [`super::super::one_phase_fc`] does (rounds 38, 45, 46). ~~`psi = 0` is assumed (`Boussinesq`, `icoPolynomial`): a compressible closed volume
+//! is not reachable from the readers that feed this solver.~~ **CHANGED 2026-11-28 (gh:#1876, README round 87):** a compressible fluid
+//! (`perfectGas`, `psi = 1/(R T)`) is reachable and ported: `pEqnComp`'s `(alpha psi/rho) correction(fvm::ddt(p_rgh))` (lazy
+//! `p_rgh.oldTime()`), `-pEqnComp & p_rgh` for `dgdt`, the `p` patch values and `rho += psi (p_rgh - p_rgh_0)` (`updatePP_rghRho_1p.H`);
+//! differenced against the real binary on `3D_HTR-10` (tight, `uncorrected`: <= 8.7e-11 over 7 steps). A compressible CLOSED volume
+//! (`getRefCellValue`, `deltaMass/compressibility`) is still not reachable (HTR-10 has a `fixedValue` `p_rgh` patch).
 //!
 //! ~~Not ported here (refused by name when the case is read): `localTortuosity` with `faceCentered`.~~ **CHANGED 2026-11-27 (gh:#1943,
 //! README round 79):** the tortuous branch of `UEqn_1p.H` (tensor diffusivity `alpha rho nuEff tortuosity`) is in the `faceCentered`
@@ -71,8 +75,11 @@ impl OnePhaseCcSolver {
         let nb = nf - ni;
         let m = g.mesh.clone();
         let boussinesq = self.case.thermo.boussinesq_rho0();
-        let rho = self.rho.clone();
-        let rho_b = self.rho_b.clone();
+        let mut rho = self.rho.clone();
+        let mut rho_b = self.rho_b.clone();
+        // gh:#1876 (README round 87): a compressible fluid (`psi > 0`): `pEqnComp`'s `(alpha psi/rho) correction(fvm::ddt(p_rgh))`, the
+        // `p` patch values and `rho += psi (p_rgh - p_rgh_0)` in `updatePP_rghRho_1p.H`
+        let compressible = self.p_b.is_some();
         let th = self.case.thermo.clone();
         let rdt = 1.0 / self.dt;
         let npatch = m.patches.len();
@@ -183,6 +190,19 @@ impl OnePhaseCcSolver {
             for c in 0..n {
                 fs.p_rgh.c[c] = self.p[c] - rho[c] * fs.gh[c];
             }
+            // the assignment also writes every patch that takes it (not `fixedValue`): `p_b - rho_b gh_b`, NOT evaluated; nothing reads
+            // these values before the solve but the copy `p_rgh_0` (gh:#1876)
+            if let Some(pb) = &self.p_b {
+                for (pi, patch) in m.patches.iter().enumerate() {
+                    if matches!(fs.p_rgh.bc[pi], Bc::Fixed(_)) {
+                        continue;
+                    }
+                    for k in 0..patch.size {
+                        let fb = patch.start + k - ni;
+                        fs.p_rgh.b[fb] = pb[fb] - rho_b[fb] * fs.ghf[patch.start + k];
+                    }
+                }
+            }
             // correctBoundaryFlux_1p.H
             for f in ni..nf {
                 if g.active[f] && self.u.flux_is_fixed(&g, f) {
@@ -252,15 +272,44 @@ impl OnePhaseCcSolver {
             let (pic, pbc) = Eqn::neg_laplacian_boundary_coeffs(&g, &rauf, &fs.p_rgh);
             let dphi = fv::div(&g, &phi_hbya);
             let mut comp_all = vec![0.0; n];
+            // `(alpha psi/rho) correction(fvm::ddt(p_rgh_))` (gh:#1876): `D = rDeltaT V`, `S = rDeltaT p_rgh.oldTime() V` (`EulerDdtScheme::fvmDdt`),
+            // `M & p = ((-D p) + (H + S))/(-V)` with `H = 0` (`fvMatrix.C:2884-2902`), `A - (A & p)` adds `V (M & p)` to the source, the
+            // product with `alpha psi/rho` scales the diagonal and the source; `p` is `p_rgh` as it stands now
+            let mut comp_diag = vec![0.0; n];
+            let mut comp_src = vec![0.0; n];
+            if compressible {
+                let p_old: Vec<f64> = match fs.p_rgh_old.as_ref() {
+                    Some(v) => v.clone(),
+                    None => {
+                        // the first `oldTime()` request of the run: a copy of the current field (OpenFOAM's lazy old time)
+                        fs.p_rgh_old = Some(fs.p_rgh.c.clone());
+                        fs.p_rgh.c.clone()
+                    }
+                };
+                for c in 0..n {
+                    let v = m.cell_volumes[c];
+                    let d = rdt * v;
+                    let sdt = rdt * p_old[c] * v;
+                    let mphi = ((-d * fs.p_rgh.c[c]) + (0.0 + sdt)) / (-v);
+                    let coef = self.alpha[c] * self.psi[c] / rho[c];
+                    comp_diag[c] = d * coef;
+                    comp_src[c] = (sdt + v * mphi) * coef;
+                }
+            }
             for c in 0..n {
                 let v = m.cell_volumes[c];
                 let comp = (self.cont_err[c] - (0.0 + dap[c]) * rho[c]) / rho[c];
                 comp_all[c] = comp;
-                let mut s_comp = 0.0;
+                let mut s_comp = if compressible { comp_src[c] } else { 0.0 };
                 s_comp -= v * comp;
                 let s_inc = -(v * dphi[c]);
                 peqn.source[c] = s_comp + s_inc;
+                if compressible {
+                    peqn.ldu.diag[c] += comp_diag[c];
+                }
             }
+            // `volScalarField p_rgh_0(p_rgh_)`, cells and patches (gh:#1876)
+            let p_rgh_0 = fs.p_rgh.clone();
             // setReference(pRefCell, pRefValue): the value branch (psi = 0)
             if fc.p_rgh_need_reference {
                 let rc = fc.p_ref_cell;
@@ -302,10 +351,15 @@ impl OnePhaseCcSolver {
                 fs.p_rgh.c = x;
                 fs.p_rgh.correct_bc(&g);
                 if pass == n_pass {
-                    // fluid_.dgdt() = -pEqnComp & p_rgh_ (a pure source `-V comp` when psi = 0)
+                    // fluid_.dgdt() = -pEqnComp & p_rgh_ (a pure source `-V comp` when psi = 0; with psi > 0 `((dc p) + (-sc))/(-V)`, gh:#1876)
                     for c in 0..n {
                         let v = m.cell_volumes[c];
-                        self.dgdt[c] = (v * comp_all[c]) / (-v);
+                        if compressible {
+                            let sc = comp_src[c] - v * comp_all[c];
+                            self.dgdt[c] = ((comp_diag[c] * fs.p_rgh.c[c]) + (0.0 + (-sc))) / (-v);
+                        } else {
+                            self.dgdt[c] = (v * comp_all[c]) / (-v);
+                        }
                     }
                 }
             }
@@ -344,13 +398,37 @@ impl OnePhaseCcSolver {
             for c in 0..n {
                 self.p[c] = (fs.p_rgh.c[c] + rho[c] * fs.gh[c]).max(fc.p_min);
             }
+            if compressible {
+                // `p_ = max(p_rgh_ + rho gh_, pMin_)` on the patches that take the assignment (gh:#1876), then
+                // `rho += psi (p_rgh_ - p_rgh_0)` (cells and patches)
+                if let Some(pb) = self.p_b.as_mut() {
+                    for (pi, patch) in m.patches.iter().enumerate() {
+                        if matches!(fs.p_rgh.bc[pi], Bc::Fixed(_)) {
+                            continue;
+                        }
+                        for k in 0..patch.size {
+                            let fb = patch.start + k - ni;
+                            pb[fb] = (fs.p_rgh.b[fb] + rho_b[fb] * fs.ghf[patch.start + k]).max(fc.p_min);
+                        }
+                    }
+                }
+                for c in 0..n {
+                    rho[c] += self.psi[c] * (fs.p_rgh.c[c] - p_rgh_0.c[c]);
+                }
+                for i in 0..nb {
+                    rho_b[i] += self.psi_b[i] * (fs.p_rgh.b[i] - p_rgh_0.b[i]);
+                }
+            }
             for c in 0..n {
                 self.p[c] = self.p[c].max(fc.p_min);
                 fs.p_rgh.c[c] = self.p[c] - rho[c] * fs.gh[c];
             }
             fs.p_rgh.correct_bc(&g);
         }
-        let _ = rdt;
+        if compressible {
+            self.rho = rho;
+            self.rho_b = rho_b;
+        }
         self.flow = Some(fs);
         self.correct_cont_err();
     }

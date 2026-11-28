@@ -25,7 +25,8 @@
 //! AI-written, not human-reviewed. Research, education and V&V only.
 //!
 //! `UEqn_1p.H` begins with `fluid_.turbulence().correct()`: per PIMPLE outer iteration, `epsilon` then `k` are solved,
-//! `nut = Cmu k^2/epsilon`, `alphat = rho0 nut/Prt`. The order inside `correct()` (read from the source, not tuned):
+//! `nut = Cmu k^2/epsilon`, `alphat = rho nut/Prt` (`rho` = `fluid::rho()`: `rho0` under Boussinesq, the thermo's field otherwise,
+//! gh:#1876). The order inside `correct()` (read from the source, not tuned):
 //!
 //! 1. `divU = div(phi)`, `G = nut (dev(twoSymm(grad U)) && grad U)` on the cells;
 //! 2. `epsilon.boundaryFieldRef().updateCoeffs()`: the `epsilonWallFunction` patches overwrite `G` AND `epsilon` in
@@ -77,7 +78,11 @@
 //!
 //! ## Refused by name
 //!
-//! `RASModel` other than `porousKEpsilon`; `k`/`epsilon` patch types other than the wall functions and `zeroGradient`; `nut` patch types
+//! `RASModel` other than `porousKEpsilon`; `k`/`epsilon` patch types other than the wall functions and `zeroGradient` (**CHANGED 2026-11-28,
+//! gh:#1876, README round 87:** `inletOutlet`, `turbulentIntensityKineticEnergyInlet` (`k`) and `turbulentMixingLengthDissipationRateInlet`
+//! (`epsilon`) are ported, [`TurbInletPatch`], as `fv::Bc::Mixed`; their entries other than `value`, `inletValue`, `intensity`,
+//! `mixingLength`, `phi phi`, `U U`, `k k` are refused); ~~the model's `rho` the constant `rho0` (non-Boussinesq refused)~~ **CHANGED
+//! 2026-11-28 (gh:#1876):** a non-Boussinesq fluid runs with the thermo's `rho` field; `nut` patch types
 //! other than `nutkWallFunction`, `zeroGradient`, `calculated`; `alphat` other than `zeroGradient`, `calculated`; `alphat` `calculated`
 //! beside a `nutkWallFunction`; any other entry on a wall-function patch (including every entry of `kqRWallFunction`, which upstream
 //! ignores); a `k`/`epsilon` solver other than `PBiCGStab`/`diagonal` or `PBiCG`/`DILU` (**CHANGED
@@ -355,6 +360,30 @@ impl DiagonalBicgstab {
     }
 }
 
+/// A flux-dependent inlet patch of `k` or `epsilon` (gh:#1876, README round 87): an ESI `inletOutlet`-derived `mixed` patch with
+/// `refGrad = 0` and `valueFraction = neg(phi_b)`, `phi` the registered `phi` (`thermalHydraulicsModel::phi_`). `refValue`:
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TurbInletPatch {
+    /// Not one of these (`zeroGradient`, a wall function, `wedge`, ...).
+    None,
+    /// `inletOutlet`: `refValue = inletValue` (uniform).
+    InletOutlet {
+        /// `inletValue`.
+        inlet_value: f64,
+    },
+    /// `turbulentIntensityKineticEnergyInlet` (`k` only): `refValue = 1.5 sqr(intensity) magSqr(U_b)`.
+    IntensityInlet {
+        /// `intensity`.
+        intensity: f64,
+    },
+    /// `turbulentMixingLengthDissipationRateInlet` (`epsilon` only): `refValue = (Cmu^0.75/mixingLength) pow(k_b, 1.5)`, `Cmu` of the
+    /// model's coefficient dictionary.
+    MixingLengthInlet {
+        /// `mixingLength`.
+        mixing_length: f64,
+    },
+}
+
 /// The `turbulence true` part of a read case.
 #[derive(Debug, Clone)]
 pub struct OnePhaseTurbulenceCase {
@@ -414,6 +443,14 @@ pub struct OnePhaseTurbulenceCase {
     pub k_solver_final: DiagonalBicgstab,
     /// The `epsilon` linear solver of the final PIMPLE iteration (`epsilonFinal`).
     pub epsilon_solver_final: DiagonalBicgstab,
+    /// The flux-dependent inlet patches of `k`, per patch (gh:#1876).
+    pub k_inlet: Vec<TurbInletPatch>,
+    /// The flux-dependent inlet patches of `epsilon`, per patch (gh:#1876).
+    pub epsilon_inlet: Vec<TurbInletPatch>,
+    /// The `value` entry (uniform) of each `k` inlet patch: the patch value until the first evaluation (`None`: the owner values).
+    pub k_inlet_value: Vec<Option<f64>>,
+    /// The same for `epsilon`.
+    pub epsilon_inlet_value: Vec<Option<f64>>,
 }
 
 /// The mutable state of the model.
@@ -617,12 +654,34 @@ impl TurbState {
         }
         let cell_weight: Vec<f64> = count.iter().map(|&c| if c > 0 { 1.0 / (c as f64) } else { 0.0 }).collect();
         let zg = vec![Bc::ZeroGradient; npatch];
-        let k = Scalar::uniform(g, 0.0, zg.clone());
-        let mut k = k;
+        // the inlet patches (gh:#1876): `mixed` with `valueFraction 0` and `refValue 0` from the dictionary constructor, the patch value
+        // the `value` entry (else the owner value)
+        let inlet_bcs = |inl: &[TurbInletPatch]| -> Vec<Bc> {
+            let mut out = zg.clone();
+            for (pi, p) in mesh.patches.iter().enumerate() {
+                if inl[pi] != TurbInletPatch::None {
+                    out[pi] = Bc::Mixed { ref_value: vec![0.0; p.size], value_fraction: vec![0.0; p.size] };
+                }
+            }
+            out
+        };
+        let set_inlet_values = |s: &mut Scalar, inl: &[TurbInletPatch], vals: &[Option<f64>]| {
+            for (pi, p) in mesh.patches.iter().enumerate() {
+                if inl[pi] != TurbInletPatch::None {
+                    if let Some(v) = vals[pi] {
+                        for j in 0..p.size {
+                            s.b[p.start + j - ni] = v;
+                        }
+                    }
+                }
+            }
+        };
+        let mut k = Scalar::uniform(g, 0.0, inlet_bcs(&case.k_inlet));
         k.c = case.k.clone();
         k.correct_bc(g);
+        set_inlet_values(&mut k, &case.k_inlet, &case.k_inlet_value);
         // epsilonWallFunction: the dictionary constructor extrapolates the cell value onto the patch (`extrapolateInternal`)
-        let mut eps_bc = zg.clone();
+        let mut eps_bc = inlet_bcs(&case.epsilon_inlet);
         for (pi, p) in mesh.patches.iter().enumerate() {
             if case.wall_patch[pi] {
                 eps_bc[pi] = Bc::Fixed((0..p.size).map(|j| case.epsilon[mesh.owner[p.start + j]]).collect());
@@ -631,6 +690,7 @@ impl TurbState {
         let mut epsilon = Scalar::uniform(g, 0.0, eps_bc);
         epsilon.c = case.epsilon.clone();
         epsilon.correct_bc(g);
+        set_inlet_values(&mut epsilon, &case.epsilon_inlet, &case.epsilon_inlet_value);
         // nutkWallFunction: a fixedValue patch carrying its READ value until a wall function evaluates it
         let mut nut_bc = zg.clone();
         for (pi, _) in mesh.patches.iter().enumerate() {
@@ -666,6 +726,41 @@ impl TurbState {
             bound_count: 0,
             step_solves: Vec::new(),
         }
+    }
+}
+
+/// `updateCoeffs()` of the flux-dependent inlet patches of one field (gh:#1876, README round 87): `valueFraction = neg(phi_b)` with `phi`
+/// the registered `phi` (`thermalHydraulicsModel::phi_`), `refValue` as [`TurbInletPatch`] says, `u_b` the velocity patch values,
+/// `k_b` the `k` patch values (the mixing-length patch). A face with `valueFraction 1` takes its `refValue` as its face value at once:
+/// the matrix reads it there (`valueBoundaryCoeffs = refValue`), and nothing reads the face value between this and the solve.
+fn update_inlet_coeffs(g: &Geometry, s: &mut Scalar, inl: &[TurbInletPatch], phi: &[f64], u_b: &[Vector3], k_b: &[f64], cmu: f64) {
+    let ni = g.n_internal();
+    for (pi, p) in g.mesh.patches.iter().enumerate() {
+        if inl[pi] == TurbInletPatch::None {
+            continue;
+        }
+        let mut refv = vec![0.0; p.size];
+        let mut vf = vec![0.0; p.size];
+        for j in 0..p.size {
+            let fb = p.start + j - ni;
+            refv[j] = match inl[pi] {
+                TurbInletPatch::InletOutlet { inlet_value } => inlet_value,
+                // `1.5*sqr(intensity_)*magSqr(Up)`
+                TurbInletPatch::IntensityInlet { intensity } => {
+                    let u = u_b[fb];
+                    1.5 * (intensity * intensity) * (u.x * u.x + u.y * u.y + u.z * u.z)
+                }
+                // `(Cmu75/mixingLength_)*pow(kp, 1.5)`, `Cmu75 = pow(Cmu_, 0.75)`
+                TurbInletPatch::MixingLengthInlet { mixing_length } => (cmu.r_powf(0.75) / mixing_length) * k_b[fb].r_powf(1.5),
+                TurbInletPatch::None => 0.0,
+            };
+            // `neg(phip)`: 1 where the flux is negative (inflow), else 0
+            vf[j] = if phi[p.start + j] < 0.0 { 1.0 } else { 0.0 };
+            if vf[j] == 1.0 {
+                s.b[fb] = refv[j];
+            }
+        }
+        s.bc[pi] = Bc::Mixed { ref_value: refv, value_fraction: vf };
     }
 }
 
@@ -893,7 +988,7 @@ impl OnePhaseCcSolver {
     /// `mag_u` is `fluid_.magU()` as the last pressure corrector left it (used by the `DhStruct` stabilisation). The `kFinal`/`epsilonFinal`
     /// entries are selected when `isFinalIteration()` is true: the iteration `residualControl` flagged (gh:#1855), or, with the
     /// stock-OpenFOAM control (`with_stock_final_iteration_selection`), the last outer iteration.
-    pub(super) fn correct_turbulence(&mut self, fluid_phi: &[f64], mag_u: &[f64]) {
+    pub(super) fn correct_turbulence(&mut self, fluid_phi: &[f64], mag_u: &[f64], phi_registered: &[f64]) {
         let Some(mut ts) = self.turb.take() else { return };
         let g = self.geom.clone();
         let n = g.n_cells();
@@ -901,12 +996,18 @@ impl OnePhaseCcSolver {
         let nb = g.n_faces() - ni;
         let m = g.mesh.clone();
         let th = self.case.thermo.clone();
-        // `rho0` (Boussinesq: `rho` is that constant everywhere; the reader refuses `turbulence true` for any other package)
-        let rho0 = self.rho.first().copied().unwrap_or(0.0);
+        // the model's `rho_` is `fluid::rho()`: the constant under Boussinesq (cells, faces and old time), else the thermo's `rho` field
+        // itself (gh:#1876, README round 87: cells, patch values and `rho.oldTime()`)
+        let (rho_c, rho_bf, rho_o): (Vec<f64>, Vec<f64>, Vec<f64>) = match th.boussinesq_rho0() {
+            Some(r0) => (vec![r0; n], vec![r0; nb], vec![r0; n]),
+            None => (self.rho.clone(), self.rho_b.clone(), self.rho_old.clone()),
+        };
         // `nu() = transport_.nu()` = the thermo's mu/rho(T) (cells and, with `zeroGradient` T, the owner value on faces):
         // `PhaseCompressibleTurbulenceModel` does not override `TurbulenceModel::nu()`, it does NOT use the model's `rho_` (= `rho0`)
-        let nu_c: Vec<f64> = (0..n).map(|i| { let pp = th.props(self.p[i], self.t[i]); pp.mu / pp.rho }).collect();
-        let nu_b: Vec<f64> = (0..nb).map(|i| nu_c[m.owner[ni + i]]).collect();
+        // ~~`nu_b` = the owner's `nu`~~ CHANGED 2026-11-28 (gh:#1876, README round 87): `mu_b/rho_b` at the patch temperature (a
+        // `fixedValue` T patch, `3D_HTR-10`'s inlets) and, for a compressible fluid, the thermo's `rho` field; bit-identical with a
+        // `zeroGradient` T patch and an incompressible package
+        let (nu_c, nu_b) = self.thermo_nu();
         let rdt = 1.0 / self.dt;
         let vol = &m.cell_volumes;
         let c = ts.case.clone();
@@ -971,6 +1072,9 @@ impl OnePhaseCcSolver {
                 }
             }
         }
+        // the inlet patches of `epsilon` (gh:#1876): `epsilon_.boundaryFieldRef().updateCoeffs()` (`k_b` as it stands)
+        let k_b_now = ts.k.b.clone();
+        update_inlet_coeffs(&g, &mut ts.epsilon, &c.epsilon_inlet, phi_registered, &self.u.b, &k_b_now, c.cmu);
         let eps_old = ts.epsilon_old.clone();
 
         // equilibrium k, epsilon and the structure relaxation
@@ -983,23 +1087,23 @@ impl OnePhaseCcSolver {
             eq_k[i] = 1.5 * (x * x);
             let len = (c.turbulence_length_scale_coeff[i] * self.case.dh[i]).max(SMALL);
             eq_eps[i] = cmu34 * eq_k[i].r_powf(1.5) / len;
-            conv[i] = alpha[i] * rho0 * (self.u.c[i].mag() / c.convergence_length[i]) * yes_structure[i];
+            conv[i] = alpha[i] * rho_c[i] * (self.u.c[i].mag() / c.convergence_length[i]) * yes_structure[i];
         }
         // gamma = alpha rho D*Eff, linearly interpolated (boundary: the patch values)
         let gamma_of = |sigma: f64, nut: &Scalar| -> Vec<f64> {
             let mut gm = Scalar { c: vec![0.0; n], b: vec![0.0; nb], bc: vec![Bc::Calculated; m.patches.len()] };
             for i in 0..n {
-                gm.c[i] = alpha[i] * rho0 * (nut.c[i] / sigma + nu_c[i]);
+                gm.c[i] = alpha[i] * rho_c[i] * (nut.c[i] / sigma + nu_c[i]);
             }
             for i in 0..nb {
-                gm.b[i] = alpha[m.owner[ni + i]] * rho0 * (nut.b[i] / sigma + nu_b[i]);
+                gm.b[i] = alpha[m.owner[ni + i]] * rho_bf[i] * (nut.b[i] / sigma + nu_b[i]);
             }
             fv::interp_linear_openfoam(&g, &gm)
         };
         let ddt = |e: &mut Eqn, psi_old: &[f64]| {
             for i in 0..n {
-                e.ldu.diag[i] += rdt * alpha[i] * rho0 * vol[i];
-                e.source[i] += rdt * alpha[i] * rho0 * psi_old[i] * vol[i];
+                e.ldu.diag[i] += rdt * alpha[i] * rho_c[i] * vol[i];
+                e.source[i] += rdt * alpha[i] * rho_o[i] * psi_old[i] * vol[i];
             }
         };
         let phi = &self.alpha_rho_phi;
@@ -1013,9 +1117,9 @@ impl OnePhaseCcSolver {
         let mut sp = vec![0.0; n];
         let mut su_conv = vec![0.0; n];
         for i in 0..n {
-            su[i] = c.c1 * alpha[i] * rho0 * gprod[i] * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
-            susp[i] = susp_scale * alpha[i] * rho0 * div_u[i] * no_structure[i];
-            sp[i] = c.c2 * alpha[i] * rho0 * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
+            su[i] = c.c1 * alpha[i] * rho_c[i] * gprod[i] * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
+            susp[i] = susp_scale * alpha[i] * rho_c[i] * div_u[i] * no_structure[i];
+            sp[i] = c.c2 * alpha[i] * rho_c[i] * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
             su_conv[i] = conv[i] * eq_eps[i];
         }
         let mut e = Eqn::new(&g);
@@ -1058,15 +1162,18 @@ impl OnePhaseCcSolver {
         }
 
         // ---- k equation ----
+        // the inlet patches of `k` (gh:#1876): `updateCoeffs()` by the first `fvMatrix(k_)` constructor
+        let k_b_now = ts.k.b.clone();
+        update_inlet_coeffs(&g, &mut ts.k, &c.k_inlet, phi_registered, &self.u.b, &k_b_now, c.cmu);
         let gamma_k = gamma_of(c.sigmak, &ts.nut);
         let mut su = vec![0.0; n];
         let mut susp = vec![0.0; n];
         let mut sp = vec![0.0; n];
         let mut su_conv = vec![0.0; n];
         for i in 0..n {
-            su[i] = alpha[i] * rho0 * gprod[i] * no_structure[i];
-            susp[i] = (2.0 / 3.0) * alpha[i] * rho0 * div_u[i] * no_structure[i];
-            sp[i] = alpha[i] * rho0 * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
+            su[i] = alpha[i] * rho_c[i] * gprod[i] * no_structure[i];
+            susp[i] = (2.0 / 3.0) * alpha[i] * rho_c[i] * div_u[i] * no_structure[i];
+            sp[i] = alpha[i] * rho_c[i] * ts.epsilon.c[i] / ts.k.c[i] * no_structure[i];
             su_conv[i] = conv[i] * eq_k[i];
         }
         let mut e = Eqn::new(&g);
@@ -1107,7 +1214,7 @@ impl OnePhaseCcSolver {
         }
         // alphat from the UNstabilised nut (`correctNut`: "Correct alphat before nut is stabilized")
         for i in 0..n {
-            ts.alphat.c[i] = rho0 * ts.nut.c[i] / c.prt;
+            ts.alphat.c[i] = rho_c[i] * ts.nut.c[i] / c.prt;
         }
         ts.alphat.correct_bc(&g);
         // `nut.correctBoundaryConditions()` of `correctNut`: a `calculated` patch keeps the assigned expression's patch values
@@ -1126,7 +1233,7 @@ impl OnePhaseCcSolver {
         for (pi, p) in m.patches.iter().enumerate() {
             if c.alphat_calculated[pi] {
                 for f in p.start..p.start + p.size {
-                    ts.alphat.b[f - ni] = rho0 * nut_unstab_b[f - ni] / c.prt;
+                    ts.alphat.b[f - ni] = rho_bf[f - ni] * nut_unstab_b[f - ni] / c.prt;
                 }
             }
         }
@@ -1331,8 +1438,21 @@ pub(super) fn read_turbulence_case(
         }
         Ok(out)
     };
-    let wk = check(&kf, "kqRWallFunction", &["zeroGradient"], &[])?;
-    let we = check(&ef, "epsilonWallFunction", &["zeroGradient"], &["Cmu", "kappa", "E", "blending", "n", "lowReCorrection"])?;
+    let wk = check(&kf, "kqRWallFunction", &["zeroGradient", "inletOutlet", "turbulentIntensityKineticEnergyInlet"], &[])?;
+    let we = check(
+        &ef,
+        "epsilonWallFunction",
+        &["zeroGradient", "inletOutlet", "turbulentMixingLengthDissipationRateInlet"],
+        &["Cmu", "kappa", "E", "blending", "n", "lowReCorrection"],
+    )?;
+    let (k_inlet, k_inlet_value) = match read_inlet_patches(ctx, g, &kf) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
+    };
+    let (epsilon_inlet, epsilon_inlet_value) = match read_inlet_patches(ctx, g, &ef) {
+        Ok(v) => v,
+        Err(e) => return Err(e),
+    };
     let wn = check(&nf, "nutkWallFunction", &["zeroGradient", "calculated"], &["Cmu", "kappa", "E", "blending", "n", "U"])?;
     let patch_is = |ff: &FieldFile, name: &str, want: &str| ff.bcs.iter().any(|(nm, ty, _)| nm == name && ty == want);
     let nut_calculated: Vec<bool> = g.mesh.patches.iter().map(|p| patch_is(&nf, &p.name, "calculated")).collect();
@@ -1447,11 +1567,134 @@ pub(super) fn read_turbulence_case(
         epsilon_solver,
         k_solver_final,
         epsilon_solver_final,
+        k_inlet,
+        epsilon_inlet,
+        k_inlet_value,
+        epsilon_inlet_value,
     }))
+}
+
+/// The flux-dependent inlet patches of a `k` or `epsilon` file (gh:#1876, README round 87) and the uniform `value` of each.
+///
+/// Accepted entries: `inletOutlet` (`inletValue` uniform, `phi phi`), `turbulentIntensityKineticEnergyInlet` (`intensity`, `U U`,
+/// `phi phi`), `turbulentMixingLengthDissipationRateInlet` (`mixingLength`, `k k`, `phi phi`), and `value` (uniform). Any other entry,
+/// another flux or field name, or a nonuniform value is refused by name.
+#[cfg(feature = "std")]
+fn read_inlet_patches(ctx: &Ctx, g: &Geometry, ff: &FieldFile) -> Result<(Vec<TurbInletPatch>, Vec<Option<f64>>), AppBuilderError> {
+    let np = g.mesh.patches.len();
+    let mut kinds = vec![TurbInletPatch::None; np];
+    let mut values = vec![None; np];
+    for (pi, p) in g.mesh.patches.iter().enumerate() {
+        let ty = match ff.bcs.iter().find(|(nm, _, _)| nm == &p.name) {
+            Some((_, t, _)) => t.clone(),
+            None => continue,
+        };
+        let (allowed, name_key, name_want): (&[&str], &str, &str) = match ty.as_str() {
+            "inletOutlet" => (&["type", "value", "phi", "inletValue"], "", ""),
+            "turbulentIntensityKineticEnergyInlet" => (&["type", "value", "phi", "intensity", "U"], "U", "U"),
+            "turbulentMixingLengthDissipationRateInlet" => (&["type", "value", "phi", "mixingLength", "k"], "k", "k"),
+            _ => continue,
+        };
+        let d = match ff.dicts.iter().find(|(nm, _)| nm == &p.name) {
+            Some((_, d)) => d,
+            None => return Err(ctx.e(alloc::format!("{}.{}: `{ty}` without a dictionary", ff.name, p.name))),
+        };
+        for (k, _) in d.iter() {
+            if !allowed.contains(&k) {
+                return Err(ctx.e(alloc::format!("{}.{}: entry `{k}` of a `{ty}` patch is not ported", ff.name, p.name)));
+            }
+        }
+        if let Some(w) = word(d, "phi") {
+            if w != "phi" {
+                return Err(ctx.e(alloc::format!("{}.{}: `phi {w}` is not ported (the registered `phi` only)", ff.name, p.name)));
+            }
+        }
+        if !name_key.is_empty() {
+            if let Some(w) = word(d, name_key) {
+                if w != name_want {
+                    return Err(ctx.e(alloc::format!("{}.{}: `{name_key} {w}` is not ported", ff.name, p.name)));
+                }
+            }
+        }
+        let num = |key: &str| -> Result<f64, AppBuilderError> {
+            match scalar(d, key) {
+                Some(v) => Ok(v),
+                None => Err(ctx.e(alloc::format!("{}.{}: `{key}` must be a number", ff.name, p.name))),
+            }
+        };
+        kinds[pi] = match ty.as_str() {
+            "inletOutlet" => match super::super::case::uniform_value(ctx, d.get("inletValue")) {
+                Ok(v) => match v.as_scalar() {
+                    Some(x) => TurbInletPatch::InletOutlet { inlet_value: x },
+                    None => return Err(ctx.e(alloc::format!("{}.{}: inletOutlet needs a uniform scalar inletValue", ff.name, p.name))),
+                },
+                Err(e) => return Err(e),
+            },
+            "turbulentIntensityKineticEnergyInlet" => match num("intensity") {
+                Ok(x) => TurbInletPatch::IntensityInlet { intensity: x },
+                Err(e) => return Err(e),
+            },
+            _ => match num("mixingLength") {
+                Ok(x) => TurbInletPatch::MixingLengthInlet { mixing_length: x },
+                Err(e) => return Err(e),
+            },
+        };
+        values[pi] = match d.get("value") {
+            None => None,
+            Some(e) => match super::super::case::uniform_value(ctx, Some(e)) {
+                Ok(v) => match v.as_scalar() {
+                    Some(x) => Some(x),
+                    None => return Err(ctx.e(alloc::format!("{}.{}: a non-scalar `value`", ff.name, p.name))),
+                },
+                Err(e) => return Err(e),
+            },
+        };
+    }
+    Ok((kinds, values))
 }
 
 #[cfg(test)]
 mod tests {
+
+    /// gh:#1876 (round 87): `updateCoeffs()` of the three inlet patches: `valueFraction = neg(phi)`, `refValue` = `inletValue`,
+    /// `1.5 sqr(I) magSqr(U_b)`, `(Cmu^0.75/L) pow(k_b, 1.5)`; an inflow face takes `refValue` as its value at once.
+    #[test]
+    fn inlet_patches_update_their_coefficients_from_the_flux() {
+        use outram_foam_basic_lib::interface::one_dimensional_meshing::create_one_d_mesh;
+        use uom::si::area::square_meter;
+        use uom::si::f64::{Area, Length};
+        use uom::si::length::meter;
+        let mesh = match create_one_d_mesh(Length::new::<meter>(1.0), Area::new::<square_meter>(1e-2), 3) {
+            Ok(m) => m,
+            Err(e) => panic!("mesh: {e:?}"),
+        };
+        let g = Geometry::new(alloc::sync::Arc::new(mesh));
+        let np = g.mesh.patches.len();
+        let ni = g.n_internal();
+        let nb = g.n_faces() - ni;
+        let ends: Vec<usize> = (0..np).filter(|&pi| g.mesh.patches[pi].kind != PatchKind::Empty).collect();
+        let (a, b) = (ends[0], ends[1]);
+        let (fa, fbf) = (g.mesh.patches[a].start, g.mesh.patches[b].start);
+        let mut phi = vec![0.0; g.n_faces()];
+        phi[fa] = -1.0;
+        phi[fbf] = 1.0;
+        let mut u_b = vec![Vector3::ZERO; nb];
+        u_b[fa - ni] = Vector3::new(0.0, 0.0, 2.0);
+        let mut k_b = vec![0.0; nb];
+        k_b[fa - ni] = 0.04;
+        let mut kinds = vec![TurbInletPatch::None; np];
+        kinds[a] = TurbInletPatch::IntensityInlet { intensity: 0.1 };
+        kinds[b] = TurbInletPatch::InletOutlet { inlet_value: 7.0 };
+        let mut s = Scalar::uniform(&g, 0.3, g.default_bcs());
+        update_inlet_coeffs(&g, &mut s, &kinds, &phi, &u_b, &k_b, 0.09);
+        assert_eq!(s.b[fa - ni], 1.5 * (0.1 * 0.1) * 4.0);
+        assert!(s.is_fixed(&g, fa) && !s.is_fixed(&g, fbf));
+        s.correct_bc(&g);
+        assert_eq!(s.b[fbf - ni], 0.3);
+        kinds[a] = TurbInletPatch::MixingLengthInlet { mixing_length: 0.01 };
+        update_inlet_coeffs(&g, &mut s, &kinds, &phi, &u_b, &k_b, 0.09);
+        assert!((s.b[fa - ni] - 0.09f64.powf(0.75) / 0.01 * 0.04f64.powf(1.5)).abs() < 1e-14);
+    }
     use super::*;
 
     #[test]

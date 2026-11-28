@@ -226,6 +226,10 @@ pub(super) struct FlowState {
     pub phi_old: Vec<f64>,
     /// `rho.oldTime()` on the boundary faces (index `face - n_internal`).
     pub rho_b_old: Vec<f64>,
+    /// `p_rgh.oldTime()` (cells; gh:#1876): `None` until the first request (`correction(fvm::ddt(p_rgh_))` of a compressible fluid in
+    /// the first corrector of the first step creates it from the current field: OpenFOAM's lazy `oldTime()`), then stored at every
+    /// new time step.
+    pub p_rgh_old: Option<Vec<f64>>,
     /// The solver's `phi_` (the volumetric flux the Courant number is built from).
     pub phi_solver: Vec<f64>,
     /// `fluid_.magU()` per cell.
@@ -827,6 +831,7 @@ impl FlowState {
             phi: fv::flux_openfoam(g, u),
             phi_old: fv::flux_openfoam(g, u),
             rho_b_old: Vec::new(),
+            p_rgh_old: None,
             phi_solver: case.alpha_phi.clone(),
             mag_u: u.c.iter().map(|v| v.mag()).collect(),
             mag_u_b: u.b.iter().map(|v| v.mag()).collect(),
@@ -912,25 +917,20 @@ impl OnePhaseCcSolver {
         // ---- UEqn_1p.H ---------------------------------------------------------------------------------------
         // nuEff = nut + nu, nu = mu/rho(T) of the thermo; gamma = alpha rho nuEff (boundary: the patch values)
         // fluid_.turbulence().correct() FIRST (`porousKEpsilon::correct`), then `nuEff = nut + mu/rho0`
-        self.correct_turbulence(&fs.phi, &fs.mag_u);
+        self.correct_turbulence(&fs.phi, &fs.mag_u, &fs.phi_solver);
         let (nut_c, nut_b) = match self.turb.as_ref() {
             Some(t) => (t.nut.c.clone(), t.nut.b.clone()),
             None => (fc.nut.clone(), fc.nut_boundary.clone()),
         };
         let mut arn = Scalar { c: vec![0.0; n], b: vec![0.0; nb], bc: vec![Bc::Calculated; npatch] };
-        // the boundary temperature (`fixedValue` or the owner value) for `nu_b = mu_b/rho_b` of the thermo
-        let mut t_s = Scalar { c: self.t.clone(), b: vec![0.0; nb], bc: self.t_patch_bcs() };
-        t_s.correct_bc(&g);
+        // `nu = mu_b/rho_b` of the thermo at the boundary temperature (`fixedValue` or the owner value); gh:#1876: the `rho` FIELD of a compressible fluid, the `p` patch values; bit-identical for the others)
+        let (nu_c, nu_b) = self.thermo_nu();
         for c in 0..n {
-            let pp = th.props(self.p[c], self.t[c]);
-            let nu = pp.mu / pp.rho;
-            arn.c[c] = self.alpha[c] * rho[c] * (nut_c[c] + nu);
+            arn.c[c] = self.alpha[c] * rho[c] * (nut_c[c] + nu_c[c]);
         }
         for i in 0..nb {
             let o = m.owner[ni + i];
-            let pp = th.props(self.p[o], t_s.b[i]);
-            let nu = pp.mu / pp.rho;
-            arn.b[i] = self.alpha[o] * rho_b[i] * (nut_b[i] + nu);
+            arn.b[i] = self.alpha[o] * rho_b[i] * (nut_b[i] + nu_b[i]);
         }
         let gamma = fv::interp_linear_openfoam(&g, &arn);
         if fc.face_centered {

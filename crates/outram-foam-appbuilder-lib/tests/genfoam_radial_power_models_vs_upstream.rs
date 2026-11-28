@@ -490,6 +490,8 @@ fn run(kind: Kind, n_outer: i64, o: Opts) -> Tally {
                 // Added 2026-11-27 (round 71's variant): no case compared here selects `nuclearFuelPinTest`,
                 // so there are no per-model fields to check for it.
                 RadialPowerModel::NuclearFuelPinTest(_) => {}
+                // added 2026-11-28 (gh:#1876, round 87): not one of the four models this driver compares
+                RadialPowerModel::NuclearSteadyStatePebble(_) => {}
             }
         }
     }
