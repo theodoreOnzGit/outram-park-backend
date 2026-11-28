@@ -679,6 +679,34 @@ SAND2017-0455 O, 1170 pp; NRC ADAMS ML17040A429. Supplied and catalogued
   Urbanic-Heidrick constants, checked 2026-10-29 against Vol. 2 COR
   Table 2-6).
 
+**`hales2013bisontheory`** — Hales, J. D., Novascone, S. R., Pastore, G.,
+Perez, D. M., Spencer, B. W. and Williamson, R. L. (2013). *BISON Theory
+Manual: The Equations Behind Nuclear Fuel Analysis.* INL/EXT-13-29930, Idaho
+National Laboratory, Fuels Modeling & Simulation Department, October 2013,
+72 pp. (read from the title page). Supplied by the maintainer and catalogued
+2026-11-28; the copy is in the private repository as
+`reports/inl-ext-13-29930-bison-theory-manual-2013.pdf` (private repository
+commit `0990d53`).
+- *Tier rationale:* **proprietary.** The extracted text was searched for
+  copyright, licence, disclaimer and release markings, and none was found. It
+  is a DOE contractor report with no reuse licence, kept private like the
+  RELAP-7 theory manual. Equations and constants may be cited by number, as
+  facts. Its prose may not be copied.
+- *Good for:* BISON's governing equations (Section 2), the spherically
+  symmetric strains (Section 5) and the TRISO material laws of Section 10:
+  buffer and dense-PyC irradiation strain (Eqs (10.1)–(10.3)), PyC irradiation
+  creep (Eqs (10.4)–(10.6), `ν_c = 0.5`) and SiC irradiation creep
+  (Eq (10.7)). Also the LWR fuel and clad models of Sections 8–9, and the
+  ideal-gas plenum pressure (Eq (13.15)).
+- *Does NOT contain:* PyC or SiC elastic constants, thermal expansion or
+  conductivity; TRISO Weibull parameters; kernel swelling or CO production
+  for particle fuel; BISON's source code (**none is held or used**).
+- *Caution:* Eq (10.4) prints `K[σ1 + ν_c(σ2 + σ3)]`, a sign that makes
+  creep change volume at `ν_c = 0.5`. The unit of `K` in Eqs (10.5)–(10.6) is
+  not printed. Both points are recorded in `boon_lay::triso_particle_mechanics`
+  and on gh:#1965.
+- *Used by:* `boon_lay::triso_particle_mechanics` (gh:#1965).
+
 ## Proprietary tier — theses (`proprietary/theses/`)
 
 > **2026-09-22:** these three, and `zhu2014thermal` (NC State MS thesis, "©

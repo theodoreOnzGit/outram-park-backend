@@ -37,7 +37,7 @@
 //! claim below is checked by a test in this module against the closed-form
 //! monomial integral, not merely asserted.
 //!
-//! ## Line, `[-1, 1]`, weights sum to 2 (used for facet tractions)
+//! ## Line, `[-1, 1]`, weights sum to 2 (used for facet tractions, and public as [`line_rule`] since 2026-11-28)
 //!
 //! | Points | Exact to degree | Notes |
 //! |---|---|---|
@@ -131,6 +131,26 @@ fn gauss_legendre_1d(n: usize) -> Vec<(f64, f64)> {
             vec![(-a, 5.0 / 9.0), (0.0, 8.0 / 9.0), (a, 5.0 / 9.0)]
         }
     }
+}
+
+/// Gauss-Legendre rule on the reference line `[-1, 1]` with `n` points,
+/// `n` in 1..=3, exact to degree `2n - 1`. Weights sum to 2.
+///
+/// The public face of the 1D table the facet and tensor-product rules are
+/// built from, for one-dimensional elements assembled outside this crate
+/// (`boon_lay::triso_particle_mechanics`, the spherically symmetric TRISO
+/// particle, added 2026-11-28). `n` outside 1..=3 falls back to `n = 3`, as
+/// the internal table does. Natural coordinate in `xi[0]`; `xi[1]` and
+/// `xi[2]` are zero.
+#[must_use]
+pub fn line_rule(n: usize) -> Vec<QuadraturePoint> {
+    gauss_legendre_1d(n)
+        .into_iter()
+        .map(|(x, w)| QuadraturePoint {
+            xi: [x, 0.0, 0.0],
+            weight: w,
+        })
+        .collect()
 }
 
 /// Tensor-product Gauss rule on `[-1, 1]^2` with `n` points per direction.
@@ -362,6 +382,23 @@ mod tests {
             0.0
         } else {
             2.0 / f64::from(i + 1)
+        }
+    }
+
+    /// `line_rule(n)` integrates `x^i` exactly for `i <= 2n - 1` and, as a
+    /// check that the claim is not understated, misses `x^(2n)`.
+    #[test]
+    fn line_rule_exactness_order_holds() {
+        for n in 1..=3usize {
+            let rule = line_rule(n);
+            assert_eq!(rule.len(), n);
+            for i in 0..=(2 * n as u32 - 1) {
+                let num: f64 = rule.iter().map(|p| p.weight * p.xi[0].r_powi(i as i32)).sum();
+                assert!((num - line_monomial(i)).abs() < 1e-14, "line {n}-pt x^{i}: {num}");
+            }
+            let i = 2 * n as u32;
+            let num: f64 = rule.iter().map(|p| p.weight * p.xi[0].r_powi(i as i32)).sum();
+            assert!((num - line_monomial(i)).abs() > 1e-3, "line {n}-pt should miss x^{i}");
         }
     }
 

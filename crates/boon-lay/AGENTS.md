@@ -152,6 +152,8 @@ Covers:
 | `getrandom` | OS entropy for RustBCA's `seed < 0` and `simple_bca`, under `rustbca-std` only (added 2026-10-20, gh:#995; was `rand`'s `thread_rng`) |
 | ~~`serde` / `serde-xml-rs`~~ | ~~Deserialise the ENDF-8 XML into `SerdeNuclideData` structs~~ **CHANGED 2026-11-22:** `serde-xml-rs` is no longer a dependency; `openmc-endf-8-depletion-lib-b` 1.1.0 parses the XML itself (no_std, `roxmltree`). `serde` stays for the RustBCA and run-file inputs |
 | `anyhow` | Error propagation in XML parsing |
+| `outram-park-fork-offbeat` (workspace) | PARFUME/Snead TRISO layer correlations (Young's modulus, thermal expansion, conductivity) evaluated by `triso_particle_mechanics` (added 2026-11-28) |
+| `farrer-park` (workspace) | FEM layer under `triso_particle_mechanics`: CSR matrix, sparsity pattern, `quadrature::line_rule`, ILU(0) as the direct tridiagonal solve (added 2026-11-28) |
 
 ---
 
@@ -223,6 +225,10 @@ src/
     grain_boundary / decomposition / diffusion / geometry .rs  ← one module per equation group
     history.rs                            ← accident time-stepping driver (AccidentHistory)
     htr10/                                ← HTR-10 application (an extrapolation) + German-lineage qualification data
+  triso_particle_mechanics/               ← **boon-lay particle mechanics** (2026-11-28): spherically symmetric TRISO particle from the BISON Theory Manual's EQUATIONS (Hales et al. 2013, INL/EXT-13-29930), written from scratch on farrer-park's FEM layer. NOT BISON
+    mod.rs                                ← naming rule, equation table with manual eq. numbers, the two findings in the manual (Eq (10.4) sign, unit of K)
+    geometry / material / mechanics / thermal / analytic / weibull / history .rs
+    tests.rs                              ← closed-form verification; record in verification_and_validation/triso_particle_mechanics/
 ```
 
 ## triso_atops_fork — Eulerian TRISO release (fork of INL TRISO-ATOPS)
@@ -296,6 +302,37 @@ direction, 2026-11-26): file headers, docs, V&V reports, commit messages.
   model-form study, not verification.
 - V&V record: `verification_and_validation/strato_triso_diffusion/` (`PLAN.md`
   written before the code; `README.md` with the results).
+
+## triso_particle_mechanics — boon-lay particle mechanics (NOT BISON)
+
+**Name it "boon-lay particle mechanics", never "BISON", when you mean this
+code or its output** (maintainer direction 2026-11-28: "implement bison eqns
+from scratch, put them in boon lay, make farrer park a dependency of boon
+lay"). BISON is INL's code; its source was never obtained or read. What this
+module implements are the equations printed in the BISON Theory Manual
+(INL/EXT-13-29930, 2013, in the maintainer's private corpus), cited by
+equation number. Rules for this module:
+
+- **No material constant without a source.** The manual gives no PyC or SiC
+  elastic constants, thermal expansion, conductivity or Weibull parameters,
+  so they are constructor arguments. Never give them defaults. Cited PARFUME
+  correlations for them are in `outram-park-fork-offbeat`, a dependency since
+  2026-11-28 (maintainer: "Yes boon lay may depend on offbeat"): use
+  `YoungsModulus::Offbeat`, `ThermalStrain::Offbeat`, `Conductivity::Offbeat`
+  rather than copying a correlation here.
+- **The step is hypoelastic** (manual Eq (6.1)): a property change alone
+  never changes the stress. Pinned by `modulus_change_alone_keeps_the_state`.
+- **The manual's printed creep sign (Eq (10.4), `+ν_c`) is kept as
+  `CreepLawSign::AsPrinted`;** the volume-conserving `−` is the default. Do
+  not silently collapse the two; the choice is flagged for the maintainer.
+- **Mean dilatation is the default strain formulation** (full integration
+  locks once PyC creep makes a layer incompressible; measured, see the V&V
+  record). Full integration stays as the explicit ablation.
+- **The FEM layer is farrer-park's** (`CsrMatrix`, `SparsityPattern`,
+  `line_rule`, `CsrPreconditioner::ilu0`). Reuse it; do not write a second
+  sparse or quadrature layer here.
+- V&V record: `verification_and_validation/triso_particle_mechanics/README.md`,
+  with the drawn meshes beside it.
 
 ## fuel_failure — boon-lay fuel failure (NOT PANAMA)
 
