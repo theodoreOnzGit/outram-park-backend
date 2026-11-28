@@ -9613,3 +9613,124 @@ Criteria (fixed now; the stage runs the shipped, loose tolerances, so no 1e-9 ga
 | P2 | T2 | 50 % (the first 60 steps already differ in `deltaT` by 4.6e-4 relative: the time-step sequence follows `maxPowerVariation` and `maxCo`) |
 | P3 | T3 | 45 % |
 | P4 | T4 | 55 % |
+
+## Round 80 results, step 1 (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions and criteria above committed first: `1a41efd23`, BEFORE the first port run against any real-binary number; real binary 652b3da on ESI v2506, serial, `scripts/run_msr1d_fluid_r80.sh` (each run 12-60 s; the tight GAMG one 10 min); references `refs/msr1d_r80_{first,full}_*` (refs submodule `6603d8c`, 10 files, 3.2 MB at most); `tests/genfoam_msr1d_fluid_vs_upstream.rs`, 9 tests, 13 s in all; `--nocapture` prints every table)
+
+### What was ported (upstream -> Rust)
+
+| upstream (ESI v2506 / GeN-Foam 652b3da) | Rust |
+|---|---|
+| `lduMatrix::Amul`/`residual`/`sumA` with `updateMatrixInterfaces`, `cyclicFvPatchField::updateInterfaceMatrix` (translational), `cyclicGAMGInterface` (coarse faces from the cell-pair map, `agglomerateCoeffs`) | `common/ldu_interfaces.rs` (`LduInterfaces`, `amul`, `coarsen`) |
+| `PCG`, `PBiCGStab`, `smoothSolver`/`symGaussSeidel`, `GAMGSolver` (every level's `Amul`, `residual`, `DIC`/`GaussSeidel` smoothers, `scale`, coarsest `PCG`/`PBiCGStab`) with interfaces | `pcg_dic_if`, `pbicgstab_diagonal_if`, `smooth_solver_sym_gauss_seidel_if`, `gamg_dic_solve_if`, `GamgSolveState::solve_if` (each interface-free form unchanged: it calls the new one with no interface) |
+| `cyclicFvPatch::makeWeights`, `cyclicFvPatch::delta`; `coupledFvPatchField::evaluate`/`snGrad`; `dotInterpolate`/`interpolate` on a coupled patch (`lerp(N, P, w)` from the cells); `upwind` weights on a coupled patch | `fv::Geometry::{cyclic_nbr, cyclic_w, cyclic_lerp, interfaces}`, `Scalar`/`Vector::correct_bc`, `interp_*`, `flux*`, `sn_grad`, `dev2_div`, `velocity_gradient` |
+| `gaussConvectionScheme::fvmDiv` / `gaussLaplacianScheme` coupled `internalCoeffs`/`boundaryCoeffs`; `fvMatrix::relax` coupled branch; `fvMatrix::H` (`cmptMultiply(bc, patchNeighbourField)`); `fvMatrix::flux` coupled; `solveSegregated` (`addBoundarySource(source, false)`); `setValuesFromList` (zeroes a set cell's patch coefficients) | `Eqn::{cyc_int, cyc_bou, with_cyclic_folded}`, `neg_laplacian_boundary_coeffs`, `flux_of_coeffs`, `folded`; `UEqnCc` (`boundary_convection`, `boundary_laplacian`, `relax`, `h`); the energy `relax_scalar` and fold; `relax_equation`, `set_values`, the `p_rgh` fold |
+| `GeometricBoundaryField::readField` (an unlisted `empty`/`cyclic` patch gets its constraint field); `cyclicPolyPatch::neighbPatchID` | the `onePhase` readers; `resolve_cyclic_partners` (reuses round 48's `parse_cyclic_neighbours`) |
+| `fluid.C:386-420` `fluidProperties.initialPowerDensity` | `OnePhaseCcCase::read_with_options` (`initialAlpha` and any other key refused by name) |
+
+Refused by name on a mesh with a cyclic patch (not reached by the shipped case): `localTortuosity`, `lumpedNuclearStructure` with `kappaMatrix`, `heatExchangers`, `passiveProperties`, `h` with `PBiCG`/`DILU` or the round-46 smoother, `k`/`epsilon` with `PBiCG`/`DILU`; MULES (round 34) and `deformMesh` (round 26) keep their refusals.
+
+### Three earlier forms that were not upstream's (found by this comparison; each kept as a named ablation)
+
+1. **`k`/`epsilon` assembly order** (`porousKEpsilon.C:607-647`): the port accumulated `ddt`, `div`, `laplacian`, `Su`, `SuSp`, `Sp` onto ONE running diagonal; `fvMatrix` builds each term as its own matrix and adds it whole (`(ddt + div) - laplacian == S1 - SuSp - Sp + 0 - Sp + S2`), so the per-cell sum of the face coefficients rounds before it meets the `ddt` diagonal. Before the fix `k` differed in 461 of 640 cells by 1 ulp at step 1. Default now `porous_k_epsilon_matrix`; ablation `with_folded_k_epsilon_assembly` (first difference at step 1, `U` 1.4e-11).
+2. **Wall distance** (`nearWallDist` -> `face::nearestPointClassify`): the fan centre is `face::centre` (`face.C:513-573`), not the mesh face centre; `y` differed by 1 ulp in 3 cells (`epsilon` 3/640 cells at step 1). Default now `face_centre_openfoam`; earlier form `near_wall_dist_with_mesh_face_centres`.
+3. **`EEqn_1p.H` assembly order**: the same as 1 for `fvm::div` and `fvm::laplacian` of `he` (T 1 ulp in 123 cells at step 1). Ablation `with_folded_energy_assembly` (first difference step 1, `T` 2.5e-16).
+4. **`faceCentered` `dev2` divergence**: `fvc::div` and `fvc::grad` interpolate with `dotInterpolate`'s `lambda (P - N) + N`; the `faceCentered` branch used the weighted `w P + (1 - w) N` (rounds 73-79), which made step 3 differ (31 `p_rgh` cells by 1 ulp). Default now `dev2_div_openfoam`; control `with_weighted_dev2_interpolation` (first difference step 3, `U` 1.5e-13).
+
+The cell-centred branch (`flow.rs`) still uses the weighted `dev2` form and its recorded numbers were not re-measured with the `dotInterpolate` form: filed (see "Not done").
+
+### Results against the real binary (K1-K4: criteria above)
+
+| run | steps | bit-identical | first difference | worst field difference (relative to its max-norm) | `dt` | solves | `T` lines |
+|---|---:|---|---|---|---|---|---|
+| tight + `pcg`, every step | 60 | every field through step 5 | step 6, ONE `epsilon` cell, 1 ulp | `U` 2.1e-12, `p` 2.5e-12, `T` 4.8e-14, `k` 3.0e-13, `epsilon` 3.4e-13, `nut` 4.1e-13, `htc` 0 | 1.6e-12 | 180 gated: residual 1.5e-10, iterations up to 9 apart | 2.3e-14 |
+| tight + `gamg` (native, cyclic interfaces on every level), every step | 60 | every field through step 18 (each step has a `p_rgh` solve of 1000 V-cycles at a 3e-11 floor in BOTH codes) | step 19, `epsilon` 1.4e-16 | `U` 2.9e-12, `p` 2.0e-12, `T` 4.3e-14, `k` 3.6e-13 | 1.7e-12 | 120 gated (60 `p_rgh` at `maxIter` in both): residual 1.7e-12, iterations up to 11 apart | 3.5e-14 |
+| loose (as shipped) + `gamg`, every step | 60 | every field through step 27 | step 28, `U` 7.0e-13 | `k` 1.3e-9, `nut` 2.6e-9, `U` 3.4e-12, `T` 7.2e-13; at step 60 all `<= 2e-10` | 3.2e-12 | 180 gated: residual 2.0e-8, **every iteration count equal** | 9.8e-14 |
+| tight + `pcg`, every 100th step | 8340 (to `t = 100`, same count, final time to round-off) | - | - | `p` 2.7e-12, `U` 2.9e-13, `T` 3.4e-13, `k` 2.5e-13; at `t = 100`: `U` 1.3e-14, `T` 3.8e-15, `p` 1.2e-12 | 1.6e-12 | 25 020 gated: residual 7.1e-5, iterations within 9 | 2.7e-14 |
+| loose + `gamg` (THE SHIPPED STAGE), every 100th step | 8340 (to `t = 100`, same count) | - | - | `T` 8.6e-6 (step 100..), `p` 3.1e-9, `U` 7.7e-11, `k` 1.1e-10; at `t = 100`: `T` 1.3e-9, `p` 7.0e-11, `U` 3.9e-12, `k` 1.2e-11 | 1.3e-10 | 25 017 gated: residual 5.1e-4, iterations within 1 | 1.8e-5 |
+
+**Cause of the remaining difference (explained):** the first non-identical number of every tight run is the `epsilon` wall function `Cmu^0.75 k^1.5/(kappa y)` in ONE cell, 1 ulp: PETIR's `r_powf` (the ARM optimized-routines `pow`, the crate's deterministic route) against the platform `pow` the binary calls. `first_epsilon_difference_is_the_pow_of_the_wall_function` recomputes it: at step 6, cell 579, the upstream value equals the platform-`pow` value and the port's the PETIR value, bit for bit. Everything after is that ulp propagated through a closed, nearly singular pressure system (the 1e-4 propagated allowance applies; the measured worst of the tight runs is 2.9e-12). The `loose` runs amplify it through `relTol 0.001` stopping iterates (an early `T` transient of 8.6e-6 that decays to 1.3e-9 by `t = 100`), reported, not gated except at the final state.
+
+### Controls and ablations (each can fail; each did)
+
+| control | result |
+|---|---|
+| Q8: the seam as a plain patch (`without_cyclic_interfaces`, the port before this round) | no circulation: `max|U|` at step 60 is 2.0e-13 against 1.07e-1 (relative difference 1.0) |
+| Q9: GAMG interfaces on the finest level only (`with_gamg_interfaces_on_the_finest_level_only`, shipped tolerances) | step 1 `p_rgh`: 5 V-cycles against upstream's 3; `U` 1.0e-7 after one step |
+| folded `k`/`epsilon` assembly | not bit-identical from step 1 (`U` 1.4e-11) |
+| folded energy assembly | from step 1 (`T` 2.5e-16) |
+| weighted `dev2` | from step 3 (`U` 1.5e-13) |
+
+### Predictions: held / missed
+
+| # | verdict |
+|---|---|
+| Q1 | **held** (reads; `initialPowerDensity`: 160 `core` cells at 3.3e8, 480 at 0) |
+| Q2 | **held** (K1 2.5e-12); bit-identical everywhere: missed, but through step 5 (predicted 30 % for all 60) |
+| Q3 | **held** (K1 2.9e-12; bit-identical through step 18 despite 1000 V-cycles per solve: better than predicted, 1e-13..1e-10) |
+| Q4 | **MISSED**: `dt` 1.6e-12 / 1.7e-12 against 1e-12 (it follows `max|phi|`, which carries the propagated 1e-12); pinned 1e-11 |
+| Q5 | residual part held (1.5e-10, 1.7e-12 against 1e-6); **iteration part MISSED**: the tight `k`/`h` PBiCGStab solves of steps 19-60 run 35-60 iterations to the 1e-14 floor and differ by up to 9-11 (round-off decides when a stagnating residual crosses 1e-14); every `loose` count equal |
+| Q6 | **held** (2.3e-14, 3.5e-14) |
+| Q7 | **held** (8340 steps, final state within 1.3e-9) |
+| Q8 | **held** (1.0) |
+| Q9 | **held** (5 vs 3) |
+| Q10 | not yet measured when this was written: see "Moved numbers" below |
+
+### Q10: moved numbers of earlier rounds
+
+Round 80's new defaults in the shared `onePhase` code (fvMatrix operator order of the energy and `k`/`epsilon` matrices, `face::centre` in `nearWallDist`, `dotInterpolate` `dev2` in `faceCentered`, `nut` of a written start per face) were re-measured on every earlier `genfoam_*` differential target (32 targets, `--no-fail-fast`, 2026-11-28; list in the hand-off). Every field gate of every earlier round still holds at its recorded value. Three pins on noise-floor quantities moved, and they were re-pinned under the rounding rule of 2026-11-17, with the old and new values written where each pin lives:
+
+| target (round) | quantity | before | after | which default (ablation run) |
+|---|---|---|---|---|
+| `genfoam_fullcoupling_three_region_vs_upstream` (57), two tests | worst `|initial residual|` difference of the fluid solves from step 2 on | 3e-11 pin (3.7e-13 measured with the folded energy form) | 8.6e-11 (the `h` solve of step 2, residual 0.148: 5.8e-10 relative); step 1 1.09e-10 -> 8.6e-11; fields unchanged (`U` 2.4e-13, `T` 1.2e-14) | the energy operator order (`with_folded_energy_assembly` restores 3.7e-13; `k`/`epsilon` and `dev2` ablations: no change) |
+| `genfoam_fullcoupling_transient_vs_upstream` (61), written-state restart | worst fluid iteration difference | 5 | 6 (the `h` solve of step 329, 16 against 10, initial residuals equal to 4e-16) | not isolated |
+| `genfoam_heat_exchanger_3d_vs_upstream` (52), `esfr_hx` | worst iteration difference | 1 | 3; bit-equal values 8494 -> 13 840 of 43 035; worst relative initial residual 4.8e-10 -> 2.5e-10; worst field 7.12e-11 -> 7.87e-11 | the energy operator order (ablations as above) |
+
+On two cases (1D_MSR, esfr_hx) the upstream operator order brings the port closer to the binary. On `2D_fullCoupling` it moves one residual further away, while the fields stay where they were. The default follows upstream's code, not either comparison.
+
+## Round 80 results, steps 2-4 (measured 2026-11-28, release, PRIVATE cargo target dir, `CARGO_BUILD_JOBS=2`; predictions P1-P4 for the 400 s stage committed first in `375dc1d5e`, BEFORE its first port run; the first-60-step comparison was run before its predictions (protocol miss above), so those numbers are post-hoc and are gated at the workspace's bit-identity / 1e-9 rule, not at a prediction; real binary 652b3da on ESI v2506, serial, `scripts/run_msr1d_transient_r80.sh` (Allrun's `setTransient` from the real `steadyState` stage: 13 021 steps, 2 min); references `refs/msr1d_r80_tr_{start100,first,full}*` (refs submodule, `scripts/extract_msr1d_transient_r80.sh`); `tests/genfoam_msr1d_coupled_vs_upstream.rs`, 4 tests, 31 s)
+
+### What was ported (upstream -> Rust)
+
+| upstream | Rust |
+|---|---|
+| `GeN-Foam.C` regions with `liquidFuel` read from the **controlDict** (`neutronics.C:262`; the port read it from `neutronicsProperties` and refused the case) | `RegionSolvers::read`: the `liquidFuel` refusal now reads the controlDict (struck-through comment in `region_solvers.rs`) |
+| `pointKineticNeutronics` constructor, liquid-fuel branch: `ScNo`, `initPrecursorsLiquidFuel`, `initialOneGroupFluxByZone` (`pointKineticNeutronics.C:560-610`), `neutronTransport` controls, the `precPKStar` solver entry, `precPK_`/`precPKStar_` FROM `defaultPrec_` (`:700-735`) | `build_liquid_fuel_point_kinetics` (reuses round 63's `read_pk_case` for `nuclearData`, `neutronicsProperties` and `<start>/uniform/reactorState`, and round 48's `LiquidFuelPk`, `TransportMesh`, `parse_cyclic_neighbours`); new `LiquidFuelPk::with_default_prec` |
+| `multiRegionCouplingDict_Coupled`: `U mu alpha thermo:alpha T T.cladAvForNeutronics T.passiveStructure thermo:rho` fluid -> neutro, `powerDensity`, `secondaryPowerDensity` neutro -> fluid | `correct_baffle_less_fields` publishes `U`, `mu`, `alpha`, `thermo:alpha` (`OnePhaseCc::liquid_fuel_coupling_fields`) and a zero `T.passiveStructure` when the case has no passive structure; the existing round-63 mapping does the rest |
+| `solvePointKineticsLiquidFuel.H` inside the coupled loop, on the MAPPED `U`, `alpha` (`AlphaUpdate::Assign`: `meshToMesh::mapTgtToSrc` writes through `primitiveFieldRef`, which stores the old time), `alphat`, `mu`; `timeIndex - startTimeIndex` as the initialisation index | `RegionSolvers::correct_physics`, `PointKineticRegion::{liquid, liquid_last}`; `pointKineticNeutronics::maxDeltaT` of the class unchanged |
+| the written restart: `nonuniform` `k`, `epsilon`, `nut`, `alphat`, written wall values of `nut`, and a `zeroGradient`/`empty`/`cyclic` `nut` patch from EACH face's owner (it took the first face's owner for the whole patch, exact only for a uniform start) | the `onePhase` turbulence and `nut` readers (`read_field_bcs_only` + `read_vol_scalar_field` / `parse_scalar_field_text`) |
+| `fvMesh::movePoints` on a mesh with cyclic patches | `DeformableMesh` accepts cyclic patches; `move_points`/`move_points_at` refuse such a mesh by name (no case moves one) |
+
+Refused by name (not reached by the shipped case): `externalSourceNeutronics` with liquid fuel, `GEMReactivityMap` with liquid fuel, read `T*Ref` keys with `initPrecursorsLiquidFuel false`, `flux<g>` files or `precPK<k>`/`precPKStar<k>` files in the start directory, a `precPKStar` solver other than `PBiCG`/`DILU`, liquid fuel without `initialOneGroupFluxByZone`.
+
+### Two findings of the comparison (each with a control)
+
+1. **`precPKStar_` starts from `defaultPrec_`, not 0** (`pointKineticNeutronics.C:719-735`, `READ_IF_PRESENT` with the file absent). The shipped `defaultPrec` is `uniform 1`: it is the initial guess of the equilibrium `PBiCG` solve of `initPrecursorsLiquidFuel`. From 0 (the port's form before this round) the solve converges in the same iterations but to different bits: step 1 `precPKStar7` 2.9e-10 of its max-norm, `precPKStar0` 1.6e-12, all 640 cells (`control_zero_initial_precursors_differ_at_step_one`). With it, steps 1 and 2 are bit-identical. The round-48 class test is unchanged (bit-identical, 7 tests).
+2. **Not a port defect: the `first` reference protocol.** `run_msr1d_transient_r80.sh first` runs `writeControl timeStep; writeInterval 1`, under which `Time::adjustDeltaT` does not align the step to a write time. ~~The port's first comparison staged `adjustableRunTime`, writeInterval 10, and `deltaT` differed from step 2 by 4.6e-4 (1.20007e-3 against 1.2e-3)~~ **CORRECTED 2026-11-28 (same round):** that 4.6e-4 was the protocol mismatch, not the port: staged as the reference was run, `deltaT` agrees to 3.5e-14 over 60 steps (`stage(tag, every_step)`).
+
+### Results against the real binary
+
+Mapping (step 2 of the issue): at step 1 the seven fields `mapAllFields` writes on the neutronics mesh (`U`, `alpha`, `mu`, `alphat`, `rhoCool`, `TFuel`, `TCool`) are bit-identical, 640 of 640 cells, to the real `-initializeMappedFields` mapping of the same start (`step_one_mapped_neutronics_inputs_against_the_real_mapping`).
+
+| run | steps | bit-identical | first difference | worst over the run | iteration counts |
+|---|---:|---|---|---|---|
+| first 60 steps, every step written | 60 | **every compared quantity through step 2** (power, reactivity, `liquidFuelBeta`, `precEquilibriumReactivity`, `deltaT`, `precPKStar0..7`, `powerDensity`, `TFuel`, `TCool`, fluid `U`, `p`, `T`, `k`) | step 3, the FLUID: `p` 2.6e-13 in all 640 cells, `U` 2.1e-15, `T` 2.0e-16 in 6 cells; the neutronics is still bit-identical at step 3 | power 4.2e-13, reactivity 2.9e-13, `liquidFuelBeta` 2.4e-13, `precEq` 0, `deltaT` 3.5e-14, fields <= 2.7e-12 (fluid `p`); nothing over 1e-9 | every `neutroResidual` count, `precPKStar` and `p_rgh` iteration count equal |
+| THE SHIPPED `transient` (400 s, `adjustableRunTime`, written every 10 s) | **13 021, the binary's count** | - | - | at the 30 written times: power <= 4.0e-5 (t = 360), fluid `T` <= 1.6e-6, `U` <= 5.0e-7, any field <= 4.5e-5 (`precPKStar2`, t = 360); <= 1.6e-9 to t = 230, ~1e-5 from t = 240; final power 6.13788e8 W against 6.13807e8 W (3.0e-5) | not compared per step (the log's `Time =` has 6 digits) |
+
+**The step-3 fluid difference is NOT located.** `p` differs in every cell (worst 2.8e-8 Pa on 1.0e5 Pa); it is new against the standalone fluid stage (step 1 of this round: bit-identical through step 5); candidates are the transient-only pieces (the pump `momentumSourceTimeProfile` table at `t - 100`, the variable `deltaT` from step 2). Filed: gh:#1960. Everything after it is that difference propagated: inside the 1e-9 rule to t = 230 and inside the 1e-4 propagated allowance afterwards, where the loss of flow and solves stopped at the shipped 1e-6 tolerances carry it forward.
+
+### Predictions P1-P4: held / missed
+
+| # | criterion | verdict |
+|---|---|---|
+| P1 (60 %) | T1, the whole stage runs | **held** |
+| P2 (50 %) | T2, steps within 1 % of 13 021 | **held** (13 021, equal) |
+| P3 (45 %) | T3, power and fluid `T`, `U` within 1e-3 at every written time | **held** (4.0e-5, 1.6e-6, 5.0e-7) |
+| P4 (55 %) | T4, final power within 1e-3 | **held** (3.0e-5) |
+
+Gates: `coupled_transient_full_400_s_against_the_real_binary` asserts T1-T4 as committed; `coupled_transient_first_60_steps_against_the_real_binary` asserts steps 1-2 bit-identical, nothing over 1e-9, `deltaT` <= 1e-12 and every iteration count equal.
+
+### Not done (filed)
+
+- gh:#1961: the `workflow` stage of `1D_MSR_pointKinetics` (Allrun's `steadyState` -> `setTransient` -> `transient` as one call): the port runs each stage from its directory; the transient starts from the REAL written `100` (the port does not yet write a `onePhase` cyclic time directory for the next stage to read).
+- gh:#1962: `1D_thermalMSR_pointKinetics`: `lumpedNuclearStructure` with `kappaMatrix` on a cyclic mesh is refused by name.
+- gh:#1960: the step-3 fluid difference above; gh:#1902 (comment): the cell-centred `dev2` (weighted form); gh:#1963: PETIR `pow` against the platform `pow`.

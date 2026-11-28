@@ -359,7 +359,7 @@ fn print(name: &str, r: &Report) {
 /// - steps 1 and 2 are BIT-IDENTICAL in every compared quantity (power, reactivity, `liquidFuelBeta`, `precEquilibriumReactivity`, every
 ///   field of both regions, every `PBiCG`/`p_rgh` iteration count and `neutroResidual` count, `deltaT`);
 /// - the first difference is at step 3, in the fluid (`p` 2.6e-13 in all 640 cells, `U` 2.1e-15, `T` 2.0e-16 in 6 cells), while the
-///   neutronics stays bit-identical at step 3; its cause is NOT located (gh:#1905 follow-up issue);
+///   neutronics stays bit-identical at step 3; its cause is NOT located (gh:#1960);
 /// - over 60 steps: power 4.2e-13, reactivity 2.9e-13, `liquidFuelBeta` 2.4e-13, `precEq` bit-identical, `deltaT` 3.5e-14, fields
 ///   <= 2.7e-12 (fluid `p`), every iteration count equal; nothing over 1e-9.
 ///
